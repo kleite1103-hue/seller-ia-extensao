@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA Extensão — Documento-mestre do Projeto</title>
+<link rel="icon" type="image/png" href="assets/icon48.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07080a; --bg2:#0c0e12; --bg3:#12151b;
+  --orange:#ff4d1c; --purple:#7B2FFF;
+  --text:#f2f2f4; --text2:#b8bcc6; --text3:#7d8290; --text4:#4a4e59;
+  --line:#1d212a; --ok:#2ecc71; --warn:#f5b041; --bad:#e74c3c;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.65;font-size:16px}
+::selection{background:var(--orange);color:#fff}
+
+/* ---------- topo ---------- */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(7,8,10,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:10px 18px}
+.topbar svg{width:34px;height:34px;flex:none}
+.topbar .tb-name{font-family:'Bebas Neue';font-size:22px;letter-spacing:.06em}
+.topbar .tb-name em{font-style:normal;color:var(--orange)}
+.topbar .tb-tag{font-family:'Space Mono';font-size:10px;color:var(--text3);margin-left:auto;text-align:right;line-height:1.3}
+.menu-btn{background:none;border:1px solid var(--line);color:var(--text2);font-family:'Space Mono';font-size:11px;padding:6px 12px;border-radius:6px;cursor:pointer}
+.menu-btn:hover{border-color:var(--orange);color:var(--text)}
+nav#toc{position:fixed;top:55px;right:0;bottom:0;width:min(320px,88vw);background:var(--bg2);border-left:1px solid var(--line);transform:translateX(100%);transition:transform .25s ease;z-index:49;overflow-y:auto;padding:22px 20px 60px}
+nav#toc.open{transform:translateX(0)}
+nav#toc a{display:block;color:var(--text2);text-decoration:none;font-size:13.5px;padding:7px 0;border-bottom:1px solid var(--line)}
+nav#toc a:hover{color:var(--orange)}
+nav#toc .toc-h{font-family:'Space Mono';font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.15em;margin:18px 0 4px}
+
+/* ---------- hero ---------- */
+.hero{padding:130px 20px 60px;max-width:1000px;margin:0 auto;text-align:center}
+.hero .mark{width:120px;height:120px;margin:0 auto 26px}
+.hero h1{font-family:'Bebas Neue';font-size:clamp(52px,9vw,96px);line-height:.95;letter-spacing:.02em}
+.hero h1 em{font-style:normal;background:linear-gradient(120deg,var(--orange),var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:clamp(16px,2.6vw,21px);color:var(--text2);margin-top:14px;max-width:720px;margin-left:auto;margin-right:auto}
+.hero .meta{font-family:'Space Mono';font-size:11px;color:var(--text3);margin-top:26px;letter-spacing:.08em}
+.hero .thesis{margin:44px auto 0;max-width:780px;border:1px solid var(--line);border-left:3px solid var(--orange);background:var(--bg2);padding:24px 26px;text-align:left;border-radius:0 10px 10px 0}
+.hero .thesis p{font-size:17px;color:var(--text)}
+.hero .thesis p+p{margin-top:10px}
+
+/* ---------- estrutura ---------- */
+main{max-width:1000px;margin:0 auto;padding:0 20px 120px}
+section{margin-top:88px}
+.eyebrow{font-family:'Space Mono';font-size:11px;letter-spacing:.22em;color:var(--orange);text-transform:uppercase}
+.eyebrow.pp{color:var(--purple)}
+h2{font-family:'Bebas Neue';font-size:clamp(34px,5.4vw,52px);letter-spacing:.02em;line-height:1;margin:8px 0 6px}
+.lede{color:var(--text2);font-size:17px;max-width:820px;margin-bottom:26px}
+h3{font-family:'Bebas Neue';font-size:26px;letter-spacing:.03em;margin:36px 0 10px;color:var(--text)}
+h3 .n{color:var(--orange);margin-right:8px}
+h4{font-family:'Outfit';font-weight:600;font-size:16px;margin:22px 0 6px}
+p{color:var(--text2);max-width:860px}
+p+p{margin-top:12px}
+strong{color:var(--text);font-weight:600}
+code,.mono{font-family:'Space Mono';font-size:.86em;color:var(--purple);background:var(--bg3);padding:1px 6px;border-radius:4px;word-break:break-word}
+pre{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:18px;overflow-x:auto;margin:16px 0;font-family:'Space Mono';font-size:12.5px;line-height:1.55;color:var(--text2)}
+pre b{color:var(--orange);font-weight:700}
+ul.list{margin:12px 0 12px 2px;list-style:none}
+ul.list li{padding-left:22px;position:relative;color:var(--text2);margin-bottom:9px;max-width:860px}
+ul.list li::before{content:"";position:absolute;left:0;top:.62em;width:9px;height:2px;background:var(--orange)}
+ol.steps{margin:14px 0;counter-reset:s;list-style:none}
+ol.steps li{counter-increment:s;position:relative;padding:0 0 16px 46px;color:var(--text2);max-width:860px}
+ol.steps li::before{content:counter(s,decimal-leading-zero);position:absolute;left:0;top:1px;font-family:'Bebas Neue';font-size:21px;color:var(--purple)}
+ol.steps li::after{content:"";position:absolute;left:13px;top:30px;bottom:2px;width:1px;background:var(--line)}
+ol.steps li:last-child::after{display:none}
+
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+th{font-family:'Space Mono';font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);text-align:left;padding:10px 12px;border-bottom:1px solid var(--orange)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);color:var(--text2);vertical-align:top}
+td b{color:var(--text);font-weight:600}
+tr:hover td{background:var(--bg2)}
+.tbl-wrap{overflow-x:auto;margin:0 -4px}
+
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:22px 24px;margin:18px 0}
+.card.hl{border-color:var(--orange)}
+.card.pp{border-color:var(--purple)}
+.card h4{margin-top:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:720px){.grid2{grid-template-columns:1fr}}
+.tag{display:inline-block;font-family:'Space Mono';font-size:10px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--text3);margin:0 6px 6px 0}
+.tag.o{border-color:var(--orange);color:var(--orange)}
+.tag.p{border-color:var(--purple);color:var(--purple)}
+.tag.g{border-color:var(--ok);color:var(--ok)}
+.callout{border:1px solid var(--line);border-left:3px solid var(--purple);background:var(--bg2);padding:16px 20px;border-radius:0 10px 10px 0;margin:18px 0;color:var(--text2);max-width:900px}
+.callout.o{border-left-color:var(--orange)}
+.callout.r{border-left-color:var(--bad)}
+.callout b{color:var(--text)}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:20px 0}
+.kpi{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:16px}
+.kpi .v{font-family:'Bebas Neue';font-size:32px;color:var(--orange);line-height:1}
+.kpi .l{font-size:12px;color:var(--text3);margin-top:6px}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);margin:70px 0}
+footer{border-top:1px solid var(--line);padding:34px 20px;text-align:center;font-family:'Space Mono';font-size:11px;color:var(--text3);letter-spacing:.06em}
+.arch-svg{width:100%;height:auto;margin:20px 0;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+.status{font-family:'Space Mono';font-size:10px;padding:2px 8px;border-radius:4px}
+.st-ok{background:rgba(46,204,113,.12);color:var(--ok)}
+.st-warn{background:rgba(245,176,65,.12);color:var(--warn)}
+.st-bad{background:rgba(231,76,60,.12);color:var(--bad)}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <svg viewBox="0 0 128 128"><defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d1c"/><stop offset="1" stop-color="#7B2FFF"/></linearGradient><linearGradient id="tr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#7B2FFF"/><stop offset="1" stop-color="#ff4d1c"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="30" fill="#07080a"/><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#tr)" stroke-width="5"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#tg)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><circle cx="93" cy="99" r="9" fill="#ff4d1c"/></svg>
+  <div class="tb-name">SELLER<em>.IA</em> — EXTENSÃO</div>
+  <div class="tb-tag">DOC-MESTRE v1.0<br>JUL/2026</div>
+  <button class="menu-btn" onclick="document.getElementById('toc').classList.toggle('open')">ÍNDICE</button>
+</header>
+
+<nav id="toc">
+  <div class="toc-h">Documento</div>
+  <a href="#visao">Parte 1 — Visão e tese</a>
+  <a href="#arquitetura">Parte 2 — Arquitetura geral</a>
+  <a href="#coletor">Parte 3 — O Coletor</a>
+  <a href="#cerebro">Parte 4 — O Cérebro</a>
+  <a href="#cofre">Parte 5 — Cofre de Custos e Calculadora</a>
+  <a href="#banco">Parte 6 — Banco de dados</a>
+  <a href="#relatorios">Parte 7 — Relatórios</a>
+  <a href="#licenca">Parte 8 — Licenciamento Hotmart</a>
+  <a href="#mercado">Parte 9 — Inteligência de mercado</a>
+  <a href="#clipseller">Parte 10 — ClipSeller integrado</a>
+  <a href="#seguranca">Parte 11 — Segurança do projeto</a>
+  <a href="#riscos">Parte 12 — Riscos, prós e contras</a>
+  <a href="#roadmap">Parte 13 — Roadmap por etapas</a>
+  <a href="#sugestoes">Parte 14 — Sugestões estratégicas</a>
+  <a href="#anexo">Anexo — Contratos de dados</a>
+</nav>
+
+<div class="hero">
+  <svg class="mark" viewBox="0 0 128 128"><defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d1c"/><stop offset="1" stop-color="#7B2FFF"/></linearGradient><linearGradient id="hr" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#7B2FFF"/><stop offset="1" stop-color="#ff4d1c"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="30" fill="#0c0e12"/><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#hr)" stroke-width="5"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#hg)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><circle cx="93" cy="99" r="9" fill="#ff4d1c"/></svg>
+  <h1>SELLER<em>.IA</em><br>NA TELA DA SHOPEE</h1>
+  <p class="sub">Documento-mestre da extensão Chrome que lê a conta inteira do Seller Centre e devolve o diagnóstico do método Efeito Vendas — atualizado para o oCPM — em tempo real, na tela onde o vendedor já trabalha.</p>
+  <p class="meta">EFEITO VENDAS · SELLER.IA CLUB · VERSÃO 1.0 · JULHO 2026 · CONFIDENCIAL</p>
+  <div class="thesis">
+    <p><strong>A tese do produto:</strong> toda ferramenta do mercado mostra números. Nenhuma tem, ao mesmo tempo, o custo real do produto, o gasto real de ads e um método validado em 15.764 registros produto-mês para julgar os dois juntos.</p>
+    <p>O Seller.IA Extensão junta as três coisas — e cada assinante novo torna o diagnóstico de todos melhor, porque alimenta a base de benchmarks proprietária. É ferramenta na frente e ativo de dados por trás.</p>
+  </div>
+</div>
+
+<main>
+
+<!-- ============================ PARTE 1 ============================ -->
+<section id="visao">
+  <div class="eyebrow">Parte 1</div>
+  <h2>Visão e tese</h2>
+  <p class="lede">O que estamos construindo, por que em formato de extensão, e por que ninguém consegue copiar.</p>
+
+  <h3><span class="n">1.1</span> O problema</h3>
+  <p>As IAs atuais do ecossistema (análise de conta, análise de ads, afiliados) funcionam por importação: exportar CSV, subir, esperar. Três limitações estruturais: <strong>fricção</strong> (a exportação mata a recorrência de uso), <strong>dado congelado</strong> (foto do momento, sem série viva) e <strong>cérebro pré-oCPM</strong> (as regras anteriores à transição CPC → oCPM documentada na Trilha Shopee Ads).</p>
+  <p>A referência de mercado analisada (extensão concorrente) prova a viabilidade técnica da captura em tela — interceptação das APIs internas do Seller Centre — mas é rasa no julgamento: heurísticas genéricas, benchmark de terceiros, e o próprio código dela confessa a fragilidade: as regras rodam no navegador e são copiáveis por qualquer pessoa que abrir o arquivo.</p>
+
+  <h3><span class="n">1.2</span> A solução</h3>
+  <p>Uma extensão Chrome que, conforme o assinante navega pelo Seller Centre, lê a conta inteira — Ads, Informações Gerenciais, cadastro de produtos e afiliados — e devolve na própria tela o diagnóstico completo: manchete, veredito, ação e consequência, com as regras do Princípio do Leilão Reverso e das 8 Leis rodando em servidor protegido.</p>
+  <div class="kpi-row">
+    <div class="kpi"><div class="v">0</div><div class="l">planilhas exportadas pelo usuário</div></div>
+    <div class="kpi"><div class="v">6</div><div class="l">abas de análise integradas</div></div>
+    <div class="kpi"><div class="v">100%</div><div class="l">do método protegido em servidor</div></div>
+    <div class="kpi"><div class="v">167+</div><div class="l">contas alimentando o benchmark inicial</div></div>
+  </div>
+
+  <h3><span class="n">1.3</span> As seis abas</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Aba</th><th>O que entrega</th></tr>
+    <tr><td><b>Visão da Conta</b></td><td>Nota de saúde composta, mix de fontes de faturamento (ads/orgânico/afiliado), dependência de ads, evolução da conta na linha do tempo.</td></tr>
+    <tr><td><b>Ads</b></td><td>Curvas A/B/C/Pausar, quadrantes OURO/ESCALA/NICHO/FRACO, ROAS Ajustado por confiabilidade, zona de ruído (&lt;30 conversões), ROAS mínimo por margem real, as 7 armadilhas de leitura como alertas automáticos, protocolos de lançamento/escala/resgate.</td></tr>
+    <tr><td><b>Cadastro</b></td><td>Auditoria de título como ativo de mídia, categoria (papéis, irreversibilidade, risco de spam), atributos, alerta de degrau de comissão.</td></tr>
+    <tr><td><b>Afiliados</b></td><td>Dependência de afiliado vs faixa saudável da carteira, custo de comissão extra por produto.</td></tr>
+    <tr><td><b>Criativos</b></td><td>ClipSeller embutido: crítica do criativo atual e geração de novas fotos/vídeos a partir do próprio anúncio.</td></tr>
+    <tr><td><b>Mercado</b></td><td>Pesquisa de palavras-chave e concorrência em tempo real (Apify + dados próprios), benchmark por categoria da base Seller.IA.</td></tr>
+  </table></div>
+
+  <h3><span class="n">1.4</span> Por que ninguém copia</h3>
+  <ul class="list">
+    <li><strong>O cérebro roda no servidor.</strong> A extensão coleta e renderiza; fórmulas, leis, pesos e vereditos nunca chegam ao navegador em forma de regra — só em forma de resultado.</li>
+    <li><strong>O Cofre de Custos.</strong> Só nós teremos a margem líquida real por produto — e portanto o ROAS de equilíbrio individual. Todo veredito de ads é ancorado no ponto de empate daquele produto, não em número genérico.</li>
+    <li><strong>O efeito de rede de dados.</strong> Cada leitura anônima agregada melhora o benchmark de todos. Quanto mais assinantes, melhor o produto — barreira que cresce sozinha.</li>
+    <li><strong>O método.</strong> As 8 Leis, o ROAS Ajustado e a Lei da Legibilidade vêm de base própria de 15.764 registros produto-mês. Não existe em material público.</li>
+  </ul>
+  <div class="callout o"><b>Nota de integridade:</b> a extensão concorrente serve exclusivamente de referência de arquitetura e UX. Todo o código do Seller.IA é escrito do zero (clean-room) e o julgamento é 100% método Efeito Vendas. A técnica de leitura é legítima: é o vendedor lendo os próprios dados, na própria sessão logada, no próprio navegador.</div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 2 ============================ -->
+<section id="arquitetura">
+  <div class="eyebrow">Parte 2</div>
+  <h2>Arquitetura geral</h2>
+  <p class="lede">Quatro blocos, responsabilidades separadas, um contrato de dados entre eles. Tudo construído para conectar as etapas sem retrabalho.</p>
+
+  <svg class="arch-svg" viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="ag" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff4d1c"/><stop offset="1" stop-color="#7B2FFF"/></linearGradient>
+      <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7d8290"/></marker>
+    </defs>
+    <style>
+      .bx{fill:#12151b;stroke:#1d212a;rx:12}
+      .bx-t{font:16px 'Bebas Neue';fill:#f2f2f4;letter-spacing:1px}
+      .bx-s{font:10.5px 'Outfit';fill:#b8bcc6}
+      .lbl{font:9px 'Space Mono';fill:#7d8290;letter-spacing:1px}
+      .flow{stroke:#7d8290;stroke-width:1.4;fill:none;marker-end:url(#arr)}
+    </style>
+    <!-- Navegador -->
+    <rect x="20" y="20" width="300" height="520" class="bx" stroke="#ff4d1c" rx="14"/>
+    <text x="40" y="52" class="bx-t" fill="#ff4d1c">NAVEGADOR DO ASSINANTE</text>
+    <rect x="40" y="72" width="260" height="86" class="bx" rx="10"/>
+    <text x="56" y="99" class="bx-t">SELLER CENTRE SHOPEE</text>
+    <text x="56" y="119" class="bx-s">Ads (pas) · Informações Gerenciais (mydata)</text>
+    <text x="56" y="136" class="bx-s">Cadastro de produto · Afiliados</text>
+    <rect x="40" y="182" width="260" height="96" class="bx" rx="10"/>
+    <text x="56" y="209" class="bx-t">INJECTED.JS <tspan class="bx-s">(mundo MAIN)</tspan></text>
+    <text x="56" y="229" class="bx-s">Intercepta fetch/XHR das APIs internas</text>
+    <text x="56" y="246" class="bx-s">Ponte de busca ativa (cookies da sessão)</text>
+    <text x="56" y="263" class="bx-s">Só escuta. Não altera nada.</text>
+    <rect x="40" y="302" width="260" height="112" class="bx" rx="10"/>
+    <text x="56" y="329" class="bx-t">CONTENT.JS <tspan class="bx-s">(UI + normalizador)</tspan></text>
+    <text x="56" y="349" class="bx-s">Painel de 6 abas · Cards de veredito</text>
+    <text x="56" y="366" class="bx-s">Calculadora na página do produto</text>
+    <text x="56" y="383" class="bx-s">Normaliza snapshots por ID de produto</text>
+    <text x="56" y="400" class="bx-s">Aba Debug (validação de números)</text>
+    <rect x="40" y="438" width="260" height="76" class="bx" rx="10"/>
+    <text x="56" y="465" class="bx-t">SERVICE WORKER <tspan class="bx-s">(bg)</tspan></text>
+    <text x="56" y="485" class="bx-s">Licença · Fila de envio · Cache local</text>
+    <text x="56" y="502" class="bx-s">Nenhum segredo armazenado</text>
+    <!-- Cérebro -->
+    <rect x="400" y="120" width="280" height="300" class="bx" stroke="#7B2FFF" rx="14"/>
+    <text x="420" y="152" class="bx-t" fill="#7B2FFF">CÉREBRO SELLER.IA</text>
+    <text x="420" y="170" class="bx-s">Edge Functions / Worker · lado servidor</text>
+    <rect x="420" y="186" width="240" height="58" class="bx" rx="10"/>
+    <text x="434" y="209" class="bx-t">/analyze</text>
+    <text x="434" y="228" class="bx-s">8 Leis · Leilão Reverso · vereditos</text>
+    <rect x="420" y="254" width="240" height="52" class="bx" rx="10"/>
+    <text x="434" y="277" class="bx-t">/calc · /cofre</text>
+    <text x="434" y="295" class="bx-s">Motor único de margem e equilíbrio</text>
+    <rect x="420" y="316" width="240" height="52" class="bx" rx="10"/>
+    <text x="434" y="339" class="bx-t">/license · /report</text>
+    <text x="434" y="357" class="bx-s">Ativação, tokens, geração de relatórios</text>
+    <text x="420" y="398" class="bx-s">Valida payloads · aplica regras versionadas</text>
+    <!-- Banco -->
+    <rect x="760" y="60" width="220" height="220" class="bx" stroke="url(#ag)" rx="14"/>
+    <text x="780" y="92" class="bx-t">SUPABASE SELLER.IA</text>
+    <text x="780" y="118" class="bx-s">Camada 1 — dados do assinante</text>
+    <text x="780" y="135" class="bx-s">contas · custos · snapshots · diagnósticos</text>
+    <text x="780" y="162" class="bx-s">Camada 2 — mercado (anônima)</text>
+    <text x="780" y="179" class="bx-s">benchmarks por categoria e faixa</text>
+    <text x="780" y="206" class="bx-s">RLS ativo · job noturno de agregação</text>
+    <text x="780" y="223" class="bx-s">mínimo estatístico: 10 contas</text>
+    <text x="780" y="250" class="bx-s">Histórico que a Shopee não dá</text>
+    <!-- Integrações -->
+    <rect x="760" y="320" width="220" height="220" class="bx" rx="14"/>
+    <text x="780" y="352" class="bx-t">INTEGRAÇÕES</text>
+    <text x="780" y="378" class="bx-s">Hotmart — webhook de assinatura</text>
+    <text x="780" y="402" class="bx-s">Apify — pesquisa de mercado</text>
+    <text x="780" y="426" class="bx-s">ClipSeller — motor de criativos</text>
+    <text x="780" y="450" class="bx-s">IA generativa — narrativa dos</text>
+    <text x="780" y="467" class="bx-s">relatórios (prompts das IAs atuais)</text>
+    <text x="780" y="494" class="bx-s">Todas as chaves só no servidor</text>
+    <!-- fluxos -->
+    <path d="M300,160 C360,160 360,200 400,210" class="flow"/>
+    <path d="M320,350 C360,330 370,300 400,285" class="flow"/>
+    <path d="M680,220 C720,210 720,180 760,170" class="flow"/>
+    <path d="M680,330 C720,350 720,400 760,410" class="flow"/>
+    <path d="M760,240 C700,260 700,240 680,250" class="flow" opacity=".55"/>
+    <text x="316" y="148" class="lbl">DADOS CAPTURADOS</text>
+    <text x="690" y="150" class="lbl">GRAVA / CONSULTA</text>
+    <text x="690" y="390" class="lbl">CHAMA</text>
+  </svg>
+
+  <div class="callout"><b>Princípio de conexão entre etapas:</b> tudo que trafega entre os blocos usa os contratos de dados do Anexo. A extensão pode evoluir sem tocar no cérebro; o cérebro pode ganhar regras sem atualizar a extensão; o mesmo endpoint <code>/analyze</code> que serve a extensão servirá o app web (app.selleriaclub.com.br) e as IAs atuais. Um cérebro, várias telas.</div>
+
+  <h3><span class="n">2.1</span> Decisões de arquitetura fechadas</h3>
+  <ul class="list">
+    <li><strong>Manifest V3</strong>, permissões mínimas: <code>storage</code> + host permission apenas para <code>seller.shopee.com.br</code> e o domínio do cérebro.</li>
+    <li><strong>Cérebro no servidor, sempre.</strong> Nenhuma regra de negócio, benchmark, fórmula proprietária ou chave de API embarca na extensão.</li>
+    <li><strong>ID do produto é a chave-mestra</strong> que amarra coleta, Cofre, snapshots, diagnósticos e relatórios.</li>
+    <li><strong>Regras versionadas</strong> (<code>rules_version</code> em cada resposta): calibragens e correções entram em produção sem passar pela revisão da Chrome Web Store.</li>
+    <li><strong>Fila resiliente:</strong> se o servidor estiver fora, a extensão guarda os snapshots localmente e envia depois. O seller nunca perde leitura.</li>
+  </ul>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 3 ============================ -->
+<section id="coletor">
+  <div class="eyebrow">Parte 3</div>
+  <h2>O Coletor</h2>
+  <p class="lede">A extensão lê tudo que o Seller Centre já mostra — sem pedir nada ao usuário.</p>
+
+  <h3><span class="n">3.1</span> Fontes de captura</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Fonte</th><th>Rota interna</th><th>O que traz</th></tr>
+    <tr><td><b>Shopee Ads</b></td><td><code>/api/pas/</code></td><td>Campanhas, GMV Max, produtos anunciados, séries 7/15/30 dias, gasto, ROAS, CTR, conversão, posição.</td></tr>
+    <tr><td><b>Informações Gerenciais</b></td><td><code>/api/mydata/</code></td><td>Venda total da loja, visitas, tráfego por produto, fontes de faturamento — a base do TACOS real e da leitura de orgânico.</td></tr>
+    <tr><td><b>Cadastro de produto</b></td><td>página do produto + APIs de listing</td><td>Título, categoria, atributos, variações, preço, imagens (insumo do ClipSeller).</td></tr>
+    <tr><td><b>Afiliados</b></td><td>painel de afiliados</td><td>Comissão extra configurada, GMV via afiliado, dependência.</td></tr>
+  </table></div>
+
+  <h3><span class="n">3.2</span> Cascata de resolução por ID</h3>
+  <p>Quando o seller abre qualquer página de produto, a extensão extrai o ID da URL e resolve em três velocidades:</p>
+  <ol class="steps">
+    <li><strong>Cache local da sessão</strong> — se o coletor já passou por aquele ID, resposta instantânea.</li>
+    <li><strong>Banco (via cérebro)</strong> — último snapshot + custo do Cofre + histórico do produto.</li>
+    <li><strong>Busca ativa</strong> — se o dado está velho ou inexiste, a ponte de fetch puxa só aquele produto das APIs internas, na hora, com os cookies da sessão do próprio usuário.</li>
+  </ol>
+  <p>Nunca é "ou banco ou coleta": é os dois, em ordem de velocidade — e o banco engorda a cada resolução.</p>
+
+  <h3><span class="n">3.3</span> Regras do coletor</h3>
+  <ul class="list">
+    <li><strong>Só escuta.</strong> O interceptor observa respostas que a própria Shopee já entregou ao navegador. Não altera requisições, não simula cliques, não automatiza ações na conta.</li>
+    <li><strong>Busca ativa com respeito:</strong> rate limit próprio (espaçamento entre chamadas), apenas rotas de leitura, apenas o domínio do Seller Centre.</li>
+    <li><strong>Normalização na fonte:</strong> valores em micro-unidades (÷100.000), datas, IDs e nomes padronizados antes de sair do navegador — o cérebro recebe sempre o mesmo formato (Anexo A.1).</li>
+    <li><strong>Aba Debug</strong> permanente: chamadas capturadas, período, contadores — validação dos números contra a tela em segundos, e diagnóstico rápido quando a Shopee mudar algo.</li>
+  </ul>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 4 ============================ -->
+<section id="cerebro">
+  <div class="eyebrow pp">Parte 4</div>
+  <h2>O Cérebro</h2>
+  <p class="lede">O julgamento inteiro — método Efeito Vendas atualizado para o oCPM — rodando em servidor, versionado e protegido.</p>
+
+  <h3><span class="n">4.1</span> O que o cérebro sabe</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Bloco de regras</th><th>Aplicação no veredito</th></tr>
+    <tr><td><b>Lei da Legibilidade</b></td><td>Abaixo de 30 conversões/mês, o produto entra na zona de ruído: o veredito vira "alimentar ou esperar", nunca otimização. A tabela de confiabilidade pondera toda leitura.</td></tr>
+    <tr><td><b>ROAS Ajustado</b></td><td>Produtos de baixo volume têm o ROAS corrigido pela confiabilidade antes de qualquer classificação — menos falso campeão, menos falso fracasso.</td></tr>
+    <tr><td><b>ROAS de equilíbrio</b></td><td>Com o Cofre, cada produto é julgado contra o próprio ponto de empate (100 ÷ margem%), não contra "8× é bom".</td></tr>
+    <tr><td><b>Curvas e quadrantes</b></td><td>A/B/C/Pausar + OURO/ESCALA/NICHO/FRACO, com a oportunidade do quadrante ESCALA calculada em reais.</td></tr>
+    <tr><td><b>Leis de escala e corte</b></td><td>Protocolo de escala (+20%/semana) e o alerta anti-pausa: cortar destrói GMV sem ganhar eficiência; parte dos produtos "ruins" se recupera sozinha.</td></tr>
+    <tr><td><b>Triagem do mês 1</b></td><td>Probabilidade de campeão pelo ROAS inicial; produto que abre fraco vai para reformulação de oferta, não para otimização de campanha.</td></tr>
+    <tr><td><b>Métodos de lance</b></td><td>Automático para novos, Meta de ROAS para maduros, Lei da Âncora (nunca reverter), 7 dias intocáveis, fase de aprendizado.</td></tr>
+    <tr><td><b>7 armadilhas</b></td><td>Cada armadilha vira alerta automático — inclusive a leitura correta de CPM alto (confiança do algoritmo, não castigo) e da janela de atribuição.</td></tr>
+    <tr><td><b>Título e categoria</b></td><td>Título como ativo de mídia paga (a correspondência de palavra-chave é automática); categoria com os três papéis e o risco de spam.</td></tr>
+  </table></div>
+
+  <h3><span class="n">4.2</span> Formato de saída — a assinatura Seller.IA</h3>
+  <p>Todo veredito sai no mesmo molde já validado nas nossas IAs:</p>
+  <div class="card hl">
+    <p><strong>Manchete</strong> — uma linha com status (forte/atenção/crítico), dizendo o que está acontecendo.<br>
+    <strong>Diagnóstico</strong> — o porquê, com os números que sustentam.<br>
+    <strong>Ação</strong> — o que fazer, com "se fizer" e "se não fizer" (consequência de agir e de não agir).<br>
+    <strong>Veredito</strong> — ESCALAR · MANTER · AVALIAR · OTIMIZAR · RESGATAR · PAUSAR (nunca apagar).</p>
+  </div>
+  <p>Regra editorial permanente: <strong>o vilão nunca é a Shopee</strong> — só a desinformação ou o erro operacional. Todo texto gerado passa por esse filtro.</p>
+
+  <h3><span class="n">4.3</span> Endpoints</h3>
+  <pre><b>POST /v1/analyze</b>       snapshot da conta/produto → blocos de veredito prontos
+<b>POST /v1/calc</b>          preço + custo + contexto → margem, equilíbrio, líquido com/sem ads
+<b>POST /v1/cofre</b>         gravar/ler custos por ID (individual e em massa)
+<b>POST /v1/license/*</b>     ativação, renovação silenciosa, resgate por e-mail
+<b>POST /v1/report</b>        gera relatório semanal/mensal (HTML com link vivo)
+<b>GET  /v1/benchmark</b>     benchmark por categoria/faixa (com mínimo estatístico)
+<b>POST /v1/market</b>        pesquisa de palavras-chave/concorrência (Apify, servidor)
+<b>POST /v1/creative</b>      ponte ClipSeller (crítica + geração)</pre>
+  <p>Toda resposta carrega <code>rules_version</code> — calibramos o método sem tocar na extensão.</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 5 ============================ -->
+<section id="cofre">
+  <div class="eyebrow">Parte 5</div>
+  <h2>Cofre de Custos e Calculadora</h2>
+  <p class="lede">A peça que nenhum concorrente tem: margem líquida real por produto — cadastrada uma vez, valendo em todo o ecossistema.</p>
+
+  <h3><span class="n">5.1</span> O motor único</h3>
+  <p>O motor de margem já validado na IA de ads é promovido a fonte única no cérebro, com dois upgrades:</p>
+  <pre>líquido = preço − custo − embalagem − imposto% − comissão(faixa) − <b>antecipação(perfil)</b> − <b>ads real/unidade</b>
+
+margem%       = líquido ÷ preço
+ROAS equilíbrio = preço ÷ margem      (o número que julga todo veredito de ads)</pre>
+  <div class="tbl-wrap"><table>
+    <tr><th>Insumo</th><th>Origem</th><th>Digitação</th></tr>
+    <tr><td>Preço de venda (e variações)</td><td>Leitura automática da página / APIs</td><td><span class="status st-ok">ZERO</span></td></tr>
+    <tr><td>Faixa de comissão + alerta de degrau</td><td>Tabela oficial aplicada ao preço lido (CFG tratado como padrão; detector de exceção)</td><td><span class="status st-ok">ZERO</span></td></tr>
+    <tr><td>Antecipação (1% / 2,5% / 3,5%)</td><td>Perfil da conta, lido/configurado uma vez</td><td><span class="status st-ok">ZERO</span></td></tr>
+    <tr><td>Ads real por unidade (TACOS verdadeiro)</td><td>Coletor <code>/api/pas/</code> + <code>/api/mydata/</code></td><td><span class="status st-ok">ZERO</span></td></tr>
+    <tr><td>Imposto %</td><td>Configuração única da conta (Simples, presumido...)</td><td><span class="status st-warn">1× POR CONTA</span></td></tr>
+    <tr><td>Custo do produto + embalagem</td><td><b>Cofre de Custos</b></td><td><span class="status st-warn">1× POR PRODUTO</span></td></tr>
+  </table></div>
+
+  <h3><span class="n">5.2</span> O Cofre</h3>
+  <ul class="list">
+    <li><strong>Cadastro inline:</strong> campinho no próprio card da calculadora, pré-focado — digita, enter, nunca mais.</li>
+    <li><strong>Salvo no servidor</strong>, vinculado ao ID do produto e à licença: sincroniza entre máquinas, sobrevive a reinstalação, e aparece automaticamente nas IAs web (e vice-versa).</li>
+    <li><strong>Importação em massa:</strong> colar planilha de duas colunas (ID/SKU + custo) → conta inteira precificada em segundos.</li>
+    <li><strong>Modo estimativa:</strong> enquanto não há custo, a calculadora mostra o líquido antes do CMV e uma projeção por markup típico, sempre com selo de "estimado".</li>
+  </ul>
+
+  <h3><span class="n">5.3</span> A calculadora na página do produto</h3>
+  <p>Card fixo, ao vivo: <strong>Preço → Comissão → Imposto → Antecipação → Líquido sem ads → Ads real do produto → Líquido final → Margem % → ROAS de equilíbrio</strong>, com simulação instantânea de outro preço (incluindo o salto de faixa de comissão). É a Seção 2 da Trilha rodando automática na conta do assinante.</p>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 6 ============================ -->
+<section id="banco">
+  <div class="eyebrow pp">Parte 6</div>
+  <h2>Banco de dados</h2>
+  <p class="lede">Projeto Supabase novo e dedicado, em duas camadas com finalidades — e proteções — diferentes.</p>
+
+  <h3><span class="n">6.1</span> Camada 1 — dados do assinante (privados, identificados)</h3>
+  <pre><b>contas</b>            licença, e-mail, loja, perfil (antecipação, imposto%), status Hotmart
+<b>produtos</b>          id_shopee (chave-mestra), título, categoria, preço atual, imagens
+<b>produtos_custos</b>   id_shopee → custo, embalagem, origem (manual | massa | estimado), histórico
+<b>snapshots_produto</b> id_shopee + data → GMV, gasto, ROAS, CTR, conversão, ticket, CPM, posição, fonte
+<b>snapshots_conta</b>   data → venda total, visitas, mix de fontes, gasto total
+<b>diagnosticos</b>      veredito emitido + rules_version + hash do snapshot que o gerou
+<b>relatorios</b>        semanal/mensal → HTML gerado, URL única, período, status</pre>
+  <p>É essa camada que dá ao assinante o que a Shopee não dá: <strong>linha do tempo da própria conta</strong>, sem janela de 30 dias apagando o passado.</p>
+
+  <h3><span class="n">6.2</span> Camada 2 — inteligência de mercado (anônima, agregada)</h3>
+  <pre><b>benchmarks_categoria</b>  categoria + faixa de preço + mês →
+                      p25/mediana/p75 de ROAS, CTR, conversão, ticket, CPM, TACOS
+                      n_contas, n_produtos (publica só com n_contas ≥ 10)</pre>
+  <ul class="list">
+    <li><strong>Job noturno de agregação:</strong> destila a Camada 1 em estatísticas por categoria/faixa — nenhum identificador de loja atravessa a fronteira.</li>
+    <li><strong>Mínimo estatístico:</strong> benchmark só é exibido com 10+ contas contribuindo, para nunca vazar padrão de loja individual.</li>
+    <li><strong>Efeito de rede:</strong> é a estrutura da base das 8 Leis crescendo sozinha a cada assinante — o dado deixa de ser de terceiros e vira ativo proprietário, vivo, brasileiro.</li>
+  </ul>
+
+  <h3><span class="n">6.3</span> Regras de acesso</h3>
+  <ul class="list">
+    <li>A extensão <strong>nunca</strong> fala com o banco — só com o cérebro, que valida, normaliza e grava com credencial de servidor.</li>
+    <li><strong>RLS ativo</strong> em todas as tabelas da Camada 1: cada licença enxerga apenas os próprios dados.</li>
+    <li><strong>Termo de uso explícito</strong> (LGPD): dados usados de forma anonimizada e agregada para benchmarks de mercado — escrito, aceito no primeiro uso, com opção de exclusão de conta e dos dados identificados.</li>
+  </ul>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 7 ============================ -->
+<section id="relatorios">
+  <div class="eyebrow">Parte 7</div>
+  <h2>Relatórios</h2>
+  <p class="lede">O formato de saída das nossas IAs — que os alunos já conhecem e validaram — com o cérebro novo por trás, em dois ritmos.</p>
+
+  <h3><span class="n">7.1</span> Ritmos</h3>
+  <div class="grid2">
+    <div class="card"><h4>Semanal</h4><p>Últimos 7 dias fechados, comparados sempre com janela fechada equivalente. O trecho ainda em atribuição vem marcado: <strong>"estes números ainda sobem"</strong> — a armadilha nº 5 resolvida por arquitetura, sem sustos de segunda-feira.</p></div>
+    <div class="card"><h4>Mensal</h4><p>Parcial dentro do mês (com aviso de mês incompleto — armadilha nº 4) e fechamento do mês, que consolida a leitura oficial e alimenta a linha do tempo.</p></div>
+  </div>
+
+  <h3><span class="n">7.2</span> Estrutura do relatório</h3>
+  <ol class="steps">
+    <li><strong>Capa</strong> — nota de saúde da conta e as três manchetes da semana/mês.</li>
+    <li><strong>Funil</strong> — impressão → clique → conversão → receita, com números reais e a etapa que mais perde.</li>
+    <li><strong>Carteira</strong> — curvas A/B/C/Pausar e quadrantes, com a oportunidade do ESCALA em reais e os ilegíveis marcados separadamente.</li>
+    <li><strong>Economia</strong> — margem e ROAS de equilíbrio por produto (via Cofre), produtos abaixo do empate destacados.</li>
+    <li><strong>Mercado</strong> — comparação com o benchmark Seller.IA da categoria.</li>
+    <li><strong>Plano de ação priorizado</strong> — máximo 7 itens, cada um com "se fizer / se não fizer".</li>
+  </ol>
+  <p>A narrativa é gerada com <strong>os prompts já usados nas IAs atuais</strong> (análise por SKU no modelo rápido, relatório completo no modelo elaborado), atualizados no que é a razão do projeto: as regras internas migram para o oCPM. O formato que os alunos conhecem fica; o julgamento por trás evolui.</p>
+
+  <h3><span class="n">7.3</span> Saída: link vivo + PDF</h3>
+  <ul class="list">
+    <li>Cada relatório nasce como <strong>HTML hospedado com URL única</strong> — compartilhável com sócio, contador ou cliente da agência.</li>
+    <li><strong>Gerar PDF</strong> com folha de impressão dedicada: A4, quebras corretas, um clique, funciona no celular.</li>
+    <li><strong>Frescor do dado:</strong> o relatório estampa a data da última leitura; se estiver velho, a extensão lembra o seller de abrir o Seller Centre. Fase futura: sincronização em segundo plano via API oficial (Shopee Open Platform) para quem autorizar.</li>
+    <li><strong>Aquisição embutida:</strong> todo relatório compartilhado leva a marca Seller.IA para dentro de agências e sociedades.</li>
+  </ul>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 8 ============================ -->
+<section id="licenca">
+  <div class="eyebrow pp">Parte 8</div>
+  <h2>Licenciamento Hotmart</h2>
+  <p class="lede">Assinatura em dia = funciona. Assinatura caiu = suspende sozinho. Zero gestão manual de chaves.</p>
+
+  <h3><span class="n">8.1</span> O fluxo</h3>
+  <ol class="steps">
+    <li><strong>Compra/renovação na Hotmart</strong> dispara webhook assinado para o cérebro (eventos de compra aprovada, renovação, cancelamento, reembolso e chargeback).</li>
+    <li><strong>Chave determinística por e-mail</strong> — o assinante tem sempre a mesma chave; o que liga e desliga é o status de pagamento no banco.</li>
+    <li><strong>Página de resgate</strong> — o assinante digita o e-mail da compra e recebe a chave. Sem suporte manual.</li>
+    <li><strong>Ativação na extensão</strong> — chave + ID do dispositivo → token curto (poucos dias).</li>
+    <li><strong>Re-ativação silenciosa</strong> — quando o token expira, a extensão renova sozinha com a chave guardada, revalidando o pagamento no servidor. Se a assinatura caiu, o acesso para de renovar — com ciclo mensal + dias de tolerância para não punir atraso de cobrança.</li>
+  </ol>
+
+  <h3><span class="n">8.2</span> Regras</h3>
+  <ul class="list">
+    <li><strong>Limite de dispositivos por chave</strong> (1 no lançamento; plano agência com mais adiante).</li>
+    <li><strong>Webhook protegido</strong> por segredo próprio + validação de assinatura da Hotmart (hottok), com filtro por ID do produto.</li>
+    <li><strong>Trilha de eventos de licença</strong> gravada (ativações, dispositivos, quedas) para suporte e antifraude.</li>
+    <li><strong>Sem licença, sem cérebro:</strong> a extensão sem token válido não recebe nenhum veredito — o produto simplesmente não existe sem assinatura.</li>
+  </ul>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 9 ============================ -->
+<section id="mercado">
+  <div class="eyebrow">Parte 9</div>
+  <h2>Inteligência de mercado</h2>
+  <p class="lede">Pesquisa em tempo real + benchmark proprietário, sempre executados no servidor.</p>
+  <ul class="list">
+    <li><strong>Palavras-chave e concorrência (Apify):</strong> a partir do título/categoria do produto aberto, o cérebro dispara a pesquisa na Shopee — termos, preços praticados, faixa de avaliações, saturação — e devolve sugestões de melhoria de título e posicionamento de preço. A chave Apify nunca sai do servidor; resultados têm cache por termo para controlar custo.</li>
+    <li><strong>Benchmark Seller.IA:</strong> a Camada 2 responde "como está o ROAS/CTR/conversão/TACOS da sua categoria este mês" — dado vivo da nossa base, não coleta pontual de terceiros.</li>
+    <li><strong>Título como ativo de mídia:</strong> a sugestão de título une os dois mundos — o que o mercado busca (Apify) e o que o algoritmo premia (método) — já que a correspondência de palavra-chave no GMV Max é automática e nasce do título.</li>
+    <li><strong>Conexão futura</strong> com a plataforma de inteligência em arquitetura (Mercado Livre API + Shopee/Apify): mesmo banco de pesquisa servindo os dois produtos.</li>
+  </ul>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 10 ============================ -->
+<section id="clipseller">
+  <div class="eyebrow pp">Parte 10</div>
+  <h2>ClipSeller integrado</h2>
+  <p class="lede">Da leitura do anúncio à geração do criativo novo — sem sair da tela da Shopee.</p>
+  <ol class="steps">
+    <li><strong>Leitura do anúncio:</strong> na página do produto, a extensão já tem título, preço, categoria e as imagens do cadastro.</li>
+    <li><strong>Crítica do criativo:</strong> a IA avalia a foto principal contra o que o funil mostra (CTR baixo = problema de vitrine) e diz o que trocar.</li>
+    <li><strong>Geração na tela:</strong> botão "Gerar novos criativos" → o cérebro chama o motor ClipSeller (mesmos pipelines do <code>clipseller-sistema</code>: fundos de estúdio, lifestyle, premium, benefícios, feedback) usando as imagens do próprio anúncio como insumo. Resultado aparece ali, pronto para baixar e subir no cadastro.</li>
+    <li><strong>Fase seguinte — vídeo:</strong> a partir das mesmas imagens, geração de vídeo de produto e UGC (motores já homologados no ClipSeller), com consumo de créditos do plano.</li>
+  </ol>
+  <div class="callout"><b>Custo sob controle:</b> geração consome créditos ClipSeller (1cr = R$0,10) com os custos reais por motor já mapeados. A extensão mostra o custo antes de gerar — sem surpresa na fatura, nem para o assinante nem para nós.</div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 11 ============================ -->
+<section id="seguranca">
+  <div class="eyebrow">Parte 11</div>
+  <h2>Segurança do projeto</h2>
+  <p class="lede">Quatro frentes: proteger o método, proteger o assinante, proteger a operação e cumprir a lei.</p>
+
+  <h3><span class="n">11.1</span> Proteção do método (o segredo comercial)</h3>
+  <ul class="list">
+    <li>Regras, pesos, fórmulas e benchmarks vivem <strong>exclusivamente no servidor</strong>. O navegador recebe vereditos prontos, nunca a lógica.</li>
+    <li>Prompts das IAs ficam no servidor; a extensão nunca carrega texto de prompt.</li>
+    <li>Materiais públicos (páginas de venda, aulas) seguem a regra já praticada: ensinar o princípio, <strong>omitir as calibragens</strong>.</li>
+    <li>Código da extensão minificado no empacotamento — não é proteção absoluta, mas o que importa (o cérebro) nem está lá.</li>
+  </ul>
+
+  <h3><span class="n">11.2</span> Proteção do assinante e dos dados (LGPD)</h3>
+  <ul class="list">
+    <li><strong>Coleta mínima:</strong> só métricas comerciais da loja. Nunca senhas, nunca dados de clientes finais (nome, endereço, CPF de comprador não entram no sistema).</li>
+    <li><strong>Transporte cifrado</strong> (HTTPS) em todos os trechos; RLS no banco; cada licença enxerga só o que é dela.</li>
+    <li><strong>Termo de uso e política de privacidade</strong> aceitos no primeiro uso, com a finalidade de benchmark anonimizado escrita com todas as letras, direito de exclusão e canal de contato.</li>
+    <li><strong>Anonimização com mínimo estatístico</strong> (10+ contas) antes de qualquer número virar benchmark público.</li>
+  </ul>
+
+  <h3><span class="n">11.3</span> Proteção da operação</h3>
+  <ul class="list">
+    <li><strong>Nenhum segredo em repositório ou arquivo entregue:</strong> chaves (Supabase service_role, Apify, IA, Hotmart) só em variáveis de ambiente do servidor. Lição da própria casa: o incidente da chave exposta no repositório do KAIA não se repete — repositórios do projeto nascem privados e com varredura de segredo antes de cada push.</li>
+    <li><strong>Rotação periódica de credenciais</strong> (incluindo o token do GitHub usado nos deploys — recomendo agendar a primeira rotação já).</li>
+    <li><strong>Validação de payload no cérebro:</strong> schema estrito, limites de tamanho, rejeição de dados malformados — a extensão é cliente não confiável por definição.</li>
+    <li><strong>Rate limiting por licença</strong> nos endpoints (análise, mercado, criativos) — controla custo de IA/Apify e bloqueia abuso.</li>
+    <li><strong>Logs e monitoramento:</strong> erros do coletor reportados (anônimos) para detectarmos mudança de API da Shopee antes da enxurrada de suporte.</li>
+    <li><strong>Backups automáticos</strong> do banco + exportação mensal fria.</li>
+  </ul>
+
+  <h3><span class="n">11.4</span> Conformidade e plataforma</h3>
+  <ul class="list">
+    <li><strong>Chrome Web Store:</strong> permissões mínimas, descrição transparente do que a extensão faz, política de privacidade publicada — os três pontos que a revisão da loja mais cobra em extensões com script em página.</li>
+    <li><strong>Postura perante a Shopee:</strong> a extensão só lê dados que a plataforma já entrega ao vendedor logado, não automatiza ações e não raspa dados de terceiros dentro do Seller Centre. A pesquisa de mercado roda fora, no servidor. Ainda assim, tratamos como risco mapeado (Parte 12) — e a regra editorial se mantém: somos aliados da plataforma, nunca adversários.</li>
+    <li><strong>Clean-room:</strong> zero código da extensão de referência é reutilizado. Arquitetura é aprendizado; código é nosso.</li>
+  </ul>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 12 ============================ -->
+<section id="riscos">
+  <div class="eyebrow pp">Parte 12</div>
+  <h2>Riscos, prós e contras</h2>
+  <p class="lede">Avaliação honesta antes de escrever código.</p>
+
+  <h3><span class="n">12.1</span> Prós</h3>
+  <ul class="list">
+    <li>Fricção zero mata a maior barreira de adoção das IAs atuais (exportar CSV).</li>
+    <li>Diferenciais inimitáveis: Cofre de Custos + método + benchmark proprietário com efeito de rede.</li>
+    <li>Recorrência natural: a ferramenta mora na rotina diária do seller, defendendo a assinatura do Club todo mês.</li>
+    <li>O mesmo cérebro atualiza automaticamente as IAs web — um investimento, todo o ecossistema moderniza.</li>
+    <li>O banco de mercado vira um segundo produto no futuro (relatórios de categoria, inteligência para o Garimpo).</li>
+  </ul>
+
+  <h3><span class="n">12.2</span> Contras assumidos</h3>
+  <ul class="list">
+    <li>Dependência de APIs internas não documentadas — manutenção contínua faz parte do custo do produto.</li>
+    <li>Coleta depende da navegação do usuário (mitigada por lembretes; resolvida na fase da API oficial).</li>
+    <li>Custo variável de IA/Apify por assinante — controlado por cache, rate limit e modelos por tarefa.</li>
+    <li>Mais um sistema para o time operar — mitigado pela aba Debug e pelos logs de coletor.</li>
+  </ul>
+
+  <h3><span class="n">12.3</span> Matriz de risco</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Risco</th><th>Impacto</th><th>Mitigação</th></tr>
+    <tr><td><b>Shopee muda as APIs internas</b></td><td><span class="status st-warn">MÉDIO</span></td><td>Coletor isolado do cérebro; aba Debug; logs anônimos de falha; correção só na camada de coleta, sem review da lógica.</td></tr>
+    <tr><td><b>Revisão da Chrome Web Store</b></td><td><span class="status st-warn">MÉDIO</span></td><td>Permissões mínimas, transparência, política de privacidade. Plano B: distribuição direta para o Club enquanto a revisão corre.</td></tr>
+    <tr><td><b>Postura da plataforma</b></td><td><span class="status st-warn">MÉDIO</span></td><td>Só leitura dos próprios dados, zero automação de ações, pesquisa externa no servidor, tom editorial pró-plataforma.</td></tr>
+    <tr><td><b>Vazamento do método</b></td><td><span class="status st-bad">ALTO</span></td><td>Cérebro 100% servidor — mitigado por arquitetura, não por promessa.</td></tr>
+    <tr><td><b>Vazamento de dados de assinante</b></td><td><span class="status st-bad">ALTO</span></td><td>RLS, segredos só em ambiente, varredura pré-push, rotação, coleta mínima, backups.</td></tr>
+    <tr><td><b>Compartilhamento de chave</b></td><td><span class="status st-ok">BAIXO</span></td><td>Limite de dispositivos + trilha de eventos + token curto revalidando pagamento.</td></tr>
+    <tr><td><b>Custo de IA descontrolado</b></td><td><span class="status st-ok">BAIXO</span></td><td>Modelo rápido para SKU, elaborado só para relatório; cache; rate limit por licença; custo exibido antes de gerar criativo.</td></tr>
+  </table></div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 13 ============================ -->
+<section id="roadmap">
+  <div class="eyebrow">Parte 13</div>
+  <h2>Roadmap por etapas</h2>
+  <p class="lede">Cada etapa entrega algo usável, com critério de aceite — e todas conectam pelos contratos do Anexo.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Etapa</th><th>Entrega</th><th>Critério de aceite</th></tr>
+    <tr><td><b>0 · Projeto</b> <span class="status st-ok">ESTE DOC</span></td><td>Documento-mestre publicado + identidade (logo, ícones).</td><td>Karina valida escopo, segurança e roadmap.</td></tr>
+    <tr><td><b>1 · Coletor</b></td><td>Extensão beta: interceptação pas/mydata/cadastro/afiliados, normalização, painel com aba Debug.</td><td>Números do painel batem com a tela em 3 contas do time.</td></tr>
+    <tr><td><b>2 · Cérebro + Banco</b></td><td>Endpoints /analyze e /calc, Supabase com Camada 1, vereditos nas abas Visão/Ads/Cadastro.</td><td>Diagnóstico da extensão bate com o diagnóstico das IAs (mesma conta, mesmo período) já com regras oCPM.</td></tr>
+    <tr><td><b>3 · Cofre + Calculadora</b></td><td>Card na página do produto, cadastro inline, importação em massa, equilíbrio por produto nos vereditos.</td><td>Conta com 50+ SKUs precificada em menos de 5 minutos via massa.</td></tr>
+    <tr><td><b>4 · Licença Hotmart</b></td><td>Webhook, chave por e-mail, resgate, re-ativação silenciosa, limite de dispositivo.</td><td>Compra de teste ativa sozinha; cancelamento suspende sozinho.</td></tr>
+    <tr><td><b>5 · Relatórios</b></td><td>Semanal e mensal com link vivo + PDF, narrativa com os prompts atualizados, agregação noturna (Camada 2).</td><td>Relatório semanal aprovado por você no formato e no julgamento; benchmark aparece com n≥10.</td></tr>
+    <tr><td><b>6 · Mercado</b></td><td>Aba Mercado: Apify + benchmark próprio + sugestão de título.</td><td>Pesquisa de um produto real devolve sugestões acionáveis em &lt;30s.</td></tr>
+    <tr><td><b>7 · ClipSeller</b></td><td>Crítica de criativo + geração de fotos na tela; vídeo/UGC na sequência.</td><td>Foto gerada a partir de anúncio real, pronta para subir, com custo exibido antes.</td></tr>
+    <tr><td><b>8 · Lançamento</b></td><td>Manual de uso, beta interna nas contas do time, empacotamento e submissão à Web Store.</td><td>2 semanas de beta interna sem bug bloqueante; manual publicado na Central de Materiais.</td></tr>
+  </table></div>
+  <div class="callout o"><b>Ordem pensada para validar cedo:</b> a Etapa 1 já é demonstrável em live; a Etapa 2 já substitui a importação de CSV para o time; da Etapa 4 em diante o produto já pode ser vendido no Club como beta fundadora.</div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ PARTE 14 ============================ -->
+<section id="sugestoes">
+  <div class="eyebrow pp">Parte 14</div>
+  <h2>Sugestões estratégicas</h2>
+  <p class="lede">O que eu adicionaria ao redor do produto — em ordem do que mais gera valor primeiro.</p>
+  <ul class="list">
+    <li><strong>Modo agência multi-conta:</strong> troca de loja mantendo histórico e Cofre separados por conta. Os consultores Efeito Vendas viram os primeiros power users e o produto ganha um plano superior natural.</li>
+    <li><strong>Selo pedagógico:</strong> cada veredito linka para o módulo correspondente da Trilha Shopee Ads — a extensão vira funil do curso, e o curso vira manual da extensão.</li>
+    <li><strong>Alertas proativos no badge:</strong> "produto entrou na zona de ruído", "campanha bateu o teto", "produto maduro ainda em Automático" — a extensão puxa o seller de volta, sustentando o hábito diário.</li>
+    <li><strong>Relatório como arma de aquisição:</strong> versão "diagnóstico de apresentação" para consultores mostrarem a prospects — a mesma engine, com marca, vendendo a consultoria e o Club.</li>
+    <li><strong>Beta fundadora:</strong> lançar para o Seller.IA Club com preço de fundador vitalício em troca de feedback e dos primeiros dados da Camada 2 — resolve o frio inicial do benchmark.</li>
+    <li><strong>Telemetria de produto (opt-in):</strong> quais abas e vereditos são mais usados — orienta o roadmap com uso real, não com achismo.</li>
+    <li><strong>Futuro próximo:</strong> sincronização em segundo plano via Shopee Open Platform (dados sem depender de navegação) e versão Mercado Livre da mesma arquitetura — o cérebro e o banco já nascem preparados para multi-marketplace.</li>
+  </ul>
+</section>
+
+<div class="divider"></div>
+
+<!-- ============================ ANEXO ============================ -->
+<section id="anexo">
+  <div class="eyebrow">Anexo</div>
+  <h2>Contratos de dados</h2>
+  <p class="lede">O formato que amarra as etapas. Se todos os módulos falam isto, nada precisa ser refeito depois.</p>
+
+  <h3><span class="n">A.1</span> Snapshot de produto (extensão → cérebro)</h3>
+  <pre>{
+  "conta": "&lt;hash da licença&gt;",
+  "coletado_em": "2026-07-23T14:02:11Z",
+  "origem": "pas | mydata | pagina_produto | afiliados | busca_ativa",
+  "periodo": { "de": "2026-07-16", "ate": "2026-07-22" },
+  "produto": {
+    "id_shopee": "123456789",
+    "titulo": "…", "categoria": "…", "preco": 79.99, "variacoes": [],
+    "imagens": ["url1", "url2"]
+  },
+  "metricas": {
+    "impressoes": 105752, "cliques": 3166, "conversoes": 92,
+    "gasto": 412.30, "gmv": 4310.00, "posicao_media": 6.4,
+    "gmv_total_produto": 6120.00, "visitas_produto": 4890
+  }
+}</pre>
+
+  <h3><span class="n">A.2</span> Veredito (cérebro → extensão / relatório)</h3>
+  <pre>{
+  "rules_version": "ocpm-1.0",
+  "id_shopee": "123456789",
+  "status": "atencao",
+  "manchete": "…",
+  "diagnostico": "…",
+  "acao": { "fazer": "…", "se_fizer": "…", "se_nao_fizer": "…" },
+  "veredito": "ESCALAR | MANTER | AVALIAR | OTIMIZAR | RESGATAR | PAUSAR",
+  "classificacao": { "curva": "B", "quadrante": "ESCALA", "legivel": true },
+  "economia": { "margem_pct": 23.4, "roas_equilibrio": 4.27, "fonte_custo": "cofre" },
+  "alertas": ["atribuicao_incompleta"]
+}</pre>
+
+  <h3><span class="n">A.3</span> Item do Cofre</h3>
+  <pre>{ "id_shopee": "123456789", "custo": 21.50, "embalagem": 1.20,
+  "origem": "manual | massa | estimado", "atualizado_em": "…" }</pre>
+</section>
+
+</main>
+
+<footer>
+  SELLER.IA EXTENSÃO · DOCUMENTO-MESTRE v1.0 · EFEITO VENDAS · JULHO 2026<br>
+  DOCUMENTO INTERNO E CONFIDENCIAL — NÃO DISTRIBUIR
+</footer>
+
+<script>
+document.querySelectorAll('#toc a').forEach(function(a){
+  a.addEventListener('click', function(){ document.getElementById('toc').classList.remove('open'); });
+});
+</script>
+</body>
+</html>
