@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.6.0';
+  var VERSAO = '0.6.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -28,6 +28,7 @@
     cadastro: null,          // get_product_info: preco, estoque, categoria, fotos
     series: {},              // series temporais por campanha (get_time_graph)
     loja: null,              // shop_id + nome (selleraccount/shop_info)
+    periodoAds: null,        // janela selecionada na tela do Ads (start/end)
     diagnostico: null,       // ultimo retorno do Cerebro
     analisando: false,
     sujo: false
@@ -286,6 +287,10 @@
   function parsePas(url, corpo, dados) {
     var body = null;
     try { body = corpo ? JSON.parse(corpo) : null; } catch (e) { /* noop */ }
+    if (body && body.start_time && body.end_time) {
+      var dias = Math.max(1, Math.round((body.end_time - body.start_time) / 86400));
+      estado.periodoAds = { inicio: body.start_time, fim: body.end_time, dias: dias };
+    }
     var data = dados && dados.data !== undefined ? dados.data : null;
 
     // Lista de campanhas da homepage do Ads
@@ -445,6 +450,7 @@
       gerado_em: new Date().toISOString(),
       pagina: location.href,
       loja: estado.loja,
+      periodo_ads: estado.periodoAds,
       conta: estado.conta,
       afiliados: estado.afiliados,
       anuncio_publico: estado.anuncioPublico,
