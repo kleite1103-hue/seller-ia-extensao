@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.6.1';
+  var VERSAO = '0.7.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -745,13 +745,21 @@
       if (btn) btn.addEventListener('click', function () {
         if (estado.analisando) return;
         estado.analisando = true; estado.sujo = true; render();
-        var payload = { loja: estado.loja ? estado.loja.shop_id : 'desconhecida', snapshot: fotoDoEstado() };
         try {
+          // primeiro salva a foto desta aba (fusao no bg), depois analisa com o estado global
+          chrome.runtime.sendMessage({ tipo: 'sia:salvar', coleta: fotoDoEstado() }, function () {
+            void chrome.runtime.lastError;
+            chrome.runtime.sendMessage({ tipo: 'sia:carregar', }, function (r2) {
+              void chrome.runtime.lastError;
+              var fotoGlobal = (r2 && r2.coleta) ? r2.coleta : fotoDoEstado();
+              var payload = { loja: (fotoGlobal.loja && fotoGlobal.loja.shop_id) || (estado.loja ? estado.loja.shop_id : 'desconhecida'), snapshot: fotoGlobal };
           chrome.runtime.sendMessage({ tipo: 'sia:analisar', payload: payload }, function (resp) {
             void chrome.runtime.lastError;
             estado.analisando = false;
             estado.diagnostico = resp || { ok: false, erro: 'sem resposta do servidor' };
             estado.sujo = true; render();
+          });
+            });
           });
         } catch (e) {
           estado.analisando = false;
@@ -902,7 +910,10 @@
 
     } else if (abaAtiva === 'debug') {
       var okInterceptor = !!estado.interceptorVersao;
-      var h4 = '<div class="nota">Interceptor' +
+      var pj = estado.periodoAds ? (estado.periodoAds.dias + ' dia(s)') : 'nao capturado';
+      var lj = estado.loja ? (estado.loja.shop_id + (estado.loja.nome ? ' · ' + estado.loja.nome : '')) : 'nao capturada';
+      var h4 = '<div class="nota">Loja: <b style="color:#f2f2f4">' + esc(lj) + '</b> · Janela do Ads: <b style="color:#f2f2f4">' + esc(pj) + '</b></div>' +
+        '<div class="nota">Interceptor' +
         '<span class="selo ' + (okInterceptor ? 'ok' : 'off') + '">' + (okInterceptor ? 'ativo v' + esc(estado.interceptorVersao) : 'sem resposta') + '</span>' +
         ' · coletor v' + VERSAO + ' · pagina: ' + esc(location.pathname) + '</div>';
       if (!estado.chamadas.length) {

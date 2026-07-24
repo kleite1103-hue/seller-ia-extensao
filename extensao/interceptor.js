@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '0.3.1';
+  var VERSAO = '0.7.0';
   // v0.2: observa TODA API da Shopee (qualquer host *.shopee.*), classificacao fica no coletor
   function observar(url) {
     if (!url) return false;
@@ -21,10 +21,26 @@
     return /^https:\/\/[^\/]*shopee\.[a-z.]+\//.test(url);
   }
 
+  var coletorPronto = false;
+  var fila = [];   // captura desde o milissegundo zero; despeja quando o coletor acordar
+  var FILA_MAX = 400;
+
   function emitir(tipo, dados) {
     try {
+      if (tipo === 'SIA_DADOS' && !coletorPronto) {
+        if (fila.length < FILA_MAX) fila.push(dados);
+        return;
+      }
       window.dispatchEvent(new CustomEvent(tipo, { detail: JSON.stringify(dados) }));
     } catch (e) { /* silencioso */ }
+  }
+
+  function despejarFila() {
+    coletorPronto = true;
+    var pendentes = fila; fila = [];
+    for (var i = 0; i < pendentes.length; i++) {
+      try { window.dispatchEvent(new CustomEvent('SIA_DADOS', { detail: JSON.stringify(pendentes[i]) })); } catch (e) { /* noop */ }
+    }
   }
 
   function urlDe(args) {
@@ -89,7 +105,8 @@
 
   /* ---- presenca ---- */
   window.addEventListener('SIA_PING', function () {
-    emitir('SIA_PONG', { versao: VERSAO });
+    emitir('SIA_PONG', { versao: VERSAO, represados: fila.length });
+    despejarFila();
   });
 
   /* ---- ponte de busca ativa (coletor -> pagina, cookies da sessao) ----

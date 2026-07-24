@@ -34,7 +34,51 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
   if (!msg || !msg.tipo) return;
 
   if (msg.tipo === 'sia:salvar') {
-    gravar({ sia_coleta: msg.coleta, sia_coleta_ts: Date.now() }).then(function () { responder({ ok: true }); });
+    // FUSAO: abas diferentes somam, nunca se apagam
+    ler(['sia_coleta']).then(function (v) {
+      var antigo = v.sia_coleta || {};
+      var novo = msg.coleta || {};
+      function fundirMapa(a, b) {
+        var r = a || {};
+        for (var k in (b || {})) {
+          if (!r[k]) { r[k] = b[k]; continue; }
+          var ra = r[k], rb = b[k];
+          if (ra && rb && typeof ra === 'object' && typeof rb === 'object') {
+            if ((rb.visto_em || 0) >= (ra.visto_em || 0)) {
+              var met = Object.assign({}, ra.metricas || {}, rb.metricas || {});
+              r[k] = Object.assign({}, ra, rb);
+              r[k].metricas = met;
+            } else {
+              var met2 = Object.assign({}, rb.metricas || {}, ra.metricas || {});
+              r[k] = Object.assign({}, rb, ra);
+              r[k].metricas = met2;
+            }
+          } else r[k] = rb;
+        }
+        return r;
+      }
+      function fundirPainel(a, b) {
+        a = a || { campos: {} }; b = b || { campos: {} };
+        return {
+          campos: Object.assign({}, a.campos || {}, b.campos || {}),
+          atualizadoEm: Math.max(a.atualizadoEm || 0, b.atualizadoEm || 0) || null
+        };
+      }
+      var fundido = {
+        versao: novo.versao || antigo.versao,
+        gerado_em: new Date().toISOString(),
+        pagina: novo.pagina || antigo.pagina,
+        loja: novo.loja || antigo.loja,
+        periodo_ads: novo.periodo_ads || antigo.periodo_ads,
+        conta: fundirPainel(antigo.conta, novo.conta),
+        afiliados: fundirPainel(antigo.afiliados, novo.afiliados),
+        anuncio_publico: novo.anuncio_publico || antigo.anuncio_publico,
+        cadastro: novo.cadastro || antigo.cadastro,
+        campanhas: fundirMapa(antigo.campanhas, novo.campanhas),
+        produtos: fundirMapa(antigo.produtos, novo.produtos)
+      };
+      gravar({ sia_coleta: fundido, sia_coleta_ts: Date.now() }).then(function () { responder({ ok: true }); });
+    });
     return true;
   }
   if (msg.tipo === 'sia:carregar') {
