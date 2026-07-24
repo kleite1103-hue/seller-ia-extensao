@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.3.0';
+  var VERSAO = '0.4.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -25,6 +25,7 @@
     paginaProduto: null,
     modoPagina: null,        // 'portal' (Seller Centre) | 'publico' (visao do cliente)
     anuncioPublico: null,    // leitura da vitrine: preco, fotos, estrelas, vendidos
+    cadastro: null,          // get_product_info: preco, estoque, categoria, fotos
     sujo: false
   };
   var LIMITE_BRUTOS = 200;
@@ -76,13 +77,13 @@
     return null;
   }
 
-  function dinheiro(v) {
+  function dinheiro(v, micro) {
     if (v === null) return null;
-    if (Number.isInteger(v) && Math.abs(v) >= 1000) return v / MICRO;
+    if (micro && Number.isInteger(v) && Math.abs(v) >= 1000) return v / MICRO;
     return v;
   }
 
-  function extrairMetricas(obj) {
+  function extrairMetricas(obj, micro) {
     var m = {};
     for (var k in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
@@ -90,7 +91,7 @@
       if (!chave) continue;
       var v = numero(obj[k]);
       if (v === null) continue;
-      m[chave] = CAMPOS_DINHEIRO[chave] ? dinheiro(v) : v;
+      m[chave] = CAMPOS_DINHEIRO[chave] ? dinheiro(v, micro) : v;
     }
     return m;
   }
@@ -139,7 +140,7 @@
       nome: (typeof nome === 'string' && nome.length > 1) ? nome : ctx.nome
     };
 
-    var metricas = extrairMetricas(no);
+    var metricas = extrairMetricas(no, ctx.tag === 'ads' || ctx.tag === 'publico');
     if (Object.keys(metricas).length) {
       if (novoCtx.idProd) {
         var p = entidadeProduto(novoCtx.idProd);
@@ -149,7 +150,7 @@
         p.origem = ctx.tag; p.visto_em = Date.now();
         if (ctx.tag === 'performance') camposNumericos(no, p.campos);
         estado.sujo = true;
-      } else if (novoCtx.idCamp) {
+      } else if (novoCtx.idCamp && ctx.tag === 'ads') {
         var c = entidadeCampanha(novoCtx.idCamp);
         for (var ck in metricas) c.metricas[ck] = metricas[ck];
         if (novoCtx.nome) c.nome = novoCtx.nome;
@@ -190,6 +191,43 @@
       alvo.atualizadoEm = Date.now();
       estado.sujo = true;
     }
+  }
+
+  function absorverCadastro(json) {
+    try {
+      var pi = json && json.data && json.data.product_info;
+      if (!pi || !pi.id) return;
+      var precoN = null, precoP = null, estoque = 0;
+      var lista = Array.isArray(pi.model_list) ? pi.model_list : [];
+      for (var i = 0; i < lista.length; i++) {
+        var mo = lista[i];
+        if (mo.price_info) {
+          var pn = numero(mo.price_info.normal_price);
+          var pp = numero(mo.price_info.promotion_price);
+          if (pn !== null && (precoN === null || pn < precoN)) precoN = pn;
+          if (pp !== null && pp > 0 && (precoP === null || pp < precoP)) precoP = pp;
+        }
+        if (mo.stock_detail && numero(mo.stock_detail.total_available_stock) !== null) {
+          estoque += numero(mo.stock_detail.total_available_stock);
+        }
+      }
+      estado.cadastro = {
+        id: String(pi.id),
+        nome: pi.name || '',
+        preco: precoN,
+        preco_promo: precoP,
+        estoque: estoque,
+        categoria: Array.isArray(pi.category_path_name_list) ? pi.category_path_name_list.join(' > ') : '',
+        n_fotos: Array.isArray(pi.images) ? pi.images.length : 0,
+        imagens: Array.isArray(pi.images) ? pi.images.slice(0, 12) : [],
+        variacoes: lista.length,
+        capturado_em: Date.now()
+      };
+      var p = entidadeProduto(estado.cadastro.id);
+      if (estado.cadastro.nome) p.nome = estado.cadastro.nome;
+      if (precoP !== null || precoN !== null) p.preco_cadastro = precoP !== null ? precoP : precoN;
+      estado.sujo = true;
+    } catch (e) { /* calibrar com exportacao */ }
   }
 
   function absorverPublico(json) {
@@ -251,6 +289,7 @@
     if (estado.brutos.length > LIMITE_BRUTOS) estado.brutos.length = LIMITE_BRUTOS;
 
     if (tag === 'publico') { absorverPublico(pacote.dados); }
+    else if (tag === 'cadastro' && pacote.url.indexOf('get_product_info') >= 0) { absorverCadastro(pacote.dados); }
     else if (tag === 'conta') { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); garimpar(pacote.dados, { tag: tag }); }
     else if (tag === 'outra') { /* so registra no debug */ }
@@ -288,6 +327,7 @@
       conta: estado.conta,
       afiliados: estado.afiliados,
       anuncio_publico: estado.anuncioPublico,
+      cadastro: estado.cadastro,
       campanhas: estado.campanhas,
       produtos: estado.produtos
     };
@@ -451,6 +491,77 @@
       '<td class="num">' + (m.posicao === undefined ? '—' : fmt(m.posicao, 1)) + '</td>';
   }
 
+  var TRADUCAO = {
+    uv: 'Visitantes unicos', pv: 'Visualizacoes de pagina', hybrid_uv: 'Visitantes (hibrido)',
+    iv: 'Visitantes via busca interna',
+    atc_uv: 'Visitantes que add. ao carrinho', atc_unit_num: 'Unidades no carrinho', atc_rate: 'Taxa de carrinho',
+    bounce_rate: 'Taxa de rejeicao', bounce_visitors: 'Visitantes que sairam',
+    conversion_rate: 'Conversao',
+    placed_gmv: 'GMV pedidos feitos', paid_gmv: 'GMV pago', confirmed_gmv: 'GMV confirmado',
+    placed_order: 'Pedidos feitos', paid_order: 'Pedidos pagos', confirmed_order: 'Pedidos confirmados',
+    placed_buyers: 'Compradores (feitos)', paid_buyers: 'Compradores (pagos)', confirmed_buyers: 'Compradores (confirm.)',
+    placed_unit_num: 'Unidades (feitas)', paid_unit_num: 'Unidades (pagas)', confirmed_unit_num: 'Unidades (confirm.)',
+    placed_items: 'Itens distintos (feitos)', paid_items: 'Itens distintos (pagos)', confirmed_items: 'Itens distintos (confirm.)',
+    like_unit_num: 'Curtidas', sales: 'Vendas', units: 'Unidades', orders: 'Pedidos', buyers: 'Compradores',
+    product_clicks: 'Cliques em produto', uv_to_buyers_rate: 'Visitante virou comprador',
+    product_clicks_to_orders_rate: 'Clique virou pedido',
+    placed_buyers_to_confirmed_buyers_rate: 'Feito que confirmou',
+    average_days_to_repeat_placed_order: 'Dias p/ recomprar (feito)',
+    average_days_to_repeat_paid_order: 'Dias p/ recomprar (pago)',
+    average_days_to_repeat_confirmed_order: 'Dias p/ recomprar (confirm.)'
+  };
+  var CAMPOS_PORCENTO = { atc_rate:1, bounce_rate:1, conversion_rate:1, uv_to_buyers_rate:1, product_clicks_to_orders_rate:1, placed_buyers_to_confirmed_buyers_rate:1 };
+  var CAMPOS_REAIS = { placed_gmv:1, paid_gmv:1, confirmed_gmv:1, sales:1 };
+
+  function paresGerenciais(campos) {
+    // agrupa {base}.value / {base}.ratio + campos soltos {base} / {base}_pct_diff
+    var pares = {};
+    for (var k in campos) {
+      var m1 = k.match(/^(?:key_metrics\.)?(.+)\.(value|ratio)$/);
+      var m2 = k.match(/^(?:key_metrics\.)?(.+?)(_pct_diff)?$/);
+      if (m1) {
+        var b1 = m1[1];
+        if (!pares[b1]) pares[b1] = {};
+        pares[b1][m1[2] === 'value' ? 'v' : 'r'] = campos[k];
+      } else if (m2 && !/\./.test(m2[1])) {
+        var b2 = m2[1];
+        if (b2 === 'code') continue;
+        if (!pares[b2]) pares[b2] = {};
+        if (m2[2]) pares[b2].r = campos[k]; else if (pares[b2].v === undefined) pares[b2].v = campos[k];
+      }
+    }
+    return pares;
+  }
+
+  function tabelaGerenciais(campos, atualizadoEm) {
+    var pares = paresGerenciais(campos);
+    var bases = Object.keys(pares);
+    if (!bases.length) return null;
+    bases.sort(function (a, b) {
+      var ta = TRADUCAO[a] ? 0 : 1, tb = TRADUCAO[b] ? 0 : 1;
+      return ta !== tb ? ta - tb : a.localeCompare(b);
+    });
+    var h = '<div class="nota">Informacoes Gerenciais (' + (atualizadoEm ? hora(atualizadoEm) : '') + ') — variacao vs periodo anterior fornecida pela propria Shopee:</div>';
+    h += '<table><tr><th>Indicador</th><th class="num">Valor</th><th class="num">Variacao</th></tr>';
+    for (var i = 0; i < Math.min(bases.length, 70); i++) {
+      var b = bases[i], p = pares[b];
+      if (p.v === undefined) continue;
+      var rotulo = TRADUCAO[b] || (b + ' (calibrar)');
+      var valor;
+      if (CAMPOS_PORCENTO[b]) valor = fmt(p.v * 100, 2) + '%';
+      else if (CAMPOS_REAIS[b]) valor = reais(p.v);
+      else valor = fmt(p.v, p.v % 1 ? 2 : 0);
+      var varh = '—';
+      if (p.r !== undefined && p.r !== null) {
+        var pct = p.r * 100;
+        var cor = pct >= 0 ? '#2ecc71' : '#e74c3c';
+        varh = '<span style="color:' + cor + '">' + (pct >= 0 ? '+' : '') + fmt(pct, 1) + '%</span>';
+      }
+      h += '<tr><td class="nome">' + esc(rotulo) + '</td><td class="num">' + valor + '</td><td class="num">' + varh + '</td></tr>';
+    }
+    return h + '</table>';
+  }
+
   function tabelaCampos(campos, atualizadoEm, titulo) {
     var chaves = Object.keys(campos);
     if (!chaves.length) return null;
@@ -481,7 +592,7 @@
         '<div class="kpi"><div class="v">' + fmt(t.pedidos) + '</div><div class="l">Pedidos via ads</div></div>' +
         '<div class="kpi"><div class="v">' + t.n + '</div><div class="l">Produtos lidos</div></div>' +
         '</div>';
-      var tc = tabelaCampos(estado.conta.campos, estado.conta.atualizadoEm, 'Informacoes Gerenciais capturadas');
+      var tc = tabelaGerenciais(estado.conta.campos, estado.conta.atualizadoEm);
       h += tc || '<div class="vazio">Abra a area de <b>Informacoes Gerenciais</b> para a leitura da conta.</div>';
       corpo.innerHTML = h;
 
@@ -557,7 +668,19 @@
         return;
       }
       if (estado.paginaProduto) {
-        h3 += '<div class="kpis"><div class="kpi"><div class="v">' + esc(estado.paginaProduto) + '</div><div class="l">ID do produto (chave-mestra)</div></div></div>';
+        var cad = estado.cadastro && estado.cadastro.id === estado.paginaProduto ? estado.cadastro : null;
+        if (cad) {
+          h3 += '<div class="kpis">' +
+            '<div class="kpi"><div class="v">' + reais(cad.preco_promo !== null ? cad.preco_promo : cad.preco) + '</div><div class="l">' + (cad.preco_promo !== null ? 'Preco promocional' : 'Preco') + '</div></div>' +
+            (cad.preco_promo !== null ? '<div class="kpi"><div class="v">' + reais(cad.preco) + '</div><div class="l">Preco normal</div></div>' : '') +
+            '<div class="kpi"><div class="v">' + fmt(cad.estoque) + '</div><div class="l">Estoque</div></div>' +
+            '<div class="kpi"><div class="v">' + cad.n_fotos + '</div><div class="l">Fotos</div></div>' +
+            '<div class="kpi"><div class="v">' + cad.variacoes + '</div><div class="l">Variacoes</div></div>' +
+            '</div>' +
+            '<div class="nota"><b style="color:#f2f2f4">' + esc(cad.nome) + '</b><br>ID ' + esc(cad.id) + ' · ' + esc(cad.categoria) + '</div>';
+        } else {
+          h3 += '<div class="kpis"><div class="kpi"><div class="v">' + esc(estado.paginaProduto) + '</div><div class="l">ID do produto (chave-mestra)</div></div></div>';
+        }
         var p = estado.produtos[estado.paginaProduto];
         if (p) {
           h3 += '<table><tr><th>Produto</th><th class="num">Gasto</th><th class="num">GMV</th><th class="num">ROAS</th><th class="num">Impr.</th><th class="num">Cliques</th><th class="num">CTR</th><th class="num">Pedidos</th><th class="num">Pos.</th></tr>' +
