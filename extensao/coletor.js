@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.2.0';
+  var VERSAO = '0.3.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -23,6 +23,8 @@
     conta: { campos: {}, atualizadoEm: null },
     afiliados: { campos: {}, atualizadoEm: null },
     paginaProduto: null,
+    modoPagina: null,        // 'portal' (Seller Centre) | 'publico' (visao do cliente)
+    anuncioPublico: null,    // leitura da vitrine: preco, fotos, estrelas, vendidos
     sujo: false
   };
   var LIMITE_BRUTOS = 200;
@@ -190,6 +192,38 @@
     }
   }
 
+  function absorverPublico(json) {
+    // procura o primeiro objeto com identidade de item + nome
+    var achado = null;
+    (function busca(no, prof) {
+      if (achado || !no || typeof no !== 'object' || prof > 6) return;
+      if (Array.isArray(no)) { for (var i = 0; i < no.length && !achado; i++) busca(no[i], prof + 1); return; }
+      var id = acharCampo(no, CAMPOS_ID_PRODUTO);
+      var nome = acharCampo(no, ['name', 'title']);
+      if (id && typeof nome === 'string' && nome.length > 3) { achado = { no: no, id: String(id), nome: nome }; return; }
+      for (var k in no) { if (no[k] && typeof no[k] === 'object') busca(no[k], prof + 1); }
+    })(json, 0);
+    if (!achado) return;
+    var no = achado.no;
+    var preco = numero(no.price_min !== undefined ? no.price_min : no.price);
+    var a = {
+      id: achado.id,
+      nome: achado.nome,
+      preco: preco !== null ? dinheiro(preco) : null,
+      preco_max: no.price_max !== undefined ? dinheiro(numero(no.price_max)) : null,
+      estrelas: no.item_rating && numero(no.item_rating.rating_star) !== null ? numero(no.item_rating.rating_star) : null,
+      vendidos: numero(no.historical_sold !== undefined ? no.historical_sold : (no.global_sold_count !== undefined ? no.global_sold_count : no.sold)),
+      imagens: Array.isArray(no.images) ? no.images.slice(0, 12) : [],
+      capturado_em: Date.now()
+    };
+    estado.anuncioPublico = a;
+    // tambem alimenta a entidade produto pela chave-mestra
+    var p = entidadeProduto(a.id);
+    if (a.nome) p.nome = a.nome;
+    if (a.preco !== null) p.preco_publico = a.preco;
+    estado.sujo = true;
+  }
+
   function classificar(url) {
     if (url.indexOf('/api/pas/') >= 0) return 'ads';
     if (url.indexOf('affiliate') >= 0) return 'afiliados';
@@ -197,6 +231,7 @@
     if (url.indexOf('/api/mydata/') >= 0) return 'conta';
     if (url.indexOf('/api/v3/product/') >= 0 || url.indexOf('/api/v4/product/') >= 0) return 'cadastro';
     if (url.indexOf('/api/marketing/') >= 0) return 'marketing';
+    if (url.indexOf('/api/v4/pdp') >= 0 || url.indexOf('/api/v4/item') >= 0 || url.indexOf('/api/v2/item') >= 0) return 'publico';
     return 'outra';
   }
 
@@ -215,7 +250,8 @@
     estado.brutos.unshift({ ts: pacote.ts, url: pacote.url, metodo: pacote.metodo, corpo: pacote.corpo, dados: pacote.dados });
     if (estado.brutos.length > LIMITE_BRUTOS) estado.brutos.length = LIMITE_BRUTOS;
 
-    if (tag === 'conta') { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
+    if (tag === 'publico') { absorverPublico(pacote.dados); }
+    else if (tag === 'conta') { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); garimpar(pacote.dados, { tag: tag }); }
     else if (tag === 'outra') { /* so registra no debug */ }
     else garimpar(pacote.dados, { tag: tag });
@@ -228,8 +264,17 @@
   try { window.dispatchEvent(new CustomEvent('SIA_PING')); } catch (e) { /* noop */ }
 
   function detectarPaginaProduto() {
-    var m = location.pathname.match(/\/portal\/product\/(\d{6,})/) || location.search.match(/[?&](?:item_?id|product_?id)=(\d{6,})/);
-    estado.paginaProduto = m ? m[1] : null;
+    var host = location.hostname;
+    if (host === 'seller.shopee.com.br') {
+      var m = location.pathname.match(/\/portal\/product\/(\d{6,})/) || location.search.match(/[?&](?:item_?id|product_?id)=(\d{6,})/);
+      estado.paginaProduto = m ? m[1] : null;
+      estado.modoPagina = 'portal';
+      return;
+    }
+    // pagina publica: .../nome-do-produto-i.SHOPID.ITEMID
+    var mp = location.pathname.match(/-i\.(\d+)\.(\d+)$/);
+    if (mp) { estado.paginaProduto = mp[2]; estado.modoPagina = 'publico'; }
+    else { estado.paginaProduto = null; estado.modoPagina = host.indexOf('shopee') >= 0 ? 'publico' : null; }
   }
   detectarPaginaProduto();
   setInterval(detectarPaginaProduto, 1500);
@@ -242,6 +287,7 @@
       pagina: location.href,
       conta: estado.conta,
       afiliados: estado.afiliados,
+      anuncio_publico: estado.anuncioPublico,
       campanhas: estado.campanhas,
       produtos: estado.produtos
     };
@@ -335,7 +381,7 @@
     { id: 'produtos', rotulo: 'Produtos (Ads)' },
     { id: 'performance', rotulo: 'Performance' },
     { id: 'afiliados', rotulo: 'Afiliados' },
-    { id: 'cadastro', rotulo: 'Cadastro' },
+    { id: 'cadastro', rotulo: 'Anuncio' },
     { id: 'debug', rotulo: 'Debug' }
   ];
 
@@ -489,6 +535,27 @@
 
     } else if (abaAtiva === 'cadastro') {
       var h3 = '';
+      if (estado.modoPagina === 'publico') {
+        var ap = estado.anuncioPublico;
+        if (ap) {
+          h3 += '<div class="kpis">' +
+            '<div class="kpi"><div class="v">' + reais(ap.preco) + '</div><div class="l">Preco exibido</div></div>' +
+            '<div class="kpi"><div class="v">' + (ap.estrelas === null ? '—' : fmt(ap.estrelas, 2)) + '</div><div class="l">Estrelas</div></div>' +
+            '<div class="kpi"><div class="v">' + fmt(ap.vendidos) + '</div><div class="l">Vendidos</div></div>' +
+            '<div class="kpi"><div class="v">' + ap.imagens.length + '</div><div class="l">Fotos no anuncio</div></div>' +
+            '</div>' +
+            '<div class="nota"><b style="color:#f2f2f4">' + esc(ap.nome) + '</b><br>ID ' + esc(ap.id) + ' — visao do cliente (vitrine). E daqui que o ClipSeller vai ler as fotos para critica e geracao de criativos (Etapa 7).</div>';
+          var pv = estado.produtos[ap.id];
+          if (pv && (pv.metricas.gasto !== undefined || pv.metricas.roas !== undefined)) {
+            h3 += '<table><tr><th>Ads deste produto</th><th class="num">Gasto</th><th class="num">GMV</th><th class="num">ROAS</th><th class="num">Impr.</th><th class="num">Cliques</th><th class="num">CTR</th><th class="num">Pedidos</th><th class="num">Pos.</th></tr>' +
+              '<tr><td class="nome">' + esc(pv.nome || '') + '</td>' + linhaMetrica(pv.metricas) + '</tr></table>';
+          }
+        } else {
+          h3 = '<div class="vazio">Pagina publica detectada' + (estado.paginaProduto ? ' (ID ' + esc(estado.paginaProduto) + ')' : '') + '. Recarregue a pagina com a extensao ativa para capturar a vitrine (preco, fotos, estrelas, vendidos).</div>';
+        }
+        corpo.innerHTML = h3;
+        return;
+      }
       if (estado.paginaProduto) {
         h3 += '<div class="kpis"><div class="kpi"><div class="v">' + esc(estado.paginaProduto) + '</div><div class="l">ID do produto (chave-mestra)</div></div></div>';
         var p = estado.produtos[estado.paginaProduto];
