@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Seller.IA — Coletor (Beta interna)",
+  "version": "0.1.0",
+  "description": "Beta interna Efeito Vendas: coleta e valida a leitura da conta no Seller Centre da Shopee. Nao distribuir.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://seller.shopee.com.br/*"
+  ],
+  "background": { "service_worker": "bg.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://seller.shopee.com.br/*"],
+      "js": ["interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://seller.shopee.com.br/*"],
+      "js": ["coletor.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
