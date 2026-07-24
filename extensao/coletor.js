@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.5.1';
+  var VERSAO = '0.6.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -27,6 +27,9 @@
     anuncioPublico: null,    // leitura da vitrine: preco, fotos, estrelas, vendidos
     cadastro: null,          // get_product_info: preco, estoque, categoria, fotos
     series: {},              // series temporais por campanha (get_time_graph)
+    loja: null,              // shop_id + nome (selleraccount/shop_info)
+    diagnostico: null,       // ultimo retorno do Cerebro
+    analisando: false,
     sujo: false
   };
   var LIMITE_BRUTOS = 200;
@@ -248,8 +251,8 @@
     var a = {
       id: achado.id,
       nome: achado.nome,
-      preco: preco !== null ? dinheiro(preco) : null,
-      preco_max: no.price_max !== undefined ? dinheiro(numero(no.price_max)) : null,
+      preco: preco !== null ? dinheiro(preco, true) : null,
+      preco_max: no.price_max !== undefined ? dinheiro(numero(no.price_max), true) : null,
       estrelas: no.item_rating && numero(no.item_rating.rating_star) !== null ? numero(no.item_rating.rating_star) : null,
       vendidos: numero(no.historical_sold !== undefined ? no.historical_sold : (no.global_sold_count !== undefined ? no.global_sold_count : no.sold)),
       imagens: Array.isArray(no.images) ? no.images.slice(0, 12) : [],
@@ -311,8 +314,16 @@
       if (data.campaign) { var entc = metaCampanha(data.campaign); idCamp = data.campaign.campaign_id ? String(data.campaign.campaign_id) : null; }
       var lista = Array.isArray(data.ads_list) ? data.ads_list : [];
       for (var j = 0; j < lista.length; j++) {
-        garimpar(lista[j], { tag: 'ads', idCamp: idCamp });
+        var ad = lista[j] || {};
+        var idItem = acharCampo(ad, CAMPOS_ID_PRODUTO);
+        if (idItem) {
+          var pAd = entidadeProduto(String(idItem));
+          if (idCamp) pAd.campanha = idCamp;
+          pAd.origem = 'ads'; pAd.visto_em = Date.now();
+        }
+        garimpar(ad, { tag: 'ads', idCamp: idCamp });
       }
+      estado.sujo = true;
       return true;
     }
 
@@ -388,7 +399,20 @@
     else if (tag === 'conta') { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); /* sem garimpo: micro proprio, tratado na v0.6 */ }
     else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
-    else if (tag === 'outra') { /* so registra no debug */ }
+    else if (tag === 'outra') {
+      if (pacote.url.indexOf('shop_info') >= 0 && !estado.loja) {
+        (function cacar(no, prof) {
+          if (estado.loja || !no || typeof no !== 'object' || prof > 4) return;
+          if (Array.isArray(no)) { for (var i = 0; i < no.length; i++) cacar(no[i], prof + 1); return; }
+          var sid = no.shop_id !== undefined ? no.shop_id : no.shopid;
+          if (sid) {
+            estado.loja = { shop_id: String(sid), nome: no.shop_name || no.name || no.username || '' };
+            estado.sujo = true; return;
+          }
+          for (var k in no) { if (no[k] && typeof no[k] === 'object') cacar(no[k], prof + 1); }
+        })(pacote.dados, 0);
+      }
+    }
     else garimpar(pacote.dados, { tag: tag });
     estado.sujo = true;
   });
@@ -420,6 +444,7 @@
       versao: VERSAO,
       gerado_em: new Date().toISOString(),
       pagina: location.href,
+      loja: estado.loja,
       conta: estado.conta,
       afiliados: estado.afiliados,
       anuncio_publico: estado.anuncioPublico,
@@ -438,6 +463,7 @@
     chrome.runtime.sendMessage({ tipo: 'sia:carregar' }, function (resp) {
       void chrome.runtime.lastError;
       if (resp && resp.coleta) {
+        estado.loja = resp.coleta.loja || estado.loja;
         estado.conta = resp.coleta.conta || estado.conta;
         estado.afiliados = resp.coleta.afiliados || estado.afiliados;
         estado.campanhas = resp.coleta.campanhas || {};
@@ -512,6 +538,7 @@
   var $ = function (id) { return raiz.getElementById(id); };
   var abaAtiva = 'visao';
   var ABAS = [
+    { id: 'diagnostico', rotulo: 'Diagnostico' },
     { id: 'visao', rotulo: 'Visao da Conta' },
     { id: 'campanhas', rotulo: 'Campanhas' },
     { id: 'produtos', rotulo: 'Produtos (Ads)' },
@@ -679,7 +706,55 @@
     var nP = Object.keys(estado.produtos).length;
     $('sia-info').textContent = nC + ' campanhas · ' + nP + ' produtos · ' + estado.chamadas.length + ' chamadas';
 
-    if (abaAtiva === 'visao') {
+    if (abaAtiva === 'diagnostico') {
+      var dg = estado.diagnostico;
+      var hd = '';
+      hd += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">' +
+        '<button id="sia-analisar" style="background:linear-gradient(120deg,#ff4d1c,#7B2FFF);border:none;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:pointer">' +
+        (estado.analisando ? 'Analisando...' : 'Analisar conta agora') + '</button>' +
+        '<span class="nota" style="margin:0">' + (dg && dg.rules_version ? 'Regras ' + esc(dg.rules_version) + ' · cerebro no servidor' : 'Envia a coleta ao Cerebro Seller.IA e recebe os vereditos do metodo.') + '</span></div>';
+      if (dg && dg.erro) hd += '<div class="nota" style="color:#e74c3c">Falha: ' + esc(dg.erro) + '</div>';
+      if (dg && dg.vereditos && dg.vereditos.length) {
+        for (var v = 0; v < dg.vereditos.length; v++) {
+          var vd = dg.vereditos[v];
+          var cor = vd.status === 'forte' ? '#2ecc71' : (vd.status === 'critico' ? '#e74c3c' : '#f5b041');
+          hd += '<div style="border:1px solid #1d212a;border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;background:#12151b;padding:12px 14px;margin-bottom:10px">' +
+            '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+              '<span style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid ' + cor + ';color:' + cor + ';border-radius:99px;padding:2px 8px">' + esc(vd.veredito) + '</span>' +
+              '<span style="font-size:10px;color:#7d8290">' + esc(vd.escopo) + (vd.nome ? ' · ' + esc(String(vd.nome).slice(0, 55)) : '') + '</span></div>' +
+            '<div style="font-weight:700;font-size:13px;margin:7px 0 4px;color:#f2f2f4">' + esc(vd.manchete) + '</div>' +
+            '<div style="font-size:12px;color:#b8bcc6;line-height:1.5">' + esc(vd.diagnostico) + '</div>' +
+            (vd.acao ? '<div style="font-size:12px;margin-top:8px;color:#b8bcc6"><b style="color:#f2f2f4">O que fazer:</b> ' + esc(vd.acao.fazer) +
+              '<br><span style="color:#2ecc71">Se fizer:</span> ' + esc(vd.acao.se_fizer) +
+              '<br><span style="color:#e74c3c">Se nao fizer:</span> ' + esc(vd.acao.se_nao_fizer) + '</div>' : '') +
+            '</div>';
+        }
+      } else if (dg && dg.vereditos) {
+        hd += '<div class="vazio">O Cerebro nao encontrou nada para julgar ainda — navegue pelo Ads e pelas Informacoes Gerenciais e analise de novo.</div>';
+      } else if (!dg) {
+        hd += '<div class="vazio">Navegue pelas telas (Ads, Informacoes Gerenciais) e clique em <b>Analisar conta agora</b>.<br>Os vereditos do metodo aparecem aqui — manchete, diagnostico e acao.</div>';
+      }
+      corpo.innerHTML = hd;
+      var btn = raiz.getElementById('sia-analisar');
+      if (btn) btn.addEventListener('click', function () {
+        if (estado.analisando) return;
+        estado.analisando = true; estado.sujo = true; render();
+        var payload = { loja: estado.loja ? estado.loja.shop_id : 'desconhecida', snapshot: fotoDoEstado() };
+        try {
+          chrome.runtime.sendMessage({ tipo: 'sia:analisar', payload: payload }, function (resp) {
+            void chrome.runtime.lastError;
+            estado.analisando = false;
+            estado.diagnostico = resp || { ok: false, erro: 'sem resposta do servidor' };
+            estado.sujo = true; render();
+          });
+        } catch (e) {
+          estado.analisando = false;
+          estado.diagnostico = { ok: false, erro: 'extensao recarregada — atualize a pagina' };
+          estado.sujo = true; render();
+        }
+      });
+
+    } else if (abaAtiva === 'visao') {
       var t = somaProdutos();
       var h = '<div class="kpis">' +
         '<div class="kpi"><div class="v">' + reais(t.gasto) + '</div><div class="l">Gasto (ads lidos)</div></div>' +
