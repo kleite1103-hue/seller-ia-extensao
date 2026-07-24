@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '0.2.0';
+  var VERSAO = '0.3.1';
   // v0.2: observa TODA API da Shopee (qualquer host *.shopee.*), classificacao fica no coletor
   function observar(url) {
     if (!url) return false;
@@ -101,6 +101,9 @@
     if (!req || !req.url || !req.id) return;
     var permitida = /^\/(api|datacenter)\//.test(req.url) ||
       /^https:\/\/seller\.shopee\.com\.br\/(api|datacenter)\//.test(req.url);
+    // trava de escrita: qualquer rota com verbo de alteracao e recusada,
+    // mesmo que um bug tente chama-la. A extensao NUNCA modifica a conta.
+    if (/(update|save|edit|delete|create|set_|submit|publish|upload|modify|adjust|batch_operate)/i.test(req.url)) permitida = false;
     if (!permitida) {
       emitir('SIA_BUSCA_RESULTADO', { id: req.id, ok: false, erro: 'rota nao permitida' });
       return;
