@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.5.0';
+  var VERSAO = '0.5.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -711,7 +711,7 @@
         var estadoTxt = c.estado === 'ongoing' ? 'Ativa' : (c.estado === 'paused' ? 'Pausada' : (c.estado || '—'));
         h2 += '<tr><td class="nome">' + esc(c.nome || '(sem nome)') + '</td>' +
           '<td>' + esc(estadoTxt) + '</td><td>' + esc(c.estrategia || '—') + '</td>' +
-          '<td class="num">' + reais(m.orcamento_dia) + '</td>' +
+          '<td class="num">' + (m.orcamento_dia === 0 ? 'Sem limite' : reais(m.orcamento_dia)) + '</td>' +
           '<td class="num">' + reais(m.gasto) + '</td><td class="num">' + reais(m.gmv) + '</td>' +
           '<td class="num">' + (roasC === null ? '—' : fmt(roasC, 2) + 'x') + '</td>' +
           '<td class="num">' + (ctrC === null ? '—' : fmt(ctrC, 2) + '%') + '</td>' +
