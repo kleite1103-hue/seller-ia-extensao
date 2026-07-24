@@ -12,8 +12,14 @@
 (function () {
   'use strict';
 
-  var VERSAO = '0.1.0';
-  var OBSERVA = /\/api\/(pas|mydata|v3\/product|marketing)\//;
+  var VERSAO = '0.2.0';
+  // v0.2: observa TODA API da Shopee (qualquer host *.shopee.*), classificacao fica no coletor
+  function observar(url) {
+    if (!url) return false;
+    if (url.indexOf('/api/') < 0 && url.indexOf('/datacenter/') < 0) return false;
+    if (url.charAt(0) === '/') return true; // mesma origem (seller.shopee.com.br)
+    return /^https:\/\/[^\/]*shopee\.[a-z.]+\//.test(url);
+  }
 
   function emitir(tipo, dados) {
     try {
@@ -35,7 +41,7 @@
     var args = arguments;
     var url = urlDe(args);
     var promessa = fetchOriginal.apply(this, args);
-    if (OBSERVA.test(url)) {
+    if (observar(url)) {
       var metodo = 'GET', corpo = null;
       try {
         if (args[1]) {
@@ -64,7 +70,7 @@
   };
   XMLHttpRequest.prototype.send = function (corpo) {
     var xhr = this;
-    if (xhr.__sia_url && OBSERVA.test(xhr.__sia_url)) {
+    if (xhr.__sia_url && observar(xhr.__sia_url)) {
       xhr.addEventListener('load', function () {
         try {
           var json = JSON.parse(xhr.responseText);
@@ -93,8 +99,8 @@
     var req;
     try { req = JSON.parse(ev.detail); } catch (e) { return; }
     if (!req || !req.url || !req.id) return;
-    var permitida = /^\/api\/(pas|mydata|v3\/product|marketing)\//.test(req.url) ||
-      /^https:\/\/seller\.shopee\.com\.br\/api\/(pas|mydata|v3\/product|marketing)\//.test(req.url);
+    var permitida = /^\/(api|datacenter)\//.test(req.url) ||
+      /^https:\/\/seller\.shopee\.com\.br\/(api|datacenter)\//.test(req.url);
     if (!permitida) {
       emitir('SIA_BUSCA_RESULTADO', { id: req.id, ok: false, erro: 'rota nao permitida' });
       return;

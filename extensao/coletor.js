@@ -1,57 +1,81 @@
 /**
- * Seller.IA — coletor.js · v0.1.0 (beta interna)
- * Recebe os dados interceptados, normaliza por ID (chave-mestra),
- * mostra o painel de validacao e exporta a coleta para calibragem.
- *
- * Nesta etapa NAO ha vereditos: o objetivo e validar que a leitura
- * bate com a tela. O cerebro entra na Etapa 2.
+ * Seller.IA — coletor.js · v0.2.0 (beta interna)
+ * v0.2: garimpo com heranca de ID (metricas em objetos filhos passam a ser
+ * atribuidas ao dono), leitura de Afiliados e de Performance de Produto
+ * (funil), coercao de numeros em string e sacola de campos crus por produto
+ * para calibragem.
  */
 (function () {
   'use strict';
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.1.0';
-  var MICRO = 100000; // dinheiro das APIs internas vem em micro-unidades
+  var VERSAO = '0.2.0';
+  var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
   var estado = {
     interceptorVersao: null,
-    chamadas: [],          // registro p/ aba Debug
-    brutos: [],            // ultimos payloads crus (exportacao/calibragem)
-    campanhas: {},         // por campaignid
-    produtos: {},          // por itemid (chave-mestra)
-    conta: { campos: {}, atualizadoEm: null },   // mydata
-    paginaProduto: null,   // id detectado na URL
+    chamadas: [],
+    brutos: [],
+    campanhas: {},
+    produtos: {},
+    conta: { campos: {}, atualizadoEm: null },
+    afiliados: { campos: {}, atualizadoEm: null },
+    paginaProduto: null,
     sujo: false
   };
-  var LIMITE_BRUTOS = 150;
-  var LIMITE_CHAMADAS = 400;
+  var LIMITE_BRUTOS = 200;
+  var LIMITE_CHAMADAS = 500;
+  var LIMITE_CAMPOS_PRODUTO = 60;
 
   /* ============================ NORMALIZACAO ============================ */
-  // mapa de sinonimos -> metrica canonica
   var MAPA = {
-    impression: 'impressoes', impressions: 'impressoes', imps: 'impressoes',
-    click: 'cliques', clicks: 'cliques',
+    impression: 'impressoes', impressions: 'impressoes', imps: 'impressoes', impression_cnt: 'impressoes',
+    click: 'cliques', clicks: 'cliques', click_cnt: 'cliques',
     ctr: 'ctr',
-    cost: 'gasto', expense: 'gasto', spend: 'gasto', expenditure: 'gasto',
-    gmv: 'gmv', broad_gmv: 'gmv', direct_gmv: 'gmv_direto', sales_amount: 'gmv',
-    order: 'pedidos', orders: 'pedidos', broad_order: 'pedidos', broad_order_amount: 'pedidos', checkout: 'pedidos',
+    cost: 'gasto', expense: 'gasto', spend: 'gasto', expenditure: 'gasto', cost_amount: 'gasto',
+    gmv: 'gmv', broad_gmv: 'gmv', sales_amount: 'gmv', gmv_amount: 'gmv',
+    direct_gmv: 'gmv_direto',
+    order: 'pedidos', orders: 'pedidos', broad_order: 'pedidos', broad_order_amount: 'pedidos',
+    checkout: 'pedidos', order_cnt: 'pedidos', placed_order_cnt: 'pedidos', paid_order_cnt: 'pedidos_pagos',
     conversions: 'pedidos', direct_order: 'pedidos_direto',
     roas: 'roas', broad_roas: 'roas', direct_roas: 'roas_direto',
-    cr: 'conversao', conversion_rate: 'conversao', cvr: 'conversao',
+    cr: 'conversao', conversion_rate: 'conversao', cvr: 'conversao', placed_cr: 'conversao',
     avg_rank: 'posicao', avg_ranking: 'posicao', rank: 'posicao',
     cpc: 'cpc', cpm: 'cpm', acos: 'acos',
-    daily_budget: 'orcamento_dia', budget: 'orcamento', total_budget: 'orcamento'
+    daily_budget: 'orcamento_dia', budget: 'orcamento', total_budget: 'orcamento',
+    /* funil / datacenter */
+    uv: 'visitantes', unique_visitors: 'visitantes', visitor: 'visitantes', visitors: 'visitantes', product_visitors: 'visitantes',
+    pv: 'visualizacoes', page_views: 'visualizacoes', product_page_views: 'visualizacoes',
+    add_to_cart_uv: 'carrinho', add_to_cart: 'carrinho', atc_uv: 'carrinho', cart_uv: 'carrinho',
+    like_cnt: 'curtidas', likes: 'curtidas',
+    bounce_rate: 'rejeicao',
+    /* afiliados */
+    commission: 'comissao', commission_amount: 'comissao', est_commission: 'comissao'
   };
-  var CAMPOS_DINHEIRO = { gasto: 1, gmv: 1, gmv_direto: 1, cpc: 1, cpm: 1, orcamento: 1, orcamento_dia: 1 };
+  var CAMPOS_DINHEIRO = { gasto: 1, gmv: 1, gmv_direto: 1, cpc: 1, cpm: 1, orcamento: 1, orcamento_dia: 1, comissao: 1 };
   var CAMPOS_ID_PRODUTO = ['itemid', 'item_id', 'product_id', 'productid'];
   var CAMPOS_ID_CAMPANHA = ['campaignid', 'campaign_id'];
-  var CAMPOS_NOME = ['name', 'title', 'campaign_name', 'item_name', 'product_name'];
+  var CAMPOS_NOME = ['name', 'title', 'campaign_name', 'item_name', 'product_name', 'shop_item_name'];
+
+  function numero(v) {
+    if (typeof v === 'number' && isFinite(v)) return v;
+    if (typeof v === 'string' && v !== '' && /^-?\d+([.,]\d+)?%?$/.test(v.trim())) {
+      var s = v.trim().replace('%', '').replace(',', '.');
+      var n = parseFloat(s);
+      if (isFinite(n)) return n;
+    }
+    // padrao { value: n }
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      var chaves = Object.keys(v);
+      if (chaves.length <= 3 && v.value !== undefined) return numero(v.value);
+    }
+    return null;
+  }
 
   function dinheiro(v) {
-    // micro-unidades: inteiro grande vira reais. Ratios ja chegam como fracao.
-    if (typeof v !== 'number' || !isFinite(v)) return null;
+    if (v === null) return null;
     if (Number.isInteger(v) && Math.abs(v) >= 1000) return v / MICRO;
     return v;
   }
@@ -61,84 +85,117 @@
     for (var k in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
       var chave = MAPA[k.toLowerCase()];
-      var v = obj[k];
-      if (!chave || typeof v !== 'number' || !isFinite(v)) continue;
+      if (!chave) continue;
+      var v = numero(obj[k]);
+      if (v === null) continue;
       m[chave] = CAMPOS_DINHEIRO[chave] ? dinheiro(v) : v;
     }
     return m;
   }
 
+  function camposNumericos(obj, saida) {
+    for (var k in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+      var v = numero(obj[k]);
+      if (v !== null && Object.keys(saida).length < LIMITE_CAMPOS_PRODUTO) saida[k] = v;
+    }
+  }
+
   function acharCampo(obj, lista) {
     for (var i = 0; i < lista.length; i++) {
       var k = lista[i];
-      if (obj[k] !== undefined && obj[k] !== null) return obj[k];
+      if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
     }
     return null;
   }
 
-  function mesclar(alvo, metricas, extras) {
-    for (var k in metricas) alvo.metricas[k] = metricas[k];
-    if (extras) for (var e in extras) { if (extras[e] !== null && extras[e] !== undefined) alvo[e] = extras[e]; }
-    alvo.visto_em = Date.now();
+  function entidadeProduto(id) {
+    if (!estado.produtos[id]) estado.produtos[id] = { id: id, metricas: {}, campos: {} };
+    return estado.produtos[id];
+  }
+  function entidadeCampanha(id) {
+    if (!estado.campanhas[id]) estado.campanhas[id] = { id: id, metricas: {} };
+    return estado.campanhas[id];
   }
 
-  /* Garimpo recursivo: acha objetos com ID de produto/campanha + metricas,
-     em qualquer profundidade do JSON — resiste a mudanca de formato. */
-  function garimpar(no, contexto) {
+  /* Garimpo v2 com HERANCA: o ID do pai vale para os filhos.
+     {campaignid, report:{impression,...}} agora atribui certo. */
+  function garimpar(no, ctx) {
     if (!no || typeof no !== 'object') return;
     if (Array.isArray(no)) {
-      for (var i = 0; i < no.length; i++) garimpar(no[i], contexto);
+      for (var i = 0; i < no.length; i++) garimpar(no[i], ctx);
       return;
     }
     var idProd = acharCampo(no, CAMPOS_ID_PRODUTO);
     var idCamp = acharCampo(no, CAMPOS_ID_CAMPANHA);
-    var metricas = extrairMetricas(no);
-    var temMetrica = Object.keys(metricas).length > 0;
     var nome = acharCampo(no, CAMPOS_NOME);
 
-    if (idProd && temMetrica) {
-      var chaveP = String(idProd);
-      if (!estado.produtos[chaveP]) estado.produtos[chaveP] = { id: chaveP, metricas: {} };
-      mesclar(estado.produtos[chaveP], metricas, { nome: nome, campanha: idCamp ? String(idCamp) : null, origem: contexto.tag });
-      estado.sujo = true;
-    } else if (idCamp && temMetrica) {
-      var chaveC = String(idCamp);
-      if (!estado.campanhas[chaveC]) estado.campanhas[chaveC] = { id: chaveC, metricas: {} };
-      mesclar(estado.campanhas[chaveC], metricas, { nome: nome, origem: contexto.tag });
+    var novoCtx = {
+      tag: ctx.tag,
+      idProd: idProd !== null ? String(idProd) : ctx.idProd,
+      idCamp: idCamp !== null ? String(idCamp) : ctx.idCamp,
+      nome: (typeof nome === 'string' && nome.length > 1) ? nome : ctx.nome
+    };
+
+    var metricas = extrairMetricas(no);
+    if (Object.keys(metricas).length) {
+      if (novoCtx.idProd) {
+        var p = entidadeProduto(novoCtx.idProd);
+        for (var mk in metricas) p.metricas[mk] = metricas[mk];
+        if (novoCtx.nome) p.nome = novoCtx.nome;
+        if (novoCtx.idCamp) p.campanha = novoCtx.idCamp;
+        p.origem = ctx.tag; p.visto_em = Date.now();
+        if (ctx.tag === 'performance') camposNumericos(no, p.campos);
+        estado.sujo = true;
+      } else if (novoCtx.idCamp) {
+        var c = entidadeCampanha(novoCtx.idCamp);
+        for (var ck in metricas) c.metricas[ck] = metricas[ck];
+        if (novoCtx.nome) c.nome = novoCtx.nome;
+        c.origem = ctx.tag; c.visto_em = Date.now();
+        estado.sujo = true;
+      }
+    } else if (novoCtx.idProd && novoCtx.nome && (idProd !== null || nome)) {
+      // objeto so com identidade: registra nome/campanha mesmo sem metrica
+      var p2 = entidadeProduto(novoCtx.idProd);
+      if (novoCtx.nome) p2.nome = novoCtx.nome;
+      if (novoCtx.idCamp) p2.campanha = novoCtx.idCamp;
       estado.sujo = true;
     }
-    // desce nos filhos
+
     for (var k in no) {
       var v = no[k];
-      if (v && typeof v === 'object') garimpar(v, contexto);
+      if (v && typeof v === 'object') garimpar(v, novoCtx);
     }
   }
 
-  /* mydata (Informacoes Gerenciais): guarda os campos numericos de topo
-     para validacao visual — a calibragem fina vem da beta. */
-  function absorverConta(json) {
-    function achatar(no, prefixo, saida, prof) {
-      if (!no || typeof no !== 'object' || prof > 3) return;
-      for (var k in no) {
-        var v = no[k];
-        var nomeC = prefixo ? prefixo + '.' + k : k;
-        if (typeof v === 'number' && isFinite(v)) saida[nomeC] = v;
-        else if (v && typeof v === 'object' && !Array.isArray(v)) achatar(v, nomeC, saida, prof + 1);
-      }
+  function achatar(no, prefixo, saida, prof) {
+    if (!no || typeof no !== 'object' || prof > 4) return;
+    if (Array.isArray(no)) { for (var i = 0; i < Math.min(no.length, 20); i++) achatar(no[i], prefixo + '[' + i + ']', saida, prof + 1); return; }
+    for (var k in no) {
+      var v = no[k];
+      var nomeC = prefixo ? prefixo + '.' + k : k;
+      var n = numero(v);
+      if (n !== null && typeof v !== 'object') saida[nomeC] = n;
+      else if (v && typeof v === 'object') achatar(v, nomeC, saida, prof + 1);
     }
+  }
+
+  function absorverPainel(json, alvo) {
     var campos = {};
-    achatar(json && json.data ? json.data : json, '', campos, 0);
+    achatar(json && json.data !== undefined ? json.data : json, '', campos, 0);
     if (Object.keys(campos).length) {
-      for (var k in campos) estado.conta.campos[k] = campos[k];
-      estado.conta.atualizadoEm = Date.now();
+      for (var k in campos) alvo.campos[k] = campos[k];
+      alvo.atualizadoEm = Date.now();
       estado.sujo = true;
     }
   }
 
   function classificar(url) {
     if (url.indexOf('/api/pas/') >= 0) return 'ads';
+    if (url.indexOf('affiliate') >= 0) return 'afiliados';
+    if (url.indexOf('datacenter') >= 0 || url.indexOf('product/performance') >= 0) return 'performance';
     if (url.indexOf('/api/mydata/') >= 0) return 'conta';
-    if (url.indexOf('/api/v3/product/') >= 0) return 'cadastro';
+    if (url.indexOf('/api/v3/product/') >= 0 || url.indexOf('/api/v4/product/') >= 0) return 'cadastro';
     if (url.indexOf('/api/marketing/') >= 0) return 'marketing';
     return 'outra';
   }
@@ -158,7 +215,9 @@
     estado.brutos.unshift({ ts: pacote.ts, url: pacote.url, metodo: pacote.metodo, corpo: pacote.corpo, dados: pacote.dados });
     if (estado.brutos.length > LIMITE_BRUTOS) estado.brutos.length = LIMITE_BRUTOS;
 
-    if (tag === 'conta') absorverConta(pacote.dados);
+    if (tag === 'conta') { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
+    else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); garimpar(pacote.dados, { tag: tag }); }
+    else if (tag === 'outra') { /* so registra no debug */ }
     else garimpar(pacote.dados, { tag: tag });
     estado.sujo = true;
   });
@@ -169,7 +228,7 @@
   try { window.dispatchEvent(new CustomEvent('SIA_PING')); } catch (e) { /* noop */ }
 
   function detectarPaginaProduto() {
-    var m = location.pathname.match(/\/portal\/product\/(\d{6,})/);
+    var m = location.pathname.match(/\/portal\/product\/(\d{6,})/) || location.search.match(/[?&](?:item_?id|product_?id)=(\d{6,})/);
     estado.paginaProduto = m ? m[1] : null;
   }
   detectarPaginaProduto();
@@ -182,6 +241,7 @@
       gerado_em: new Date().toISOString(),
       pagina: location.href,
       conta: estado.conta,
+      afiliados: estado.afiliados,
       campanhas: estado.campanhas,
       produtos: estado.produtos
     };
@@ -190,13 +250,14 @@
     if (!estado.sujo) return;
     try {
       chrome.runtime.sendMessage({ tipo: 'sia:salvar', coleta: fotoDoEstado() }, function () { void chrome.runtime.lastError; });
-    } catch (e) { /* contexto invalidado */ }
+    } catch (e) { /* noop */ }
   }, 5000);
   try {
     chrome.runtime.sendMessage({ tipo: 'sia:carregar' }, function (resp) {
       void chrome.runtime.lastError;
       if (resp && resp.coleta) {
         estado.conta = resp.coleta.conta || estado.conta;
+        estado.afiliados = resp.coleta.afiliados || estado.afiliados;
         estado.campanhas = resp.coleta.campanhas || {};
         estado.produtos = resp.coleta.produtos || {};
         estado.sujo = true;
@@ -220,7 +281,7 @@
     '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;border-radius:50%;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.45);transition:transform .15s;background:#07080a;border:none;padding:6px}' +
     '.botao:hover{transform:scale(1.08)}' +
     '.botao svg{width:100%;height:100%}' +
-    '.painel{position:fixed;bottom:86px;right:22px;width:min(760px,94vw);height:min(600px,80vh);background:#0c0e12;border:1px solid #1d212a;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.6);display:none;flex-direction:column;overflow:hidden;color:#f2f2f4}' +
+    '.painel{position:fixed;bottom:86px;right:22px;width:min(820px,95vw);height:min(620px,82vh);background:#0c0e12;border:1px solid #1d212a;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.6);display:none;flex-direction:column;overflow:hidden;color:#f2f2f4}' +
     '.painel.aberto{display:flex}' +
     '.cab{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #1d212a;background:#07080a}' +
     '.cab svg{width:26px;height:26px;flex:none}' +
@@ -231,7 +292,7 @@
     '.cab button{background:#12151b;border:1px solid #1d212a;color:#b8bcc6;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer}' +
     '.cab button:hover{border-color:#ff4d1c;color:#fff}' +
     '.abas{display:flex;gap:2px;background:#07080a;padding:0 10px;border-bottom:1px solid #1d212a;overflow-x:auto}' +
-    '.aba{background:none;border:none;color:#7d8290;font-size:12px;font-weight:600;padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
+    '.aba{background:none;border:none;color:#7d8290;font-size:12px;font-weight:600;padding:10px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
     '.aba.ativa{color:#fff;border-bottom-color:#ff4d1c}' +
     '.corpo{flex:1;overflow:auto;padding:14px 16px}' +
     'table{width:100%;border-collapse:collapse;font-size:12px}' +
@@ -249,7 +310,7 @@
     '.selo.ok{border-color:#2ecc71;color:#2ecc71}' +
     '.selo.off{border-color:#e74c3c;color:#e74c3c}' +
     '.nota{font-size:11px;color:#7d8290;margin:10px 0;line-height:1.5}' +
-    '.tag-ads{color:#ff4d1c}.tag-conta{color:#7B2FFF}.tag-cadastro{color:#2ecc71}.tag-marketing{color:#f5b041}.tag-outra{color:#7d8290}' +
+    '.tag-ads{color:#ff4d1c}.tag-conta{color:#7B2FFF}.tag-cadastro{color:#2ecc71}.tag-marketing{color:#f5b041}.tag-outra{color:#7d8290}.tag-afiliados{color:#e91e8c}.tag-performance{color:#3ab7f5}' +
     '</style>' +
     '<button class="botao" id="sia-abrir" title="Seller.IA">' + LOGO + '</button>' +
     '<div class="painel" id="sia-painel">' +
@@ -271,7 +332,9 @@
   var ABAS = [
     { id: 'visao', rotulo: 'Visao da Conta' },
     { id: 'campanhas', rotulo: 'Campanhas' },
-    { id: 'produtos', rotulo: 'Produtos' },
+    { id: 'produtos', rotulo: 'Produtos (Ads)' },
+    { id: 'performance', rotulo: 'Performance' },
+    { id: 'afiliados', rotulo: 'Afiliados' },
     { id: 'cadastro', rotulo: 'Cadastro' },
     { id: 'debug', rotulo: 'Debug' }
   ];
@@ -279,7 +342,9 @@
   $('sia-abrir').addEventListener('click', function () { $('sia-painel').classList.toggle('aberto'); render(); });
   $('sia-fechar').addEventListener('click', function () { $('sia-painel').classList.remove('aberto'); });
   $('sia-limpar').addEventListener('click', function () {
-    estado.campanhas = {}; estado.produtos = {}; estado.conta = { campos: {}, atualizadoEm: null };
+    estado.campanhas = {}; estado.produtos = {};
+    estado.conta = { campos: {}, atualizadoEm: null };
+    estado.afiliados = { campos: {}, atualizadoEm: null };
     estado.chamadas = []; estado.brutos = []; estado.sujo = true;
     try { chrome.runtime.sendMessage({ tipo: 'sia:limpar' }, function () { void chrome.runtime.lastError; }); } catch (e) { /* noop */ }
     render();
@@ -340,6 +405,19 @@
       '<td class="num">' + (m.posicao === undefined ? '—' : fmt(m.posicao, 1)) + '</td>';
   }
 
+  function tabelaCampos(campos, atualizadoEm, titulo) {
+    var chaves = Object.keys(campos);
+    if (!chaves.length) return null;
+    var h = '<div class="nota">' + titulo + ' (' + (atualizadoEm ? hora(atualizadoEm) : '') + ') — nomes crus da API, calibramos juntos na beta:</div>';
+    h += '<table><tr><th>Campo</th><th class="num">Valor</th></tr>';
+    chaves.sort();
+    for (var i = 0; i < Math.min(chaves.length, 80); i++) {
+      var c = chaves[i];
+      h += '<tr><td class="nome">' + esc(c) + '</td><td class="num">' + fmt(campos[c], 2) + '</td></tr>';
+    }
+    return h + '</table>';
+  }
+
   function render() {
     if (!$('sia-painel').classList.contains('aberto')) return;
     renderAbas();
@@ -357,26 +435,16 @@
         '<div class="kpi"><div class="v">' + fmt(t.pedidos) + '</div><div class="l">Pedidos via ads</div></div>' +
         '<div class="kpi"><div class="v">' + t.n + '</div><div class="l">Produtos lidos</div></div>' +
         '</div>';
-      var campos = Object.keys(estado.conta.campos);
-      if (campos.length) {
-        h += '<div class="nota">Informacoes Gerenciais capturadas (' + (estado.conta.atualizadoEm ? hora(estado.conta.atualizadoEm) : '') + ') — nomes crus da API, calibramos juntos na beta:</div>';
-        h += '<table><tr><th>Campo</th><th class="num">Valor</th></tr>';
-        campos.sort();
-        for (var i = 0; i < Math.min(campos.length, 60); i++) {
-          var c = campos[i];
-          h += '<tr><td class="nome">' + esc(c) + '</td><td class="num">' + fmt(estado.conta.campos[c], 2) + '</td></tr>';
-        }
-        h += '</table>';
-      } else {
-        h += '<div class="vazio">Abra a area de <b>Informacoes Gerenciais</b> no Seller Centre para a leitura da conta (venda total, trafego, fontes).</div>';
-      }
+      var tc = tabelaCampos(estado.conta.campos, estado.conta.atualizadoEm, 'Informacoes Gerenciais capturadas');
+      h += tc || '<div class="vazio">Abra a area de <b>Informacoes Gerenciais</b> para a leitura da conta.</div>';
       corpo.innerHTML = h;
 
     } else if (abaAtiva === 'campanhas' || abaAtiva === 'produtos') {
       var mapa = abaAtiva === 'campanhas' ? estado.campanhas : estado.produtos;
       var ids = Object.keys(mapa);
+      if (abaAtiva === 'produtos') ids = ids.filter(function (id) { return mapa[id].origem === 'ads' || mapa[id].metricas.gasto !== undefined || mapa[id].metricas.roas !== undefined; });
       if (!ids.length) {
-        corpo.innerHTML = '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b> (campanhas' + (abaAtiva === 'produtos' ? ' e entre em uma campanha' : '') + ') e a coleta acontece sozinha.</div>';
+        corpo.innerHTML = '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>' + (abaAtiva === 'produtos' ? ' e entre em uma campanha' : '') + '.</div>';
         return;
       }
       ids.sort(function (a, b) { return (mapa[b].metricas.gasto || 0) - (mapa[a].metricas.gasto || 0); });
@@ -388,8 +456,36 @@
         h2 += '<tr><td class="nome">' + esc(item.nome || '(sem nome capturado)') + '</td>' +
           '<td>' + esc(item.id) + '</td>' + linhaMetrica(item.metricas) + '</tr>';
       }
-      h2 += '</table><div class="nota">Ordenado por gasto. Valores em micro-unidades convertidos (÷100.000). Confira contra a tela e exporte a coleta se algo nao bater.</div>';
+      h2 += '</table><div class="nota">Ordenado por gasto. Micro-unidades convertidas (÷100.000). Se algo nao bater com a tela, exporte a coleta.</div>';
       corpo.innerHTML = h2;
+
+    } else if (abaAtiva === 'performance') {
+      var idsP = Object.keys(estado.produtos).filter(function (id) {
+        var m = estado.produtos[id].metricas;
+        return m.visitantes !== undefined || m.visualizacoes !== undefined || m.carrinho !== undefined || estado.produtos[id].origem === 'performance';
+      });
+      if (!idsP.length) {
+        corpo.innerHTML = '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> (datacenter) e navegue pela lista. O funil de cada produto aparece aqui.</div>';
+        return;
+      }
+      idsP.sort(function (a, b) { return (estado.produtos[b].metricas.visitantes || 0) - (estado.produtos[a].metricas.visitantes || 0); });
+      var h5 = '<table><tr><th>Produto</th><th>ID</th><th class="num">Visitantes</th><th class="num">Visualiz.</th><th class="num">Carrinho</th><th class="num">Pedidos</th><th class="num">Conversao</th><th class="num">GMV</th></tr>';
+      for (var q = 0; q < idsP.length; q++) {
+        var pp = estado.produtos[idsP[q]];
+        var m5 = pp.metricas;
+        var conv = m5.conversao !== undefined ? (m5.conversao <= 1 ? m5.conversao * 100 : m5.conversao) : (m5.visitantes ? (m5.pedidos || 0) / m5.visitantes * 100 : null);
+        h5 += '<tr><td class="nome">' + esc(pp.nome || '(sem nome)') + '</td><td>' + esc(pp.id) + '</td>' +
+          '<td class="num">' + fmt(m5.visitantes) + '</td><td class="num">' + fmt(m5.visualizacoes) + '</td>' +
+          '<td class="num">' + fmt(m5.carrinho) + '</td><td class="num">' + fmt(m5.pedidos) + '</td>' +
+          '<td class="num">' + (conv === null ? '—' : fmt(conv, 2) + '%') + '</td>' +
+          '<td class="num">' + reais(m5.gmv) + '</td></tr>';
+      }
+      h5 += '</table><div class="nota">Funil por produto (Central de Dados). Campos ainda nao mapeados ficam na exportacao — mande o JSON para calibrarmos os nomes exatos.</div>';
+      corpo.innerHTML = h5;
+
+    } else if (abaAtiva === 'afiliados') {
+      var ta = tabelaCampos(estado.afiliados.campos, estado.afiliados.atualizadoEm, 'Painel de Afiliados capturado');
+      corpo.innerHTML = ta || '<div class="vazio">Abra o <b>painel de Afiliados</b> (web-seller-affiliate/dashboard) e navegue. Os campos capturados aparecem aqui para calibragem.</div>';
 
     } else if (abaAtiva === 'cadastro') {
       var h3 = '';
@@ -399,12 +495,12 @@
         if (p) {
           h3 += '<table><tr><th>Produto</th><th class="num">Gasto</th><th class="num">GMV</th><th class="num">ROAS</th><th class="num">Impr.</th><th class="num">Cliques</th><th class="num">CTR</th><th class="num">Pedidos</th><th class="num">Pos.</th></tr>' +
             '<tr><td class="nome">' + esc(p.nome || '') + '</td>' + linhaMetrica(p.metricas) + '</tr></table>' +
-            '<div class="nota">Cruzamento por ID funcionando: os dados de ads deste produto ja estavam na coleta. E aqui que entram a Calculadora e o Cofre de Custos (Etapa 3).</div>';
+            '<div class="nota">Cruzamento por ID funcionando. Aqui entram a Calculadora e o Cofre de Custos (Etapa 3).</div>';
         } else {
-          h3 += '<div class="nota">Este produto ainda nao apareceu na coleta de ads. Na Etapa 2 a busca ativa resolve isso na hora.</div>';
+          h3 += '<div class="nota">Este produto ainda nao apareceu na coleta. Na Etapa 2 a busca ativa resolve na hora.</div>';
         }
       } else {
-        h3 = '<div class="vazio">Abra a pagina de um <b>produto</b> no Seller Centre para o coletor extrair o ID da URL e cruzar com os dados de ads.</div>';
+        h3 = '<div class="vazio">Abra a pagina de um <b>produto</b> no portal para o coletor extrair o ID da URL.</div>';
       }
       corpo.innerHTML = h3;
 
@@ -417,13 +513,13 @@
         h4 += '<div class="vazio">Nenhuma chamada capturada ainda nesta pagina.</div>';
       } else {
         h4 += '<table><tr><th>Hora</th><th>Tipo</th><th>Metodo</th><th>Rota</th><th class="num">Bytes</th></tr>';
-        for (var d = 0; d < Math.min(estado.chamadas.length, 120); d++) {
+        for (var d = 0; d < Math.min(estado.chamadas.length, 150); d++) {
           var ch = estado.chamadas[d];
-          var rota = ch.url.replace(/^https:\/\/seller\.shopee\.com\.br/, '').split('?')[0];
+          var rota = ch.url.replace(/^https:\/\/[^\/]+/, '').split('?')[0];
           h4 += '<tr><td>' + hora(ch.ts) + '</td><td class="tag-' + ch.tag + '">' + ch.tag + '</td><td>' + esc(ch.metodo) + '</td>' +
             '<td class="nome">' + esc(rota) + '</td><td class="num">' + fmt(ch.tamanho) + '</td></tr>';
         }
-        h4 += '</table><div class="nota">"Exportar coleta" gera o JSON completo (chamadas + payloads + normalizado) para calibragem. Mande esse arquivo no chat quando algo nao bater com a tela.</div>';
+        h4 += '</table><div class="nota">"Exportar coleta" gera o JSON completo para calibragem — mande no chat com um print quando algo nao bater.</div>';
       }
       corpo.innerHTML = h4;
     }
