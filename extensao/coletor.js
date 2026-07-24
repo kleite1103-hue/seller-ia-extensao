@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.4.0';
+  var VERSAO = '0.5.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -26,6 +26,7 @@
     modoPagina: null,        // 'portal' (Seller Centre) | 'publico' (visao do cliente)
     anuncioPublico: null,    // leitura da vitrine: preco, fotos, estrelas, vendidos
     cadastro: null,          // get_product_info: preco, estoque, categoria, fotos
+    series: {},              // series temporais por campanha (get_time_graph)
     sujo: false
   };
   var LIMITE_BRUTOS = 200;
@@ -43,10 +44,10 @@
     order: 'pedidos', orders: 'pedidos', broad_order: 'pedidos', broad_order_amount: 'pedidos',
     checkout: 'pedidos', order_cnt: 'pedidos', placed_order_cnt: 'pedidos', paid_order_cnt: 'pedidos_pagos',
     conversions: 'pedidos', direct_order: 'pedidos_direto',
-    roas: 'roas', broad_roas: 'roas', direct_roas: 'roas_direto',
+    roas: 'roas', broad_roas: 'roas', broad_roi: 'roas', direct_roas: 'roas_direto', direct_roi: 'roas_direto',
     cr: 'conversao', conversion_rate: 'conversao', cvr: 'conversao', placed_cr: 'conversao',
     avg_rank: 'posicao', avg_ranking: 'posicao', rank: 'posicao',
-    cpc: 'cpc', cpm: 'cpm', acos: 'acos',
+    acos: 'acos', atc: 'carrinho', atc_rate: 'taxa_carrinho',
     daily_budget: 'orcamento_dia', budget: 'orcamento', total_budget: 'orcamento',
     /* funil / datacenter */
     uv: 'visitantes', unique_visitors: 'visitantes', visitor: 'visitantes', visitors: 'visitantes', product_visitors: 'visitantes',
@@ -57,7 +58,7 @@
     /* afiliados */
     commission: 'comissao', commission_amount: 'comissao', est_commission: 'comissao'
   };
-  var CAMPOS_DINHEIRO = { gasto: 1, gmv: 1, gmv_direto: 1, cpc: 1, cpm: 1, orcamento: 1, orcamento_dia: 1, comissao: 1 };
+  var CAMPOS_DINHEIRO = { gasto: 1, gmv: 1, gmv_direto: 1, orcamento: 1, orcamento_dia: 1, comissao: 1 };
   var CAMPOS_ID_PRODUTO = ['itemid', 'item_id', 'product_id', 'productid'];
   var CAMPOS_ID_CAMPANHA = ['campaignid', 'campaign_id'];
   var CAMPOS_NOME = ['name', 'title', 'campaign_name', 'item_name', 'product_name', 'shop_item_name'];
@@ -262,6 +263,100 @@
     estado.sujo = true;
   }
 
+  var TRADUZ_ESTRATEGIA = { roi_two: 'Meta de ROAS', roi_one: 'Meta de ROAS (v1)', auto: 'Automatico', manual: 'Manual' };
+
+  function metaCampanha(c) {
+    if (!c || !c.campaign_id) return null;
+    var ent = entidadeCampanha(String(c.campaign_id));
+    if (c.name) ent.nome = c.name;
+    if (c.state) ent.estado = c.state;
+    if (c.bidding_strategy) ent.estrategia = TRADUZ_ESTRATEGIA[c.bidding_strategy] || c.bidding_strategy;
+    if (c.type) ent.tipo = c.type;
+    var ob = numero(c.daily_budget);
+    if (ob !== null) ent.metricas.orcamento_dia = dinheiro(ob, true);
+    ent.visto_em = Date.now();
+    estado.sujo = true;
+    return ent;
+  }
+
+  /* Parser exato das rotas do Shopee Ads (calibrado com payload real 24/07). */
+  function parsePas(url, corpo, dados) {
+    var body = null;
+    try { body = corpo ? JSON.parse(corpo) : null; } catch (e) { /* noop */ }
+    var data = dados && dados.data !== undefined ? dados.data : null;
+
+    // Lista de campanhas da homepage do Ads
+    if (url.indexOf('/pas/v1/homepage/query') >= 0 && data && Array.isArray(data.entry_list)) {
+      for (var i = 0; i < data.entry_list.length; i++) {
+        var e = data.entry_list[i];
+        var camp = (e.campaign && e.campaign.campaign_id) ? e.campaign :
+                   (e.manual_product_ads && e.manual_product_ads.campaign_id) ? e.manual_product_ads : null;
+        var ent = camp ? metaCampanha(camp) : null;
+        if (!ent && e.campaign_id) ent = metaCampanha(e);
+        if (!ent) continue;
+        if (e.title) ent.nome = e.title;
+        if (e.state) ent.estado = e.state;
+        if (e.subtype) ent.tipo = e.subtype;
+        if (e.report) {
+          var m = extrairMetricas(e.report, true);
+          for (var k in m) ent.metricas[k] = m[k];
+        }
+      }
+      return true;
+    }
+
+    // Produtos dentro da campanha (+ meta da campanha)
+    if (url.indexOf('/pas/v1/product/get') >= 0 && data) {
+      var idCamp = null;
+      if (data.campaign) { var entc = metaCampanha(data.campaign); idCamp = data.campaign.campaign_id ? String(data.campaign.campaign_id) : null; }
+      var lista = Array.isArray(data.ads_list) ? data.ads_list : [];
+      for (var j = 0; j < lista.length; j++) {
+        garimpar(lista[j], { tag: 'ads', idCamp: idCamp });
+      }
+      return true;
+    }
+
+    // Agregado com variacao (report/get) — atribui pela chave do corpo
+    if (url.indexOf('/pas/v1/report/get/') >= 0 && Array.isArray(data)) {
+      var agg = body && body.agg_type ? body.agg_type : null;
+      for (var r = 0; r < data.length; r++) {
+        var item = data[r];
+        if (!item || item.key === undefined) continue;
+        var alvo = null;
+        if (agg === 'campaign_id') alvo = entidadeCampanha(String(item.key));
+        else if (agg === 'item_id' || agg === 'itemid') alvo = entidadeProduto(String(item.key));
+        if (!alvo) continue;
+        if (item.metrics) { var mm = extrairMetricas(item.metrics, true); for (var mk in mm) alvo.metricas[mk] = mm[mk]; }
+        if (item.ratio) { alvo.variacao = extrairMetricas(item.ratio, false); }
+        alvo.visto_em = Date.now(); estado.sujo = true;
+      }
+      return true;
+    }
+
+    // Serie temporal (get_time_graph) — guarda leve para as tendencias 7/15/30
+    if (url.indexOf('/pas/v1/report/get_time_graph') >= 0 && data && Array.isArray(data.report_by_time)) {
+      var idc = body && body.filter_params && body.filter_params.campaign_id ? String(body.filter_params.campaign_id) : 'conta';
+      var pontos = [];
+      for (var t = 0; t < data.report_by_time.length; t++) {
+        var pt = data.report_by_time[t];
+        if (!pt || !pt.metrics) continue;
+        var pm = extrairMetricas(pt.metrics, true);
+        pm.ts = numero(pt.key);
+        pontos.push(pm);
+      }
+      estado.series[idc] = { atualizado: Date.now(), inicio: body ? body.start_time : null, fim: body ? body.end_time : null, pontos: pontos };
+      if (data.report_aggregate && idc !== 'conta') {
+        var alvo2 = entidadeCampanha(idc);
+        var ma = extrairMetricas(data.report_aggregate, true);
+        for (var ak in ma) alvo2.metricas[ak] = ma[ak];
+        alvo2.visto_em = Date.now();
+      }
+      estado.sujo = true;
+      return true;
+    }
+    return false;
+  }
+
   function classificar(url) {
     if (url.indexOf('/api/pas/') >= 0) return 'ads';
     if (url.indexOf('affiliate') >= 0) return 'afiliados';
@@ -291,7 +386,8 @@
     if (tag === 'publico') { absorverPublico(pacote.dados); }
     else if (tag === 'cadastro' && pacote.url.indexOf('get_product_info') >= 0) { absorverCadastro(pacote.dados); }
     else if (tag === 'conta') { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
-    else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); garimpar(pacote.dados, { tag: tag }); }
+    else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); /* sem garimpo: micro proprio, tratado na v0.6 */ }
+    else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
     else if (tag === 'outra') { /* so registra no debug */ }
     else garimpar(pacote.dados, { tag: tag });
     estado.sujo = true;
@@ -596,25 +692,54 @@
       h += tc || '<div class="vazio">Abra a area de <b>Informacoes Gerenciais</b> para a leitura da conta.</div>';
       corpo.innerHTML = h;
 
-    } else if (abaAtiva === 'campanhas' || abaAtiva === 'produtos') {
-      var mapa = abaAtiva === 'campanhas' ? estado.campanhas : estado.produtos;
-      var ids = Object.keys(mapa);
-      if (abaAtiva === 'produtos') ids = ids.filter(function (id) { return mapa[id].origem === 'ads' || mapa[id].metricas.gasto !== undefined || mapa[id].metricas.roas !== undefined; });
+    } else if (abaAtiva === 'campanhas') {
+      var idsC = Object.keys(estado.campanhas);
+      if (!idsC.length) {
+        corpo.innerHTML = '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>.</div>';
+        return;
+      }
+      idsC.sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); });
+      var h2 = '<table><tr><th>Campanha</th><th>Estado</th><th>Estrategia</th><th class="num">Orc/dia</th>' +
+        '<th class="num">Gasto</th><th class="num">GMV</th><th class="num">ROAS</th><th class="num">CTR</th>' +
+        '<th class="num">CPC</th><th class="num">Pedidos</th><th class="num">Pos.</th></tr>';
+      for (var j = 0; j < idsC.length; j++) {
+        var c = estado.campanhas[idsC[j]];
+        var m = c.metricas;
+        var roasC = m.roas !== undefined ? m.roas : (m.gasto ? (m.gmv || 0) / m.gasto : null);
+        var ctrC = m.ctr !== undefined ? (m.ctr <= 1 ? m.ctr * 100 : m.ctr) : (m.impressoes ? (m.cliques || 0) / m.impressoes * 100 : null);
+        var cpcC = m.gasto && m.cliques ? m.gasto / m.cliques : null;
+        var estadoTxt = c.estado === 'ongoing' ? 'Ativa' : (c.estado === 'paused' ? 'Pausada' : (c.estado || '—'));
+        h2 += '<tr><td class="nome">' + esc(c.nome || '(sem nome)') + '</td>' +
+          '<td>' + esc(estadoTxt) + '</td><td>' + esc(c.estrategia || '—') + '</td>' +
+          '<td class="num">' + reais(m.orcamento_dia) + '</td>' +
+          '<td class="num">' + reais(m.gasto) + '</td><td class="num">' + reais(m.gmv) + '</td>' +
+          '<td class="num">' + (roasC === null ? '—' : fmt(roasC, 2) + 'x') + '</td>' +
+          '<td class="num">' + (ctrC === null ? '—' : fmt(ctrC, 2) + '%') + '</td>' +
+          '<td class="num">' + (cpcC === null ? '—' : reais(cpcC)) + '</td>' +
+          '<td class="num">' + fmt(m.pedidos) + '</td>' +
+          '<td class="num">' + (m.posicao === undefined ? '—' : fmt(m.posicao, 0)) + '</td></tr>';
+      }
+      h2 += '</table><div class="nota">CPC derivado (gasto ÷ cliques) — os campos cpc/cpm da API interna nao batem com a tela e foram descartados. ROAS = broad_roi da Shopee.</div>';
+      corpo.innerHTML = h2;
+
+    } else if (abaAtiva === 'produtos') {
+      var mapa = estado.produtos;
+      var ids = Object.keys(mapa).filter(function (id) { return mapa[id].origem === 'ads' || mapa[id].metricas.gasto !== undefined || mapa[id].metricas.roas !== undefined; });
       if (!ids.length) {
-        corpo.innerHTML = '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>' + (abaAtiva === 'produtos' ? ' e entre em uma campanha' : '') + '.</div>';
+        corpo.innerHTML = '<div class="vazio">Nada lido ainda. Entre em uma <b>campanha</b> no Shopee Ads e role a lista de produtos.</div>';
         return;
       }
       ids.sort(function (a, b) { return (mapa[b].metricas.gasto || 0) - (mapa[a].metricas.gasto || 0); });
-      var h2 = '<table><tr><th>' + (abaAtiva === 'campanhas' ? 'Campanha' : 'Produto') + '</th><th>ID</th>' +
+      var h2b = '<table><tr><th>Produto</th><th>ID</th>' +
         '<th class="num">Gasto</th><th class="num">GMV</th><th class="num">ROAS</th><th class="num">Impr.</th>' +
         '<th class="num">Cliques</th><th class="num">CTR</th><th class="num">Pedidos</th><th class="num">Pos.</th></tr>';
-      for (var j = 0; j < ids.length; j++) {
-        var item = mapa[ids[j]];
-        h2 += '<tr><td class="nome">' + esc(item.nome || '(sem nome capturado)') + '</td>' +
+      for (var j2 = 0; j2 < ids.length; j2++) {
+        var item = mapa[ids[j2]];
+        h2b += '<tr><td class="nome">' + esc(item.nome || '(sem nome capturado)') + '</td>' +
           '<td>' + esc(item.id) + '</td>' + linhaMetrica(item.metricas) + '</tr>';
       }
-      h2 += '</table><div class="nota">Ordenado por gasto. Micro-unidades convertidas (÷100.000). Se algo nao bater com a tela, exporte a coleta.</div>';
-      corpo.innerHTML = h2;
+      h2b += '</table><div class="nota">Ordenado por gasto. Micro-unidades convertidas (÷100.000).</div>';
+      corpo.innerHTML = h2b;
 
     } else if (abaAtiva === 'performance') {
       var idsP = Object.keys(estado.produtos).filter(function (id) {
