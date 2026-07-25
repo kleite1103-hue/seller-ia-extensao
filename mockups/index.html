@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Galeria de Painéis (escolha 2 ou 3)</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;
+  --text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;
+  --ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:34px 20px 90px}
+.head{text-align:center;margin-bottom:10px}
+.head .mark{width:60px;height:60px;margin:0 auto 14px}
+.head h1{font-family:'Bebas Neue';font-size:clamp(34px,6vw,54px);letter-spacing:.02em;line-height:1}
+.head h1 em{font-style:normal;color:var(--orange)}
+.head p{color:var(--text2);max-width:640px;margin:10px auto 0;font-size:15px}
+.head .how{margin:18px auto 0;max-width:680px;border:1px solid var(--line);border-left:3px solid var(--orange);background:var(--bg2);padding:12px 16px;border-radius:0 10px 10px 0;font-size:13.5px;color:var(--text2);text-align:left}
+.legend{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin:22px 0 4px;font-family:'Space Mono';font-size:10.5px;color:var(--text3);letter-spacing:.06em}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:9px;height:9px;border-radius:50%}
+.sec-label{font-family:'Space Mono';font-size:11px;letter-spacing:.2em;color:var(--orange);text-transform:uppercase;margin:44px 0 12px;text-align:center}
+
+.grid{display:grid;grid-template-columns:1fr;gap:30px}
+.mk{background:var(--bg2);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.mk-top{display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,77,28,.06),transparent)}
+.mk-num{font-family:'Bebas Neue';font-size:34px;line-height:1;color:var(--orange);flex:none;width:44px}
+.mk-meta h3{font-family:'Bebas Neue';font-size:23px;letter-spacing:.03em}
+.mk-meta .tags{margin-top:5px;display:flex;gap:6px;flex-wrap:wrap}
+.tg{font-family:'Space Mono';font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:99px;padding:2px 9px;color:var(--text3)}
+.tg.o{border-color:var(--orange);color:var(--orange)}
+.tg.p{border-color:var(--purple);color:var(--purple)}
+.mk-meta .desc{color:var(--text2);font-size:13px;margin-top:8px;max-width:760px}
+.stage{position:relative;background:
+   repeating-linear-gradient(45deg,#0a0b0e,#0a0b0e 12px,#0b0c10 12px,#0b0c10 24px);
+   min-height:360px;padding:20px;display:flex;overflow:hidden}
+.browser-hint{position:absolute;top:10px;left:16px;font-family:'Space Mono';font-size:10px;color:#3a3f4a;letter-spacing:.1em}
+
+/* ---- componentes reutilizados nos mockups ---- */
+.s-logo{width:22px;height:22px;flex:none}
+.money{font-family:'Bebas Neue';letter-spacing:.02em}
+.verdict{display:inline-flex;align-items:center;gap:6px;font-family:'Space Mono';font-weight:700;font-size:10px;letter-spacing:.08em;padding:3px 10px;border-radius:5px;text-transform:uppercase}
+.v-esc{background:rgba(46,204,113,.14);color:var(--ok);border:1px solid var(--ok)}
+.v-otim{background:rgba(245,176,65,.14);color:var(--warn);border:1px solid var(--warn)}
+.v-crit{background:rgba(231,76,60,.14);color:var(--bad);border:1px solid var(--bad)}
+.funnel{display:flex;align-items:flex-end;gap:3px;height:38px}
+.funnel i{flex:1;background:linear-gradient(180deg,var(--orange),var(--purple));border-radius:2px 2px 0 0;opacity:.85;display:block}
+.mini-label{font-family:'Space Mono';font-size:9px;color:var(--text3);letter-spacing:.05em}
+.chip{font-family:'Space Mono';font-size:10px;color:var(--text2);background:var(--bg3);border:1px solid var(--line);border-radius:5px;padding:3px 8px}
+
+/* vote bar */
+.vote{display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--line);background:var(--bg3)}
+.vote button{font-family:'Space Mono';font-size:11px;letter-spacing:.06em;border:1px solid var(--line);background:transparent;color:var(--text2);padding:7px 14px;border-radius:7px;cursor:pointer;transition:.15s}
+.vote button:hover{border-color:var(--orange);color:var(--text)}
+.vote button.on{background:var(--orange);border-color:var(--orange);color:#fff}
+.vote .q{font-size:12px;color:var(--text3);margin-left:auto;font-family:'Space Mono'}
+
+.footer{margin-top:50px;text-align:center;font-family:'Space Mono';font-size:11px;color:var(--text3)}
+.summary{position:fixed;bottom:0;left:0;right:0;background:rgba(7,8,10,.96);backdrop-filter:blur(8px);border-top:1px solid var(--orange);padding:12px 20px;display:flex;align-items:center;gap:14px;justify-content:center;z-index:40;font-size:13px}
+.summary b{color:var(--orange)}
+.summary.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <svg class="mark" viewBox="0 0 128 128"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d1c"/><stop offset="1" stop-color="#7B2FFF"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="30" fill="#0c0e12"/><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#g)" stroke-width="5"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#g)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><circle cx="93" cy="99" r="9" fill="#ff4d1c"/></svg>
+    <h1>ESCOLHA O PAINEL <em>SELLER.IA</em></h1>
+    <p>7 conceitos do mesmo painel — o que abre quando você clica num produto/campanha. Todos mostram as 3 coisas juntas: <strong>margem, veredito e funil</strong>. Muda a posição, a densidade e o clima visual.</p>
+    <div class="how"><strong>Como usar:</strong> passe pelos 7, clique em <em>"Curti este"</em> nos 2 ou 3 que mais gostou. No fim aparece o resumo da sua escolha — é só me mandar os números. A partir deles eu fundo os favoritos e construo o nosso, de verdade, no código.</div>
+  </div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--ok)"></i> Verde = saudável / escalar</span>
+    <span><i class="dot" style="background:var(--warn)"></i> Âmbar = atenção / otimizar</span>
+    <span><i class="dot" style="background:var(--bad)"></i> Vermelho = crítico</span>
+    <span><i class="dot" style="background:var(--purple)"></i> Roxo = dado / utilitário</span>
+  </div>
+
+  <div class="sec-label">— Posição: lateral direita —</div>
+  <div class="grid">
+
+    <!-- 1 · Lateral clean -->
+    <div class="mk" data-mk="1">
+      <div class="mk-top">
+        <div class="mk-num">01</div>
+        <div class="mk-meta">
+          <h3>LATERAL CLEAN</h3>
+          <div class="tags"><span class="tg o">lateral direita</span><span class="tg">minimalista</span><span class="tg p">1 destaque grande</span></div>
+          <div class="desc">Muito respiro. O número que importa — líquido por pedido — domina o topo. Veredito logo abaixo, funil como faixa fina. Pouca informação à vista, tudo o mais atrás de toques.</div>
+        </div>
+      </div>
+      <div class="stage" style="justify-content:flex-end">
+        <div class="browser-hint">// tela da shopee ao fundo</div>
+        <div style="width:320px;background:var(--bg2);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.5);overflow:hidden;align-self:stretch;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)">
+            <svg class="s-logo" viewBox="0 0 128 128"><defs><linearGradient id="l1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d1c"/><stop offset="1" stop-color="#7B2FFF"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#l1)" stroke-width="8"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#l1)" stroke-width="15" stroke-linecap="round"/></svg>
+            <span style="font-family:'Space Mono';font-size:10px;color:var(--text3);letter-spacing:.08em;flex:1">SELLER.IA</span>
+            <span style="color:var(--text3)">✕</span>
+          </div>
+          <div style="padding:22px 20px;flex:1">
+            <div class="mini-label">VASO DECORATIVO MODERNO PRETO</div>
+            <div style="margin:18px 0 6px"><span class="mini-label">LÍQUIDO POR PEDIDO</span></div>
+            <div class="money" style="font-size:56px;color:var(--ok);line-height:.9">R$ 34,00</div>
+            <div style="color:var(--text3);font-size:12px;margin-top:4px">de R$ 49,99 · após comissão e ads</div>
+            <div style="margin:22px 0 14px"><span class="verdict v-otim">● OTIMIZAR</span></div>
+            <div style="color:var(--text2);font-size:13px;line-height:1.5">ROAS 5,6× — abaixo do seu equilíbrio (6×). O funil clica bem; a página é o alvo.</div>
+            <div style="margin-top:20px">
+              <div class="mini-label" style="margin-bottom:6px">FUNIL</div>
+              <div class="funnel"><i style="height:100%"></i><i style="height:62%"></i><i style="height:20%"></i><i style="height:14%"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="vote"><button onclick="vote(this,1)">♡ Curti este</button><button onclick="voteNo(this,1)">Não curti</button><span class="q">respiro máximo, 1 número herói</span></div>
+    </div>
+
+    <!-- 2 · Lateral denso (dashboard) -->
+    <div class="mk" data-mk="2">
+      <div class="mk-top">
+        <div class="mk-num">02</div>
+        <div class="mk-meta">
+          <h3>LATERAL COCKPIT</h3>
+          <div class="tags"><span class="tg o">lateral direita</span><span class="tg">denso</span><span class="tg p">tudo à vista</span></div>
+          <div class="desc">Para quem quer ver tudo sem clicar: margem, veredito, funil, leilão, fontes cruzadas e ação — todos visíveis de uma vez, em blocos compactos. Estilo cockpit de piloto.</div>
+        </div>
+      </div>
+      <div class="stage" style="justify-content:flex-end">
+        <div class="browser-hint">// tela da shopee ao fundo</div>
+        <div style="width:360px;background:var(--bg2);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.5);align-self:stretch;display:flex;flex-direction:column;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--bg3)">
+            <svg class="s-logo" viewBox="0 0 128 128"><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#l1)" stroke-width="8"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#l1)" stroke-width="15" stroke-linecap="round"/></svg>
+            <span style="font-family:'Bebas Neue';font-size:15px;letter-spacing:.04em;flex:1">VASO DECORATIVO PRETO</span>
+            <span class="verdict v-otim">OTIMIZAR</span>
+          </div>
+          <div style="padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div style="background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:9px"><div class="mini-label">LÍQUIDO/PEDIDO</div><div class="money" style="font-size:26px;color:var(--ok)">R$34,00</div></div>
+            <div style="background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:9px"><div class="mini-label">ROAS · EQUILÍBRIO</div><div class="money" style="font-size:26px;color:var(--warn)">5,6/6,0</div></div>
+            <div style="background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:9px"><div class="mini-label">LEILÃO (POS)</div><div class="money" style="font-size:26px;color:var(--text)">72</div></div>
+            <div style="background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:9px"><div class="mini-label">FATIA DA LOJA</div><div class="money" style="font-size:26px;color:var(--bad)">33%</div></div>
+          </div>
+          <div style="padding:2px 14px 8px">
+            <div class="mini-label" style="margin-bottom:5px">FUNIL · IMPRESSÃO → VENDA</div>
+            <div class="funnel" style="height:30px"><i style="height:100%"></i><i style="height:55%"></i><i style="height:18%"></i><i style="height:10%"></i></div>
+          </div>
+          <div style="padding:8px 14px;border-top:1px solid var(--line)">
+            <div class="mini-label" style="margin-bottom:5px">FONTES CRUZADAS</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">Ads 76%</span><span class="chip">Afiliado 6%</span><span class="chip">Orgânico 18%</span></div>
+          </div>
+          <div style="padding:10px 14px;border-top:1px solid var(--line);background:rgba(245,176,65,.06)">
+            <div style="font-size:12px;color:var(--text2);line-height:1.45"><b style="color:var(--text)">Faça:</b> trabalhe conversão e ticket (kit &gt; R$80) antes de mexer no lance.</div>
+          </div>
+        </div>
+      </div>
+      <div class="vote"><button onclick="vote(this,2)">♡ Curti este</button><button onclick="voteNo(this,2)">Não curti</button><span class="q">tudo numa tela, zero clique</span></div>
+    </div>
+  </div>
+
+  <div class="sec-label">— Posição: rodapé / faixa inferior —</div>
+  <div class="grid">
+
+    <!-- 3 · Faixa inferior compacta -->
+    <div class="mk" data-mk="3">
+      <div class="mk-top">
+        <div class="mk-num">03</div>
+        <div class="mk-meta">
+          <h3>FAIXA INFERIOR</h3>
+          <div class="tags"><span class="tg o">rodapé</span><span class="tg">horizontal</span><span class="tg p">não cobre a tela</span></div>
+          <div class="desc">Barra que nasce colada na base e não tapa o conteúdo da Shopee. As 3 coisas em linha horizontal. Ótima para quem quer ver o painel e a tela ao mesmo tempo.</div>
+        </div>
+      </div>
+      <div class="stage" style="align-items:flex-end;padding:0">
+        <div class="browser-hint">// tela da shopee ocupa o topo</div>
+        <div style="width:100%;background:var(--bg2);border-top:2px solid var(--orange);box-shadow:0 -14px 40px rgba(0,0,0,.5);display:flex;align-items:center;gap:0">
+          <div style="padding:14px 18px;border-right:1px solid var(--line);display:flex;align-items:center;gap:10px">
+            <svg class="s-logo" viewBox="0 0 128 128"><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#l1)" stroke-width="8"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#l1)" stroke-width="15" stroke-linecap="round"/></svg>
+            <div><div class="mini-label">PRODUTO</div><div style="font-family:'Bebas Neue';font-size:16px">VASO PRETO</div></div>
+          </div>
+          <div style="padding:14px 20px;border-right:1px solid var(--line)"><div class="mini-label">LÍQUIDO/PEDIDO</div><div class="money" style="font-size:30px;color:var(--ok)">R$ 34,00</div></div>
+          <div style="padding:14px 20px;border-right:1px solid var(--line)"><div class="mini-label" style="margin-bottom:5px">VEREDITO</div><span class="verdict v-otim">OTIMIZAR</span></div>
+          <div style="padding:14px 20px;border-right:1px solid var(--line)"><div class="mini-label" style="margin-bottom:5px">FUNIL</div><div class="funnel" style="width:120px;height:26px"><i style="height:100%"></i><i style="height:55%"></i><i style="height:18%"></i><i style="height:10%"></i></div></div>
+          <div style="padding:14px 20px;flex:1;font-size:12.5px;color:var(--text2);line-height:1.45"><b style="color:var(--text)">Ação:</b> ROAS 5,6× &lt; equilíbrio. Kit &gt; R$80 sobe margem e leilão.</div>
+          <div style="padding:0 18px;color:var(--text3);font-size:18px">▾</div>
+        </div>
+      </div>
+      <div class="vote"><button onclick="vote(this,3)">♡ Curti este</button><button onclick="voteNo(this,3)">Não curti</button><span class="q">não cobre a tela da shopee</span></div>
+    </div>
+  </div>
+
+  <div class="sec-label">— Posição: janela flutuante —</div>
+  <div class="grid">
+
+    <!-- 4 · Card flutuante grande -->
+    <div class="mk" data-mk="4">
+      <div class="mk-top">
+        <div class="mk-num">04</div>
+        <div class="mk-meta">
+          <h3>CARD FLUTUANTE</h3>
+          <div class="tags"><span class="tg o">flutuante</span><span class="tg">cards grandes</span><span class="tg p">arrastável</span></div>
+          <div class="desc">Uma janela que você arrasta para onde quiser. Três cards grandes empilhados, cada um com um herói: o dinheiro, o veredito, o funil. Sensação de "app dentro da página".</div>
+        </div>
+      </div>
+      <div class="stage" style="justify-content:center;align-items:center">
+        <div class="browser-hint">// arrasta pra qualquer canto</div>
+        <div style="width:340px;background:var(--bg2);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:grab">
+            <span style="color:var(--text3);letter-spacing:2px">⣿</span>
+            <span style="font-family:'Space Mono';font-size:10px;color:var(--text3);flex:1">SELLER.IA · VASO PRETO</span>
+            <span style="color:var(--text3)">✕</span>
+          </div>
+          <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+            <div style="background:linear-gradient(135deg,rgba(46,204,113,.12),transparent);border:1px solid var(--ok);border-radius:12px;padding:14px"><div class="mini-label">LÍQUIDO POR PEDIDO</div><div class="money" style="font-size:40px;color:var(--ok);line-height:1">R$ 34,00</div><div style="font-size:11px;color:var(--text3)">margem 68% · antes do custo do produto</div></div>
+            <div style="background:linear-gradient(135deg,rgba(245,176,65,.12),transparent);border:1px solid var(--warn);border-radius:12px;padding:14px;display:flex;align-items:center;gap:12px"><span class="verdict v-otim">OTIMIZAR</span><span style="font-size:12.5px;color:var(--text2)">ROAS 5,6× &lt; equilíbrio 6×</span></div>
+            <div style="background:var(--bg3);border:1px solid var(--line);border-radius:12px;padding:14px"><div class="mini-label" style="margin-bottom:8px">FUNIL · 73k → 3k → 30</div><div class="funnel"><i style="height:100%"></i><i style="height:52%"></i><i style="height:16%"></i><i style="height:9%"></i></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="vote"><button onclick="vote(this,4)">♡ Curti este</button><button onclick="voteNo(this,4)">Não curti</button><span class="q">app arrastável, cards heróis</span></div>
+    </div>
+
+    <!-- 5 · Bolha expansível -->
+    <div class="mk" data-mk="5">
+      <div class="mk-top">
+        <div class="mk-num">05</div>
+        <div class="mk-meta">
+          <h3>BOLHA → EXPANDE</h3>
+          <div class="tags"><span class="tg o">flutuante</span><span class="tg">progressivo</span><span class="tg p">discreto</span></div>
+          <div class="desc">Começa como uma bolha mínima ao lado do item (só o veredito colorido). Passou o mouse / tocou, ela cresce e revela margem + funil. Máxima discrição, informação sob demanda.</div>
+        </div>
+      </div>
+      <div class="stage" style="justify-content:center;align-items:center;gap:40px">
+        <div style="text-align:center"><div class="mini-label" style="margin-bottom:10px">FECHADA</div>
+          <div style="display:inline-flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--warn);border-radius:99px;padding:7px 14px"><span class="dot" style="background:var(--warn)"></span><span style="font-family:'Space Mono';font-size:11px;color:var(--warn);font-weight:700">OTIMIZAR</span></div>
+        </div>
+        <div style="color:var(--text3);font-size:24px">→</div>
+        <div style="text-align:center"><div class="mini-label" style="margin-bottom:10px">ABERTA (hover)</div>
+          <div style="width:250px;background:var(--bg2);border:1px solid var(--warn);border-radius:14px;padding:16px;text-align:left;box-shadow:0 16px 40px rgba(0,0,0,.5)">
+            <span class="verdict v-otim">OTIMIZAR</span>
+            <div class="money" style="font-size:34px;color:var(--ok);margin:10px 0 2px">R$ 34,00<span style="font-size:12px;color:var(--text3);font-family:'Outfit'"> /pedido</span></div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:10px">ROAS 5,6× &lt; equilíbrio 6×</div>
+            <div class="funnel" style="height:26px"><i style="height:100%"></i><i style="height:52%"></i><i style="height:16%"></i><i style="height:9%"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="vote"><button onclick="vote(this,5)">♡ Curti este</button><button onclick="voteNo(this,5)">Não curti</button><span class="q">só cresce quando você quer</span></div>
+    </div>
+  </div>
+
+  <div class="sec-label">— Conceitos ousados —</div>
+  <div class="grid">
+
+    <!-- 6 · Semáforo + storytelling -->
+    <div class="mk" data-mk="6">
+      <div class="mk-top">
+        <div class="mk-num">06</div>
+        <div class="mk-meta">
+          <h3>CONSULTOR NARRADO</h3>
+          <div class="tags"><span class="tg o">lateral</span><span class="tg p">linguagem humana</span><span class="tg">storytelling</span></div>
+          <div class="desc">Menos dashboard, mais consultor falando. Uma frase forte no topo ("Você ganha R$34 por venda, mas paga leilão caro"), e os números aparecem embutidos no texto. Para quem valoriza a leitura do método acima do gráfico.</div>
+        </div>
+      </div>
+      <div class="stage" style="justify-content:flex-end">
+        <div style="width:330px;background:var(--bg2);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.5);align-self:stretch;overflow:hidden">
+          <div style="height:5px;background:linear-gradient(90deg,var(--ok) 0 55%,var(--warn) 55% 100%)"></div>
+          <div style="padding:18px 18px 14px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><svg class="s-logo" viewBox="0 0 128 128"><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#l1)" stroke-width="8"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#l1)" stroke-width="15" stroke-linecap="round"/></svg><span class="mini-label">VASO DECORATIVO PRETO</span></div>
+            <div style="font-family:'Bebas Neue';font-size:24px;line-height:1.05;color:var(--text)">VOCÊ GANHA <span style="color:var(--ok)">R$34</span> POR VENDA, MAS PAGA LEILÃO CARO.</div>
+            <p style="font-size:13px;color:var(--text2);line-height:1.55;margin-top:12px">O anúncio clica bem (<b style="color:var(--text)">4,1%</b>), mas só <b style="color:var(--text)">1%</b> da página compra — por isso seu ROAS é <b style="color:var(--warn)">5,6×</b>, abaixo do seu empate de 6×. E ele é <b style="color:var(--bad)">33%</b> da loja: forte demais para arriscar.</p>
+            <div style="margin-top:14px;padding:12px;background:var(--bg3);border-radius:10px;border-left:3px solid var(--orange)"><div class="mini-label" style="margin-bottom:4px">FAÇA AGORA</div><div style="font-size:13px;color:var(--text)">Kit acima de R$80 → sobe margem e valor por exibição.</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="vote"><button onclick="vote(this,6)">♡ Curti este</button><button onclick="voteNo(this,6)">Não curti</button><span class="q">o método falando, não o gráfico</span></div>
+    </div>
+
+    <!-- 7 · Split herói + ação -->
+    <div class="mk" data-mk="7">
+      <div class="mk-top">
+        <div class="mk-num">07</div>
+        <div class="mk-meta">
+          <h3>DINHEIRO EM DESTAQUE</h3>
+          <div class="tags"><span class="tg o">lateral</span><span class="tg p">margem gigante</span><span class="tg">2 blocos</span></div>
+          <div class="desc">A conta de padeiro que o seller ama: metade de cima é a decomposição do dinheiro (preço → taxas → líquido), metade de baixo é veredito + funil + ação. O foco é a margem, sempre.</div>
+        </div>
+      </div>
+      <div class="stage" style="justify-content:flex-end">
+        <div style="width:330px;background:var(--bg2);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.5);align-self:stretch;overflow:hidden;display:flex;flex-direction:column">
+          <div style="padding:16px 18px;background:linear-gradient(180deg,rgba(46,204,113,.09),transparent)">
+            <div style="display:flex;justify-content:space-between;align-items:center"><span class="mini-label">VASO PRETO · R$49,99</span><span class="verdict v-otim">OTIMIZAR</span></div>
+            <table style="width:100%;margin-top:12px;font-size:12.5px;color:var(--text2);border-collapse:collapse">
+              <tr><td style="padding:3px 0">Preço de venda</td><td style="text-align:right;color:var(--text)">R$ 49,99</td></tr>
+              <tr><td style="padding:3px 0">− Comissão (20%+R$4)</td><td style="text-align:right;color:var(--bad)">− R$ 14,00</td></tr>
+              <tr><td style="padding:3px 0">− Ads por pedido</td><td style="text-align:right;color:var(--bad)">− R$ 1,99</td></tr>
+              <tr><td style="padding:6px 0 0;border-top:1px solid var(--line);color:var(--text);font-weight:600">= Líquido/pedido</td><td style="text-align:right;border-top:1px solid var(--line);padding-top:6px"><span class="money" style="font-size:22px;color:var(--ok)">R$ 34,00</span></td></tr>
+            </table>
+            <div style="font-size:10.5px;color:var(--text3);margin-top:4px">cadastre o custo → margem final</div>
+          </div>
+          <div style="padding:14px 18px;border-top:1px solid var(--line);flex:1">
+            <div class="mini-label" style="margin-bottom:6px">FUNIL · LEILÃO POS 72</div>
+            <div class="funnel" style="height:30px;margin-bottom:12px"><i style="height:100%"></i><i style="height:52%"></i><i style="height:16%"></i><i style="height:9%"></i></div>
+            <div style="font-size:12.5px;color:var(--text2);line-height:1.45"><b style="color:var(--text)">Faça:</b> conversão da página + kit &gt; R$80. Não mexa no lance ainda.</div>
+          </div>
+        </div>
+      </div>
+      <div class="vote"><button onclick="vote(this,7)">♡ Curti este</button><button onclick="voteNo(this,7)">Não curti</button><span class="q">a conta do dinheiro em 1º lugar</span></div>
+    </div>
+  </div>
+
+  <div class="footer">SELLER.IA · GALERIA DE CONCEITOS · escolha 2 ou 3 e me mande os números</div>
+</div>
+
+<div class="summary hidden" id="summary"></div>
+<script>
+var curtidos = {};
+function refresh(){
+  var ids = Object.keys(curtidos).filter(function(k){return curtidos[k];});
+  var s = document.getElementById('summary');
+  if(!ids.length){ s.classList.add('hidden'); return; }
+  s.classList.remove('hidden');
+  s.innerHTML = 'Você curtiu: <b>&nbsp;'+ids.map(function(i){return '#'+i;}).join(' , ')+'&nbsp;</b> — me mande esses números que eu construo a partir deles.';
+}
+function vote(btn,id){
+  curtidos[id]=!curtidos[id];
+  btn.classList.toggle('on',curtidos[id]);
+  btn.textContent = curtidos[id]?'♥ Curtido':'♡ Curti este';
+  refresh();
+}
+function voteNo(btn,id){ curtidos[id]=false;
+  var card=document.querySelector('[data-mk="'+id+'"]');
+  var likeBtn=card.querySelector('.vote button');
+  likeBtn.classList.remove('on'); likeBtn.textContent='♡ Curti este';
+  card.style.opacity=card.style.opacity==='0.4'?'1':'0.4';
+  refresh();
+}
+</script>
+</body>
+</html>
