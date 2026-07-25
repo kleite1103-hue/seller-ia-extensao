@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.14.1';
+  var VERSAO = '0.14.2';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -785,16 +785,31 @@
     var vs = estado.diagnostico && estado.diagnostico.vereditos ? estado.diagnostico.vereditos : [];
     return vs.filter(function (v) { return String(v.id).split(':')[0] === String(idC); });
   }
+  function grupoObservacao() {
+    var vs = estado.diagnostico && estado.diagnostico.vereditos ? estado.diagnostico.vereditos : [];
+    for (var i = 0; i < vs.length; i++) if (vs[i].escopo === 'grupo' && vs[i].id === 'observacao') return vs[i];
+    return null;
+  }
   function vestirBarraCampanha(barra, idC) {
     var meus = vereditosDaCampanha(idC);
-    var pior = 'forte';
-    for (var m2 = 0; m2 < meus.length; m2++) {
-      if (meus[m2].status === 'critico') { pior = 'critico'; break; }
-      if (meus[m2].status === 'atencao') pior = 'atencao';
+    if (meus.length) {
+      var pior = 'forte';
+      for (var m2 = 0; m2 < meus.length; m2++) {
+        if (meus[m2].status === 'critico') { pior = 'critico'; break; }
+        if (meus[m2].status === 'atencao') pior = 'atencao';
+      }
+      var corS = pior === 'forte' ? '#2ecc71' : pior === 'critico' ? '#e74c3c' : '#f5b041';
+      barra.textContent = 'Seller.IA · ' + meus[0].veredito;
+      barra.style.boxShadow = '0 0 0 1px ' + corS + ' inset';
+      return;
     }
-    var corS = pior === 'forte' ? '#2ecc71' : pior === 'critico' ? '#e74c3c' : '#f5b041';
-    barra.textContent = meus.length ? ('Seller.IA · ' + meus[0].veredito) : 'Seller.IA · analisar';
-    barra.style.boxShadow = meus.length ? ('0 0 0 1px ' + corS + ' inset') : 'none';
+    if (estado.diagnostico && estado.diagnostico.vereditos && grupoObservacao()) {
+      barra.textContent = 'Seller.IA · EM OBSERVACAO';
+      barra.style.boxShadow = '0 0 0 1px #f5b041 inset';
+      return;
+    }
+    barra.textContent = 'Seller.IA · analisar';
+    barra.style.boxShadow = 'none';
   }
   function varrerCampanhasNaTela() {
     if (location.pathname.indexOf('/portal/marketing/pas') < 0) return;
@@ -805,8 +820,14 @@
     }
     if (!nomes.length) return;
     // atualiza barras existentes (pos-analise elas ganham o veredito sozinhas)
+    var jaTemBarra = {};
     var barras = document.querySelectorAll('[data-sia-barra-camp]');
-    for (var b2 = 0; b2 < barras.length; b2++) vestirBarraCampanha(barras[b2], barras[b2].getAttribute('data-sia-barra-camp'));
+    for (var b2 = 0; b2 < barras.length; b2++) {
+      var idB = barras[b2].getAttribute('data-sia-barra-camp');
+      if (jaTemBarra[idB]) { if (barras[b2].parentNode) barras[b2].parentNode.removeChild(barras[b2]); continue; }
+      jaTemBarra[idB] = true;
+      vestirBarraCampanha(barras[b2], idB);
+    }
     var candidatos = document.querySelectorAll('span,div,p,a');
     for (var i = 0; i < candidatos.length; i++) {
       var el = candidatos[i];
@@ -816,6 +837,8 @@
       for (var j = 0; j < nomes.length; j++) {
         if (txt !== nomes[j].nome) continue;
         el.setAttribute('data-sia-camp', nomes[j].id);
+        if (jaTemBarra[nomes[j].id]) break; // uma barra por campanha na pagina
+        jaTemBarra[nomes[j].id] = true;
         var selo = document.createElement('span');
         selo.setAttribute('data-sia-barra-camp', nomes[j].id);
         selo.title = 'Veredito desta campanha';
@@ -825,8 +848,20 @@
           selo.addEventListener('click', function (ev) {
             ev.stopPropagation(); ev.preventDefault();
             var meusAgora = vereditosDaCampanha(idF); // LIDO NA HORA DO CLIQUE
-            if (meusAgora.length) abrirCardHtml(ev.target, cardVereditoCampanha(meusAgora, nomeF));
-            else {
+            if (meusAgora.length) { abrirCardHtml(ev.target, cardVereditoCampanha(meusAgora, nomeF)); return; }
+            var grupo = grupoObservacao();
+            if (grupo) {
+              var cG = estado.campanhas[idF];
+              var mG = cG && cG.metricas ? cG.metricas : {};
+              var roasG = mG.roas !== undefined ? mG.roas : (mG.gasto ? (mG.gmv || 0) / mG.gasto : null);
+              abrirCardHtml(ev.target, '<div style="color:#c9cdd6"><b style="color:#fff">' + nomeF.slice(0, 60) + '</b><br>' +
+                '<span style="font-size:9px;letter-spacing:.08em;border:1px solid #f5b041;color:#f5b041;border-radius:99px;padding:2px 8px;display:inline-block;margin:6px 0">EM OBSERVACAO</span><br>' +
+                'Numeros do periodo: gasto R$ ' + fLe(mG.gasto || 0, 2) + ' · vendas R$ ' + fLe(mG.gmv || 0, 2) + ' · ' + fLe(mG.pedidos || 0, 0) + ' pedido(s)' + (roasG ? ' · ROAS ' + fLe(roasG, 2) + 'x' : '') + '.<br><br>' +
+                '<b style="color:#fff">Por que sem veredito individual:</b> ainda ha poucas vendas para uma leitura confiavel — o ROAS pode dobrar ou cair pela metade por puro acaso. Decidir agora seria chutar.<br><br>' +
+                '<b style="color:#fff">Faca assim:</b> nao pause nem escale; mantenha o orcamento estavel e deixe acumular vendas. Quando passar do volume minimo da janela, o veredito proprio aparece aqui sozinho.</div>');
+              return;
+            }
+            {
               var c = estado.campanhas[idF];
               var m = c && c.metricas ? c.metricas : {};
               var roasT = m.roas !== undefined ? m.roas : (m.gasto ? (m.gmv || 0) / m.gasto : null);
