@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Card Final</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;padding:26px 14px 70px}
+.wrap{max-width:440px;margin:0 auto}
+h1{font-family:'Bebas Neue';font-size:34px;letter-spacing:.02em;text-align:center}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);text-align:center;font-size:13.5px;margin:6px 0 22px}
+.note{font-family:'Space Mono';font-size:10px;color:var(--text3);text-align:center;letter-spacing:.06em;margin:6px 0 18px}
+
+/* ===== CARD ===== */
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.hd{display:flex;align-items:center;gap:9px;padding:12px 15px;border-bottom:1px solid var(--line);background:var(--bg3)}
+.hd svg{width:22px;height:22px;flex:none}
+.hd .nm{font-family:'Bebas Neue';font-size:16px;letter-spacing:.03em;flex:1;line-height:1.05}
+.hd .id{font-family:'Space Mono';font-size:9px;color:var(--text3)}
+.hd .x{color:var(--text3);cursor:pointer;font-size:15px}
+
+/* bloco 1 · dinheiro */
+.b-money{padding:16px 16px 14px;background:linear-gradient(180deg,rgba(46,204,113,.08),transparent)}
+.b-money .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.verdict{display:inline-flex;align-items:center;gap:6px;font-family:'Space Mono';font-weight:700;font-size:10px;letter-spacing:.08em;padding:4px 11px;border-radius:6px;text-transform:uppercase}
+.v-otim{background:rgba(245,176,65,.14);color:var(--warn);border:1px solid var(--warn)}
+.mrow{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:var(--text2)}
+.mrow .val{font-variant-numeric:tabular-nums}
+.mrow.neg .val{color:var(--bad)}
+.mrow.total{border-top:1px solid var(--line);margin-top:5px;padding-top:8px;align-items:baseline}
+.mrow.total .lbl{color:var(--text);font-weight:600;font-size:13px}
+.mrow.total .val{font-family:'Bebas Neue';font-size:32px;color:var(--ok);line-height:1}
+.hint{font-family:'Space Mono';font-size:9px;color:var(--text3);margin-top:4px}
+.cofre{margin-top:10px;display:flex;gap:7px;align-items:center;background:var(--bg3);border:1px dashed var(--purple);border-radius:8px;padding:7px 10px}
+.cofre input{all:unset;flex:1;font-size:12px;color:var(--text);font-family:'Space Mono'}
+.cofre .tag{font-family:'Space Mono';font-size:8.5px;color:var(--purple);letter-spacing:.06em}
+
+/* bloco 2 · consultor */
+.b-say{padding:14px 16px;border-top:1px solid var(--line)}
+.b-say .big{font-family:'Bebas Neue';font-size:20px;line-height:1.1;color:var(--text)}
+.b-say .big b{color:var(--warn)}
+.b-say p{font-size:12.5px;color:var(--text2);line-height:1.5;margin-top:8px}
+.b-say p b{color:var(--text)}
+.do{margin-top:12px;background:var(--bg3);border-left:3px solid var(--orange);border-radius:0 9px 9px 0;padding:10px 12px}
+.do .k{font-family:'Space Mono';font-size:9px;color:var(--orange);letter-spacing:.1em;margin-bottom:3px}
+.do .t{font-size:12.5px;color:var(--text)}
+
+/* bloco 3 · funil circulos */
+.b-fun{padding:16px 12px 18px;border-top:1px solid var(--line)}
+.b-fun .k{font-family:'Space Mono';font-size:9px;color:var(--text3);letter-spacing:.1em;margin:0 4px 12px}
+.flow{display:flex;align-items:center;justify-content:space-between}
+.node{text-align:center;flex:1}
+.circ{width:50px;height:50px;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:17px;border:2.5px solid;background:var(--bg3)}
+.node .l{font-family:'Space Mono';font-size:8px;color:var(--text3)}
+.gap{flex:0 0 auto;text-align:center;padding:0 2px}
+.gap .ar{color:var(--text3);font-size:13px;line-height:1}
+.gap .dp{font-family:'Space Mono';font-size:8.5px;color:var(--bad);margin-top:2px}
+
+.legend{margin-top:20px;font-family:'Space Mono';font-size:10px;color:var(--text3);text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>O CARD <em>SELLER.IA</em></h1>
+  <p class="sub">É isto que abre quando você clica num produto — na tela do Ads, na página de vendas, em qualquer lugar onde o ID aparece.</p>
+  <p class="note">3 BLOCOS: DINHEIRO · CONSULTOR · FUNIL DE CÍRCULOS</p>
+
+  <div class="card">
+    <div class="hd">
+      <svg viewBox="0 0 128 128"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d1c"/><stop offset="1" stop-color="#7B2FFF"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#g)" stroke-width="8"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#g)" stroke-width="15" stroke-linecap="round"/></svg>
+      <div class="nm">VASO DECORATIVO PRETO<div class="id">ID 58212604692</div></div>
+      <span class="x">✕</span>
+    </div>
+
+    <!-- BLOCO 1 · DINHEIRO -->
+    <div class="b-money">
+      <div class="top">
+        <span class="hint" style="margin:0">A CONTA DESTE PEDIDO</span>
+        <span class="verdict v-otim">● OTIMIZAR</span>
+      </div>
+      <div class="mrow"><span>Preço de venda</span><span class="val">R$ 49,99</span></div>
+      <div class="mrow neg"><span>− Comissão (20% + R$4)</span><span class="val">− R$ 14,00</span></div>
+      <div class="mrow neg"><span>− Ads por pedido</span><span class="val">− R$ 1,99</span></div>
+      <div class="mrow total"><span class="lbl">Líquido por pedido</span><span class="val">R$ 34,00</span></div>
+      <div class="hint">margem 68% · ainda sem o custo do produto</div>
+      <div class="cofre">
+        <span class="tag">CUSTO ▸</span>
+        <input placeholder="digite o custo deste produto e veja a margem final" readonly>
+      </div>
+    </div>
+
+    <!-- BLOCO 2 · CONSULTOR -->
+    <div class="b-say">
+      <div class="big">VOCÊ GANHA <b>R$34</b> POR VENDA, MAS PAGA LEILÃO CARO.</div>
+      <p>O anúncio clica bem (<b>4,1%</b>), só que apenas <b>1%</b> de quem visita compra — por isso o ROAS é <b>5,6×</b>, abaixo do seu empate de <b>6×</b>. E ele sozinho é <b>33%</b> das vendas da loja: forte demais pra arriscar.</p>
+      <div class="do"><div class="k">FAÇA AGORA</div><div class="t">Kit acima de R$80 → sobe a margem e o valor por exibição, sem tocar no lance.</div></div>
+    </div>
+
+    <!-- BLOCO 3 · FUNIL CÍRCULOS -->
+    <div class="b-fun">
+      <div class="k">O CAMINHO ATÉ A VENDA</div>
+      <div class="flow">
+        <div class="node"><div class="circ" style="border-color:var(--orange);color:var(--orange)">73k</div><div class="l">IMPRESSÕES</div></div>
+        <div class="gap"><div class="ar">›</div><div class="dp">−96%</div></div>
+        <div class="node"><div class="circ" style="border-color:#a24bd6;color:#c88bff">3k</div><div class="l">CLIQUES</div></div>
+        <div class="gap"><div class="ar">›</div><div class="dp">−90%</div></div>
+        <div class="node"><div class="circ" style="border-color:var(--purple);color:#c88bff">300</div><div class="l">CARRINHO</div></div>
+        <div class="gap"><div class="ar">›</div><div class="dp">−90%</div></div>
+        <div class="node"><div class="circ" style="border-color:var(--ok);color:var(--ok)">30</div><div class="l">VENDAS</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    Este é o modelo aprovado. Ao codar, os números vêm da coleta real da conta.<br>
+    Dúvida final: gostou de tudo, ou mexe em algum bloco?
+  </div>
+</div>
+</body>
+</html>
