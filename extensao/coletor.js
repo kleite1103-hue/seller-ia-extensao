@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.14.2';
+  var VERSAO = '0.15.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -192,7 +192,10 @@
 
   function absorverPainel(json, alvo) {
     var campos = {};
-    achatar(json && json.data !== undefined ? json.data : json, '', campos, 0);
+    var raiz = json;
+    if (json && json.data !== undefined) raiz = json.data;
+    else if (json && json.result !== undefined) raiz = json.result;
+    achatar(raiz, '', campos, 0);
     if (Object.keys(campos).length) {
       for (var k in campos) alvo.campos[k] = campos[k];
       alvo.atualizadoEm = Date.now();
@@ -439,7 +442,7 @@
 
   function classificar(url) {
     if (url.indexOf('/api/pas/') >= 0) return 'ads';
-    if (url.indexOf('monitor-report') >= 0) return 'outra';
+    if (url.indexOf('monitor-report') >= 0) return url.indexOf('reportMetrics') >= 0 ? 'afiliados' : 'outra';
     if (url.indexOf('affiliate') >= 0) return 'afiliados';
     if (url.indexOf('datacenter') >= 0 || url.indexOf('product/performance') >= 0) return 'performance';
     if (url.indexOf('/api/mydata/') >= 0) return 'conta';
@@ -559,7 +562,8 @@
      o que e -> como esta o seu -> faca assim.               */
   function vLente(chave) { // le valor+variacao das Gerenciais (varias grafias)
     var c = estado.conta.campos || {};
-    var tentativas = [chave + '.value', chave, 'key_metrics.' + chave + '.value', 'key_metrics.' + chave];
+    var tentativas = [chave + '.value', chave, 'key_metrics.' + chave + '.value', 'key_metrics.' + chave,
+      'result.' + chave + '.value', 'result.' + chave, 'result.key_metrics.' + chave + '.value'];
     var val;
     for (var t = 0; t < tentativas.length; t++) { if (typeof c[tentativas[t]] === 'number') { val = c[tentativas[t]]; break; } }
     var rat = c[chave + '.ratio']; if (typeof rat !== 'number') rat = c['key_metrics.' + chave + '.ratio'];
@@ -638,9 +642,19 @@
       leitura: null,
       acao: 'Posicao fraca + CTR bom = trabalhe conversao e ticket (kit, preco psicologico). Posicao fraca + CTR fraco = troque foto e titulo. Lance e o ultimo recurso, nunca o primeiro.' },
     { rot: ['Vendas'], id: 'af_vendas', paths: ['web-seller-affiliate'],
-      oque: 'Quanto os afiliados venderam para voce no periodo. E venda que chega sem leilao: voce so paga a comissao combinada quando a venda acontece.',
-      leitura: null,
-      acao: 'Compare com o total da loja: afiliado saudavel fica entre 5% e 15% das vendas. Abaixo disso, suba a comissao dos seus 2 melhores produtos para atrair criadores.' },
+      oque: 'Quanto os afiliados venderam para voce. E venda sem leilao: voce so paga a comissao quando a venda acontece.',
+      leitura: function () {
+        var fontes = vendasPorFonte();
+        var vAf = fontes.affiliate;
+        if (vAf === undefined) return null;
+        var g = vLente('paid_gmv');
+        var ped = pedidosPorFonte('affiliate');
+        var partes = ['R$ ' + fLe(vAf, 2) + ' via afiliados'];
+        if (ped) partes.push(ped + ' pedido(s), ticket R$ ' + fLe(vAf / ped, 2));
+        var fatia = g.v ? vAf / g.v * 100 : null;
+        return { valor: 'R$ ' + fLe(vAf, 2), bom: fatia === null || (fatia >= 5 && fatia <= 15) || fatia < 5,
+          texto: partes.join(' · ') + (fatia !== null ? ' — ' + fLe(fatia, 1) + '% das vendas da loja (faixa saudavel: 5% a 15%).' : '') }; },
+      acao: 'Abaixo de 5% das vendas: suba a comissao extra dos seus 2 melhores produtos para atrair criadores. Acima de 15%: cuidado com a dependencia e o custo somado por pedido.' },
     { rot: ['Comissão Estimada', 'Comissao Estimada'], id: 'af_comissao', paths: ['web-seller-affiliate'],
       oque: 'Quanto voce vai pagar aos afiliados pelas vendas do periodo. E o "custo de ads" deste canal — so que pago apenas quando vende.',
       leitura: null,
@@ -686,12 +700,19 @@
     if (cardLente && cardLente.parentNode) cardLente.parentNode.removeChild(cardLente);
     cardLente = null;
   }
-  function abrirPainelLateral(html, titulo) {
+  function abrirPainelLateral(html, titulo, rect) {
     fecharCardLente();
     cardLente = document.createElement('div');
     cardLente.setAttribute('data-sia-lente-card', '1');
-    // fixo na lateral: sobrevive aos redesenhos da Shopee e nao fecha sozinho
-    cardLente.style.cssText = 'all:initial;position:fixed;top:72px;right:14px;z-index:2147483200;width:min(430px,94vw);max-height:78vh;display:flex;flex-direction:column;background:#0c0e12;border:1px solid #2a2f3a;border-top:3px solid #ff4d1c;border-radius:12px;box-shadow:0 16px 50px rgba(0,0,0,.6);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
+    var pos;
+    if (rect) {
+      var topo = Math.min(rect.bottom + 8, window.innerHeight - 320);
+      var esq = Math.max(8, Math.min(rect.left, window.innerWidth - 450));
+      pos = 'top:' + Math.max(60, topo) + 'px;left:' + esq + 'px;';
+    } else {
+      pos = 'top:72px;right:14px;';
+    }
+    cardLente.style.cssText = 'all:initial;position:fixed;' + pos + 'z-index:2147483200;width:min(430px,94vw);max-height:70vh;display:flex;flex-direction:column;background:#0c0e12;border:1px solid #2a2f3a;border-top:3px solid #ff4d1c;border-radius:12px;box-shadow:0 16px 50px rgba(0,0,0,.6);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
     cardLente.innerHTML =
       '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #1d212a;flex:none">' +
       '<span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);display:inline-block"></span>' +
@@ -703,7 +724,7 @@
     cardLente.querySelector('[data-sia-fechar]').addEventListener('click', fecharCardLente);
   }
   function abrirCardLente(alvo, item) {
-    abrirPainelLateral(montarCardLente(item), 'SELLER.IA · METRICA');
+    abrirPainelLateral(montarCardLente(item), 'SELLER.IA · METRICA', alvo && alvo.getBoundingClientRect ? alvo.getBoundingClientRect() : null);
   }
 
   var TELAS_LENTE = ['/datacenter/overview', '/datacenter/product/traffic', '/portal/web-seller-affiliate'];
@@ -778,7 +799,7 @@
   }
 
   function abrirCardHtml(alvo, html) {
-    abrirPainelLateral(html, 'SELLER.IA · LEITURA');
+    abrirPainelLateral(html, 'SELLER.IA · LEITURA', alvo && alvo.getBoundingClientRect ? alvo.getBoundingClientRect() : null);
   }
 
   function vereditosDaCampanha(idC) {
@@ -799,7 +820,9 @@
         if (meus[m2].status === 'atencao') pior = 'atencao';
       }
       var corS = pior === 'forte' ? '#2ecc71' : pior === 'critico' ? '#e74c3c' : '#f5b041';
-      barra.textContent = 'Seller.IA · ' + meus[0].veredito;
+      var mB = estado.campanhas[idC] && estado.campanhas[idC].metricas ? estado.campanhas[idC].metricas : {};
+      var posTxt = typeof mB.posicao === 'number' ? ' · POS ' + Math.round(mB.posicao) : '';
+      barra.textContent = 'Seller.IA · ' + meus[0].veredito + posTxt;
       barra.style.boxShadow = '0 0 0 1px ' + corS + ' inset';
       return;
     }
@@ -835,7 +858,11 @@
       var txt = (el.textContent || '').trim();
       if (txt.length < 8 || txt.length > 90) continue;
       for (var j = 0; j < nomes.length; j++) {
-        if (txt !== nomes[j].nome) continue;
+        var nomeJ = nomes[j].nome;
+        var casa = txt === nomeJ ||
+          (txt.length >= 25 && nomeJ.indexOf(txt.replace(/\.\.\.$/, '')) === 0) ||
+          (nomeJ.length >= 25 && txt.indexOf(nomeJ.slice(0, 45)) === 0);
+        if (!casa) continue;
         el.setAttribute('data-sia-camp', nomes[j].id);
         if (jaTemBarra[nomes[j].id]) break; // uma barra por campanha na pagina
         jaTemBarra[nomes[j].id] = true;
@@ -856,7 +883,9 @@
               var roasG = mG.roas !== undefined ? mG.roas : (mG.gasto ? (mG.gmv || 0) / mG.gasto : null);
               abrirCardHtml(ev.target, '<div style="color:#c9cdd6"><b style="color:#fff">' + nomeF.slice(0, 60) + '</b><br>' +
                 '<span style="font-size:9px;letter-spacing:.08em;border:1px solid #f5b041;color:#f5b041;border-radius:99px;padding:2px 8px;display:inline-block;margin:6px 0">EM OBSERVACAO</span><br>' +
-                'Numeros do periodo: gasto R$ ' + fLe(mG.gasto || 0, 2) + ' · vendas R$ ' + fLe(mG.gmv || 0, 2) + ' · ' + fLe(mG.pedidos || 0, 0) + ' pedido(s)' + (roasG ? ' · ROAS ' + fLe(roasG, 2) + 'x' : '') + '.<br><br>' +
+                'Numeros do periodo: gasto R$ ' + fLe(mG.gasto || 0, 2) + ' · vendas R$ ' + fLe(mG.gmv || 0, 2) + ' · ' + fLe(mG.pedidos || 0, 0) + ' pedido(s)' + (roasG ? ' · ROAS ' + fLe(roasG, 2) + 'x' : '') + '.<br>' +
+                (typeof mG.posicao === 'number' ? '<b style="color:#fff">Leilao:</b> posicao media ' + Math.round(mG.posicao) + (mG.posicao <= 10 ? ' — vitrine nobre; o funil esta pagando o espaco.' : mG.posicao > 40 ? ' — fundo de vitrine; enquanto acumula vendas, ja da pra atacar a causa: ' + (typeof mG.ctr === 'number' && (mG.ctr <= 1 ? mG.ctr * 100 : mG.ctr) >= 2 ? 'o card clica bem, o alvo e conversao/ticket da pagina.' : 'o card clica pouco — foto principal e titulo.') : ' — zona intermediaria do leilao.') + '<br>' : '') +
+                (typeof mG.ctr === 'number' ? '<b style="color:#fff">CTR:</b> ' + fLe((mG.ctr <= 1 ? mG.ctr * 100 : mG.ctr), 2) + '%<br>' : '') + '<br>' +
                 '<b style="color:#fff">Por que sem veredito individual:</b> ainda ha poucas vendas para uma leitura confiavel — o ROAS pode dobrar ou cair pela metade por puro acaso. Decidir agora seria chutar.<br><br>' +
                 '<b style="color:#fff">Faca assim:</b> nao pause nem escale; mantenha o orcamento estavel e deixe acumular vendas. Quando passar do volume minimo da janela, o veredito proprio aparece aqui sozinho.</div>');
               return;
@@ -1174,7 +1203,7 @@
         // C) Funil de todos os produtos (Central de Dados, paginado)
         prog('Lendo o funil dos produtos...');
         for (var pg = 1; pg <= 12; pg++) {
-          var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&order_by=&sort_type=&page_size=20&page_num=' + pg + '&category_type=shop';
+          var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&category_type=shopee&category_id=-1&page_size=20&page_num=' + pg + '&order_type=paid&order_by=paid_sales.desc';
           var rp = await buscar(urlP, 'GET', null);
           totalChamadas++;
           if (!rp.ok || !rp.dados) break;
@@ -1188,7 +1217,7 @@
         // D) Fatia de vendas + vinculo campanha (traffic item-list, paginado)
         prog('Cruzando fatia de vendas e campanhas...');
         for (var pg2 = 1; pg2 <= 12; pg2++) {
-          var urlT = '/api/mydata/v1/product/traffic/item-list/?' + spcQ + '&keyword=&order_by=&page_size=20&page_num=' + pg2 + '&category_type=shop&start_time=' + ini + '&end_time=' + fim + '&period=month';
+          var urlT = '/api/mydata/v1/product/traffic/item-list/?' + spcQ + '&keyword=&order_by=&page_size=20&page_num=' + pg2 + '&category_type=shop&start_time=' + ini + '&end_time=' + fim + '&period=month&category_id=-1';
           var rt = await buscar(urlT, 'GET', null);
           totalChamadas++;
           if (!rt.ok || !rt.dados) break;
@@ -1351,6 +1380,27 @@
       '<td class="num">' + fmt(m.pedidos) + '</td>' +
       '<td class="num">' + (m.posicao === undefined ? '—' : fmt(m.posicao, 1)) + '</td>';
   }
+
+  function vendasPorFonte() {
+    var c = estado.conta.campos || {};
+    var fontes = {};
+    for (var k in c) {
+      var m = k.match(/^(?:result\.)?([a-z_]+)\.breakdown\[\d+\]\.sales$/);
+      if (m) { fontes[m[1]] = (fontes[m[1]] || 0) + c[k]; continue; }
+      var m2 = k.match(/^(?:result\.)?([a-z_]+)\.sales$/);
+      if (m2 && !/per_order|ratio/.test(k)) { if (fontes[m2[1]] === undefined) fontes[m2[1]] = c[k]; }
+    }
+    return fontes;
+  }
+  function pedidosPorFonte(fonte) {
+    var c = estado.conta.campos || {};
+    var tot = 0, achou = false;
+    for (var k in c) {
+      if (new RegExp('^(?:result\\.)?' + fonte + '\\.breakdown\\[\\d+\\]\\.orders$').test(k)) { tot += c[k]; achou = true; }
+    }
+    return achou ? tot : null;
+  }
+  var NOME_FONTE = { affiliate: 'Afiliados', ads: 'Shopee Ads', shopee_ads: 'Shopee Ads', live: 'Lives', video: 'Video', product_card: 'Card do Produto', card: 'Card do Produto', total: 'Total' };
 
   var TRADUCAO = {
     uv: 'Visitantes unicos', pv: 'Visualizacoes de pagina', hybrid_uv: 'Visitantes (hibrido)',
@@ -1538,6 +1588,22 @@
         '<div class="kpi"><div class="v">' + fmt(t.pedidos) + '</div><div class="l">Pedidos via ads</div></div>' +
         '<div class="kpi"><div class="v">' + t.n + '</div><div class="l">Produtos lidos</div></div>' +
         '</div>';
+      var fontes = vendasPorFonte();
+      var chavesF = Object.keys(fontes).filter(function (f) { return f !== 'total' && fontes[f] > 0; });
+      if (chavesF.length) {
+        var somaF = 0; for (var f2 = 0; f2 < chavesF.length; f2++) somaF += fontes[chavesF[f2]];
+        chavesF.sort(function (a, b) { return fontes[b] - fontes[a]; });
+        h += '<div class="nota"><b style="color:#f2f2f4">Cruzamento de fontes de venda</b> (do painel da Shopee):</div><table><tr><th>Fonte</th><th class="num">Vendas</th><th class="num">%</th><th class="num">Pedidos</th><th class="num">Ticket</th></tr>';
+        for (var f3 = 0; f3 < chavesF.length; f3++) {
+          var fk = chavesF[f3];
+          var ped = pedidosPorFonte(fk);
+          h += '<tr><td class="nome">' + esc(NOME_FONTE[fk] || fk) + '</td><td class="num">' + reais(fontes[fk]) + '</td>' +
+            '<td class="num">' + (somaF ? fmt(fontes[fk] / somaF * 100, 1) + '%' : '—') + '</td>' +
+            '<td class="num">' + (ped === null ? '—' : fmt(ped)) + '</td>' +
+            '<td class="num">' + (ped ? reais(fontes[fk] / ped) : '—') + '</td></tr>';
+        }
+        h += '</table>';
+      }
       var tc = tabelaGerenciais(estado.conta.campos, estado.conta.atualizadoEm);
       h += tc || '<div class="vazio">Abra a area de <b>Informacoes Gerenciais</b> para a leitura da conta.</div>';
       corpo.innerHTML = h;
