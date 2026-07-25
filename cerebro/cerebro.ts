@@ -15,7 +15,7 @@
 // ============================================================
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const RULES_VERSION = "ocpm-1.2";
+const RULES_VERSION = "ocpm-1.3";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type",
@@ -401,7 +401,7 @@ function analisarCampanhas(snap: any, saida: Veredito[], limiar: number, dias: n
           passos: clicaBem
             ? [
                 "Abra a pagina do produto e ataque a conversao: preco psicologico (ex: 27,90 em vez de 28,50), variacao principal com estoque, avaliacoes respondidas.",
-                "Avalie um kit para subir o valor por pedido — mais valor por clique paga mais leilao.",
+                "Suba o valor que cada venda gera: kit/combo aumenta o ticket, entao cada clique passa a render mais — e e isso que compra posicao no leilao novo, nao o lance.",
                 "So depois disso, se quiser, teste um ajuste fino de lance (+10%).",
               ]
             : [

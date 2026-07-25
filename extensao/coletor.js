@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.11.0';
+  var VERSAO = '0.12.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -611,6 +611,30 @@
       oque: 'Onde seu anuncio aparece em media no leilao. Posicao e consequencia do funil (clique x conversao x ticket), nao do lance: quem converte melhor paga menos por aparecer.',
       leitura: null,
       acao: 'Posicao fraca + CTR bom = trabalhe conversao e ticket (kit, preco psicologico). Posicao fraca + CTR fraco = troque foto e titulo. Lance e o ultimo recurso, nunca o primeiro.' },
+    { rot: ['Vendas'], id: 'af_vendas', paths: ['web-seller-affiliate'],
+      oque: 'Quanto os afiliados venderam para voce no periodo. E venda que chega sem leilao: voce so paga a comissao combinada quando a venda acontece.',
+      leitura: null,
+      acao: 'Compare com o total da loja: afiliado saudavel fica entre 5% e 15% das vendas. Abaixo disso, suba a comissao dos seus 2 melhores produtos para atrair criadores.' },
+    { rot: ['Comissão Estimada', 'Comissao Estimada'], id: 'af_comissao', paths: ['web-seller-affiliate'],
+      oque: 'Quanto voce vai pagar aos afiliados pelas vendas do periodo. E o "custo de ads" deste canal — so que pago apenas quando vende.',
+      leitura: null,
+      acao: 'Leia junto com o ROI: comissao alta com ROI alto e otimo negocio. Comissao subindo com ROI caindo = revise em quais produtos a comissao extra esta ativa.' },
+    { rot: ['ROI'], id: 'af_roi', paths: ['web-seller-affiliate'],
+      oque: 'Retorno por real de comissao: vendas divididas pelo que voce paga aos afiliados. E o ROAS deste canal.',
+      leitura: null,
+      acao: 'Referencia do metodo: acima de 10 e saudavel; entre 5 e 10, aceitavel; abaixo de 5, a comissao esta cara — reduza a comissao extra dos produtos de margem apertada.' },
+    { rot: ['Compradores totais'], id: 'af_compradores', paths: ['web-seller-affiliate'],
+      oque: 'Quantas pessoas compraram via afiliados. Comprador de afiliado costuma ser publico NOVO — gente que seu anuncio nao alcancava.',
+      leitura: null,
+      acao: 'Acompanhe junto com "Novos compradores": se a maioria for nova, o canal esta cumprindo o papel de abrir publico.' },
+    { rot: ['Novos compradores'], id: 'af_novos', paths: ['web-seller-affiliate'],
+      oque: 'Quantos compradores compraram na sua loja pela primeira vez via afiliado. E o valor escondido do canal: cliente novo pode recomprar sem custo depois.',
+      leitura: null,
+      acao: 'Novos compradores caindo com cliques estaveis = os criadores estao falando sempre para a mesma audiencia. Busque afiliados novos no Marketplace.' },
+    { rot: ['Itens vendidos brutos'], id: 'af_itens', paths: ['web-seller-affiliate'],
+      oque: 'Unidades vendidas via afiliados antes de cancelamentos.',
+      leitura: null,
+      acao: 'Diferenca grande entre bruto e pedidos confirmados merece olhar: cancelamento alto neste canal costuma ser promessa exagerada no conteudo do criador.' },
     { rot: ['Curtidas'], id: 'likes',
       oque: 'Interesse guardado pra depois. Curtida e comprador futuro — e sinal de relevancia pro algoritmo.',
       leitura: null,
@@ -657,8 +681,13 @@
     if (cardLente && !cardLente.contains(ev.target)) fecharCardLente();
   }
 
+  var TELAS_LENTE = ['/datacenter/overview', '/datacenter/product/traffic', '/portal/marketing/pas', '/portal/web-seller-affiliate'];
+  function telaPermitida() {
+    for (var i = 0; i < TELAS_LENTE.length; i++) if (location.pathname.indexOf(TELAS_LENTE[i]) === 0 || location.pathname.indexOf(TELAS_LENTE[i]) > 0) return true;
+    return false;
+  }
   function varrerLente() {
-    if (location.hostname !== 'seller.shopee.com.br') return;
+    if (location.hostname !== 'seller.shopee.com.br' || !telaPermitida()) return;
     var jaAnotados = {};
     var selosExistentes = document.querySelectorAll('[data-sia-lente]');
     for (var e0 = 0; e0 < selosExistentes.length; e0++) jaAnotados[selosExistentes[e0].getAttribute('data-sia-lente')] = true;
@@ -671,6 +700,11 @@
       if (!txt || txt.length > 60) continue;
       for (var j = 0; j < LENTE.length; j++) {
         var item = LENTE[j];
+        if (item.paths) {
+          var pathOk = false;
+          for (var pp = 0; pp < item.paths.length; pp++) if (location.pathname.indexOf(item.paths[pp]) >= 0) { pathOk = true; break; }
+          if (!pathOk) continue;
+        }
         var bate = false;
         for (var r2 = 0; r2 < item.rot.length; r2++) {
           if (txt === item.rot[r2]) { bate = true; break; }
@@ -758,9 +792,9 @@
         }
         var corS = meus.length ? (pior === 'forte' ? '#2ecc71' : pior === 'critico' ? '#e74c3c' : '#f5b041') : '#7d8290';
         var selo = document.createElement('span');
-        selo.textContent = meus.length ? (meus[0].veredito.split(' ')[0]) : 'S.';
-        selo.title = 'Seller.IA — veredito desta campanha';
-        selo.style.cssText = 'all:initial;display:inline-block;margin-left:6px;padding:2px 7px;border-radius:99px;border:1px solid ' + corS + ';color:' + corS + ';font:700 8.5px/1.2 Arial;letter-spacing:.06em;cursor:pointer;vertical-align:middle;background:#0c0e12;';
+        selo.textContent = meus.length ? ('Seller.IA · ' + meus[0].veredito) : 'Seller.IA';
+        selo.title = 'Veredito desta campanha';
+        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:230px;margin-top:3px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;' + (meus.length ? 'box-shadow:0 0 0 1px ' + corS + ' inset;' : '');
         (function (nomeF, meusF) {
           selo.addEventListener('click', function (ev) {
             ev.stopPropagation(); ev.preventDefault();
@@ -773,27 +807,49 @@
       }
     }
   }
+  function comissaoShopee(preco) {
+    if (preco <= 79.99) return preco * 0.20 + 4;
+    if (preco <= 99.99) return preco * 0.14 + 16;
+    if (preco <= 199.99) return preco * 0.14 + 20;
+    return preco * 0.14 + 26;
+  }
+
   function leituraLocalProduto(m) {
-    // mini-julgamento imediato (o Cerebro aprofunda no Analisar)
+    // julgamento imediato, sempre com nota explicita (o Cerebro aprofunda no Analisar)
     var itens = [];
     function pct(v) { return v <= 1 ? v * 100 : v; }
+    function nota(ok2, rotulo) { return '<b style="color:' + (ok2 === true ? '#2ecc71' : ok2 === false ? '#e74c3c' : '#f5b041') + '">' + rotulo + '</b>'; }
+
     if (typeof m.ctr_card === 'number') {
       var ctr = pct(m.ctr_card);
-      itens.push({ ok: ctr >= 1.5, txt: 'CTR do card ' + fLe(ctr, 2) + '% — ' + (ctr >= 1.5 ? 'a vitrine conquista o clique.' : 'a vitrine nao esta vencendo a disputa: foto principal e inicio do titulo sao o alvo.') });
+      var nCtr = ctr >= 3 ? nota(true, 'EXCELENTE') : ctr >= 1.5 ? nota(true, 'BOM') : ctr >= 1 ? nota(null, 'MEDIANO') : nota(false, 'FRACO');
+      itens.push({ ok: ctr >= 1.5, txt: 'CTR do card ' + fLe(ctr, 2) + '% — ' + nCtr + '. Referencia: bom acima de 1,5%, excelente acima de 3%. ' + (ctr >= 1.5 ? 'A vitrine (foto + preco + titulo) esta vencendo a disputa pelo clique.' : 'A vitrine perde a disputa: foto principal e inicio do titulo sao o alvo.') });
     }
     if (typeof m.conversao_pago === 'number') {
       var cv = pct(m.conversao_pago);
-      itens.push({ ok: cv >= 1, txt: 'Conversao da pagina ' + fLe(cv, 2) + '% — ' + (cv >= 1 ? 'a pagina fecha a venda.' : 'o clique chega mas a pagina nao fecha: preco vs concorrencia, variacoes e avaliacoes.') });
+      var nCv = cv >= 2 ? nota(true, 'EXCELENTE') : cv >= 1 ? nota(true, 'BOM') : cv >= 0.5 ? nota(null, 'MEDIANO') : nota(false, 'FRACO');
+      itens.push({ ok: cv >= 1, txt: 'Conversao da pagina ' + fLe(cv, 2) + '% — ' + nCv + '. Referencia: bom acima de 1%, excelente acima de 2%. ' + (cv >= 1 ? 'De cada 100 visitantes, ' + fLe(cv, 1) + ' compram — a pagina cumpre o papel.' : 'O clique chega mas a pagina nao fecha: confira preco vs concorrencia, variacoes com estoque e avaliacoes.') });
     }
     if (typeof m.rejeicao === 'number') {
       var rj = pct(m.rejeicao);
-      if (rj > 35) itens.push({ ok: false, txt: 'Rejeicao ' + fLe(rj, 1) + '% — o card promete uma coisa e a pagina entrega outra.' });
+      var nRj = rj <= 25 ? nota(true, 'BOA') : rj <= 35 ? nota(null, 'ACEITAVEL') : nota(false, 'ALTA');
+      itens.push({ ok: rj <= 35, txt: 'Rejeicao ' + fLe(rj, 1) + '% — ' + nRj + '. Referencia: boa ate 25%, aceitavel ate 35%. ' + (rj > 35 ? 'Acima disso, o card esta prometendo o que a pagina nao entrega.' : 'Visitante esta ficando e navegando.') });
     }
-    if (typeof m.ticket_pedido === 'number' && m.ticket_pedido < 80) {
-      itens.push({ ok: m.ticket_pedido >= 60, txt: 'Ticket R$ ' + fLe(m.ticket_pedido, 2) + ' — na faixa de comissao 20% + R$4' + (m.ticket_pedido >= 60 ? '; um kit cruzando R$80 muda o degrau (14% + R$16).' : '.') });
+    if (typeof m.ticket_pedido === 'number') {
+      var tk = m.ticket_pedido;
+      var com = comissaoShopee(tk);
+      var liquido = tk - com;
+      var linha = 'Do ticket de R$ ' + fLe(tk, 2) + ': comissao Shopee R$ ' + fLe(com, 2) + ' → sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido, 2) + '</b> por pedido, antes de custo do produto, frete e ads.';
+      if (typeof m.gasto === 'number' && typeof m.pedidos_pagos === 'number' && m.pedidos_pagos > 0 && m.gasto > 0) {
+        var adsPed = m.gasto / m.pedidos_pagos;
+        linha += ' Com o ads deste produto (~R$ ' + fLe(adsPed, 2) + '/pedido, estimado), sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido - adsPed, 2) + '</b>.';
+      }
+      linha += ' Cadastre o custo no Cofre (em breve) e a margem final aparece aqui.';
+      if (tk >= 60 && tk < 80) linha += ' E este ticket esta a R$ ' + fLe(80 - tk, 2) + ' do degrau: kit cruzando R$80 muda a comissao para 14% + R$16.';
+      itens.push({ ok: null, txt: linha });
     }
     if (typeof m.fatia_vendas === 'number' && m.fatia_vendas >= 0.3) {
-      itens.push({ ok: false, txt: 'Este produto sozinho e ' + fLe(m.fatia_vendas * 100, 0) + '% das vendas da loja — forte, mas concentra risco.' });
+      itens.push({ ok: false, txt: 'Este produto sozinho e ' + fLe(m.fatia_vendas * 100, 0) + '% das vendas da loja — ' + nota(false, 'CONCENTRACAO') + '. Forte, mas se ele engasgar (estoque, concorrente), a loja inteira sente. Construa o segundo pilar.' });
     }
     return itens;
   }
@@ -822,7 +878,8 @@
     if (leituras.length) {
       h += '<div style="font-weight:700;font-size:12px;color:#fff;margin-bottom:4px">O que os numeros dizem</div>';
       for (var i = 0; i < leituras.length; i++) {
-        h += '<div style="font-size:11.5px;line-height:1.45;color:#c9cdd6;margin-bottom:4px"><span style="color:' + (leituras[i].ok ? '#2ecc71' : '#f5b041') + '">&#9679;</span> ' + leituras[i].txt + '</div>';
+        var corPonto = leituras[i].ok === true ? '#2ecc71' : leituras[i].ok === false ? '#e74c3c' : '#f5b041';
+        h += '<div style="font-size:11.5px;line-height:1.5;color:#c9cdd6;margin-bottom:5px"><span style="color:' + corPonto + '">&#9679;</span> ' + leituras[i].txt + '</div>';
       }
     }
     var vds = estado.diagnostico && estado.diagnostico.vereditos ? estado.diagnostico.vereditos.filter(function (v) { return String(v.id).split(':')[0] === String(id); }) : [];
