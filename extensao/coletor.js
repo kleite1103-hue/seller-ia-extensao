@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.12.0';
+  var VERSAO = '0.12.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -375,7 +375,19 @@
 
   /* Listas de produto da Central de Dados (calibrado com payload real 25/07):
      v4/product/performance (funil completo) e traffic/item-list (fatia + campanha). */
-  function parseMydataProdutos(url, dados) {
+  function parseMydataProdutos(url, dados, corpo) {
+    // detecta se a tela esta filtrada por uma fonte de trafego (Contribuicao do Produto)
+    var fonteSel = null;
+    try {
+      var b = corpo ? JSON.parse(corpo) : null;
+      if (b) for (var kb in b) {
+        if (/source|channel/i.test(kb) && b[kb] && b[kb] !== 'all' && b[kb] !== 0 && b[kb] !== '0') {
+          var vs = String(b[kb]).toLowerCase();
+          fonteSel = /ads/.test(vs) ? 'ads' : (/afili|affiliate/.test(vs) ? 'afiliado' : vs.slice(0, 20));
+          break;
+        }
+      }
+    } catch (e) { /* noop */ }
     var res = dados && (dados.result || dados.data);
     if (!res) return false;
     var lista = res.items || res.item;
@@ -405,10 +417,17 @@
         pega('search_clicks', 'cliques_busca');
       }
       if (ehTrafego) {
-        pega('sales', 'vendas_pagas'); pega('orders', 'pedidos_pagos');
-        pega('sales_ratio', 'fatia_vendas'); pega('sales_per_order', 'ticket_pedido');
-        pega('ctr', 'ctr_card'); pega('product_impressions', 'impressoes_card');
-        pega('product_clicks', 'cliques_card');
+        if (fonteSel) {
+          // tela filtrada por uma fonte: grava separado, sem sobrescrever o total
+          if (!p.metricas.fontes) p.metricas.fontes = {};
+          var fv = numero(it.sales), fo = numero(it.orders);
+          p.metricas.fontes[fonteSel] = { vendas: fv, pedidos: fo };
+        } else {
+          pega('sales', 'vendas_pagas'); pega('orders', 'pedidos_pagos');
+          pega('sales_ratio', 'fatia_vendas'); pega('sales_per_order', 'ticket_pedido');
+          pega('ctr', 'ctr_card'); pega('product_impressions', 'impressoes_card');
+          pega('product_clicks', 'cliques_card');
+        }
       }
       p.origem = 'performance'; p.visto_em = Date.now();
     }
@@ -446,7 +465,7 @@
     if (tag === 'publico') { absorverPublico(pacote.dados); }
     else if (tag === 'cadastro' && pacote.url.indexOf('get_product_info') >= 0) { absorverCadastro(pacote.dados); }
     else if (tag === 'conta') {
-      if (!parseMydataProdutos(pacote.url, pacote.dados)) { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
+      if (!parseMydataProdutos(pacote.url, pacote.dados, pacote.corpo)) { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
     }
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); /* sem garimpo: micro proprio, tratado na v0.6 */ }
     else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
@@ -464,7 +483,7 @@
         })(pacote.dados, 0);
       }
     }
-    else if (tag === 'performance') { if (!parseMydataProdutos(pacote.url, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
+    else if (tag === 'performance') { if (!parseMydataProdutos(pacote.url, pacote.dados, pacote.corpo)) garimpar(pacote.dados, { tag: tag }); }
     else garimpar(pacote.dados, { tag: tag });
     estado.sujo = true;
   });
@@ -838,11 +857,17 @@
     if (typeof m.ticket_pedido === 'number') {
       var tk = m.ticket_pedido;
       var com = comissaoShopee(tk);
-      var liquido = tk - com;
-      var linha = 'Do ticket de R$ ' + fLe(tk, 2) + ': comissao Shopee R$ ' + fLe(com, 2) + ' → sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido, 2) + '</b> por pedido, antes de custo do produto, frete e ads.';
+      var TAXA_ANTECIPA = 0.035; // padrao "Demais" — vira configuracao da conta na Etapa 3
+      var antecipa = tk * TAXA_ANTECIPA;
+      var liquido = tk - com - antecipa;
+      var linha = 'Do ticket de R$ ' + fLe(tk, 2) + ': comissao R$ ' + fLe(com, 2) + ' + antecipa R$ ' + fLe(antecipa, 2) + ' (3,5%, ajustavel) → sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido, 2) + '</b> por pedido, antes de custo do produto e trafego.';
       if (typeof m.gasto === 'number' && typeof m.pedidos_pagos === 'number' && m.pedidos_pagos > 0 && m.gasto > 0) {
         var adsPed = m.gasto / m.pedidos_pagos;
-        linha += ' Com o ads deste produto (~R$ ' + fLe(adsPed, 2) + '/pedido, estimado), sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido - adsPed, 2) + '</b>.';
+        linha += ' Descontando o ads deste produto (~R$ ' + fLe(adsPed, 2) + '/pedido, estimado), sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido - adsPed, 2) + '</b>.';
+      }
+      if (m.fontes) {
+        if (m.fontes.ads && typeof m.fontes.ads.vendas === 'number') linha += ' Vendas via Ads: R$ ' + fLe(m.fontes.ads.vendas, 2) + '.';
+        if (m.fontes.afiliado && typeof m.fontes.afiliado.vendas === 'number') linha += ' Via Afiliado: R$ ' + fLe(m.fontes.afiliado.vendas, 2) + '.';
       }
       linha += ' Cadastre o custo no Cofre (em breve) e a margem final aparece aqui.';
       if (tk >= 60 && tk < 80) linha += ' E este ticket esta a R$ ' + fLe(80 - tk, 2) + ' do degrau: kit cruzando R$80 muda a comissao para 14% + R$16.';
