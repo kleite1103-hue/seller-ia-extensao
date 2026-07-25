@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — O Ouro Escondido da Shopee</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.55}
+.wrap{max-width:820px;margin:0 auto;padding:30px 18px 80px}
+h1{font-family:'Bebas Neue';font-size:clamp(30px,6vw,46px);letter-spacing:.02em;line-height:1;text-align:center}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);text-align:center;max-width:640px;margin:10px auto 8px;font-size:15px}
+.kpi{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:18px 0 26px}
+.kpi div{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 16px;text-align:center}
+.kpi b{font-family:'Bebas Neue';font-size:28px;color:var(--orange);display:block;line-height:1}
+.kpi span{font-family:'Space Mono';font-size:9px;color:var(--text3);letter-spacing:.06em}
+.tier{margin:30px 0 12px;font-family:'Bebas Neue';font-size:24px;letter-spacing:.03em;display:flex;align-items:center;gap:10px}
+.tier .b{width:10px;height:22px;border-radius:3px}
+.g{background:var(--bg2);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:14px}
+.g-h{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;cursor:pointer}
+.g-h .fld{font-family:'Space Mono';font-size:12px;color:var(--orange);font-weight:700}
+.g-h .ex{font-family:'Space Mono';font-size:11px;color:var(--text3);margin-left:auto;flex:none}
+.g-h h4{font-size:15px;color:var(--text);font-weight:600;margin-bottom:3px}
+.g-h p{font-size:13px;color:var(--text2)}
+.use{background:var(--bg3);border-top:1px solid var(--line);padding:12px 16px;font-size:13px;color:var(--text2)}
+.use b{color:var(--ok)}
+.pill{display:inline-block;font-family:'Space Mono';font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:2px 9px;margin-right:5px;border:1px solid}
+.p-diamante{border-color:var(--orange);color:var(--orange)}
+.p-forte{border-color:var(--purple);color:#c88bff}
+.p-util{border-color:var(--text3);color:var(--text3)}
+.foot{margin-top:34px;padding:16px;border:1px dashed var(--purple);border-radius:12px;font-size:13.5px;color:var(--text2);text-align:center}
+.foot b{color:var(--orange)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>O <em>OURO ESCONDIDO</em> DA SHOPEE</h1>
+  <p class="sub">Varredura completa dos dados que a Shopee entrega por trás da tela — nas mesmas chamadas que já coletamos. Aqui está o que tem valor de método. Você marca o que entra.</p>
+  <div class="kpi">
+    <div><b>152</b><span>ROTAS VISTAS</span></div>
+    <div><b>519</b><span>CAMPOS-OURO</span></div>
+    <div><b>11</b><span>DIAMANTES</span></div>
+  </div>
+
+  <div class="tier"><span class="b" style="background:var(--orange)"></span>DIAMANTES — o que muda o jogo</div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Competitividade de preço</h4><p>A Shopee calcula e guarda o quão competitivo é o seu preço vs concorrência — em número.</p></div><div class="ex">competitiveness = 50<br>competitivenessUplift = 18000</div></div><div class="use"><b>Uso:</b> o card do produto passa a dizer "seu preço está no meio da tabela da categoria (50/100); baixando X%, sobe para a faixa competitiva" — sem você abrir concorrente nenhum. É o dado que o método sempre estimou no olho, agora exato.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Posição no leilão (rank real)</h4><p>A posição média do seu anúncio no leilão, dada pela própria Shopee.</p></div><div class="ex">avg_rank = 61</div></div><div class="use"><b>Uso:</b> alimenta direto a análise de leilão do card (posição × CTR) que já desenhamos — agora com o número oficial, não estimado. "Posição 61: fundo de vitrine — o funil não está pagando o leilão."</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Fase de aprendizado (cold start)</h4><p>Se o produto ainda está no período em que o algoritmo está aprendendo, e quantos dias faltam.</p></div><div class="ex">is_cold_start = false<br>cold_start_duration = 14<br>learning_duration = 14</div></div><div class="use"><b>Uso:</b> a regra de ouro "não mexa por 7 dias" ganha precisão. O card avisa: "produto em aprendizado, faltam X dias — qualquer mudança agora reinicia a contagem." Impede o erro nº1 do seller ansioso.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Meta de ROAS que a Shopee sugere</h4><p>A própria plataforma calcula e guarda a meta de ROAS recomendada para cada campanha.</p></div><div class="ex">suggested_roi_two_target = 1100000<br>recommended_roas_target = 390000</div></div><div class="use"><b>Uso:</b> ao migrar do Automático para Meta de ROAS (nossa regra), o card já preenche a meta sugerida — o seller não chuta. E podemos comparar a sugestão da Shopee com o equilíbrio real (100÷margem) e dizer qual seguir.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Status de impulso / limitação (boost & deboost)</h4><p>Se o produto está sendo impulsionado ou <em>limitado/punido</em> pela Shopee — e o motivo.</p></div><div class="ex">boosting_status = deboost<br>product_banned_deboosted = 0</div></div><div class="use"><b>Uso:</b> alerta vermelho no card — "este produto está LIMITADO pela Shopee (deboost): nenhum lance resolve enquanto a causa existir." Explica o mistério do "gasto e não aparece". Ninguém no mercado mostra isso.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Diagnóstico da própria Shopee</h4><p>Existe uma rota inteira de diagnóstico (/pas/v1/diagnosis) com sugestões da plataforma.</p></div><div class="ex">rota vista 11x<br>get_content_diagnosis_card</div></div><div class="use"><b>Uso:</b> cruzamos o diagnóstico da Shopee com o método Efeito Vendas — quando concordam, reforço; quando divergem, o card mostra "a Shopee sugere X, mas pelo método faça Y porque...". Autoridade dobrada.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Otimizador de IA da Shopee (stats)</h4><p>Estatísticas do otimizador automático de produto da Shopee.</p></div><div class="ex">get_product_ai_optimizer_stats<br>get_suggested_optimizer_info<br>get_auto_optimizer_info</div></div><div class="use"><b>Uso:</b> saber o que a IA da Shopee já está mexendo sozinha no produto, pra o método não brigar com ela — e avisar a seller quando a automação estiver contra a estratégia dela.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Saúde da conta, penalidades e rating</h4><p>Pontos de penalidade, status de saúde e nota de performance da loja.</p></div><div class="ex">penalty_point = 0<br>performance_rating = good<br>rating_star = 5</div></div><div class="use"><b>Uso:</b> um selo de saúde da conta no painel. Penalidade sobe = alerta imediato, porque afeta entrega de TODOS os produtos. É a camada "conta" que faltava, dada oficialmente.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Percentil / benchmark da categoria</h4><p>Onde você está em relação à categoria — em percentil.</p></div><div class="ex">percentile = 50<br>pctScore = 0</div></div><div class="use"><b>Uso:</b> "sua loja está no percentil 50 da categoria" — comparação com o mercado sem precisar da nossa Camada 2 ainda. A Shopee já te posiciona; a gente só traduz.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Fontes de tráfego com proporção</h4><p>A divisão exata de onde vêm suas vendas, já em ratio.</p></div><div class="ex">paid_ads_ratio = 0.76<br>affiliate_ratio = 0.02<br>product_card_ratio = 0.98</div></div><div class="use"><b>Uso:</b> é o cruzamento ads/afiliado/orgânico que você pediu — a Shopee já entrega pronto em proporção. Alimenta o card de dependência e a análise de canais.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-diamante">Diamante</span><h4>Palavras-chave que vendem</h4><p>Cliques por busca e limite de palavras-chave do anúncio.</p></div><div class="ex">search_clicks = 3482<br>max_non_deleted_keyword = 200<br>selling_top_keywords</div></div><div class="use"><b>Uso:</b> mostrar quais termos trazem clique de verdade — base para otimizar título (que no oCPM é onde nasce a correspondência de palavra-chave). Ponte para a futura pesquisa de mercado (Etapa 6).</div></div>
+
+  <div class="tier"><span class="b" style="background:var(--purple)"></span>FORTES — reforçam o método</div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-forte">Forte</span><h4>Estratégia e mínimos de lance</h4><p>Estratégia ativa e limites de lance por campanha.</p></div><div class="ex">bidding_strategy = roi_two<br>default_bidding_strategy = auto</div></div><div class="use"><b>Uso:</b> confirma Automático vs Meta de ROAS sem depender de leitura de tela — a regra de migração de lance fica 100% confiável.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-forte">Forte</span><h4>CPM / eCPC reais</h4><p>Custo por mil e custo por clique efetivos.</p></div><div class="ex">cpm = 22997<br>cpc (derivado)</div></div><div class="use"><b>Uso:</b> valida a fórmula do Leilão Reverso na tela do seller — CPM real vs o CPM que o método calcula. Prova o conceito com o número da própria Shopee.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-forte">Forte</span><h4>Qualidade de conteúdo do anúncio</h4><p>A Shopee avalia se o conteúdo do produto está em nível "qualificado".</p></div><div class="ex">low_quality_product<br>content_quality (diagnosis)</div></div><div class="use"><b>Uso:</b> card avisa "conteúdo abaixo do qualificado — foto/descrição limitam a entrega." Ação concreta antes de gastar em ads.</div></div>
+
+  <div class="g"><div class="g-h"><div><span class="pill p-forte">Forte</span><h4>Nível de tráfego (missões)</h4><p>O nível de impulso da loja no sistema de missões e o que sobe/desce ele.</p></div><div class="ex">current_traffic_level<br>Lv.{level} Boost</div></div><div class="use"><b>Uso:</b> explica o boost gratuito que a loja recebe por nível — e o que fazer pra subir. Tráfego grátis que o seller nem sabe que existe.</div></div>
+
+  <div class="foot">
+    <b>Como decidir:</b> os <b>11 diamantes</b> eu recomendo entrar já no card e na análise — são o que nenhuma ferramenta do mercado mostra e o que faz a Seller.IA parecer "mágica". Me diz quais você quer priorizar (ou "todos os diamantes") e eu mapeio a coleta de cada um. Os campos exatos e rotas ficam registrados pra construção.
+  </div>
+</div>
+</body>
+</html>
