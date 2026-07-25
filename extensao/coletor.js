@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.8.0';
+  var VERSAO = '0.9.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -525,6 +525,142 @@
       }
     });
   } catch (e) { /* noop */ }
+
+
+  /* ================== MODO LENTE (v0.9) ==================
+     Anota a propria tela da Shopee: um selo ao lado de cada
+     metrica conhecida; clique abre um card com 3 camadas:
+     o que e -> como esta o seu -> faca assim.               */
+  function vLente(chave) { // le valor+variacao das Gerenciais
+    var c = estado.conta.campos || {};
+    var val = c[chave + '.value']; if (val === undefined) val = c[chave];
+    var rat = c[chave + '.ratio'];
+    return { v: (typeof val === 'number' ? val : null), r: (typeof rat === 'number' ? rat : null) };
+  }
+  function fLe(n2, casas) { return n2 === null || n2 === undefined ? null : n2.toLocaleString('pt-BR', { minimumFractionDigits: casas || 0, maximumFractionDigits: casas || 0 }); }
+
+  var LENTE = [
+    { rot: ['Taxa de Conversão (Visitados a Confirmados)', 'Taxa de Conversão'], id: 'conv',
+      oque: 'De cada 100 pessoas que visitam, quantas compram. E o multiplicador da loja inteira: quem converte bem paga mais barato no leilao de ads.',
+      leitura: function () { var d = vLente('conversion_rate'); if (d.v === null) return null;
+        var p = d.v <= 1 ? d.v * 100 : d.v;
+        return { valor: fLe(p, 2) + '%', bom: p >= 1, texto: p >= 1 ? 'Acima de 1% — funil saudavel. Proteja: qualquer queda aqui encarece todas as campanhas.' : 'Abaixo de 1% — a pagina nao esta fechando a venda que o trafego traz.' }; },
+      acao: 'Se estiver baixa: abra seus 3 produtos de maior trafego como cliente, no celular, e compare preco e foto com os 3 primeiros da busca. Corrija um item por vez.' },
+    { rot: ['Vendas por Comprador'], id: 'vpc',
+      oque: 'Quanto cada comprador gasta em media. Sobe com kits, combos e leve-mais-pague-menos.',
+      leitura: null,
+      acao: 'Para subir: combo dos 2 mais vendidos com 8-10% de desconto, e cupom de loja com gasto minimo ~35% acima do ticket atual.' },
+    { rot: ['Taxa de Rejeição do Produto', 'Taxa de Rejeição'], id: 'rej',
+      oque: 'Visitantes que saem sem interagir. Rejeicao alta = a pagina nao confirma o que o card prometeu (preco, modelo, kit).',
+      leitura: function () { var d = vLente('bounce_rate'); if (d.v === null) return null;
+        var p = d.v <= 1 ? d.v * 100 : d.v;
+        return { valor: fLe(p, 2) + '%', bom: p < 35, texto: p < 35 ? 'Dentro do saudavel (< 35%).' : 'Acima de 35% — promessa do card e pagina estao desalinhadas.' }; },
+      acao: 'Compare a foto do card com a primeira dobra da pagina: precisam contar a mesma historia. Se o preco do card e "a partir de", confira se a variacao barata tem estoque.' },
+    { rot: ['Visitantes do Produto', 'Visitantes'], id: 'uv',
+      oque: 'Pessoas unicas que entraram nas paginas. E o topo do funil — mas visitante sem conversao e so conta de luz.',
+      leitura: function () { var d = vLente('uv'); if (d.v === null) return null;
+        return { valor: fLe(d.v, 0), bom: d.r === null || d.r >= 0, texto: d.r === null ? '' : (d.r >= 0 ? 'Crescendo ' : 'Caindo ') + fLe(Math.abs(d.r * 100), 1) + '% vs periodo anterior.' }; },
+      acao: 'Trafego se constroi em 3 frentes: titulo com o termo mais buscado (organico), ads nos produtos que ja convertem, e afiliados com comissao especial nos 2 melhores.' },
+    { rot: ['Cliques em buscas'], id: 'buscas',
+      oque: 'Cliques vindos da busca interna. A busca costuma ser a maior fonte — e ela depende do titulo e da foto no card.',
+      leitura: null,
+      acao: 'O titulo e seu ativo de midia: no novo algoritmo, a correspondencia de palavra-chave nasce dele. Beneficio + termo buscado nas primeiras palavras.' },
+    { rot: ['Adicionar ao Carrinho', 'Visitantes do Produto (Adicionar ao Carrinho)'], id: 'atc',
+      oque: 'Quem colocou no carrinho ja decidiu que quer. O que trava depois e frete na tela final ou falta de empurrao pra fechar agora.',
+      leitura: function () { var a = vLente('atc_uv'); var p2 = vLente('paid_buyers');
+        if (a.v === null || p2.v === null || a.v <= p2.v) return null;
+        var ab = (1 - p2.v / a.v) * 100;
+        return { valor: fLe(ab, 0) + '% abandonam', bom: ab < 70, texto: fLe(a.v, 0) + ' adicionaram, ' + fLe(p2.v, 0) + ' pagaram.' }; },
+      acao: 'Cupom de fechamento (ex: 5% acima de R$40) — ele aparece exatamente no carrinho — e leve-mais-pague-menos nos produtos de maior trafego.' },
+    { rot: ['GMV Pago', 'Vendas'], id: 'gmv',
+      oque: 'O que de fato entrou (pedidos pagos). E o numero que paga as contas — pedido feito sem pagamento nao e venda.',
+      leitura: function () { var d = vLente('paid_gmv'); if (d.v === null) return null;
+        return { valor: 'R$ ' + fLe(d.v, 2), bom: d.r === null || d.r >= 0, texto: d.r === null ? '' : (d.r >= 0 ? 'Crescendo ' : 'Caindo ') + fLe(Math.abs(d.r * 100), 1) + '% vs periodo anterior.' }; },
+      acao: 'Cresce por 3 alavancas, nesta ordem de custo: conversao (gratis), ticket (quase gratis), trafego (pago). Comece sempre pela mais barata.' },
+    { rot: ['ROAS', 'GMV por Gasto'], id: 'roas',
+      oque: 'Quantos reais voltam por real investido. O numero sozinho engana: o que importa e comparar com o SEU ponto de equilibrio (100 ÷ margem%).',
+      leitura: null,
+      acao: 'Margem de 25% = empate em 4x; abaixo disso e prejuizo mesmo "parecendo bom". Cadastre o custo no Cofre (em breve) e o veredito passa a usar o seu numero real.' },
+    { rot: ['Curtidas'], id: 'likes',
+      oque: 'Interesse guardado pra depois. Curtida e comprador futuro — e sinal de relevancia pro algoritmo.',
+      leitura: null,
+      acao: 'Produto com muitas curtidas e conversao baixa pede oferta relampago: transforma intencao guardada em pedido.' }
+  ];
+
+  function montarCardLente(item) {
+    var le = item.leitura ? item.leitura() : null;
+    var h = '<div style="font-weight:700;font-size:12px;color:#fff;margin-bottom:6px">O que e</div>' +
+      '<div style="font-size:12px;color:#c9cdd6;line-height:1.5">' + item.oque + '</div>';
+    if (le) {
+      h += '<div style="font-weight:700;font-size:12px;color:#fff;margin:10px 0 4px">Como esta o seu</div>' +
+        '<div style="font-size:12px;line-height:1.5;color:#c9cdd6"><b style="color:' + (le.bom ? '#2ecc71' : '#f5b041') + '">' + le.valor + '</b>' + (le.texto ? ' — ' + le.texto : '') + '</div>';
+    }
+    h += '<div style="font-weight:700;font-size:12px;color:#fff;margin:10px 0 4px">Faca assim</div>' +
+      '<div style="font-size:12px;color:#c9cdd6;line-height:1.5">' + item.acao + '</div>' +
+      '<div style="font-size:9px;color:#6d7280;margin-top:10px;letter-spacing:.08em">SELLER.IA · METODO EFEITO VENDAS</div>';
+    return h;
+  }
+
+  var cardLente = null;
+  function abrirCardLente(alvo, item) {
+    fecharCardLente();
+    cardLente = document.createElement('div');
+    cardLente.setAttribute('data-sia-lente-card', '1');
+    cardLente.style.cssText = 'all:initial;position:absolute;z-index:2147482000;max-width:340px;background:#0c0e12;border:1px solid #2a2f3a;border-left:3px solid #ff4d1c;border-radius:0 10px 10px 0;box-shadow:0 10px 34px rgba(0,0,0,.5);padding:14px 16px;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
+    cardLente.innerHTML = montarCardLente(item);
+    document.body.appendChild(cardLente);
+    var r = alvo.getBoundingClientRect();
+    var topo = r.bottom + window.scrollY + 6;
+    var esq = Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - 360);
+    cardLente.style.top = topo + 'px';
+    cardLente.style.left = Math.max(esq, 8) + 'px';
+    setTimeout(function () {
+      document.addEventListener('click', fecharForaLente, true);
+    }, 0);
+  }
+  function fecharCardLente() {
+    if (cardLente && cardLente.parentNode) cardLente.parentNode.removeChild(cardLente);
+    cardLente = null;
+    document.removeEventListener('click', fecharForaLente, true);
+  }
+  function fecharForaLente(ev) {
+    if (cardLente && !cardLente.contains(ev.target)) fecharCardLente();
+  }
+
+  function varrerLente() {
+    if (location.hostname !== 'seller.shopee.com.br') return;
+    var candidatos = document.querySelectorAll('span,div,p,label,th');
+    for (var i = 0; i < candidatos.length; i++) {
+      var el = candidatos[i];
+      if (el.childElementCount > 1) continue;
+      if (el.getAttribute('data-sia-lente')) continue;
+      var txt = (el.textContent || '').trim();
+      if (!txt || txt.length > 60) continue;
+      for (var j = 0; j < LENTE.length; j++) {
+        var item = LENTE[j];
+        var bate = false;
+        for (var r2 = 0; r2 < item.rot.length; r2++) {
+          if (txt === item.rot[r2]) { bate = true; break; }
+        }
+        if (!bate) continue;
+        el.setAttribute('data-sia-lente', item.id);
+        var selo = document.createElement('span');
+        selo.setAttribute('data-sia-selo', '1');
+        selo.textContent = 'S.';
+        selo.title = 'Seller.IA — o que e e o que fazer';
+        selo.style.cssText = 'all:initial;display:inline-flex;align-items:center;justify-content:center;margin-left:6px;width:16px;height:16px;border-radius:5px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 9px/1 Arial;cursor:pointer;vertical-align:middle;';
+        (function (itemF) {
+          selo.addEventListener('click', function (ev) {
+            ev.stopPropagation(); ev.preventDefault();
+            abrirCardLente(ev.target, itemF);
+          });
+        })(item);
+        el.appendChild(selo);
+        break;
+      }
+    }
+  }
+  setInterval(varrerLente, 2500);
 
   /* ================================ UI ================================= */
   var host = document.createElement('div');
