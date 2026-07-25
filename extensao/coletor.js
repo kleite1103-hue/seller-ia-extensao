@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.10.0';
+  var VERSAO = '0.11.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -531,24 +531,29 @@
      Anota a propria tela da Shopee: um selo ao lado de cada
      metrica conhecida; clique abre um card com 3 camadas:
      o que e -> como esta o seu -> faca assim.               */
-  function vLente(chave) { // le valor+variacao das Gerenciais
+  function vLente(chave) { // le valor+variacao das Gerenciais (varias grafias)
     var c = estado.conta.campos || {};
-    var val = c[chave + '.value']; if (val === undefined) val = c[chave];
-    var rat = c[chave + '.ratio'];
+    var tentativas = [chave + '.value', chave, 'key_metrics.' + chave + '.value', 'key_metrics.' + chave];
+    var val;
+    for (var t = 0; t < tentativas.length; t++) { if (typeof c[tentativas[t]] === 'number') { val = c[tentativas[t]]; break; } }
+    var rat = c[chave + '.ratio']; if (typeof rat !== 'number') rat = c['key_metrics.' + chave + '.ratio'];
     return { v: (typeof val === 'number' ? val : null), r: (typeof rat === 'number' ? rat : null) };
   }
   function fLe(n2, casas) { return n2 === null || n2 === undefined ? null : n2.toLocaleString('pt-BR', { minimumFractionDigits: casas || 0, maximumFractionDigits: casas || 0 }); }
 
   var LENTE = [
-    { rot: ['Taxa de Conversão (Visitados a Confirmados)', 'Taxa de Conversão'], id: 'conv',
+    { rot: ['Taxa de Conversão de Pedidos', 'Taxa de Conversão (Visitados a Confirmados)', 'Taxa de Conversão'], id: 'conv',
       oque: 'De cada 100 pessoas que visitam, quantas compram. E o multiplicador da loja inteira: quem converte bem paga mais barato no leilao de ads.',
       leitura: function () { var d = vLente('conversion_rate'); if (d.v === null) return null;
         var p = d.v <= 1 ? d.v * 100 : d.v;
         return { valor: fLe(p, 2) + '%', bom: p >= 1, texto: p >= 1 ? 'Acima de 1% — funil saudavel. Proteja: qualquer queda aqui encarece todas as campanhas.' : 'Abaixo de 1% — a pagina nao esta fechando a venda que o trafego traz.' }; },
       acao: 'Se estiver baixa: abra seus 3 produtos de maior trafego como cliente, no celular, e compare preco e foto com os 3 primeiros da busca. Corrija um item por vez.' },
-    { rot: ['Vendas por Comprador'], id: 'vpc',
-      oque: 'Quanto cada comprador gasta em media. Sobe com kits, combos e leve-mais-pague-menos.',
-      leitura: null,
+    { rot: ['Vendas por Comprador', 'Vendas por Pedido'], id: 'vpc',
+      oque: 'Quanto entra em media por pedido/comprador. E a alavanca mais barata da loja: sobe com kits, combos e leve-mais-pague-menos — e conversa direto com o degrau de comissao dos R$80.',
+      leitura: function () { var g = vLente('paid_gmv'); var o = vLente('paid_order');
+        if (g.v === null || o.v === null || !o.v) return null;
+        var t = g.v / o.v;
+        return { valor: 'R$ ' + fLe(t, 2), bom: t >= 80, texto: t < 80 ? 'Abaixo de R$80 — cada venda paga a comissao mais cara (20% + R$4). Kit cruzando R$80 cai para 14% + R$16.' : 'Acima do degrau dos R$80 — comissao na faixa de 14%.' }; },
       acao: 'Para subir: combo dos 2 mais vendidos com 8-10% de desconto, e cupom de loja com gasto minimo ~35% acima do ticket atual.' },
     { rot: ['Taxa de Rejeição do Produto', 'Taxa de Rejeição'], id: 'rej',
       oque: 'Visitantes que saem sem interagir. Rejeicao alta = a pagina nao confirma o que o card prometeu (preco, modelo, kit).',
@@ -581,6 +586,11 @@
       oque: 'Quantos reais voltam por real investido. O numero sozinho engana: o que importa e comparar com o SEU ponto de equilibrio (100 ÷ margem%).',
       leitura: null,
       acao: 'Margem de 25% = empate em 4x; abaixo disso e prejuizo mesmo "parecendo bom". Cadastre o custo no Cofre (em breve) e o veredito passa a usar o seu numero real.' },
+    { rot: ['Cliques Por Produto'], id: 'cliques_prod',
+      oque: 'Cliques nos cards dos seus produtos. Clique e a moeda do funil: sem ele, nada acontece — e ele nasce da foto + preco + inicio do titulo.',
+      leitura: function () { var d = vLente('product_clicks'); if (d.v === null) return null;
+        return { valor: fLe(d.v, 0), bom: d.r === null || d.r >= 0, texto: d.r === null ? '' : (d.r >= 0 ? 'Crescendo ' : 'Caindo ') + fLe(Math.abs(d.r * 100), 1) + '% vs periodo anterior.' }; },
+      acao: 'Clique caindo com impressao estavel = vitrine perdendo a disputa. Foto principal e as 3 primeiras palavras do titulo sao o alvo.' },
     { rot: ['CTR'], id: 'ctr_ads',
       oque: 'De cada 100 vezes que o anuncio aparece, quantas e clicado. E a porta do funil pago — e o algoritmo premia quem clica bem com mais entrega.',
       leitura: null,
@@ -649,6 +659,9 @@
 
   function varrerLente() {
     if (location.hostname !== 'seller.shopee.com.br') return;
+    var jaAnotados = {};
+    var selosExistentes = document.querySelectorAll('[data-sia-lente]');
+    for (var e0 = 0; e0 < selosExistentes.length; e0++) jaAnotados[selosExistentes[e0].getAttribute('data-sia-lente')] = true;
     var candidatos = document.querySelectorAll('span,div,p,label,th');
     for (var i = 0; i < candidatos.length; i++) {
       var el = candidatos[i];
@@ -663,6 +676,8 @@
           if (txt === item.rot[r2]) { bate = true; break; }
         }
         if (!bate) continue;
+        if (jaAnotados[item.id]) { break; } // um selo por metrica por pagina
+        jaAnotados[item.id] = true;
         el.setAttribute('data-sia-lente', item.id);
         var selo = document.createElement('span');
         selo.setAttribute('data-sia-selo', '1');
@@ -758,8 +773,142 @@
       }
     }
   }
+  function leituraLocalProduto(m) {
+    // mini-julgamento imediato (o Cerebro aprofunda no Analisar)
+    var itens = [];
+    function pct(v) { return v <= 1 ? v * 100 : v; }
+    if (typeof m.ctr_card === 'number') {
+      var ctr = pct(m.ctr_card);
+      itens.push({ ok: ctr >= 1.5, txt: 'CTR do card ' + fLe(ctr, 2) + '% — ' + (ctr >= 1.5 ? 'a vitrine conquista o clique.' : 'a vitrine nao esta vencendo a disputa: foto principal e inicio do titulo sao o alvo.') });
+    }
+    if (typeof m.conversao_pago === 'number') {
+      var cv = pct(m.conversao_pago);
+      itens.push({ ok: cv >= 1, txt: 'Conversao da pagina ' + fLe(cv, 2) + '% — ' + (cv >= 1 ? 'a pagina fecha a venda.' : 'o clique chega mas a pagina nao fecha: preco vs concorrencia, variacoes e avaliacoes.') });
+    }
+    if (typeof m.rejeicao === 'number') {
+      var rj = pct(m.rejeicao);
+      if (rj > 35) itens.push({ ok: false, txt: 'Rejeicao ' + fLe(rj, 1) + '% — o card promete uma coisa e a pagina entrega outra.' });
+    }
+    if (typeof m.ticket_pedido === 'number' && m.ticket_pedido < 80) {
+      itens.push({ ok: m.ticket_pedido >= 60, txt: 'Ticket R$ ' + fLe(m.ticket_pedido, 2) + ' — na faixa de comissao 20% + R$4' + (m.ticket_pedido >= 60 ? '; um kit cruzando R$80 muda o degrau (14% + R$16).' : '.') });
+    }
+    if (typeof m.fatia_vendas === 'number' && m.fatia_vendas >= 0.3) {
+      itens.push({ ok: false, txt: 'Este produto sozinho e ' + fLe(m.fatia_vendas * 100, 0) + '% das vendas da loja — forte, mas concentra risco.' });
+    }
+    return itens;
+  }
+
+  function cardProduto(id) {
+    var p = estado.produtos[id];
+    var titulo = p && p.nome ? p.nome.slice(0, 70) : 'Produto ' + id;
+    var h = '<div style="font-weight:700;font-size:12px;color:#fff;margin-bottom:2px">' + titulo + '</div>' +
+      '<div style="font-size:9.5px;color:#6d7280;margin-bottom:8px">ID ' + id + '</div>';
+    if (!p || !p.metricas || !Object.keys(p.metricas).length) {
+      return h + '<div style="font-size:12px;color:#c9cdd6;line-height:1.5">Ainda sem dados coletados deste produto nesta sessao. Navegue pela <b>Performance de Produto</b> (e role ate ele aparecer na lista) — a leitura fica pronta aqui.</div>';
+    }
+    var m = p.metricas;
+    function cel(rot, val) { return val === undefined || val === null ? '' : '<div style="min-width:86px"><div style="font-size:9px;color:#6d7280;text-transform:uppercase;letter-spacing:.05em">' + rot + '</div><div style="font-size:13px;font-weight:700;color:#f2f2f4">' + val + '</div></div>'; }
+    function pct(v) { return v === undefined ? undefined : fLe((v <= 1 ? v * 100 : v), 2) + '%'; }
+    h += '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">' +
+      cel('Vendas', m.vendas_pagas !== undefined ? 'R$ ' + fLe(m.vendas_pagas, 2) : undefined) +
+      cel('Pedidos', m.pedidos_pagos !== undefined ? fLe(m.pedidos_pagos, 0) : undefined) +
+      cel('Ticket', m.ticket_pedido !== undefined ? 'R$ ' + fLe(m.ticket_pedido, 2) : undefined) +
+      cel('CTR card', pct(m.ctr_card)) +
+      cel('Conversao', pct(m.conversao_pago)) +
+      cel('Rejeicao', pct(m.rejeicao)) +
+      cel('Fatia da loja', pct(m.fatia_vendas)) +
+      '</div>';
+    var leituras = leituraLocalProduto(m);
+    if (leituras.length) {
+      h += '<div style="font-weight:700;font-size:12px;color:#fff;margin-bottom:4px">O que os numeros dizem</div>';
+      for (var i = 0; i < leituras.length; i++) {
+        h += '<div style="font-size:11.5px;line-height:1.45;color:#c9cdd6;margin-bottom:4px"><span style="color:' + (leituras[i].ok ? '#2ecc71' : '#f5b041') + '">&#9679;</span> ' + leituras[i].txt + '</div>';
+      }
+    }
+    var vds = estado.diagnostico && estado.diagnostico.vereditos ? estado.diagnostico.vereditos.filter(function (v) { return String(v.id).split(':')[0] === String(id); }) : [];
+    if (vds.length) {
+      h += '<div style="font-weight:700;font-size:12px;color:#fff;margin:8px 0 4px">Veredito Seller.IA</div>';
+      for (var v2 = 0; v2 < Math.min(vds.length, 2); v2++) {
+        var vd = vds[v2];
+        h += '<div style="font-size:11.5px;color:#c9cdd6;line-height:1.45;margin-bottom:6px"><b style="color:#ff4d1c">' + vd.veredito + '</b> — ' + vd.manchete + '</div>';
+        if (vd.passos && vd.passos.length) {
+          h += '<ol style="margin:0 0 4px 16px;padding:0">';
+          for (var pz = 0; pz < vd.passos.length; pz++) h += '<li style="font-size:11px;color:#c9cdd6;margin:2px 0">' + vd.passos[pz] + '</li>';
+          h += '</ol>';
+        }
+      }
+    } else {
+      h += '<div style="font-size:10.5px;color:#6d7280;margin-top:6px">Para o veredito completo do metodo, clique em Analisar no painel Seller.IA.</div>';
+    }
+    h += '<div style="font-size:9px;color:#6d7280;margin-top:8px;letter-spacing:.08em">SELLER.IA · METODO EFEITO VENDAS</div>';
+    return h;
+  }
+
+  function varrerLinhasDeProduto() {
+    if (location.hostname !== 'seller.shopee.com.br') return;
+    var candidatos = document.querySelectorAll('span,div,p');
+    for (var i = 0; i < candidatos.length; i++) {
+      var el = candidatos[i];
+      if (el.childElementCount > 1 || el.getAttribute('data-sia-prod')) continue;
+      var txt = (el.textContent || '').trim();
+      var m = txt.match(/^ID do Produto:?\s*(\d{6,})$/);
+      if (!m) continue;
+      var idp = m[1];
+      el.setAttribute('data-sia-prod', idp);
+      var selo = document.createElement('span');
+      selo.textContent = 'Seller.IA';
+      selo.title = 'Ver a leitura deste produto';
+      selo.style.cssText = 'all:initial;display:inline-block;margin-left:8px;padding:2px 8px;border-radius:99px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 8.5px/1.3 Arial;letter-spacing:.05em;cursor:pointer;vertical-align:middle;';
+      (function (idF) {
+        selo.addEventListener('click', function (ev) {
+          ev.stopPropagation(); ev.preventDefault();
+          abrirCardHtml(ev.target, cardProduto(idF));
+        });
+      })(idp);
+      el.appendChild(selo);
+    }
+  }
+
+  /* pagina publica: a Shopee entrega o HTML pronto — ler o JSON-LD */
+  function lerPaginaPublica() {
+    if (estado.modoPagina !== 'publico' || !estado.paginaProduto) return;
+    if (estado.anuncioPublico && estado.anuncioPublico.id === estado.paginaProduto) return;
+    try {
+      var scripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (var i = 0; i < scripts.length; i++) {
+        var dados;
+        try { dados = JSON.parse(scripts[i].textContent); } catch (e) { continue; }
+        var lista = Array.isArray(dados) ? dados : [dados];
+        for (var j = 0; j < lista.length; j++) {
+          var dj = lista[j];
+          if (!dj || dj['@type'] !== 'Product') continue;
+          var oferta = dj.offers || {};
+          if (Array.isArray(oferta)) oferta = oferta[0] || {};
+          var aval = dj.aggregateRating || {};
+          estado.anuncioPublico = {
+            id: estado.paginaProduto,
+            nome: dj.name || '',
+            preco: oferta.price !== undefined ? parseFloat(oferta.price) : (oferta.lowPrice !== undefined ? parseFloat(oferta.lowPrice) : null),
+            preco_max: oferta.highPrice !== undefined ? parseFloat(oferta.highPrice) : null,
+            estrelas: aval.ratingValue !== undefined ? parseFloat(aval.ratingValue) : null,
+            vendidos: null,
+            imagens: dj.image ? (Array.isArray(dj.image) ? dj.image : [dj.image]) : [],
+            capturado_em: Date.now()
+          };
+          var p = entidadeProduto(estado.paginaProduto);
+          if (estado.anuncioPublico.nome) p.nome = estado.anuncioPublico.nome;
+          if (estado.anuncioPublico.preco !== null && !isNaN(estado.anuncioPublico.preco)) p.preco_publico = estado.anuncioPublico.preco;
+          estado.sujo = true;
+          return;
+        }
+      }
+    } catch (e) { /* noop */ }
+  }
+
   setInterval(varrerLente, 2500);
   setInterval(varrerCampanhasNaTela, 2500);
+  setInterval(varrerLinhasDeProduto, 2500);
+  setInterval(lerPaginaPublica, 2000);
 
   /* ================================ UI ================================= */
   var host = document.createElement('div');
@@ -1003,14 +1152,16 @@
         '<span class="nota" style="margin:0">' + (dg && dg.rules_version ? 'Regras ' + esc(dg.rules_version) + ' · cerebro no servidor' : 'Envia a coleta ao Cerebro Seller.IA e recebe os vereditos do metodo.') + '</span></div>';
       if (dg && dg.erro) hd += '<div class="nota" style="color:#e74c3c">Falha: ' + esc(dg.erro) + '</div>';
       if (dg && dg.vereditos && dg.vereditos.length) {
+        hd += '<div class="nota" style="margin-top:0">Clique em um card para abrir os detalhes.</div>';
         for (var v = 0; v < dg.vereditos.length; v++) {
           var vd = dg.vereditos[v];
           var cor = vd.status === 'forte' ? '#2ecc71' : (vd.status === 'critico' ? '#e74c3c' : '#f5b041');
-          hd += '<div style="border:1px solid #1d212a;border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;background:#12151b;padding:12px 14px;margin-bottom:10px">' +
+          hd += '<div class="sia-card-diag" style="border:1px solid #1d212a;border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;background:#12151b;padding:10px 14px;margin-bottom:8px;cursor:pointer">' +
             '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
               '<span style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid ' + cor + ';color:' + cor + ';border-radius:99px;padding:2px 8px">' + esc(vd.veredito) + '</span>' +
               '<span style="font-size:10px;color:#7d8290">' + esc(vd.escopo) + (vd.nome ? ' · ' + esc(String(vd.nome).slice(0, 55)) : '') + (vd.id && vd.escopo !== 'conta' && vd.escopo !== 'grupo' ? ' · ID ' + esc(String(vd.id).split(':')[0]) : '') + '</span></div>' +
-            '<div style="font-weight:700;font-size:13px;margin:7px 0 4px;color:#f2f2f4">' + esc(vd.manchete) + '</div>' +
+            '<div style="font-weight:700;font-size:13px;margin:6px 0 0;color:#f2f2f4">' + esc(vd.manchete) + '</div>' +
+            '<div class="sia-detalhe" style="display:none;margin-top:6px">' +
             '<div style="font-size:12px;color:#b8bcc6;line-height:1.5;white-space:pre-line">' + esc(vd.diagnostico) + '</div>' +
             (vd.passos && vd.passos.length ? (function () {
               var hp = '<div style="font-size:12px;margin-top:8px;color:#f2f2f4;font-weight:700">Faca assim:</div><ol style="margin:4px 0 0 18px;padding:0">';
@@ -1018,7 +1169,7 @@
               return hp + '</ol>';
             })() : (vd.acao ? '<div style="font-size:12px;margin-top:8px;color:#b8bcc6"><b style="color:#f2f2f4">O que fazer:</b> ' + esc(vd.acao.fazer) + '</div>' : '')) +
             (vd.impacto ? '<div style="font-size:12px;margin-top:7px;color:#7B2FFF"><b>Impacto:</b> <span style="color:#b8bcc6">' + esc(vd.impacto) + '</span></div>' : '') +
-            '</div>';
+            '</div></div>';
         }
       } else if (dg && dg.vereditos) {
         hd += '<div class="vazio">O Cerebro nao encontrou nada para julgar ainda — navegue pelo Ads e pelas Informacoes Gerenciais e analise de novo.</div>';
@@ -1026,6 +1177,13 @@
         hd += '<div class="vazio">Navegue pelas telas (Ads, Informacoes Gerenciais) e clique em <b>Analisar conta agora</b>.<br>Os vereditos do metodo aparecem aqui — manchete, diagnostico e acao.</div>';
       }
       corpo.innerHTML = hd;
+      var cardsD = corpo.querySelectorAll('.sia-card-diag');
+      for (var cd = 0; cd < cardsD.length; cd++) {
+        cardsD[cd].addEventListener('click', function () {
+          var det = this.querySelector('.sia-detalhe');
+          if (det) det.style.display = det.style.display === 'none' ? 'block' : 'none';
+        });
+      }
       var btn = raiz.getElementById('sia-analisar');
       if (btn) btn.addEventListener('click', function () {
         if (estado.analisando) return;
@@ -1140,8 +1298,18 @@
       corpo.innerHTML = h5;
 
     } else if (abaAtiva === 'afiliados') {
-      var ta = tabelaCampos(estado.afiliados.campos, estado.afiliados.atualizadoEm, 'Painel de Afiliados capturado');
-      corpo.innerHTML = ta || '<div class="vazio">Abra o <b>painel de Afiliados</b> (web-seller-affiliate/dashboard) e navegue. Os campos capturados aparecem aqui para calibragem.</div>';
+      var brutosAf = estado.afiliados.campos || {};
+      var uteis = {};
+      for (var kaf in brutosAf) {
+        if (/id/i.test(kaf)) continue;                       // IDs fora
+        var vaf = brutosAf[kaf];
+        if (typeof vaf !== 'number' || Math.abs(vaf) >= 1e11) continue; // numeros de ID gigantes fora
+        if (!/(sale|commission|roi|click|order|buyer|gmv|invest|spend|conversion|item_sold)/i.test(kaf)) continue;
+        if (/(sale|commission|gmv|spend|amount)/i.test(kaf) && Number.isInteger(vaf) && Math.abs(vaf) >= 100000) vaf = vaf / 100000;
+        uteis[kaf] = vaf;
+      }
+      var ta = tabelaCampos(uteis, estado.afiliados.atualizadoEm, 'Afiliados — indicadores capturados (curadoria automatica)');
+      corpo.innerHTML = ta || '<div class="vazio">Abra o <b>painel de Afiliados</b> e navegue pelos indicadores. A leitura estruturada entra na proxima rodada de calibragem.</div>';
 
     } else if (abaAtiva === 'cadastro') {
       var h3 = '';
