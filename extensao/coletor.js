@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.13.1';
+  var VERSAO = '0.14.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -682,29 +682,28 @@
   }
 
   var cardLente = null;
-  function abrirCardLente(alvo, item) {
-    fecharCardLente();
-    cardLente = document.createElement('div');
-    cardLente.setAttribute('data-sia-lente-card', '1');
-    cardLente.style.cssText = 'all:initial;position:absolute;z-index:2147482000;max-width:340px;background:#0c0e12;border:1px solid #2a2f3a;border-left:3px solid #ff4d1c;border-radius:0 10px 10px 0;box-shadow:0 10px 34px rgba(0,0,0,.5);padding:14px 16px;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
-    cardLente.innerHTML = montarCardLente(item);
-    document.body.appendChild(cardLente);
-    var r = alvo.getBoundingClientRect();
-    var topo = r.bottom + window.scrollY + 6;
-    var esq = Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - 360);
-    cardLente.style.top = topo + 'px';
-    cardLente.style.left = Math.max(esq, 8) + 'px';
-    setTimeout(function () {
-      document.addEventListener('click', fecharForaLente, true);
-    }, 0);
-  }
   function fecharCardLente() {
     if (cardLente && cardLente.parentNode) cardLente.parentNode.removeChild(cardLente);
     cardLente = null;
-    document.removeEventListener('click', fecharForaLente, true);
   }
-  function fecharForaLente(ev) {
-    if (cardLente && !cardLente.contains(ev.target)) fecharCardLente();
+  function abrirPainelLateral(html, titulo) {
+    fecharCardLente();
+    cardLente = document.createElement('div');
+    cardLente.setAttribute('data-sia-lente-card', '1');
+    // fixo na lateral: sobrevive aos redesenhos da Shopee e nao fecha sozinho
+    cardLente.style.cssText = 'all:initial;position:fixed;top:72px;right:14px;z-index:2147483200;width:min(430px,94vw);max-height:78vh;display:flex;flex-direction:column;background:#0c0e12;border:1px solid #2a2f3a;border-top:3px solid #ff4d1c;border-radius:12px;box-shadow:0 16px 50px rgba(0,0,0,.6);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
+    cardLente.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #1d212a;flex:none">' +
+      '<span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);display:inline-block"></span>' +
+      '<span style="font:700 12px Arial;color:#fff;letter-spacing:.04em;flex:1">' + (titulo || 'SELLER.IA') + '</span>' +
+      '<button data-sia-fechar="1" style="all:initial;cursor:pointer;color:#b8bcc6;font:700 14px Arial;padding:4px 8px;border-radius:6px;background:#12151b">✕</button>' +
+      '</div>' +
+      '<div style="padding:14px 16px;overflow:auto;font-size:12.5px;line-height:1.55">' + html + '</div>';
+    document.documentElement.appendChild(cardLente);
+    cardLente.querySelector('[data-sia-fechar]').addEventListener('click', fecharCardLente);
+  }
+  function abrirCardLente(alvo, item) {
+    abrirPainelLateral(montarCardLente(item), 'SELLER.IA · METRICA');
   }
 
   var TELAS_LENTE = ['/datacenter/overview', '/datacenter/product/traffic', '/portal/marketing/pas', '/portal/web-seller-affiliate'];
@@ -777,16 +776,7 @@
   }
 
   function abrirCardHtml(alvo, html) {
-    fecharCardLente();
-    cardLente = document.createElement('div');
-    cardLente.setAttribute('data-sia-lente-card', '1');
-    cardLente.style.cssText = 'all:initial;position:absolute;z-index:2147482000;max-width:380px;max-height:420px;overflow:auto;background:#0c0e12;border:1px solid #2a2f3a;border-left:3px solid #ff4d1c;border-radius:0 10px 10px 0;box-shadow:0 10px 34px rgba(0,0,0,.5);padding:14px 16px;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
-    cardLente.innerHTML = html;
-    document.body.appendChild(cardLente);
-    var r = alvo.getBoundingClientRect();
-    cardLente.style.top = (r.bottom + window.scrollY + 6) + 'px';
-    cardLente.style.left = Math.max(Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - 400), 8) + 'px';
-    setTimeout(function () { document.addEventListener('click', fecharForaLente, true); }, 0);
+    abrirPainelLateral(html, 'SELLER.IA · LEITURA');
   }
 
   function varrerCampanhasNaTela() {
@@ -1045,10 +1035,32 @@
     } catch (e) { estado.debugPublico = 'erro: ' + String(e).slice(0, 80); }
   }
 
-  setInterval(varrerLente, 2500);
-  setInterval(varrerCampanhasNaTela, 2500);
-  setInterval(varrerLinhasDeProduto, 2500);
-  setInterval(lerPaginaPublica, 2000);
+  var varreduraAgendada = null;
+  function varrerTudo() {
+    varreduraAgendada = null;
+    try { varrerLente(); } catch (e) { /* noop */ }
+    try { varrerCampanhasNaTela(); } catch (e) { /* noop */ }
+    try { varrerLinhasDeProduto(); } catch (e) { /* noop */ }
+    try { lerPaginaPublica(); } catch (e) { /* noop */ }
+  }
+  function agendarVarredura() {
+    if (varreduraAgendada) return;
+    varreduraAgendada = setTimeout(varrerTudo, 350); // logo apos a Shopee redesenhar
+  }
+  try {
+    var observador = new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) {
+        var alvo = muts[i].target;
+        // ignora mutacoes causadas por nos elementos
+        if (alvo && alvo.getAttribute && (alvo.getAttribute('data-sia-lente-card') || alvo.id === 'seller-ia-host')) continue;
+        agendarVarredura();
+        return;
+      }
+    });
+    observador.observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) { /* noop */ }
+  setTimeout(varrerTudo, 800);
+  setInterval(varrerTudo, 5000); // rede de seguranca
 
   /* ====================== COLETA COMPLETA (1 clique) ====================== */
   var pendentesBusca = {};
@@ -1617,7 +1629,7 @@
     } else if (abaAtiva === 'debug') {
       var okInterceptor = !!estado.interceptorVersao;
       var pj = estado.periodoAds ? (estado.periodoAds.dias + ' dia(s)') : 'nao capturado';
-      if (estado.modoPagina === 'publico') h4pre = '<div class="nota">Pagina publica: ' + esc(estado.debugPublico || 'aguardando leitura...') + '</div>'; else h4pre = '';
+      var h4pre = estado.modoPagina === 'publico' ? '<div class="nota">Pagina publica: ' + esc(estado.debugPublico || 'aguardando leitura...') + '</div>' : '';
       var lj = estado.loja ? (estado.loja.shop_id + (estado.loja.nome ? ' · ' + estado.loja.nome : '')) : 'nao capturada';
       var h4 = h4pre + '<div class="nota">Loja: <b style="color:#f2f2f4">' + esc(lj) + '</b> · Janela do Ads: <b style="color:#f2f2f4">' + esc(pj) + '</b></div>' +
         '<div class="nota">Interceptor' +
