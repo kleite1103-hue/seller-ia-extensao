@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.12.2';
+  var VERSAO = '0.13.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -28,6 +28,8 @@
     cadastro: null,          // get_product_info: preco, estoque, categoria, fotos
     series: {},              // series temporais por campanha (get_time_graph)
     loja: null,              // shop_id + nome (selleraccount/shop_info)
+    spc: null,               // chave de sessao SPC_CDS (colhida das chamadas)
+    coletaProgresso: null,   // texto de progresso da coleta completa
     periodoAds: null,        // janela selecionada na tela do Ads (start/end)
     diagnostico: null,       // ultimo retorno do Cerebro
     analisando: false,
@@ -448,10 +450,10 @@
   }
 
   /* ============================== RECEPCAO ============================== */
-  window.addEventListener('SIA_DADOS', function (ev) {
-    var pacote;
-    try { pacote = JSON.parse(ev.detail); } catch (e) { return; }
+  function processarPacote(pacote) {
     if (!pacote || !pacote.url) return;
+    var mSpc = pacote.url.match(/SPC_CDS=([a-f0-9-]{20,})/i);
+    if (mSpc) estado.spc = mSpc[1];
     var tag = classificar(pacote.url);
     var tamanho = 0;
     try { tamanho = JSON.stringify(pacote.dados).length; } catch (e) { /* noop */ }
@@ -486,6 +488,11 @@
     else if (tag === 'performance') { if (!parseMydataProdutos(pacote.url, pacote.dados, pacote.corpo)) garimpar(pacote.dados, { tag: tag }); }
     else garimpar(pacote.dados, { tag: tag });
     estado.sujo = true;
+  }
+  window.addEventListener('SIA_DADOS', function (ev) {
+    var pacote;
+    try { pacote = JSON.parse(ev.detail); } catch (e) { return; }
+    processarPacote(pacote);
   });
 
   window.addEventListener('SIA_PONG', function (ev) {
@@ -990,6 +997,102 @@
   setInterval(varrerLinhasDeProduto, 2500);
   setInterval(lerPaginaPublica, 2000);
 
+  /* ====================== COLETA COMPLETA (1 clique) ====================== */
+  var pendentesBusca = {};
+  var seqBusca = 0;
+  window.addEventListener('SIA_BUSCA_RESULTADO', function (ev) {
+    var r;
+    try { r = JSON.parse(ev.detail); } catch (e) { return; }
+    if (r && r.id && pendentesBusca[r.id]) { pendentesBusca[r.id](r); delete pendentesBusca[r.id]; }
+  });
+  function buscar(url, metodo, corpo) {
+    return new Promise(function (resolve) {
+      var id = 'b' + (++seqBusca) + '_' + Date.now();
+      pendentesBusca[id] = resolve;
+      try {
+        window.dispatchEvent(new CustomEvent('SIA_BUSCAR', { detail: JSON.stringify({ id: id, url: url, metodo: metodo || 'GET', corpo: corpo || null }) }));
+      } catch (e) { resolve({ ok: false, erro: 'ponte indisponivel' }); }
+      setTimeout(function () { if (pendentesBusca[id]) { pendentesBusca[id]({ ok: false, erro: 'tempo esgotado' }); delete pendentesBusca[id]; } }, 15000);
+    });
+  }
+  function pausa(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function coletaCompleta(aoProgresso) {
+    return new Promise(function (resolver) {
+      (async function () {
+        function prog(t) { estado.coletaProgresso = t; estado.sujo = true; if (aoProgresso) aoProgresso(t); }
+        if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina do Seller Centre e tente de novo (chave de sessao ainda nao capturada).' }); return; }
+        var fim = Math.floor(Date.now() / 1000);
+        var ini = fim - 30 * 86400;
+        var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
+        var totalChamadas = 0;
+
+        // A) Campanhas do Ads (paginado por offset)
+        prog('Lendo campanhas do Shopee Ads...');
+        for (var off = 0; off < 400; off += 20) {
+          var corpoC = JSON.stringify({ start_time: ini, end_time: fim, filter_list: [{ campaign_type: 'product_homepage_v3', state: 'all', search_term: '', is_valid_rebate_only: false }], offset: off, limit: 20, use_paid_gmv: false });
+          var rc = await buscar('/api/pas/v1/homepage/query/?' + spcQ, 'POST', corpoC);
+          totalChamadas++;
+          if (!rc.ok || !rc.dados) break;
+          processarPacote({ url: '/api/pas/v1/homepage/query/', metodo: 'POST', corpo: corpoC, dados: rc.dados, ts: Date.now() });
+          var lote = rc.dados.data && rc.dados.data.entry_list ? rc.dados.data.entry_list.length : 0;
+          prog('Campanhas lidas: ' + Object.keys(estado.campanhas).length + '...');
+          if (lote < 20) break;
+          await pausa(450);
+        }
+        estado.periodoAds = { inicio: ini, fim: fim, dias: 30 };
+
+        // B) Variacao das 12 maiores campanhas (report/get com ratio)
+        var idsTop = Object.keys(estado.campanhas).sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); }).slice(0, 12);
+        for (var t2 = 0; t2 < idsTop.length; t2++) {
+          prog('Aprofundando campanha ' + (t2 + 1) + ' de ' + idsTop.length + '...');
+          var corpoR = JSON.stringify({ start_time: ini, end_time: fim, campaign_type: 'product', agg_type: 'campaign_id', filter_params: { campaign_id: parseInt(idsTop[t2], 10) }, need_ratio: true });
+          var rr = await buscar('/api/pas/v1/report/get/?' + spcQ, 'POST', corpoR);
+          totalChamadas++;
+          if (rr.ok && rr.dados) processarPacote({ url: '/api/pas/v1/report/get/', metodo: 'POST', corpo: corpoR, dados: rr.dados, ts: Date.now() });
+          await pausa(450);
+        }
+
+        // C) Funil de todos os produtos (Central de Dados, paginado)
+        prog('Lendo o funil dos produtos...');
+        for (var pg = 1; pg <= 12; pg++) {
+          var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&order_by=&sort_type=&page_size=20&page_num=' + pg + '&category_type=shop';
+          var rp = await buscar(urlP, 'GET', null);
+          totalChamadas++;
+          if (!rp.ok || !rp.dados) break;
+          processarPacote({ url: urlP, metodo: 'GET', corpo: null, dados: rp.dados, ts: Date.now() });
+          var itens = rp.dados.result && rp.dados.result.items ? rp.dados.result.items.length : 0;
+          prog('Produtos lidos: ' + Object.keys(estado.produtos).length + '...');
+          if (itens < 20) break;
+          await pausa(450);
+        }
+
+        // D) Fatia de vendas + vinculo campanha (traffic item-list, paginado)
+        prog('Cruzando fatia de vendas e campanhas...');
+        for (var pg2 = 1; pg2 <= 12; pg2++) {
+          var urlT = '/api/mydata/v1/product/traffic/item-list/?' + spcQ + '&keyword=&order_by=&page_size=20&page_num=' + pg2 + '&category_type=shop&start_time=' + ini + '&end_time=' + fim + '&period=month';
+          var rt = await buscar(urlT, 'GET', null);
+          totalChamadas++;
+          if (!rt.ok || !rt.dados) break;
+          processarPacote({ url: urlT, metodo: 'GET', corpo: null, dados: rt.dados, ts: Date.now() });
+          var itens2 = rt.dados.result && rt.dados.result.item ? rt.dados.result.item.length : 0;
+          if (itens2 < 20) break;
+          await pausa(450);
+        }
+
+        // E) Indicadores gerais da loja
+        prog('Lendo os indicadores gerais...');
+        var urlK = '/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=';
+        var rk = await buscar(urlK, 'GET', null);
+        totalChamadas++;
+        if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now() });
+
+        prog(null);
+        resolver({ ok: true, chamadas: totalChamadas, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
+      })();
+    });
+  }
+
   /* ================================ UI ================================= */
   var host = document.createElement('div');
   host.id = 'seller-ia-host';
@@ -1226,9 +1329,11 @@
     if (abaAtiva === 'diagnostico') {
       var dg = estado.diagnostico;
       var hd = '';
-      hd += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">' +
-        '<button id="sia-analisar" style="background:linear-gradient(120deg,#ff4d1c,#7B2FFF);border:none;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:pointer">' +
-        (estado.analisando ? 'Analisando...' : 'Analisar conta agora') + '</button>' +
+      hd += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">' +
+        '<button id="sia-coletar-tudo" style="background:linear-gradient(120deg,#ff4d1c,#7B2FFF);border:none;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:' + (estado.coletaProgresso ? 'wait' : 'pointer') + '">' +
+        (estado.coletaProgresso ? esc(estado.coletaProgresso) : 'Coletar conta completa + Analisar') + '</button>' +
+        '<button id="sia-analisar" style="background:#12151b;border:1px solid #2a2f3a;color:#fff;font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
+        (estado.analisando ? 'Analisando...' : 'So analisar o ja coletado') + '</button>' +
         '<span class="nota" style="margin:0">' + (dg && dg.rules_version ? 'Regras ' + esc(dg.rules_version) + ' · cerebro no servidor' : 'Envia a coleta ao Cerebro Seller.IA e recebe os vereditos do metodo.') + '</span></div>';
       if (dg && dg.erro) hd += '<div class="nota" style="color:#e74c3c">Falha: ' + esc(dg.erro) + '</div>';
       if (dg && dg.vereditos && dg.vereditos.length) {
@@ -1264,6 +1369,21 @@
           if (det) det.style.display = det.style.display === 'none' ? 'block' : 'none';
         });
       }
+      var btnTudo = raiz.getElementById('sia-coletar-tudo');
+      if (btnTudo) btnTudo.addEventListener('click', function () {
+        if (estado.coletaProgresso) return;
+        coletaCompleta(function () { render(); }).then(function (res) {
+          estado.sujo = true;
+          if (!res.ok) {
+            estado.diagnostico = { ok: false, erro: res.erro };
+            render();
+            return;
+          }
+          // salva e analisa automaticamente
+          var btnA = raiz.getElementById('sia-analisar');
+          if (btnA) btnA.click();
+        });
+      });
       var btn = raiz.getElementById('sia-analisar');
       if (btn) btn.addEventListener('click', function () {
         if (estado.analisando) return;
