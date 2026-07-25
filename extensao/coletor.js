@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.15.0';
+  var VERSAO = '0.16.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -571,43 +571,58 @@
   }
   function fLe(n2, casas) { return n2 === null || n2 === undefined ? null : n2.toLocaleString('pt-BR', { minimumFractionDigits: casas || 0, maximumFractionDigits: casas || 0 }); }
 
+  function somaCampanhas() {
+    var t = { gasto: 0, gmv: 0, cliques: 0, impressoes: 0, pedidos: 0 };
+    for (var id in estado.campanhas) {
+      var m = estado.campanhas[id].metricas || {};
+      t.gasto += m.gasto || 0; t.gmv += m.gmv || 0;
+      t.cliques += m.cliques || 0; t.impressoes += m.impressoes || 0; t.pedidos += m.pedidos || 0;
+    }
+    return t;
+  }
+  function janelaTxt() {
+    if (!estado.periodoAds) return 'sem janela definida';
+    function dd(ts) { var d = new Date(ts * 1000); return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }
+    return dd(estado.periodoAds.inicio) + ' a ' + dd(estado.periodoAds.fim);
+  }
+
   var LENTE = [
-    { rot: ['Taxa de Conversão de Pedidos', 'Taxa de Conversão (Visitados a Confirmados)', 'Taxa de Conversão'], id: 'conv',
+    { rot: ['Taxa de Conversão de Pedidos', 'Taxa de Conversão (Visitados a Confirmados)', 'Taxa de Conversão'], id: 'conv', paths: ['/datacenter'],
       oque: 'De cada 100 pessoas que visitam, quantas compram. E o multiplicador da loja inteira: quem converte bem paga mais barato no leilao de ads.',
       leitura: function () { var d = vLente('conversion_rate'); if (d.v === null) return null;
         var p = d.v <= 1 ? d.v * 100 : d.v;
         return { valor: fLe(p, 2) + '%', bom: p >= 1, texto: p >= 1 ? 'Acima de 1% — funil saudavel. Proteja: qualquer queda aqui encarece todas as campanhas.' : 'Abaixo de 1% — a pagina nao esta fechando a venda que o trafego traz.' }; },
       acao: 'Se estiver baixa: abra seus 3 produtos de maior trafego como cliente, no celular, e compare preco e foto com os 3 primeiros da busca. Corrija um item por vez.' },
-    { rot: ['Vendas por Comprador', 'Vendas por Pedido'], id: 'vpc',
+    { rot: ['Vendas por Comprador', 'Vendas por Pedido'], id: 'vpc', paths: ['/datacenter'],
       oque: 'Quanto entra em media por pedido/comprador. E a alavanca mais barata da loja: sobe com kits, combos e leve-mais-pague-menos — e conversa direto com o degrau de comissao dos R$80.',
       leitura: function () { var g = vLente('paid_gmv'); var o = vLente('paid_order');
         if (g.v === null || o.v === null || !o.v) return null;
         var t = g.v / o.v;
         return { valor: 'R$ ' + fLe(t, 2), bom: t >= 80, texto: t < 80 ? 'Abaixo de R$80 — cada venda paga a comissao mais cara (20% + R$4). Kit cruzando R$80 cai para 14% + R$16.' : 'Acima do degrau dos R$80 — comissao na faixa de 14%.' }; },
       acao: 'Para subir: combo dos 2 mais vendidos com 8-10% de desconto, e cupom de loja com gasto minimo ~35% acima do ticket atual.' },
-    { rot: ['Taxa de Rejeição do Produto', 'Taxa de Rejeição'], id: 'rej',
+    { rot: ['Taxa de Rejeição do Produto', 'Taxa de Rejeição'], id: 'rej', paths: ['/datacenter'],
       oque: 'Visitantes que saem sem interagir. Rejeicao alta = a pagina nao confirma o que o card prometeu (preco, modelo, kit).',
       leitura: function () { var d = vLente('bounce_rate'); if (d.v === null) return null;
         var p = d.v <= 1 ? d.v * 100 : d.v;
         return { valor: fLe(p, 2) + '%', bom: p < 35, texto: p < 35 ? 'Dentro do saudavel (< 35%).' : 'Acima de 35% — promessa do card e pagina estao desalinhadas.' }; },
       acao: 'Compare a foto do card com a primeira dobra da pagina: precisam contar a mesma historia. Se o preco do card e "a partir de", confira se a variacao barata tem estoque.' },
-    { rot: ['Visitantes do Produto', 'Visitantes'], id: 'uv',
+    { rot: ['Visitantes do Produto', 'Visitantes'], id: 'uv', paths: ['/datacenter'],
       oque: 'Pessoas unicas que entraram nas paginas. E o topo do funil — mas visitante sem conversao e so conta de luz.',
       leitura: function () { var d = vLente('uv'); if (d.v === null) return null;
         return { valor: fLe(d.v, 0), bom: d.r === null || d.r >= 0, texto: d.r === null ? '' : (d.r >= 0 ? 'Crescendo ' : 'Caindo ') + fLe(Math.abs(d.r * 100), 1) + '% vs periodo anterior.' }; },
       acao: 'Trafego se constroi em 3 frentes: titulo com o termo mais buscado (organico), ads nos produtos que ja convertem, e afiliados com comissao especial nos 2 melhores.' },
-    { rot: ['Cliques em buscas'], id: 'buscas',
+    { rot: ['Cliques em buscas'], id: 'buscas', paths: ['/datacenter'],
       oque: 'Cliques vindos da busca interna. A busca costuma ser a maior fonte — e ela depende do titulo e da foto no card.',
       leitura: null,
       acao: 'O titulo e seu ativo de midia: no novo algoritmo, a correspondencia de palavra-chave nasce dele. Beneficio + termo buscado nas primeiras palavras.' },
-    { rot: ['Adicionar ao Carrinho', 'Visitantes do Produto (Adicionar ao Carrinho)'], id: 'atc',
+    { rot: ['Adicionar ao Carrinho', 'Visitantes do Produto (Adicionar ao Carrinho)'], id: 'atc', paths: ['/datacenter'],
       oque: 'Quem colocou no carrinho ja decidiu que quer. O que trava depois e frete na tela final ou falta de empurrao pra fechar agora.',
       leitura: function () { var a = vLente('atc_uv'); var p2 = vLente('paid_buyers');
         if (a.v === null || p2.v === null || a.v <= p2.v) return null;
         var ab = (1 - p2.v / a.v) * 100;
         return { valor: fLe(ab, 0) + '% abandonam', bom: ab < 70, texto: fLe(a.v, 0) + ' adicionaram, ' + fLe(p2.v, 0) + ' pagaram.' }; },
       acao: 'Cupom de fechamento (ex: 5% acima de R$40) — ele aparece exatamente no carrinho — e leve-mais-pague-menos nos produtos de maior trafego.' },
-    { rot: ['GMV Pago', 'Vendas'], id: 'gmv',
+    { rot: ['GMV Pago', 'Total de Vendas'], id: 'gmv', paths: ['/datacenter'],
       oque: 'O que de fato entrou (pedidos pagos). E o numero que paga as contas — pedido feito sem pagamento nao e venda.',
       leitura: function () { var d = vLente('paid_gmv'); if (d.v === null) return null;
         return { valor: 'R$ ' + fLe(d.v, 2), bom: d.r === null || d.r >= 0, texto: d.r === null ? '' : (d.r >= 0 ? 'Crescendo ' : 'Caindo ') + fLe(Math.abs(d.r * 100), 1) + '% vs periodo anterior.' }; },
@@ -616,12 +631,43 @@
       oque: 'Quantos reais voltam por real investido. O numero sozinho engana: o que importa e comparar com o SEU ponto de equilibrio (100 ÷ margem%).',
       leitura: null,
       acao: 'Margem de 25% = empate em 4x; abaixo disso e prejuizo mesmo "parecendo bom". Cadastre o custo no Cofre (em breve) e o veredito passa a usar o seu numero real.' },
-    { rot: ['Cliques Por Produto'], id: 'cliques_prod',
+    { rot: ['Cliques Por Produto'], id: 'cliques_prod', paths: ['/datacenter'],
       oque: 'Cliques nos cards dos seus produtos. Clique e a moeda do funil: sem ele, nada acontece — e ele nasce da foto + preco + inicio do titulo.',
       leitura: function () { var d = vLente('product_clicks'); if (d.v === null) return null;
         return { valor: fLe(d.v, 0), bom: d.r === null || d.r >= 0, texto: d.r === null ? '' : (d.r >= 0 ? 'Crescendo ' : 'Caindo ') + fLe(Math.abs(d.r * 100), 1) + '% vs periodo anterior.' }; },
       acao: 'Clique caindo com impressao estavel = vitrine perdendo a disputa. Foto principal e as 3 primeiras palavras do titulo sao o alvo.' },
-    { rot: ['CTR'], id: 'ctr_ads',
+    { rot: ['Impressões', 'Impressoes'], id: 'ads_impr', paths: ['/portal/marketing/pas'],
+      oque: 'Quantas vezes seus anuncios apareceram. Impressao e o algoritmo te dando chance — CTR e conversao definem se ele da mais.',
+      leitura: function () { var t = somaCampanhas(); if (!t.impressoes) return null;
+        return { valor: fLe(t.impressoes, 0), bom: true, texto: 'na janela da coleta (' + janelaTxt() + '). Se diferir do card, o periodo selecionado na tela e outro.' }; },
+      acao: 'Impressao caindo com campanha ativa = perda de leilao: reforce criativo e conversao antes de subir lance.' },
+    { rot: ['Cliques'], id: 'ads_cliques', paths: ['/portal/marketing/pas'],
+      oque: 'Cliques nos seus anuncios. O clique nasce da vitrine: foto + preco + inicio do titulo.',
+      leitura: function () { var t = somaCampanhas(); if (!t.cliques) return null;
+        return { valor: fLe(t.cliques, 0), bom: true, texto: 'na janela da coleta (' + janelaTxt() + ').' }; },
+      acao: 'Clique caro ou escasso: o alvo e a vitrine, nao o lance.' },
+    { rot: ['Vendas'], id: 'ads_vendas', paths: ['/portal/marketing/pas'],
+      oque: 'Vendas atribuidas aos anuncios. Lembre da janela de atribuicao: os ultimos 7 dias sempre sobem depois.',
+      leitura: function () { var t = somaCampanhas(); if (!t.gmv) return null;
+        return { valor: 'R$ ' + fLe(t.gmv, 2), bom: true, texto: 'na janela da coleta (' + janelaTxt() + ').' }; },
+      acao: 'Compare sempre janela fechada com janela fechada — nunca julgue a semana corrente.' },
+    { rot: ['Investimento', 'Despesas'], id: 'ads_gasto', paths: ['/portal/marketing/pas'],
+      oque: 'Quanto foi investido. Gasto so faz sentido lado a lado com retorno e com o SEU ponto de equilibrio.',
+      leitura: function () { var t = somaCampanhas(); if (!t.gasto) return null;
+        return { valor: 'R$ ' + fLe(t.gasto, 2), bom: true, texto: 'na janela da coleta (' + janelaTxt() + ').' }; },
+      acao: 'Direcione verba pelo diagnostico: escale vencedoras em degraus de 20%, corrija ofertas que clicam e nao vendem.' },
+    { rot: ['ROAS'], id: 'ads_roas', paths: ['/portal/marketing/pas'],
+      oque: 'Retorno por real investido, no conjunto das campanhas. O numero certo para te julgar e o SEU equilibrio (100 ÷ margem%), nao um numero magico.',
+      leitura: function () { var t = somaCampanhas(); if (!t.gasto) return null;
+        var r = t.gmv / t.gasto;
+        return { valor: fLe(r, 2) + 'x', bom: r >= 6, texto: (r >= 6 ? 'acima' : 'abaixo') + ' do ponto de referencia da conta (6x) na janela da coleta (' + janelaTxt() + '). Com o Cofre, esse piso vira o SEU equilibrio real.' }; },
+      acao: 'Abaixo do equilibrio: encontre a etapa fraca (CTR = vitrine; conversao = pagina) antes de mexer em lance ou pausar.' },
+    { rot: ['Pedidos'], id: 'ads_pedidos', paths: ['/portal/marketing/pas'],
+      oque: 'Pedidos atribuidos aos anuncios na janela.',
+      leitura: function () { var t = somaCampanhas(); if (!t.pedidos) return null;
+        return { valor: fLe(t.pedidos, 0), bom: true, texto: 'na janela da coleta (' + janelaTxt() + ').' }; },
+      acao: 'Volume de pedidos e o que torna qualquer leitura confiavel — regua de 30/mes por campanha.' },
+    { rot: ['CTR'], id: 'ctr_ads', paths: ['/portal/marketing/pas', '/datacenter/product/traffic'],
       oque: 'De cada 100 vezes que o anuncio aparece, quantas e clicado. E a porta do funil pago — e o algoritmo premia quem clica bem com mais entrega.',
       leitura: null,
       acao: 'Abaixo de 1,5%: o problema e a vitrine (foto principal + inicio do titulo), nao o lance. Acima de 2%: o card esta bom — se o resultado nao vem, o gargalo e a pagina.' },
@@ -727,7 +773,7 @@
     abrirPainelLateral(montarCardLente(item), 'SELLER.IA · METRICA', alvo && alvo.getBoundingClientRect ? alvo.getBoundingClientRect() : null);
   }
 
-  var TELAS_LENTE = ['/datacenter/overview', '/datacenter/product/traffic', '/portal/web-seller-affiliate'];
+  var TELAS_LENTE = ['/datacenter/overview', '/datacenter/product/traffic', '/portal/web-seller-affiliate', '/portal/marketing/pas'];
   function telaPermitida() {
     for (var i = 0; i < TELAS_LENTE.length; i++) if (location.pathname.indexOf(TELAS_LENTE[i]) === 0 || location.pathname.indexOf(TELAS_LENTE[i]) > 0) return true;
     return false;
@@ -1144,6 +1190,40 @@
   setTimeout(varrerTudo, 800);
   setInterval(varrerTudo, 5000); // rede de seguranca
 
+  /* auto-coleta: ao entrar no Seller Centre, coleta e analisa sozinha (no maximo 1x a cada 12h) */
+  var AUTO_INTERVALO_MS = 12 * 3600 * 1000;
+  var autoTentativas = 0;
+  var autoTimer = setInterval(function () {
+    if (location.hostname !== 'seller.shopee.com.br') { clearInterval(autoTimer); return; }
+    autoTentativas++;
+    if (autoTentativas > 24) { clearInterval(autoTimer); return; } // ~2min tentando achar a sessao
+    if (!estado.spc || estado.coletaProgresso) return;
+    clearInterval(autoTimer);
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:carregar' }, function (r) {
+        void chrome.runtime.lastError;
+        var ultimo = 0;
+        try { ultimo = (r && r.coleta && r.coleta.auto_ts) || 0; } catch (e) { /* noop */ }
+        if (Date.now() - ultimo < AUTO_INTERVALO_MS) return;
+        coletaCompleta(function () { estado.sujo = true; }).then(function (res) {
+          if (!res.ok) return;
+          var foto = fotoDoEstado();
+          foto.auto_ts = Date.now();
+          try {
+            chrome.runtime.sendMessage({ tipo: 'sia:salvar', coleta: foto }, function () {
+              void chrome.runtime.lastError;
+              var payload = { loja: estado.loja ? estado.loja.shop_id : 'desconhecida', snapshot: foto };
+              chrome.runtime.sendMessage({ tipo: 'sia:analisar', payload: payload }, function (resp) {
+                void chrome.runtime.lastError;
+                if (resp) { estado.diagnostico = resp; estado.sujo = true; }
+              });
+            });
+          } catch (e) { /* noop */ }
+        });
+      });
+    } catch (e) { /* noop */ }
+  }, 5000);
+
   /* ====================== COLETA COMPLETA (1 clique) ====================== */
   var pendentesBusca = {};
   var seqBusca = 0;
@@ -1169,8 +1249,12 @@
       (async function () {
         function prog(t) { estado.coletaProgresso = t; estado.sujo = true; if (aoProgresso) aoProgresso(t); }
         if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina do Seller Centre e tente de novo (chave de sessao ainda nao capturada).' }); return; }
+        // espelha a janela selecionada na tela do Ads (from/to na URL); senao, 30 dias
         var fim = Math.floor(Date.now() / 1000);
         var ini = fim - 30 * 86400;
+        var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
+        var mTo = location.search.match(/[?&]to=(\d{9,11})/);
+        if (mFrom && mTo) { ini = parseInt(mFrom[1], 10); fim = parseInt(mTo[1], 10); }
         var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
         var totalChamadas = 0;
 
@@ -1190,7 +1274,8 @@
         estado.periodoAds = { inicio: ini, fim: fim, dias: 30 };
 
         // B) Variacao das 12 maiores campanhas (report/get com ratio)
-        var idsTop = Object.keys(estado.campanhas).sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); }).slice(0, 12);
+        var idsTop = Object.keys(estado.campanhas).filter(function (k) { var mm = estado.campanhas[k].metricas || {}; return (mm.gasto || 0) > 0 || (mm.gmv || 0) > 0; })
+          .sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); }).slice(0, 30);
         for (var t2 = 0; t2 < idsTop.length; t2++) {
           prog('Aprofundando campanha ' + (t2 + 1) + ' de ' + idsTop.length + '...');
           var corpoR = JSON.stringify({ start_time: ini, end_time: fim, campaign_type: 'product', agg_type: 'campaign_id', filter_params: { campaign_id: parseInt(idsTop[t2], 10) }, need_ratio: true });
@@ -1226,6 +1311,13 @@
           if (itens2 < 20) break;
           await pausa(450);
         }
+
+        // D2) Fontes de trafego (cruzamento ads/afiliado/organico) — alimenta Afiliados e Visao
+        prog('Cruzando fontes de trafego...');
+        var urlF = '/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month';
+        var rf = await buscar(urlF, 'GET', null);
+        totalChamadas++;
+        if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now() });
 
         // E) Indicadores gerais da loja
         prog('Lendo os indicadores gerais...');

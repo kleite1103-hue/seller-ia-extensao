@@ -68,6 +68,7 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
         versao: novo.versao || antigo.versao,
         gerado_em: new Date().toISOString(),
         pagina: novo.pagina || antigo.pagina,
+        auto_ts: Math.max(novo.auto_ts || 0, antigo.auto_ts || 0) || undefined,
         loja: novo.loja || antigo.loja,
         periodo_ads: novo.periodo_ads || antigo.periodo_ads,
         conta: fundirPainel(antigo.conta, novo.conta),
