@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.16.0';
+  var VERSAO = '0.16.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -580,6 +580,17 @@
     }
     return t;
   }
+  function janelaTelaConfere() {
+    // compara from/to (ou period) da URL com a janela coletada
+    if (!estado.periodoAds) return false;
+    var mF = location.search.match(/[?&]from=(\d{9,11})/);
+    var mT = location.search.match(/[?&]to=(\d{9,11})/);
+    if (mF && mT) {
+      return Math.abs(parseInt(mF[1], 10) - estado.periodoAds.inicio) < 172800 &&
+             Math.abs(parseInt(mT[1], 10) - estado.periodoAds.fim) < 172800;
+    }
+    return false;
+  }
   function janelaTxt() {
     if (!estado.periodoAds) return 'sem janela definida';
     function dd(ts) { var d = new Date(ts * 1000); return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }
@@ -638,34 +649,34 @@
       acao: 'Clique caindo com impressao estavel = vitrine perdendo a disputa. Foto principal e as 3 primeiras palavras do titulo sao o alvo.' },
     { rot: ['Impressões', 'Impressoes'], id: 'ads_impr', paths: ['/portal/marketing/pas'],
       oque: 'Quantas vezes seus anuncios apareceram. Impressao e o algoritmo te dando chance — CTR e conversao definem se ele da mais.',
-      leitura: function () { var t = somaCampanhas(); if (!t.impressoes) return null;
-        return { valor: fLe(t.impressoes, 0), bom: true, texto: 'na janela da coleta (' + janelaTxt() + '). Se diferir do card, o periodo selecionado na tela e outro.' }; },
+      leitura: function () { var t = somaCampanhas(); if (!t.impressoes) return null; var ok = janelaTelaConfere();
+        return { valor: ok ? fLe(t.impressoes, 0) : null, bom: true, texto: ok ? 'confere com o card (' + janelaTxt() + ').' : 'a coleta cobre ' + janelaTxt() + '; a tela esta em outro periodo. Selecione o mesmo intervalo para casar os numeros.' }; },
       acao: 'Impressao caindo com campanha ativa = perda de leilao: reforce criativo e conversao antes de subir lance.' },
     { rot: ['Cliques'], id: 'ads_cliques', paths: ['/portal/marketing/pas'],
       oque: 'Cliques nos seus anuncios. O clique nasce da vitrine: foto + preco + inicio do titulo.',
-      leitura: function () { var t = somaCampanhas(); if (!t.cliques) return null;
-        return { valor: fLe(t.cliques, 0), bom: true, texto: 'na janela da coleta (' + janelaTxt() + ').' }; },
+      leitura: function () { var t = somaCampanhas(); if (!t.cliques) return null; var ok = janelaTelaConfere();
+        return { valor: ok ? fLe(t.cliques, 0) : null, bom: true, texto: ok ? 'confere com o card.' : 'coleta: ' + janelaTxt() + '; tela em outro periodo.' }; },
       acao: 'Clique caro ou escasso: o alvo e a vitrine, nao o lance.' },
     { rot: ['Vendas'], id: 'ads_vendas', paths: ['/portal/marketing/pas'],
       oque: 'Vendas atribuidas aos anuncios. Lembre da janela de atribuicao: os ultimos 7 dias sempre sobem depois.',
-      leitura: function () { var t = somaCampanhas(); if (!t.gmv) return null;
-        return { valor: 'R$ ' + fLe(t.gmv, 2), bom: true, texto: 'na janela da coleta (' + janelaTxt() + ').' }; },
+      leitura: function () { var t = somaCampanhas(); if (!t.gmv) return null; var ok = janelaTelaConfere();
+        return { valor: ok ? ('R$ ' + fLe(t.gmv, 2)) : null, bom: true, texto: ok ? 'confere com o card.' : 'coleta: ' + janelaTxt() + '; tela em outro periodo.' }; },
       acao: 'Compare sempre janela fechada com janela fechada — nunca julgue a semana corrente.' },
     { rot: ['Investimento', 'Despesas'], id: 'ads_gasto', paths: ['/portal/marketing/pas'],
       oque: 'Quanto foi investido. Gasto so faz sentido lado a lado com retorno e com o SEU ponto de equilibrio.',
-      leitura: function () { var t = somaCampanhas(); if (!t.gasto) return null;
-        return { valor: 'R$ ' + fLe(t.gasto, 2), bom: true, texto: 'na janela da coleta (' + janelaTxt() + ').' }; },
+      leitura: function () { var t = somaCampanhas(); if (!t.gasto) return null; var ok = janelaTelaConfere();
+        return { valor: ok ? ('R$ ' + fLe(t.gasto, 2)) : null, bom: true, texto: ok ? 'confere com o card.' : 'coleta: ' + janelaTxt() + '; tela em outro periodo.' }; },
       acao: 'Direcione verba pelo diagnostico: escale vencedoras em degraus de 20%, corrija ofertas que clicam e nao vendem.' },
     { rot: ['ROAS'], id: 'ads_roas', paths: ['/portal/marketing/pas'],
       oque: 'Retorno por real investido, no conjunto das campanhas. O numero certo para te julgar e o SEU equilibrio (100 ÷ margem%), nao um numero magico.',
       leitura: function () { var t = somaCampanhas(); if (!t.gasto) return null;
         var r = t.gmv / t.gasto;
-        return { valor: fLe(r, 2) + 'x', bom: r >= 6, texto: (r >= 6 ? 'acima' : 'abaixo') + ' do ponto de referencia da conta (6x) na janela da coleta (' + janelaTxt() + '). Com o Cofre, esse piso vira o SEU equilibrio real.' }; },
+        return { valor: fLe(r, 2) + 'x', bom: r >= 6, texto: (r >= 6 ? 'acima' : 'abaixo') + ' do ponto de referencia (6x). ' + (janelaTelaConfere() ? 'Confere com o card.' : 'Coleta em ' + janelaTxt() + '; ajuste a tela para o mesmo periodo.') + ' Com o Cofre, o piso vira seu equilibrio real.' }; },
       acao: 'Abaixo do equilibrio: encontre a etapa fraca (CTR = vitrine; conversao = pagina) antes de mexer em lance ou pausar.' },
     { rot: ['Pedidos'], id: 'ads_pedidos', paths: ['/portal/marketing/pas'],
       oque: 'Pedidos atribuidos aos anuncios na janela.',
-      leitura: function () { var t = somaCampanhas(); if (!t.pedidos) return null;
-        return { valor: fLe(t.pedidos, 0), bom: true, texto: 'na janela da coleta (' + janelaTxt() + ').' }; },
+      leitura: function () { var t = somaCampanhas(); if (!t.pedidos) return null; var ok = janelaTelaConfere();
+        return { valor: ok ? fLe(t.pedidos, 0) : null, bom: true, texto: ok ? 'confere com o card.' : 'coleta: ' + janelaTxt() + '; tela em outro periodo.' }; },
       acao: 'Volume de pedidos e o que torna qualquer leitura confiavel — regua de 30/mes por campanha.' },
     { rot: ['CTR'], id: 'ctr_ads', paths: ['/portal/marketing/pas', '/datacenter/product/traffic'],
       oque: 'De cada 100 vezes que o anuncio aparece, quantas e clicado. E a porta do funil pago — e o algoritmo premia quem clica bem com mais entrega.',
@@ -702,25 +713,34 @@
           texto: partes.join(' · ') + (fatia !== null ? ' — ' + fLe(fatia, 1) + '% das vendas da loja (faixa saudavel: 5% a 15%).' : '') }; },
       acao: 'Abaixo de 5% das vendas: suba a comissao extra dos seus 2 melhores produtos para atrair criadores. Acima de 15%: cuidado com a dependencia e o custo somado por pedido.' },
     { rot: ['Comissão Estimada', 'Comissao Estimada'], id: 'af_comissao', paths: ['web-seller-affiliate'],
-      oque: 'Quanto voce vai pagar aos afiliados pelas vendas do periodo. E o "custo de ads" deste canal — so que pago apenas quando vende.',
-      leitura: null,
-      acao: 'Leia junto com o ROI: comissao alta com ROI alto e otimo negocio. Comissao subindo com ROI caindo = revise em quais produtos a comissao extra esta ativa.' },
+      oque: 'Quanto voce paga aos afiliados pelas vendas. E o "custo de ads" deste canal — so que pago apenas quando vende.',
+      leitura: function () { var af = kpiAfiliado(); if (!af || af.vendas === null || af.pedidos === null || !af.pedidos) return avisoJanelaAf();
+        // comissao media do painel ~ 7% (7000/100000) confirmada na coleta; usamos vendas x taxa se comissao direta faltar
+        var custoPed = af.comissao !== null ? af.comissao / af.pedidos : null;
+        return { valor: af.comissao !== null ? ('R$ ' + fLe(af.comissao, 2)) : null,
+          bom: true, texto: custoPed !== null ? 'custo medio de R$ ' + fLe(custoPed, 2) + ' por pedido via afiliado.' : 'sobre ' + af.pedidos + ' pedido(s) via afiliado.' }; },
+      acao: 'Comissao alta com ROI alto = otimo. Comissao subindo com ROI caindo = revise em quais produtos a comissao extra esta ativa.' },
     { rot: ['ROI'], id: 'af_roi', paths: ['web-seller-affiliate'],
-      oque: 'Retorno por real de comissao: vendas divididas pelo que voce paga aos afiliados. E o ROAS deste canal.',
-      leitura: null,
-      acao: 'Referencia do metodo: acima de 10 e saudavel; entre 5 e 10, aceitavel; abaixo de 5, a comissao esta cara — reduza a comissao extra dos produtos de margem apertada.' },
+      oque: 'Retorno por real de comissao: vendas ÷ comissao paga. E o ROAS deste canal.',
+      leitura: function () { var af = kpiAfiliado(); if (!af || af.vendas === null) return avisoJanelaAf();
+        if (af.comissao === null || !af.comissao) return { valor: null, bom: true, texto: 'vendas de R$ ' + fLe(af.vendas, 2) + ' via afiliado; comissao ainda nao capturada nesta janela.' };
+        var roi = af.vendas / af.comissao;
+        return { valor: fLe(roi, 1), bom: roi >= 5, texto: (roi >= 10 ? 'saudavel' : roi >= 5 ? 'aceitavel' : 'baixo — comissao cara') + ' (ref: bom > 10, ok > 5).' }; },
+      acao: 'Abaixo de 5: reduza a comissao extra dos produtos de margem apertada. Acima de 10: da para investir mais no canal.' },
     { rot: ['Compradores totais'], id: 'af_compradores', paths: ['web-seller-affiliate'],
-      oque: 'Quantas pessoas compraram via afiliados. Comprador de afiliado costuma ser publico NOVO — gente que seu anuncio nao alcancava.',
-      leitura: null,
-      acao: 'Acompanhe junto com "Novos compradores": se a maioria for nova, o canal esta cumprindo o papel de abrir publico.' },
+      oque: 'Quantas pessoas compraram via afiliados. Costuma ser publico NOVO — gente que seu anuncio nao alcancava.',
+      leitura: function () { var af = kpiAfiliado(); if (!af || af.pedidos === null) return avisoJanelaAf();
+        return { valor: fLe(af.pedidos, 0) + ' pedido(s)', bom: true, texto: 'via afiliado na janela coletada. Cruze com o total da loja para ver o quanto o canal abre de publico.' }; },
+      acao: 'Se a maioria for comprador novo, o canal esta cumprindo o papel de abrir audiencia.' },
     { rot: ['Novos compradores'], id: 'af_novos', paths: ['web-seller-affiliate'],
-      oque: 'Quantos compradores compraram na sua loja pela primeira vez via afiliado. E o valor escondido do canal: cliente novo pode recomprar sem custo depois.',
-      leitura: null,
-      acao: 'Novos compradores caindo com cliques estaveis = os criadores estao falando sempre para a mesma audiencia. Busque afiliados novos no Marketplace.' },
+      oque: 'Compradores que compraram pela primeira vez via afiliado. Valor escondido: cliente novo pode recomprar sem custo depois.',
+      leitura: function () { return avisoJanelaAf('A Shopee nao expoe "novos" separado na coleta ainda — leia junto com Compradores totais.'); },
+      acao: 'Novos caindo com cliques estaveis = criadores falando sempre para a mesma audiencia. Busque afiliados novos no Marketplace.' },
     { rot: ['Itens vendidos brutos'], id: 'af_itens', paths: ['web-seller-affiliate'],
       oque: 'Unidades vendidas via afiliados antes de cancelamentos.',
-      leitura: null,
-      acao: 'Diferenca grande entre bruto e pedidos confirmados merece olhar: cancelamento alto neste canal costuma ser promessa exagerada no conteudo do criador.' },
+      leitura: function () { var af = kpiAfiliado(); if (!af || af.unidades === null) return avisoJanelaAf();
+        return { valor: fLe(af.unidades, 0) + ' un.', bom: true, texto: 'via afiliado na janela coletada.' }; },
+      acao: 'Diferenca grande entre bruto e confirmado = cancelamento alto; costuma ser promessa exagerada no conteudo do criador.' },
     { rot: ['Curtidas'], id: 'likes',
       oque: 'Interesse guardado pra depois. Curtida e comprador futuro — e sinal de relevancia pro algoritmo.',
       leitura: null,
@@ -809,7 +829,7 @@
         selo.setAttribute('data-sia-selo', '1');
         // barra padrao (igual a das linhas de produto), com nota rapida quando a leitura existir
         var leRapida = item.leitura ? item.leitura() : null;
-        selo.textContent = leRapida ? ('Seller.IA · ' + leRapida.valor) : 'Seller.IA · leitura';
+        selo.textContent = (leRapida && leRapida.valor) ? ('Seller.IA · ' + leRapida.valor) : 'Seller.IA · leitura';
         selo.title = 'O que e, como esta o seu e o que fazer';
         selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:220px;margin-top:4px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;' + (leRapida ? 'box-shadow:0 0 0 1px ' + (leRapida.bom ? '#2ecc71' : '#f5b041') + ' inset;' : '');
         (function (itemF) {
@@ -1473,6 +1493,16 @@
       '<td class="num">' + (m.posicao === undefined ? '—' : fmt(m.posicao, 1)) + '</td>';
   }
 
+  function kpiAfiliado() {
+    var c = estado.conta.campos || {};
+    function soma(sufixo) { var t = 0, achou = false; for (var k in c) { if (new RegExp('^(?:result\\.)?affiliate\\.breakdown\\[\\d+\\]\\.' + sufixo + '$').test(k)) { t += c[k]; achou = true; } } return achou ? t : null; }
+    var vendas = soma('sales');
+    if (vendas === null) return null;
+    return { vendas: vendas, pedidos: soma('orders'), unidades: soma('units'), comissao: soma('commission') };
+  }
+  function avisoJanelaAf(extra) {
+    return { valor: null, bom: true, texto: (extra ? extra + ' ' : '') + 'Rode a coleta com a mesma janela desta tela para os numeros baterem.' };
+  }
   function vendasPorFonte() {
     var c = estado.conta.campos || {};
     var fontes = {};
