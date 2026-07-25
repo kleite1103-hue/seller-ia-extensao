@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.14.0';
+  var VERSAO = '0.14.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -706,7 +706,7 @@
     abrirPainelLateral(montarCardLente(item), 'SELLER.IA · METRICA');
   }
 
-  var TELAS_LENTE = ['/datacenter/overview', '/datacenter/product/traffic', '/portal/marketing/pas', '/portal/web-seller-affiliate'];
+  var TELAS_LENTE = ['/datacenter/overview', '/datacenter/product/traffic', '/portal/web-seller-affiliate'];
   function telaPermitida() {
     for (var i = 0; i < TELAS_LENTE.length; i++) if (location.pathname.indexOf(TELAS_LENTE[i]) === 0 || location.pathname.indexOf(TELAS_LENTE[i]) > 0) return true;
     return false;
@@ -735,14 +735,16 @@
           if (txt === item.rot[r2]) { bate = true; break; }
         }
         if (!bate) continue;
-        if (jaAnotados[item.id]) { break; } // um selo por metrica por pagina
+        if (jaAnotados[item.id]) { break; } // um por metrica por pagina
         jaAnotados[item.id] = true;
         el.setAttribute('data-sia-lente', item.id);
         var selo = document.createElement('span');
         selo.setAttribute('data-sia-selo', '1');
-        selo.textContent = 'S.';
-        selo.title = 'Seller.IA — o que e e o que fazer';
-        selo.style.cssText = 'all:initial;display:inline-flex;align-items:center;justify-content:center;margin-left:6px;width:16px;height:16px;border-radius:5px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 9px/1 Arial;cursor:pointer;vertical-align:middle;';
+        // barra padrao (igual a das linhas de produto), com nota rapida quando a leitura existir
+        var leRapida = item.leitura ? item.leitura() : null;
+        selo.textContent = leRapida ? ('Seller.IA · ' + leRapida.valor) : 'Seller.IA · leitura';
+        selo.title = 'O que e, como esta o seu e o que fazer';
+        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:220px;margin-top:4px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;' + (leRapida ? 'box-shadow:0 0 0 1px ' + (leRapida.bom ? '#2ecc71' : '#f5b041') + ' inset;' : '');
         (function (itemF) {
           selo.addEventListener('click', function (ev) {
             ev.stopPropagation(); ev.preventDefault();
@@ -779,15 +781,32 @@
     abrirPainelLateral(html, 'SELLER.IA · LEITURA');
   }
 
+  function vereditosDaCampanha(idC) {
+    var vs = estado.diagnostico && estado.diagnostico.vereditos ? estado.diagnostico.vereditos : [];
+    return vs.filter(function (v) { return String(v.id).split(':')[0] === String(idC); });
+  }
+  function vestirBarraCampanha(barra, idC) {
+    var meus = vereditosDaCampanha(idC);
+    var pior = 'forte';
+    for (var m2 = 0; m2 < meus.length; m2++) {
+      if (meus[m2].status === 'critico') { pior = 'critico'; break; }
+      if (meus[m2].status === 'atencao') pior = 'atencao';
+    }
+    var corS = pior === 'forte' ? '#2ecc71' : pior === 'critico' ? '#e74c3c' : '#f5b041';
+    barra.textContent = meus.length ? ('Seller.IA · ' + meus[0].veredito) : 'Seller.IA · analisar';
+    barra.style.boxShadow = meus.length ? ('0 0 0 1px ' + corS + ' inset') : 'none';
+  }
   function varrerCampanhasNaTela() {
     if (location.pathname.indexOf('/portal/marketing/pas') < 0) return;
-    var vereditos = estado.diagnostico && estado.diagnostico.vereditos ? estado.diagnostico.vereditos : null;
     var nomes = [];
     for (var id in estado.campanhas) {
       var cnome = estado.campanhas[id].nome;
       if (cnome && cnome.length > 6) nomes.push({ id: id, nome: cnome });
     }
     if (!nomes.length) return;
+    // atualiza barras existentes (pos-analise elas ganham o veredito sozinhas)
+    var barras = document.querySelectorAll('[data-sia-barra-camp]');
+    for (var b2 = 0; b2 < barras.length; b2++) vestirBarraCampanha(barras[b2], barras[b2].getAttribute('data-sia-barra-camp'));
     var candidatos = document.querySelectorAll('span,div,p,a');
     for (var i = 0; i < candidatos.length; i++) {
       var el = candidatos[i];
@@ -797,27 +816,26 @@
       for (var j = 0; j < nomes.length; j++) {
         if (txt !== nomes[j].nome) continue;
         el.setAttribute('data-sia-camp', nomes[j].id);
-        var meus = vereditos ? vereditos.filter(function (v) { return String(v.id).split(':')[0] === nomes[j].id; }) : [];
-        var pior = 'atencao';
-        if (meus.length) {
-          pior = 'forte';
-          for (var m2 = 0; m2 < meus.length; m2++) {
-            if (meus[m2].status === 'critico') { pior = 'critico'; break; }
-            if (meus[m2].status === 'atencao') pior = 'atencao';
-          }
-        }
-        var corS = meus.length ? (pior === 'forte' ? '#2ecc71' : pior === 'critico' ? '#e74c3c' : '#f5b041') : '#7d8290';
         var selo = document.createElement('span');
-        selo.textContent = meus.length ? ('Seller.IA · ' + meus[0].veredito) : 'Seller.IA';
+        selo.setAttribute('data-sia-barra-camp', nomes[j].id);
         selo.title = 'Veredito desta campanha';
-        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:230px;margin-top:3px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;' + (meus.length ? 'box-shadow:0 0 0 1px ' + corS + ' inset;' : '');
-        (function (nomeF, meusF) {
+        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:230px;margin-top:3px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;';
+        vestirBarraCampanha(selo, nomes[j].id);
+        (function (idF, nomeF) {
           selo.addEventListener('click', function (ev) {
             ev.stopPropagation(); ev.preventDefault();
-            if (meusF.length) abrirCardHtml(ev.target, cardVereditoCampanha(meusF, nomeF));
-            else abrirCardHtml(ev.target, '<div style="font-size:12px;color:#c9cdd6;line-height:1.5"><b style="color:#fff">' + nomeF.slice(0, 60) + '</b><br><br>Ainda sem veredito nesta sessao. Abra o painel Seller.IA (botao no canto) e clique em <b style="color:#ff4d1c">Analisar conta agora</b> — os selos das campanhas passam a mostrar o veredito do metodo aqui na tela.</div>');
+            var meusAgora = vereditosDaCampanha(idF); // LIDO NA HORA DO CLIQUE
+            if (meusAgora.length) abrirCardHtml(ev.target, cardVereditoCampanha(meusAgora, nomeF));
+            else {
+              var c = estado.campanhas[idF];
+              var m = c && c.metricas ? c.metricas : {};
+              var roasT = m.roas !== undefined ? m.roas : (m.gasto ? (m.gmv || 0) / m.gasto : null);
+              abrirCardHtml(ev.target, '<div style="color:#c9cdd6"><b style="color:#fff">' + nomeF.slice(0, 60) + '</b><br><br>' +
+                'Dados coletados: gasto R$ ' + fLe(m.gasto || 0, 2) + ' · vendas R$ ' + fLe(m.gmv || 0, 2) + (roasT ? ' · ROAS ' + fLe(roasT, 2) + 'x' : '') + '.<br><br>' +
+                'Rode <b style="color:#ff4d1c">Coletar conta completa + Analisar</b> no painel para o veredito do metodo aparecer aqui.</div>');
+            }
           });
-        })(nomes[j].nome, meus);
+        })(nomes[j].id, nomes[j].nome);
         el.appendChild(selo);
         break;
       }
@@ -1521,9 +1539,12 @@
 
     } else if (abaAtiva === 'produtos') {
       var mapa = estado.produtos;
-      var ids = Object.keys(mapa).filter(function (id) { return mapa[id].origem === 'ads' || mapa[id].metricas.gasto !== undefined || mapa[id].metricas.roas !== undefined; });
+      var ids = Object.keys(mapa).filter(function (id) { return mapa[id].metricas.gasto !== undefined || mapa[id].metricas.roas !== undefined; });
       if (!ids.length) {
-        corpo.innerHTML = '<div class="vazio">Nada lido ainda. Entre em uma <b>campanha</b> no Shopee Ads e role a lista de produtos.</div>';
+        // sem metricas de ads por item (a Shopee nem sempre entrega): mostra o funil como visao util
+        var idsF = Object.keys(mapa).filter(function (id) { return mapa[id].metricas.vendas_pagas !== undefined; });
+        if (idsF.length) { abaAtiva = 'performance'; render(); abaAtiva = 'produtos'; return; }
+        corpo.innerHTML = '<div class="vazio">A Shopee ainda nao entregou metricas de ads por produto nesta coleta (ela so as expoe em algumas telas). Use a aba <b>Performance</b> — e a leitura por item entra na busca ativa da proxima versao.</div>';
         return;
       }
       ids.sort(function (a, b) { return (mapa[b].metricas.gasto || 0) - (mapa[a].metricas.gasto || 0); });
