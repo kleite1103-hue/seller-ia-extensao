@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.9.0';
+  var VERSAO = '0.10.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -581,6 +581,26 @@
       oque: 'Quantos reais voltam por real investido. O numero sozinho engana: o que importa e comparar com o SEU ponto de equilibrio (100 ÷ margem%).',
       leitura: null,
       acao: 'Margem de 25% = empate em 4x; abaixo disso e prejuizo mesmo "parecendo bom". Cadastre o custo no Cofre (em breve) e o veredito passa a usar o seu numero real.' },
+    { rot: ['CTR'], id: 'ctr_ads',
+      oque: 'De cada 100 vezes que o anuncio aparece, quantas e clicado. E a porta do funil pago — e o algoritmo premia quem clica bem com mais entrega.',
+      leitura: null,
+      acao: 'Abaixo de 1,5%: o problema e a vitrine (foto principal + inicio do titulo), nao o lance. Acima de 2%: o card esta bom — se o resultado nao vem, o gargalo e a pagina.' },
+    { rot: ['Impressões', 'Impressoes'], id: 'impr',
+      oque: 'Quantas vezes seus anuncios apareceram. Impressao e o algoritmo te dando chance — o que voce faz com ela (CTR e conversao) define se ele te da mais.',
+      leitura: null,
+      acao: 'Impressao caindo com campanha ativa = perda de leilao: o funil enfraqueceu e o CPM efetivo subiu. Reforce criativo e conversao antes de subir lance.' },
+    { rot: ['Despesas', 'Despesa', 'Gasto'], id: 'gasto',
+      oque: 'Quanto foi investido no periodo. Gasto sozinho nao diz nada — a leitura certa e sempre gasto CONTRA retorno e contra o seu ponto de equilibrio.',
+      leitura: null,
+      acao: 'Campanha que gasta e vende acima do equilibrio: escale +20%/semana. Gasta e nao vende com 50+ cliques: corrija a oferta antes de qualquer outra coisa.' },
+    { rot: ['Pedidos', 'Encomendas'], id: 'pedidos_ads',
+      oque: 'Vendas atribuidas ao anuncio. Atencao a janela: vendas dos ultimos 7 dias ainda estao chegando (atribuicao) — o numero recente sempre sobe depois.',
+      leitura: null,
+      acao: 'Nunca julgue os ultimos 7 dias como fracasso — compare sempre janela fechada com janela fechada.' },
+    { rot: ['Posição média', 'Posicao media', 'Classificação Média'], id: 'pos',
+      oque: 'Onde seu anuncio aparece em media no leilao. Posicao e consequencia do funil (clique x conversao x ticket), nao do lance: quem converte melhor paga menos por aparecer.',
+      leitura: null,
+      acao: 'Posicao fraca + CTR bom = trabalhe conversao e ticket (kit, preco psicologico). Posicao fraca + CTR fraco = troque foto e titulo. Lance e o ultimo recurso, nunca o primeiro.' },
     { rot: ['Curtidas'], id: 'likes',
       oque: 'Interesse guardado pra depois. Curtida e comprador futuro — e sinal de relevancia pro algoritmo.',
       leitura: null,
@@ -660,7 +680,86 @@
       }
     }
   }
+  function cardVereditoCampanha(vereditos, nomeCamp) {
+    var cor = { forte: '#2ecc71', atencao: '#f5b041', critico: '#e74c3c' };
+    var h = '<div style="font-weight:700;font-size:12px;color:#fff;margin-bottom:8px">' + nomeCamp.slice(0, 60) + '</div>';
+    for (var i = 0; i < vereditos.length; i++) {
+      var vd = vereditos[i];
+      h += '<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #1d212a">' +
+        '<span style="font-size:9px;letter-spacing:.08em;border:1px solid ' + (cor[vd.status] || '#7d8290') + ';color:' + (cor[vd.status] || '#7d8290') + ';border-radius:99px;padding:2px 8px">' + vd.veredito + '</span>' +
+        '<div style="font-weight:700;font-size:12px;color:#f2f2f4;margin:6px 0 3px">' + vd.manchete + '</div>' +
+        '<div style="font-size:11.5px;color:#c9cdd6;line-height:1.45;white-space:pre-line">' + vd.diagnostico + '</div>';
+      if (vd.passos && vd.passos.length) {
+        h += '<div style="font-size:11.5px;color:#fff;font-weight:700;margin-top:6px">Faca assim:</div><ol style="margin:2px 0 0 16px;padding:0">';
+        for (var p2 = 0; p2 < vd.passos.length; p2++) h += '<li style="font-size:11.5px;color:#c9cdd6;margin:2px 0;line-height:1.4">' + vd.passos[p2] + '</li>';
+        h += '</ol>';
+      }
+      if (vd.impacto) h += '<div style="font-size:11.5px;margin-top:5px;color:#a78bfa"><b>Impacto:</b> <span style="color:#c9cdd6">' + vd.impacto + '</span></div>';
+      h += '</div>';
+    }
+    h += '<div style="font-size:9px;color:#6d7280;letter-spacing:.08em">SELLER.IA · METODO EFEITO VENDAS</div>';
+    return h;
+  }
+
+  function abrirCardHtml(alvo, html) {
+    fecharCardLente();
+    cardLente = document.createElement('div');
+    cardLente.setAttribute('data-sia-lente-card', '1');
+    cardLente.style.cssText = 'all:initial;position:absolute;z-index:2147482000;max-width:380px;max-height:420px;overflow:auto;background:#0c0e12;border:1px solid #2a2f3a;border-left:3px solid #ff4d1c;border-radius:0 10px 10px 0;box-shadow:0 10px 34px rgba(0,0,0,.5);padding:14px 16px;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
+    cardLente.innerHTML = html;
+    document.body.appendChild(cardLente);
+    var r = alvo.getBoundingClientRect();
+    cardLente.style.top = (r.bottom + window.scrollY + 6) + 'px';
+    cardLente.style.left = Math.max(Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - 400), 8) + 'px';
+    setTimeout(function () { document.addEventListener('click', fecharForaLente, true); }, 0);
+  }
+
+  function varrerCampanhasNaTela() {
+    if (location.pathname.indexOf('/portal/marketing/pas') < 0) return;
+    var vereditos = estado.diagnostico && estado.diagnostico.vereditos ? estado.diagnostico.vereditos : null;
+    var nomes = [];
+    for (var id in estado.campanhas) {
+      var cnome = estado.campanhas[id].nome;
+      if (cnome && cnome.length > 6) nomes.push({ id: id, nome: cnome });
+    }
+    if (!nomes.length) return;
+    var candidatos = document.querySelectorAll('span,div,p,a');
+    for (var i = 0; i < candidatos.length; i++) {
+      var el = candidatos[i];
+      if (el.childElementCount > 1 || el.getAttribute('data-sia-camp')) continue;
+      var txt = (el.textContent || '').trim();
+      if (txt.length < 8 || txt.length > 90) continue;
+      for (var j = 0; j < nomes.length; j++) {
+        if (txt !== nomes[j].nome) continue;
+        el.setAttribute('data-sia-camp', nomes[j].id);
+        var meus = vereditos ? vereditos.filter(function (v) { return String(v.id).split(':')[0] === nomes[j].id; }) : [];
+        var pior = 'atencao';
+        if (meus.length) {
+          pior = 'forte';
+          for (var m2 = 0; m2 < meus.length; m2++) {
+            if (meus[m2].status === 'critico') { pior = 'critico'; break; }
+            if (meus[m2].status === 'atencao') pior = 'atencao';
+          }
+        }
+        var corS = meus.length ? (pior === 'forte' ? '#2ecc71' : pior === 'critico' ? '#e74c3c' : '#f5b041') : '#7d8290';
+        var selo = document.createElement('span');
+        selo.textContent = meus.length ? (meus[0].veredito.split(' ')[0]) : 'S.';
+        selo.title = 'Seller.IA — veredito desta campanha';
+        selo.style.cssText = 'all:initial;display:inline-block;margin-left:6px;padding:2px 7px;border-radius:99px;border:1px solid ' + corS + ';color:' + corS + ';font:700 8.5px/1.2 Arial;letter-spacing:.06em;cursor:pointer;vertical-align:middle;background:#0c0e12;';
+        (function (nomeF, meusF) {
+          selo.addEventListener('click', function (ev) {
+            ev.stopPropagation(); ev.preventDefault();
+            if (meusF.length) abrirCardHtml(ev.target, cardVereditoCampanha(meusF, nomeF));
+            else abrirCardHtml(ev.target, '<div style="font-size:12px;color:#c9cdd6;line-height:1.5"><b style="color:#fff">' + nomeF.slice(0, 60) + '</b><br><br>Ainda sem veredito nesta sessao. Abra o painel Seller.IA (botao no canto) e clique em <b style="color:#ff4d1c">Analisar conta agora</b> — os selos das campanhas passam a mostrar o veredito do metodo aqui na tela.</div>');
+          });
+        })(nomes[j].nome, meus);
+        el.appendChild(selo);
+        break;
+      }
+    }
+  }
   setInterval(varrerLente, 2500);
+  setInterval(varrerCampanhasNaTela, 2500);
 
   /* ================================ UI ================================= */
   var host = document.createElement('div');
