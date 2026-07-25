@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.12.1';
+  var VERSAO = '0.12.2';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -857,10 +857,8 @@
     if (typeof m.ticket_pedido === 'number') {
       var tk = m.ticket_pedido;
       var com = comissaoShopee(tk);
-      var TAXA_ANTECIPA = 0.035; // padrao "Demais" — vira configuracao da conta na Etapa 3
-      var antecipa = tk * TAXA_ANTECIPA;
-      var liquido = tk - com - antecipa;
-      var linha = 'Do ticket de R$ ' + fLe(tk, 2) + ': comissao R$ ' + fLe(com, 2) + ' + antecipa R$ ' + fLe(antecipa, 2) + ' (3,5%, ajustavel) → sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido, 2) + '</b> por pedido, antes de custo do produto e trafego.';
+      var liquido = tk - com;
+      var linha = 'Do ticket de R$ ' + fLe(tk, 2) + ': comissao Shopee R$ ' + fLe(com, 2) + ' → sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido, 2) + '</b> por pedido, antes de custo do produto e trafego.';
       if (typeof m.gasto === 'number' && typeof m.pedidos_pagos === 'number' && m.pedidos_pagos > 0 && m.gasto > 0) {
         var adsPed = m.gasto / m.pedidos_pagos;
         linha += ' Descontando o ads deste produto (~R$ ' + fLe(adsPed, 2) + '/pedido, estimado), sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido - adsPed, 2) + '</b>.';
