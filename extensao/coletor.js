@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.7.0';
+  var VERSAO = '0.8.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -68,7 +68,7 @@
   var CAMPOS_NOME = ['name', 'title', 'campaign_name', 'item_name', 'product_name', 'shop_item_name'];
 
   function numero(v) {
-    if (typeof v === 'number' && isFinite(v)) return v;
+    if (typeof v === 'number' && isFinite(v)) return v <= -999999 ? null : v;
     if (typeof v === 'string' && v !== '' && /^-?\d+([.,]\d+)?%?$/.test(v.trim())) {
       var s = v.trim().replace('%', '').replace(',', '.');
       var n = parseFloat(s);
@@ -373,8 +373,52 @@
     return false;
   }
 
+  /* Listas de produto da Central de Dados (calibrado com payload real 25/07):
+     v4/product/performance (funil completo) e traffic/item-list (fatia + campanha). */
+  function parseMydataProdutos(url, dados) {
+    var res = dados && (dados.result || dados.data);
+    if (!res) return false;
+    var lista = res.items || res.item;
+    if (!Array.isArray(lista) || !lista.length) return false;
+    var ehPerformance = url.indexOf('/product/performance') >= 0;
+    var ehTrafego = url.indexOf('traffic/item-list') >= 0 || url.indexOf('product-contribution') >= 0;
+    if (!ehPerformance && !ehTrafego) return false;
+    for (var i = 0; i < lista.length; i++) {
+      var it = lista[i] || {};
+      if (!it.id) continue;
+      var p = entidadeProduto(String(it.id));
+      if (it.name) p.nome = it.name;
+      if (it.campaign_id) p.campanha = String(it.campaign_id);
+      if (it.view_ads !== undefined) p.pode_ads = !!it.view_ads;
+      var m = p.metricas;
+      function pega(campo, chave) { var v = numero(it[campo]); if (v !== null) m[chave] = v; }
+      if (ehPerformance) {
+        pega('uv', 'visitantes'); pega('pv', 'visualizacoes');
+        pega('product_card_impressions', 'impressoes_card'); pega('product_card_clicks', 'cliques_card');
+        pega('ctr', 'ctr_card'); pega('bounce_rate', 'rejeicao');
+        pega('add_to_cart_buyers', 'carrinho'); pega('add_to_cart_units', 'carrinho_unidades');
+        pega('paid_orders', 'pedidos_pagos'); pega('paid_sales', 'vendas_pagas');
+        pega('paid_units', 'unidades_pagas'); pega('paid_sales_per_order', 'ticket_pedido');
+        pega('paid_order_conversion_rate', 'conversao_pago');
+        pega('uv_to_add_to_cart_rate', 'taxa_carrinho');
+        pega('repeat_paid_order_rate', 'recompra'); pega('likes', 'curtidas');
+        pega('search_clicks', 'cliques_busca');
+      }
+      if (ehTrafego) {
+        pega('sales', 'vendas_pagas'); pega('orders', 'pedidos_pagos');
+        pega('sales_ratio', 'fatia_vendas'); pega('sales_per_order', 'ticket_pedido');
+        pega('ctr', 'ctr_card'); pega('product_impressions', 'impressoes_card');
+        pega('product_clicks', 'cliques_card');
+      }
+      p.origem = 'performance'; p.visto_em = Date.now();
+    }
+    estado.sujo = true;
+    return true;
+  }
+
   function classificar(url) {
     if (url.indexOf('/api/pas/') >= 0) return 'ads';
+    if (url.indexOf('monitor-report') >= 0) return 'outra';
     if (url.indexOf('affiliate') >= 0) return 'afiliados';
     if (url.indexOf('datacenter') >= 0 || url.indexOf('product/performance') >= 0) return 'performance';
     if (url.indexOf('/api/mydata/') >= 0) return 'conta';
@@ -401,7 +445,9 @@
 
     if (tag === 'publico') { absorverPublico(pacote.dados); }
     else if (tag === 'cadastro' && pacote.url.indexOf('get_product_info') >= 0) { absorverCadastro(pacote.dados); }
-    else if (tag === 'conta') { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
+    else if (tag === 'conta') {
+      if (!parseMydataProdutos(pacote.url, pacote.dados)) { absorverPainel(pacote.dados, estado.conta); garimpar(pacote.dados, { tag: tag }); }
+    }
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); /* sem garimpo: micro proprio, tratado na v0.6 */ }
     else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
     else if (tag === 'outra') {
@@ -418,6 +464,7 @@
         })(pacote.dados, 0);
       }
     }
+    else if (tag === 'performance') { if (!parseMydataProdutos(pacote.url, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
     else garimpar(pacote.dados, { tag: tag });
     estado.sujo = true;
   });
@@ -727,12 +774,15 @@
           hd += '<div style="border:1px solid #1d212a;border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;background:#12151b;padding:12px 14px;margin-bottom:10px">' +
             '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
               '<span style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid ' + cor + ';color:' + cor + ';border-radius:99px;padding:2px 8px">' + esc(vd.veredito) + '</span>' +
-              '<span style="font-size:10px;color:#7d8290">' + esc(vd.escopo) + (vd.nome ? ' · ' + esc(String(vd.nome).slice(0, 55)) : '') + '</span></div>' +
+              '<span style="font-size:10px;color:#7d8290">' + esc(vd.escopo) + (vd.nome ? ' · ' + esc(String(vd.nome).slice(0, 55)) : '') + (vd.id && vd.escopo !== 'conta' && vd.escopo !== 'grupo' ? ' · ID ' + esc(String(vd.id).split(':')[0]) : '') + '</span></div>' +
             '<div style="font-weight:700;font-size:13px;margin:7px 0 4px;color:#f2f2f4">' + esc(vd.manchete) + '</div>' +
-            '<div style="font-size:12px;color:#b8bcc6;line-height:1.5">' + esc(vd.diagnostico) + '</div>' +
-            (vd.acao ? '<div style="font-size:12px;margin-top:8px;color:#b8bcc6"><b style="color:#f2f2f4">O que fazer:</b> ' + esc(vd.acao.fazer) +
-              '<br><span style="color:#2ecc71">Se fizer:</span> ' + esc(vd.acao.se_fizer) +
-              '<br><span style="color:#e74c3c">Se nao fizer:</span> ' + esc(vd.acao.se_nao_fizer) + '</div>' : '') +
+            '<div style="font-size:12px;color:#b8bcc6;line-height:1.5;white-space:pre-line">' + esc(vd.diagnostico) + '</div>' +
+            (vd.passos && vd.passos.length ? (function () {
+              var hp = '<div style="font-size:12px;margin-top:8px;color:#f2f2f4;font-weight:700">Faca assim:</div><ol style="margin:4px 0 0 18px;padding:0">';
+              for (var pz = 0; pz < vd.passos.length; pz++) hp += '<li style="font-size:12px;color:#b8bcc6;margin:3px 0;line-height:1.45">' + esc(vd.passos[pz]) + '</li>';
+              return hp + '</ol>';
+            })() : (vd.acao ? '<div style="font-size:12px;margin-top:8px;color:#b8bcc6"><b style="color:#f2f2f4">O que fazer:</b> ' + esc(vd.acao.fazer) + '</div>' : '')) +
+            (vd.impacto ? '<div style="font-size:12px;margin-top:7px;color:#7B2FFF"><b>Impacto:</b> <span style="color:#b8bcc6">' + esc(vd.impacto) + '</span></div>' : '') +
             '</div>';
         }
       } else if (dg && dg.vereditos) {
@@ -832,26 +882,26 @@
 
     } else if (abaAtiva === 'performance') {
       var idsP = Object.keys(estado.produtos).filter(function (id) {
-        var m = estado.produtos[id].metricas;
-        return m.visitantes !== undefined || m.visualizacoes !== undefined || m.carrinho !== undefined || estado.produtos[id].origem === 'performance';
+        var mm = estado.produtos[id].metricas;
+        return mm.visitantes !== undefined || mm.vendas_pagas !== undefined;
       });
       if (!idsP.length) {
-        corpo.innerHTML = '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> (datacenter) e navegue pela lista. O funil de cada produto aparece aqui.</div>';
+        corpo.innerHTML = '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
         return;
       }
-      idsP.sort(function (a, b) { return (estado.produtos[b].metricas.visitantes || 0) - (estado.produtos[a].metricas.visitantes || 0); });
-      var h5 = '<table><tr><th>Produto</th><th>ID</th><th class="num">Visitantes</th><th class="num">Visualiz.</th><th class="num">Carrinho</th><th class="num">Pedidos</th><th class="num">Conversao</th><th class="num">GMV</th></tr>';
+      idsP.sort(function (a, b) { return (estado.produtos[b].metricas.vendas_pagas || 0) - (estado.produtos[a].metricas.vendas_pagas || 0); });
+      var h5 = '<table><tr><th>Produto</th><th>ID</th><th class="num">Vendas</th><th class="num">Pedidos</th><th class="num">Ticket</th><th class="num">Visitantes</th><th class="num">CTR card</th><th class="num">Conversao</th><th class="num">Rejeicao</th><th class="num">Fatia loja</th></tr>';
       for (var q = 0; q < idsP.length; q++) {
         var pp = estado.produtos[idsP[q]];
         var m5 = pp.metricas;
-        var conv = m5.conversao !== undefined ? (m5.conversao <= 1 ? m5.conversao * 100 : m5.conversao) : (m5.visitantes ? (m5.pedidos || 0) / m5.visitantes * 100 : null);
+        function pct5(v) { return v === undefined || v === null ? '—' : fmt((v <= 1 ? v * 100 : v), 2) + '%'; }
         h5 += '<tr><td class="nome">' + esc(pp.nome || '(sem nome)') + '</td><td>' + esc(pp.id) + '</td>' +
-          '<td class="num">' + fmt(m5.visitantes) + '</td><td class="num">' + fmt(m5.visualizacoes) + '</td>' +
-          '<td class="num">' + fmt(m5.carrinho) + '</td><td class="num">' + fmt(m5.pedidos) + '</td>' +
-          '<td class="num">' + (conv === null ? '—' : fmt(conv, 2) + '%') + '</td>' +
-          '<td class="num">' + reais(m5.gmv) + '</td></tr>';
+          '<td class="num">' + reais(m5.vendas_pagas) + '</td><td class="num">' + fmt(m5.pedidos_pagos) + '</td>' +
+          '<td class="num">' + reais(m5.ticket_pedido) + '</td><td class="num">' + fmt(m5.visitantes) + '</td>' +
+          '<td class="num">' + pct5(m5.ctr_card) + '</td><td class="num">' + pct5(m5.conversao_pago) + '</td>' +
+          '<td class="num">' + pct5(m5.rejeicao) + '</td><td class="num">' + pct5(m5.fatia_vendas) + '</td></tr>';
       }
-      h5 += '</table><div class="nota">Funil por produto (Central de Dados). Campos ainda nao mapeados ficam na exportacao — mande o JSON para calibrarmos os nomes exatos.</div>';
+      h5 += '</table><div class="nota">Funil por produto (pagamento confirmado). A coleta acompanha o que a tela carregar — role a lista da Shopee para cobrir mais produtos.</div>';
       corpo.innerHTML = h5;
 
     } else if (abaAtiva === 'afiliados') {
