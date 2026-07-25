@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.13.0';
+  var VERSAO = '0.13.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -508,8 +508,8 @@
       estado.modoPagina = 'portal';
       return;
     }
-    // pagina publica: .../nome-do-produto-i.SHOPID.ITEMID
-    var mp = location.pathname.match(/-i\.(\d+)\.(\d+)$/);
+    // pagina publica: .../nome-i.SHOPID.ITEMID  OU  /product/SHOPID/ITEMID
+    var mp = location.pathname.match(/-i\.(\d+)\.(\d+)$/) || location.pathname.match(/\/product\/(\d+)\/(\d+)/);
     if (mp) { estado.paginaProduto = mp[2]; estado.modoPagina = 'publico'; }
     else { estado.paginaProduto = null; estado.modoPagina = host.indexOf('shopee') >= 0 ? 'publico' : null; }
   }
@@ -956,10 +956,56 @@
     }
   }
 
-  /* pagina publica: a Shopee entrega o HTML pronto — ler o JSON-LD */
+  /* pagina publica: 3 caminhos de leitura + diagnostico do porque */
+  estado.debugPublico = null;
   function lerPaginaPublica() {
-    if (estado.modoPagina !== 'publico' || !estado.paginaProduto) return;
+    if (estado.modoPagina !== 'publico') return;
+    if (!estado.paginaProduto) { estado.debugPublico = 'URL sem ID reconhecivel: ' + location.pathname.slice(0, 60); return; }
     if (estado.anuncioPublico && estado.anuncioPublico.id === estado.paginaProduto) return;
+    // Caminho 2: meta tags (og:) — presentes mesmo sem JSON-LD
+    function lerMetas() {
+      function meta(nome) { var el = document.querySelector('meta[property="' + nome + '"],meta[name="' + nome + '"]'); return el ? el.getAttribute('content') : null; }
+      var titulo = meta('og:title');
+      if (!titulo || titulo.length < 5) return false;
+      var precoM = meta('product:price:amount') || meta('og:price:amount');
+      var img = meta('og:image');
+      estado.anuncioPublico = {
+        id: estado.paginaProduto,
+        nome: titulo.replace(/\s*\|\s*Shopee.*$/i, ''),
+        preco: precoM ? parseFloat(precoM) : null,
+        preco_max: null, estrelas: null, vendidos: null,
+        imagens: img ? [img] : [],
+        origem_leitura: 'meta',
+        capturado_em: Date.now()
+      };
+      var p = entidadeProduto(estado.paginaProduto);
+      if (estado.anuncioPublico.nome) p.nome = estado.anuncioPublico.nome;
+      if (estado.anuncioPublico.preco !== null && !isNaN(estado.anuncioPublico.preco)) p.preco_publico = estado.anuncioPublico.preco;
+      estado.sujo = true;
+      return true;
+    }
+    // Caminho 3: preco visivel no DOM (ultimo recurso)
+    function lerDom() {
+      var els = document.querySelectorAll('div,span,section');
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        if (el.childElementCount > 2) continue;
+        var t = (el.textContent || '').trim();
+        var mR = t.match(/^R\$\s?([\d.]{1,7},\d{2})$/);
+        if (mR) {
+          var preco = parseFloat(mR[1].replace(/\./g, '').replace(',', '.'));
+          if (preco > 0 && preco < 100000) {
+            estado.anuncioPublico = { id: estado.paginaProduto, nome: (document.title || '').replace(/\s*\|\s*Shopee.*$/i, ''), preco: preco, preco_max: null, estrelas: null, vendidos: null, imagens: [], origem_leitura: 'dom', capturado_em: Date.now() };
+            var p2 = entidadeProduto(estado.paginaProduto);
+            if (estado.anuncioPublico.nome) p2.nome = estado.anuncioPublico.nome;
+            p2.preco_publico = preco;
+            estado.sujo = true;
+            return true;
+          }
+        }
+      }
+      return false;
+    }
     try {
       var scripts = document.querySelectorAll('script[type="application/ld+json"]');
       for (var i = 0; i < scripts.length; i++) {
@@ -985,11 +1031,18 @@
           var p = entidadeProduto(estado.paginaProduto);
           if (estado.anuncioPublico.nome) p.nome = estado.anuncioPublico.nome;
           if (estado.anuncioPublico.preco !== null && !isNaN(estado.anuncioPublico.preco)) p.preco_publico = estado.anuncioPublico.preco;
+          estado.anuncioPublico.origem_leitura = 'json-ld';
           estado.sujo = true;
+          estado.debugPublico = 'lido via JSON-LD';
           return;
         }
       }
-    } catch (e) { /* noop */ }
+      // JSON-LD nao achado ou incompleto: tentar metas, depois DOM
+      var nLd = document.querySelectorAll('script[type="application/ld+json"]').length;
+      if (lerMetas()) { estado.debugPublico = 'lido via meta tags (JSON-LD: ' + nLd + ')'; return; }
+      if (lerDom()) { estado.debugPublico = 'lido via DOM (JSON-LD: ' + nLd + ', metas: nao)'; return; }
+      estado.debugPublico = 'FALHOU — JSON-LD: ' + nLd + ', og:title: ' + (document.querySelector('meta[property="og:title"]') ? 'sim' : 'nao') + ', preco visivel: nao achado';
+    } catch (e) { estado.debugPublico = 'erro: ' + String(e).slice(0, 80); }
   }
 
   setInterval(varrerLente, 2500);
@@ -1529,7 +1582,7 @@
               '<tr><td class="nome">' + esc(pv.nome || '') + '</td>' + linhaMetrica(pv.metricas) + '</tr></table>';
           }
         } else {
-          h3 = '<div class="vazio">Pagina publica detectada' + (estado.paginaProduto ? ' (ID ' + esc(estado.paginaProduto) + ')' : '') + '. Recarregue a pagina com a extensao ativa para capturar a vitrine (preco, fotos, estrelas, vendidos).</div>';
+          h3 = '<div class="vazio">Pagina publica detectada' + (estado.paginaProduto ? ' (ID ' + esc(estado.paginaProduto) + ')' : '') + '.<br>Status da leitura: <b>' + esc(estado.debugPublico || 'tentando...') + '</b><br>Se falhar, me mande esse status.</div>';
         }
         corpo.innerHTML = h3;
         return;
@@ -1564,8 +1617,9 @@
     } else if (abaAtiva === 'debug') {
       var okInterceptor = !!estado.interceptorVersao;
       var pj = estado.periodoAds ? (estado.periodoAds.dias + ' dia(s)') : 'nao capturado';
+      if (estado.modoPagina === 'publico') h4pre = '<div class="nota">Pagina publica: ' + esc(estado.debugPublico || 'aguardando leitura...') + '</div>'; else h4pre = '';
       var lj = estado.loja ? (estado.loja.shop_id + (estado.loja.nome ? ' · ' + estado.loja.nome : '')) : 'nao capturada';
-      var h4 = '<div class="nota">Loja: <b style="color:#f2f2f4">' + esc(lj) + '</b> · Janela do Ads: <b style="color:#f2f2f4">' + esc(pj) + '</b></div>' +
+      var h4 = h4pre + '<div class="nota">Loja: <b style="color:#f2f2f4">' + esc(lj) + '</b> · Janela do Ads: <b style="color:#f2f2f4">' + esc(pj) + '</b></div>' +
         '<div class="nota">Interceptor' +
         '<span class="selo ' + (okInterceptor ? 'ok' : 'off') + '">' + (okInterceptor ? 'ativo v' + esc(estado.interceptorVersao) : 'sem resposta') + '</span>' +
         ' · coletor v' + VERSAO + ' · pagina: ' + esc(location.pathname) + '</div>';
