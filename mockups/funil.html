@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Escolha o Funil</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300}
+.wrap{max-width:560px;margin:0 auto;padding:28px 16px 80px}
+h1{font-family:'Bebas Neue';font-size:40px;letter-spacing:.02em;text-align:center;line-height:1}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);text-align:center;font-size:14px;margin:8px 0 6px}
+.how{border:1px solid var(--line);border-left:3px solid var(--orange);background:var(--bg2);padding:11px 14px;border-radius:0 10px 10px 0;font-size:13px;color:var(--text2);margin:14px 0 26px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:26px}
+.card h3{font-family:'Bebas Neue';font-size:22px;letter-spacing:.03em;padding:14px 18px 4px}
+.card .d{color:var(--text2);font-size:13px;padding:0 18px 14px}
+.stage{background:var(--bg3);padding:26px 18px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.ml{font-family:'Space Mono';font-size:10px;color:var(--text3);letter-spacing:.06em}
+.pick{display:flex;gap:8px;padding:12px 18px}
+.pick button{flex:1;font-family:'Space Mono';font-size:12px;border:1px solid var(--line);background:transparent;color:var(--text2);padding:9px;border-radius:8px;cursor:pointer}
+.pick button.on{background:var(--orange);border-color:var(--orange);color:#fff}
+
+/* A · barras verticais */
+.fA{display:flex;align-items:flex-end;gap:8px;height:110px}
+.fA .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.fA .bar{width:100%;background:linear-gradient(180deg,var(--orange),var(--purple));border-radius:4px 4px 0 0;position:relative}
+.fA .v{font-family:'Bebas Neue';font-size:16px;color:var(--text)}
+.fA .l{font-family:'Space Mono';font-size:8.5px;color:var(--text3);text-align:center}
+
+/* B · funil trapézio real */
+.fB{display:flex;flex-direction:column;align-items:center;gap:3px}
+.fB .seg{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;color:#fff;font-size:12px;font-family:'Space Mono'}
+.fB .seg b{font-family:'Bebas Neue';font-size:16px;font-weight:400}
+
+/* C · fluxo horizontal com setas */
+.fC{display:flex;align-items:center;justify-content:space-between}
+.fC .node{text-align:center;flex:1}
+.fC .circ{width:52px;height:52px;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:18px;border:2px solid}
+.fC .arrow{color:var(--text3);font-size:14px;font-family:'Space Mono'}
+.fC .drop{font-family:'Space Mono';font-size:9px;color:var(--bad)}
+.fC .l{font-family:'Space Mono';font-size:8.5px;color:var(--text3);margin-top:2px}
+
+/* D · barra empilhada slim + taxas */
+.fD .track{display:flex;height:22px;border-radius:6px;overflow:hidden;margin-bottom:10px}
+.fD .track i{display:block}
+.fD .rows{display:flex;flex-direction:column;gap:7px}
+.fD .row{display:flex;align-items:center;gap:10px;font-size:12px}
+.fD .row .sw{width:11px;height:11px;border-radius:3px;flex:none}
+.fD .row .nm{color:var(--text2);flex:1}
+.fD .row .vl{font-family:'Bebas Neue';font-size:16px}
+.fD .row .rt{font-family:'Space Mono';font-size:10px;color:var(--text3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>QUAL <em>FUNIL</em>?</h1>
+  <p class="sub">O mesmo dado (73k impressões → 3k cliques → 300 no carrinho → 30 vendas) em 4 estilos.</p>
+  <div class="how"><b>Toque em "Quero este"</b> no que achar mais bonito e claro. Pode gostar de mais de um — no fim me diz o número. É esse funil que vai no rodapé do card.</div>
+
+  <!-- A -->
+  <div class="card">
+    <h3>A · BARRAS QUE CAEM</h3>
+    <div class="d">Cada etapa é uma barra. Simples, direto, cada valor visível. O "degrau" mostra onde você perde gente.</div>
+    <div class="stage">
+      <div class="fA">
+        <div class="col"><div class="v">73k</div><div class="bar" style="height:100px"></div><div class="l">IMPRESSÕES</div></div>
+        <div class="col"><div class="v">3k</div><div class="bar" style="height:42px"></div><div class="l">CLIQUES</div></div>
+        <div class="col"><div class="v">300</div><div class="bar" style="height:16px"></div><div class="l">CARRINHO</div></div>
+        <div class="col"><div class="v">30</div><div class="bar" style="height:8px"></div><div class="l">VENDAS</div></div>
+      </div>
+    </div>
+    <div class="pick"><button onclick="p(this,'A')">Quero este</button></div>
+  </div>
+
+  <!-- B -->
+  <div class="card">
+    <h3>B · FUNIL DE VERDADE</h3>
+    <div class="d">O trapézio afunilando — o formato clássico que todo mundo reconhece como "funil". Bonito e autoexplicativo.</div>
+    <div class="stage">
+      <div class="fB">
+        <div class="seg" style="width:100%;background:linear-gradient(90deg,#ff4d1c,#ff6a3c);border-radius:8px 8px 2px 2px">IMPRESSÕES <b>73k</b></div>
+        <div class="seg" style="width:78%;background:linear-gradient(90deg,#ff5a2a,#a24bd6)">CLIQUES <b>3k</b></div>
+        <div class="seg" style="width:52%;background:linear-gradient(90deg,#8a44e0,#7B2FFF)">CARRINHO <b>300</b></div>
+        <div class="seg" style="width:30%;background:linear-gradient(90deg,#6b2fd0,#5a1fb0);border-radius:2px 2px 8px 8px">VENDAS <b>30</b></div>
+      </div>
+    </div>
+    <div class="pick"><button onclick="p(this,'B')">Quero este</button></div>
+  </div>
+
+  <!-- C -->
+  <div class="card">
+    <h3>C · JORNADA COM PERDAS</h3>
+    <div class="d">Círculos ligados por setas, mostrando a taxa de queda entre cada etapa. Foca no que importa: onde você vaza.</div>
+    <div class="stage">
+      <div class="fC">
+        <div class="node"><div class="circ" style="border-color:var(--orange);color:var(--orange)">73k</div><div class="l">IMPR.</div></div>
+        <div class="node" style="flex:0 0 auto"><div class="arrow">→</div><div class="drop">-96%</div></div>
+        <div class="node"><div class="circ" style="border-color:#a24bd6;color:#c88bff">3k</div><div class="l">CLIQUES</div></div>
+        <div class="node" style="flex:0 0 auto"><div class="arrow">→</div><div class="drop">-90%</div></div>
+        <div class="node"><div class="circ" style="border-color:var(--purple);color:#c88bff">300</div><div class="l">CARRINHO</div></div>
+        <div class="node" style="flex:0 0 auto"><div class="arrow">→</div><div class="drop">-90%</div></div>
+        <div class="node"><div class="circ" style="border-color:var(--ok);color:var(--ok)">30</div><div class="l">VENDAS</div></div>
+      </div>
+    </div>
+    <div class="pick"><button onclick="p(this,'C')">Quero este</button></div>
+  </div>
+
+  <!-- D -->
+  <div class="card">
+    <h3>D · BARRA + TAXAS</h3>
+    <div class="d">Uma barra proporcional no topo e, abaixo, cada etapa com seu valor e a taxa de conversão. Compacto e rico — cabe em card pequeno.</div>
+    <div class="stage">
+      <div class="fD">
+        <div class="track">
+          <i style="width:100%;background:var(--orange)"></i>
+        </div>
+        <div class="rows">
+          <div class="row"><span class="sw" style="background:var(--orange)"></span><span class="nm">Impressões</span><span class="vl">73k</span><span class="rt">CTR 4,1%</span></div>
+          <div class="row"><span class="sw" style="background:#a24bd6"></span><span class="nm">Cliques</span><span class="vl">3k</span><span class="rt">→ carrinho 10%</span></div>
+          <div class="row"><span class="sw" style="background:var(--purple)"></span><span class="nm">Carrinho</span><span class="vl">300</span><span class="rt">→ compra 10%</span></div>
+          <div class="row"><span class="sw" style="background:var(--ok)"></span><span class="nm">Vendas</span><span class="vl" style="color:var(--ok)">30</span><span class="rt">conv. total 1%</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="pick"><button onclick="p(this,'D')">Quero este</button></div>
+  </div>
+
+  <div id="res" style="text-align:center;font-family:'Space Mono';font-size:13px;color:var(--orange);min-height:20px"></div>
+</div>
+<script>
+var sel={};
+function p(btn,id){sel[id]=!sel[id];btn.classList.toggle('on',sel[id]);btn.textContent=sel[id]?'✓ Escolhido':'Quero este';
+var ids=Object.keys(sel).filter(function(k){return sel[k]});
+document.getElementById('res').textContent=ids.length?('Você escolheu: '+ids.join(', ')+' — me manda!'):'';}
+</script>
+</body>
+</html>
