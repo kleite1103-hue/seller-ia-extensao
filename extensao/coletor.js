@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.22.4';
+  var VERSAO = '0.23.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1350,6 +1350,34 @@
         totalChamadas++;
         if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now() });
 
+        // G) Vendas e cancelamentos (saude das vendas)
+        prog('Lendo vendas e cancelamentos...');
+        var urlO = '/api/mydata/dashboard/order-performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month';
+        var ro = await buscar(urlO, 'GET', null);
+        totalChamadas++;
+        if (ro.ok && ro.dados) processarPacote({ url: urlO, metodo: 'GET', corpo: null, dados: ro.dados, ts: Date.now() });
+        await pausa(150);
+
+        // H) Saude da conta (penalidade, rating de performance)
+        prog('Lendo a saude da conta...');
+        var urlH = '/api/accounthealth/v1/sc/shops/overview?' + spcQ;
+        var rh = await buscar(urlH, 'GET', null);
+        totalChamadas++;
+        if (rh.ok && rh.dados) processarPacote({ url: urlH, metodo: 'GET', corpo: null, dados: rh.dados, ts: Date.now() });
+        await pausa(150);
+
+        // I) Afiliados (resumo do canal + top 5)
+        prog('Lendo os afiliados...');
+        var urlAf = '/api/v3/affiliateplatform/dashboard/seller_daily?start_time=' + ini + '&end_time=' + (fim - 1) + '&is_real_time=0&order_type=2&channel=0';
+        var raf = await buscar(urlAf, 'GET', null);
+        totalChamadas++;
+        if (raf.ok && raf.dados) processarPacote({ url: urlAf, metodo: 'GET', corpo: null, dados: raf.dados, ts: Date.now() });
+        await pausa(150);
+        var urlTop = '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + ini + '&end_time=' + (fim - 1) + '&order_type=2&channel=0&has_meta_feature=1';
+        var rtop = await buscar(urlTop, 'GET', null);
+        totalChamadas++;
+        if (rtop.ok && rtop.dados) processarPacote({ url: urlTop, metodo: 'GET', corpo: null, dados: rtop.dados, ts: Date.now() });
+
         prog(null);
         resolver({ ok: true, chamadas: totalChamadas, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
       })();
@@ -1695,30 +1723,32 @@
     var btn = $('sia-btn-coletar');
     if (!btn) return;
     var status = $('sia-lote-status');
-    // se o coletor em lote nao carregou, avisa em vez de ficar mudo
-    if (!window.SIA_Lote) {
-      if (status) { status.textContent = 'motor de coleta nao carregou — recarregue a extensao (remover + carregar)'; status.style.color = '#e74c3c'; }
-      return;
-    }
     btn.addEventListener('click', function () { dispararColeta(); });
     // AUTOMATICO: dispara se ainda nao temos os dados do PERIODO (mes).
     // O dado do DIA (que a pagina inicial sempre preenche) NAO conta como
     // "ja tem" — precisamos buscar o periodo de qualquer forma.
-    if (!coletaJaTentada) {
+    if (!coletaJaTentada && estado.spc) {
       var precisaBuscar = true;
       try {
         var D = window.SIA_Diamantes ? window.SIA_Diamantes.resumo() : null;
-        // so considera "pronto" se o gerencial e do PERIODO e temos as outras inteligencias
         var temPeriodo = D && D.gerenciais && D.gerenciais.fonte === 'periodo';
-        var temResto = D && D.funil && D.afiliados && D.financeiro;
+        var temResto = D && D.funil && D.afiliados;
         if (temPeriodo && temResto) precisaBuscar = false;
       } catch (e) { }
-      if (precisaBuscar) { coletaJaTentada = true; setTimeout(dispararColeta, 400); }
+      if (precisaBuscar) { coletaJaTentada = true; setTimeout(dispararColeta, 500); }
+    } else if (!estado.spc && status) {
+      status.textContent = 'Abra a Central de Dados uma vez pra ativar a coleta.';
+      status.style.color = '#f5b041';
     }
   }
 
   function dispararColeta() {
-    if (coletaEmAndamento || !window.SIA_Lote) return;
+    if (coletaEmAndamento) return;
+    if (!estado.spc) {
+      var st0 = $('sia-lote-status');
+      if (st0) { st0.textContent = 'Abra a Central de Dados uma vez pra capturar a sessao, e volte aqui.'; st0.style.color = '#f5b041'; }
+      return;
+    }
     coletaJaTentada = true;
     coletaEmAndamento = true;
     var btn = $('sia-btn-coletar');
@@ -1727,31 +1757,29 @@
     var barra = $('sia-lote-barra');
     if (btn) { btn.style.opacity = '0.6'; btn.textContent = 'Coletando…'; }
     if (barraBg) barraBg.style.display = 'block';
-    if (status) status.textContent = 'iniciando…';
+    if (barra) { barra.style.width = '15%'; barra.style.background = 'linear-gradient(90deg,#ff4d1c,#7B2FFF)'; }
+    if (status) { status.style.color = '#7d8290'; status.textContent = 'iniciando…'; }
 
-    window.SIA_Lote.coletar(
-      function (feito, total, nome) {
-        var pct = total ? Math.round((feito / total) * 100) : 0;
-        if (barra) barra.style.width = pct + '%';
-        if (status) status.textContent = 'coletando ' + feito + ' de ' + total + ' · ' + (nome || '');
-      },
-      function (resultado) {
-        coletaEmAndamento = false;
-        if (btn) { btn.style.opacity = '1'; btn.textContent = 'Coletar de novo'; }
-        if (!resultado.ok) {
-          if (status) { status.textContent = resultado.erro || 'nao foi possivel coletar'; status.style.color = '#e74c3c'; }
-          if (barra) barra.style.background = '#e74c3c';
-          return;
-        }
-        var falhou = resultado.total - resultado.sucesso;
-        if (status) {
-          status.style.color = falhou > 0 ? '#f5b041' : '#2ecc71';
-          status.textContent = 'pronto! ' + resultado.sucesso + ' de ' + resultado.total + ' fontes lidas' + (falhou > 0 ? ' (' + falhou + ' falharam)' : '');
-        }
-        if (barra) barra.style.width = '100%';
-        setTimeout(function () { if (abaAtiva === 'conta360') render(); }, 700);
+    // usa o coletaCompleta (testado, com paginacao e CDS confiavel)
+    var pulso = 15;
+    coletaCompleta(function () {
+      // aoProgresso: mostra o texto que o coletaCompleta emite
+      if (status && estado.coletaProgresso) status.textContent = estado.coletaProgresso;
+      if (barra) { pulso = Math.min(pulso + 7, 92); barra.style.width = pulso + '%'; }
+    }).then(function (res) {
+      coletaEmAndamento = false;
+      if (btn) { btn.style.opacity = '1'; btn.textContent = 'Coletar de novo'; }
+      if (!res || !res.ok) {
+        if (status) { status.textContent = (res && res.erro) || 'nao foi possivel coletar'; status.style.color = '#e74c3c'; }
+        if (barra) barra.style.background = '#e74c3c';
+        return;
       }
-    );
+      if (barra) barra.style.width = '100%';
+      if (status) { status.style.color = '#2ecc71'; status.textContent = 'pronto! conta lida.'; }
+      // persiste e re-renderiza pra mostrar os blocos cheios
+      try { if (window.SIA_Diamantes && window.SIA_Diamantes.persistir) window.SIA_Diamantes.persistir(); } catch (e) { }
+      setTimeout(function () { if (abaAtiva === 'conta360') render(); }, 700);
+    });
   }
 
   // ==========================================================
