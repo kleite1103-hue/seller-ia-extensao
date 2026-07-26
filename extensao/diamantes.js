@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.4.2';
+  var VERSAO = '1.4.3';
 
   // ---- helpers ----
   function n(v) {
@@ -713,6 +713,20 @@
     if (t.rejeicao || t.carrinho || t.visitantes) logar('tendencia_produto', 'series capturadas', url);
   }
 
+  // [4b] SAUDE DA CONTA (accounthealth/overview) — penalidades, rating de performance
+  function exSaudeConta(url, d) {
+    if (!/accounthealth\/v1\/sc\/shops\/overview/.test(url)) return;
+    var data = d && d.data ? d.data : d;
+    if (!data || typeof data !== 'object') return;
+    COFRE.conta.saudeConta = {
+      pontosPenalidade: data.penalty_point != null ? n(data.penalty_point) : null,
+      ratingPerformance: data.performance_rating || null, // excellent, good, needs_improvement, poor
+      metricasFalhando: data.failed_metric_count != null ? n(data.failed_metric_count) : null,
+      recursos: data.appeal_count != null ? n(data.appeal_count) : null
+    };
+    logar('saude_conta', (COFRE.conta.saudeConta.ratingPerformance || '?') + ' · ' + (COFRE.conta.saudeConta.pontosPenalidade || 0) + ' pontos', url);
+  }
+
   // [5] AFILIADOS — canal, ROI, top afiliados, creators pra recrutar
   function exAfiliados(url, d) {
     // resumo diario do canal (seller_daily) — dados vem em data
@@ -781,10 +795,14 @@
     var r = raiz(d);
     var bd = r.seller_income_breakdown && r.seller_income_breakdown.breakdown;
     if (!Array.isArray(bd)) return;
-    // acumula as taxas reais pra montar a "planilha de custos" da Shopee
     var f = COFRE.financeiro;
-    f.amostras = (f.amostras || 0) + 1;
     f.componentes = f.componentes || {};
+    f.pedidosLidos = f.pedidosLidos || {}; // ANTI-DOBRA: guarda IDs ja contados
+    // identifica o pedido (order_id / order_sn) pra nao contar duas vezes
+    var oid = String(r.order_id || r.order_sn || achar(d, 'order_id') || achar(d, 'order_sn') || '');
+    if (oid && f.pedidosLidos[oid]) return; // ja contamos este pedido — ignora
+    if (oid) f.pedidosLidos[oid] = 1;
+    f.amostras = Object.keys(f.pedidosLidos).length || ((f.amostras || 0) + 1);
     function somar(nome, valor) {
       if (valor == null) return;
       f.componentes[nome] = (f.componentes[nome] || 0) + valor;
@@ -793,7 +811,6 @@
       var nomeCampo = item.field_name || item.display_name;
       var valor = real(item.amount);
       somar(nomeCampo, valor);
-      // sub-breakdown (comissoes detalhadas)
       if (Array.isArray(item.sub_breakdown)) {
         item.sub_breakdown.forEach(function (sub) {
           somar(sub.field_name || sub.display_name, real(sub.amount));
@@ -819,6 +836,7 @@
       if (/product\/performance|product-rankings|traffic-sources\/product-contribution|traffic\/item-list/.test(url)) exPerformanceProduto(url, dados);
       if (/product\/overview\/metric-trends|product\/overview\/|product\/traffic\/overview/.test(url)) exTendenciaProduto(url, dados);
       if (/get_product_lock_info|item\/get_ratings/.test(url)) exSaudeProduto(url, dados);
+      if (/accounthealth\/v1\/sc\/shops\/overview/.test(url)) exSaudeConta(url, dados);
       if (/affiliateplatform\/dashboard\/seller_daily|affiliate_performance\/top5|affiliateplatform\/creator\/list/.test(url)) exAfiliados(url, dados);
       if (/get_order_income_components/.test(url)) exFinanceiro(url, dados);
       if (/product\/get_product_info|get_product_recommend|ads.*product|product.*ads|homepage\/query/.test(url)) exProduto(url, dados);

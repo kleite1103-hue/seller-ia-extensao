@@ -110,9 +110,27 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
         }
         return r;
       }
+      // FINANCEIRO nao pode somar componentes duas vezes. Mantemos o cofre
+      // que ja leu MAIS pedidos (mais completo); o outro e descartado.
+      function fundirFinanceiro(x, y) {
+        if (!x) return y || null;
+        if (!y) return x;
+        var nx = x.pedidosLidos ? Object.keys(x.pedidosLidos).length : (x.amostras || 0);
+        var ny = y.pedidosLidos ? Object.keys(y.pedidosLidos).length : (y.amostras || 0);
+        // se um leu pedidos que o outro nao tem, unimos os IDs e recontamos os que faltam.
+        // simplificacao segura: fica com o mais completo (mais pedidos lidos).
+        return ny >= nx ? y : x;
+      }
       var fundido = {
         conta: merge(a.conta, b.conta),
+        loja: merge(a.loja, b.loja),
         ads: merge(a.ads, b.ads),
+        algoritmo: merge(a.algoritmo, b.algoritmo),
+        incentivos: merge(a.incentivos, b.incentivos),
+        gerenciais: merge(a.gerenciais, b.gerenciais),
+        funil: merge(a.funil, b.funil),
+        afiliados: merge(a.afiliados, b.afiliados),
+        financeiro: fundirFinanceiro(a.financeiro, b.financeiro),
         porProduto: merge(a.porProduto, b.porProduto),
         porCampanha: merge(a.porCampanha, b.porCampanha),
         busca: merge(a.busca, b.busca),
