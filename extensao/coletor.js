@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.7';
+  var VERSAO = '0.23.8';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1231,13 +1231,13 @@
   setTimeout(varrerTudo, 800);
   setInterval(varrerTudo, 8000); // rede de seguranca leve (so leitura publica)
 
-  /* auto-coleta: ao entrar no Seller Centre, coleta e analisa sozinha (no maximo 1x a cada 12h) */
-  var AUTO_INTERVALO_MS = 12 * 3600 * 1000;
+  /* auto-coleta: ao entrar no Seller Centre, coleta e analisa sozinha (no maximo 1x a cada 2h) */
+  var AUTO_INTERVALO_MS = 2 * 3600 * 1000;
   var autoTentativas = 0;
   var autoTimer = setInterval(function () {
     if (location.hostname !== 'seller.shopee.com.br') { clearInterval(autoTimer); return; }
     autoTentativas++;
-    if (autoTentativas > 24) { clearInterval(autoTimer); return; } // ~2min tentando achar a sessao
+    if (autoTentativas > 60) { clearInterval(autoTimer); return; } // ~5min tentando achar a sessao
     if (!estado.spc || estado.coletaProgresso) return;
     clearInterval(autoTimer);
     try {
@@ -1781,20 +1781,32 @@
     var status = $('sia-lote-status');
     btn.addEventListener('click', function () { dispararColeta(); });
     // AUTOMATICO: dispara se ainda nao temos os dados do PERIODO (mes).
-    // O dado do DIA (que a pagina inicial sempre preenche) NAO conta como
-    // "ja tem" — precisamos buscar o periodo de qualquer forma.
-    if (!coletaJaTentada && estado.spc) {
-      var precisaBuscar = true;
-      try {
-        var D = window.SIA_Diamantes ? window.SIA_Diamantes.resumo() : null;
-        var temPeriodo = D && D.gerenciais && D.gerenciais.fonte === 'periodo';
-        var temResto = D && D.funil && D.afiliados;
-        if (temPeriodo && temResto) precisaBuscar = false;
-      } catch (e) { }
-      if (precisaBuscar) { coletaJaTentada = true; setTimeout(dispararColeta, 500); }
-    } else if (!estado.spc && status) {
-      status.textContent = 'Abra a Central de Dados uma vez pra ativar a coleta.';
-      status.style.color = '#f5b041';
+    if (coletaJaTentada) return;
+    var precisaBuscar = true;
+    try {
+      var D = window.SIA_Diamantes ? window.SIA_Diamantes.resumo() : null;
+      var temPeriodo = D && D.gerenciais && D.gerenciais.fonte === 'periodo';
+      var temResto = D && D.funil && D.afiliados;
+      if (temPeriodo && temResto) precisaBuscar = false;
+    } catch (e) { }
+    if (!precisaBuscar) return;
+    // se a chave ja existe, dispara. Senao, ESPERA ela aparecer (ate ~30s)
+    // e dispara sozinho — sem exigir que a usuaria navegue telas.
+    if (estado.spc) {
+      coletaJaTentada = true;
+      setTimeout(dispararColeta, 500);
+    } else {
+      if (status) { status.textContent = 'preparando… (aguardando a conta carregar)'; status.style.color = '#7d8290'; }
+      var espera = 0;
+      var vigia = setInterval(function () {
+        espera++;
+        if (coletaJaTentada || espera > 30) { clearInterval(vigia); return; }
+        if (estado.spc) {
+          clearInterval(vigia);
+          coletaJaTentada = true;
+          dispararColeta();
+        }
+      }, 1000);
     }
   }
 
