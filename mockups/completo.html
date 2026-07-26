@@ -110,6 +110,14 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
 .srow .nm{flex:1;color:var(--text2)}.srow.eu .nm{color:var(--ok);font-weight:600}
 .srow .pr{font-family:'Space Mono';font-size:10px}
 .srow .tp{font-family:'Space Mono';font-size:7.5px;padding:1px 5px;border-radius:99px;border:1px solid var(--line);color:var(--text3)}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.vs-col{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:11px}
+.vs-col.eu{border-color:var(--ok)}
+.vs-h{font-family:'Space Mono';font-size:9px;letter-spacing:.05em;margin-bottom:8px}
+.vs-r{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);padding:3px 0}
+.vs-r b{color:var(--text);font-size:11.5px}
+.kws{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.kw{font-family:'Space Mono';font-size:11px;color:var(--purple);background:rgba(123,47,255,.1);border:1px solid rgba(123,47,255,.3);border-radius:99px;padding:4px 11px}
 .foot{text-align:center;font-family:'Space Mono';font-size:9px;color:var(--text3);margin-top:14px}
 </style>
 </head>
@@ -221,6 +229,29 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
         <div class="srow"><span class="pos">3</span><span class="nm">Comedouro Lento</span><span class="pr">R$29,99</span><span class="tp">ADS</span></div>
         <div class="srow eu"><span class="pos">60</span><span class="nm">★ Tigela Comedouro (você)</span><span class="pr">R$24,99</span><span class="tp">org</span></div>
         <div class="tip" style="margin-top:10px;border-left-color:var(--warn)"><b>Leitura:</b> seu 2º lugar está forte. O 60º está orgânico e sem cupom — o topo usa cupom + desconto maior. Caminho: ativar cupom e ads nesse item.</div>
+
+        <div class="ml" style="margin:16px 0 8px">VOCÊ VS O CAMPEÃO DESTA BUSCA</div>
+        <div class="vs">
+          <div class="vs-col"><div class="vs-h" style="color:var(--text3)">CAMPEÃO (1º)</div>
+            <div class="vs-r"><span>Preço</span><b>R$19,11</b></div>
+            <div class="vs-r"><span>Desconto</span><b>13%</b></div>
+            <div class="vs-r"><span>Cupom</span><b style="color:var(--ok)">GRDDJULHO</b></div>
+            <div class="vs-r"><span>Vendas</span><b>1,2 mil</b></div>
+          </div>
+          <div class="vs-col eu"><div class="vs-h" style="color:var(--ok)">VOCÊ (2º)</div>
+            <div class="vs-r"><span>Preço</span><b>R$23,99</b></div>
+            <div class="vs-r"><span>Desconto</span><b>60%</b></div>
+            <div class="vs-r"><span>Cupom</span><b style="color:var(--bad)">nenhum</b></div>
+            <div class="vs-r"><span>Vendas</span><b>340</b></div>
+          </div>
+        </div>
+        <div class="tip" style="border-left-color:var(--orange)"><b>O que te separa dele:</b> você está R$4,88 mais caro e sem cupom. Ele vende 3× mais mesmo com desconto menor, porque o cupom aparece como selo na busca e atrai o clique. <b>Ação: ative um cupom de R$3 neste produto. Meta: chegar ao 1º. Prazo: 7 dias.</b></div>
+
+        <div class="ml" style="margin:16px 0 8px">PALAVRAS QUE OS CAMPEÕES USAM E VOCÊ NÃO</div>
+        <div class="kws">
+          <span class="kw">interativo</span><span class="kw">antiestress</span><span class="kw">lento</span><span class="kw">educativo</span><span class="kw">pet</span>
+        </div>
+        <div class="tip" style="border-left-color:var(--purple)"><b>Por que importa:</b> a Shopee cruza o título do seu produto com o que a pessoa pesquisa. Os 5 primeiros usam essas palavras no título; o seu não tem "interativo" nem "antiestress". <b>Ação: inclua esses termos no título. Meta: aparecer em mais buscas. Prazo: já.</b></div>
       </div>
 
       <!-- FERRAMENTAS -->
