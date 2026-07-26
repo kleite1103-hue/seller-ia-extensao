@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Como o painel abre</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;padding:26px 14px 70px}
+.wrap{max-width:540px;margin:0 auto}
+h1{font-family:'Bebas Neue';font-size:34px;text-align:center;letter-spacing:.02em}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);text-align:center;font-size:14px;margin:8px 0 24px}
+.opt{background:var(--bg2);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:24px}
+.opt h3{font-family:'Bebas Neue';font-size:23px;letter-spacing:.03em;padding:15px 18px 4px}
+.opt .d{color:var(--text2);font-size:13px;padding:0 18px 16px}
+.demo{background:var(--bg3);border-top:1px solid var(--line);height:220px;position:relative;overflow:hidden}
+.fake-shopee{position:absolute;inset:0;padding:14px;font-family:'Space Mono';font-size:10px;color:#2f333c}
+.fake-shopee .box{border:1px solid #191c22;border-radius:6px;height:40px;margin-bottom:8px}
+.pick{padding:12px 18px}
+.pick button{width:100%;font-family:'Space Mono';font-size:12px;border:1px solid var(--line);background:transparent;color:var(--text2);padding:10px;border-radius:8px;cursor:pointer}
+.pick button.on{background:var(--orange);border-color:var(--orange);color:#fff}
+
+.mini-panel{background:var(--bg2);border:1px solid var(--line);box-shadow:0 12px 40px rgba(0,0,0,.5);border-radius:12px;overflow:hidden}
+.mp-hd{display:flex;align-items:center;gap:6px;padding:8px 11px;border-bottom:1px solid var(--line);background:#0c0e12}
+.mp-hd .dot{width:9px;height:9px;border-radius:3px;background:linear-gradient(120deg,var(--orange),var(--purple))}
+.mp-hd .t{font-family:'Space Mono';font-size:9px;color:var(--text3);flex:1}
+.mp-hd .x{color:var(--text3);font-size:11px}
+.mp-b{padding:11px}
+.line{height:7px;border-radius:3px;background:#191c22;margin-bottom:6px}
+.line.o{background:linear-gradient(90deg,var(--orange),transparent);width:60%}
+
+/* 1 botao fixo lateral */
+.launcher{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:12px;background:linear-gradient(120deg,var(--orange),var(--purple));display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-weight:700;color:#fff;font-size:12px;box-shadow:0 6px 20px rgba(255,77,28,.4)}
+/* 2 gaveta */
+.gaveta{position:absolute;top:0;right:0;bottom:0;width:180px;background:var(--bg2);border-left:2px solid var(--orange);box-shadow:-10px 0 30px rgba(0,0,0,.5)}
+/* 3 centralizado */
+.center-modal{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>COMO O PAINEL <em>APARECE</em></h1>
+  <p class="sub">Sem a barra de arrastar. 4 jeitos de abrir e fechar — escolha o que curtir.</p>
+
+  <!-- 1 -->
+  <div class="opt">
+    <h3>1 · BOTÃO FLUTUANTE FIXO</h3>
+    <div class="d">Um botão redondo Seller.IA fica sempre num canto da tela (você escolhe o canto uma vez). Clica → abre o painel. Clica de novo → fecha. Nunca atrapalha, nunca some.</div>
+    <div class="demo">
+      <div class="fake-shopee">tela da shopee<div class="box"></div><div class="box"></div><div class="box"></div></div>
+      <div class="launcher">S.</div>
+    </div>
+    <div class="pick"><button onclick="p(this,1)">Quero este</button></div>
+  </div>
+
+  <!-- 2 -->
+  <div class="opt">
+    <h3>2 · GAVETA LATERAL</h3>
+    <div class="d">O painel desliza de fora da tela pra dentro, encostado na direita, como uma gaveta. Empurra o conteúdo um pouco pro lado em vez de cobrir. Fecha deslizando de volta.</div>
+    <div class="demo">
+      <div class="fake-shopee">tela da shopee<div class="box" style="width:60%"></div><div class="box" style="width:60%"></div></div>
+      <div class="gaveta">
+        <div class="mini-panel" style="height:100%;border:none;border-radius:0">
+          <div class="mp-hd"><span class="dot"></span><span class="t">SELLER.IA</span><span class="x">✕</span></div>
+          <div class="mp-b"><div class="line o"></div><div class="line"></div><div class="line"></div><div class="line" style="width:80%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="pick"><button onclick="p(this,2)">Quero este</button></div>
+  </div>
+
+  <!-- 3 -->
+  <div class="opt">
+    <h3>3 · CENTRO DA TELA (foco total)</h3>
+    <div class="d">O painel abre no meio da tela, com o fundo escurecido atrás. Máximo foco: só a Seller.IA na sua frente enquanto você lê. Clica fora ou no ✕ pra fechar. Bom pra análise completa.</div>
+    <div class="demo">
+      <div class="fake-shopee">tela da shopee<div class="box"></div><div class="box"></div></div>
+      <div class="center-modal">
+        <div class="mini-panel" style="width:70%">
+          <div class="mp-hd"><span class="dot"></span><span class="t">SELLER.IA · ANÁLISE</span><span class="x">✕</span></div>
+          <div class="mp-b"><div class="line o"></div><div class="line"></div><div class="line"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="pick"><button onclick="p(this,3)">Quero este</button></div>
+  </div>
+
+  <!-- 4 -->
+  <div class="opt">
+    <h3>4 · CANTO FIXO (encostado)</h3>
+    <div class="d">O painel abre grudado num canto (embaixo à direita, tipo um chat de atendimento). Fica ali, fixo, sem cobrir o meio da tela. Você lê a Shopee e a Seller.IA ao mesmo tempo. Um toque no cabeçalho recolhe.</div>
+    <div class="demo">
+      <div class="fake-shopee">tela da shopee<div class="box"></div><div class="box"></div><div class="box"></div></div>
+      <div style="position:absolute;right:12px;bottom:12px;width:200px">
+        <div class="mini-panel">
+          <div class="mp-hd"><span class="dot"></span><span class="t">SELLER.IA</span><span class="x">▾</span></div>
+          <div class="mp-b"><div class="line o"></div><div class="line"></div><div class="line" style="width:70%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="pick"><button onclick="p(this,4)">Quero este</button></div>
+  </div>
+
+  <div id="res" style="text-align:center;font-family:'Space Mono';font-size:13px;color:var(--orange);min-height:20px"></div>
+</div>
+<script>
+var sel={};
+function p(btn,id){sel[id]=!sel[id];btn.classList.toggle('on',sel[id]);btn.textContent=sel[id]?'✓ Escolhido':'Quero este';
+var ids=Object.keys(sel).filter(function(k){return sel[k]});
+document.getElementById('res').textContent=ids.length?('Escolhido: '+ids.join(', ')+' — me manda!'):'';}
+</script>
+</body>
+</html>
