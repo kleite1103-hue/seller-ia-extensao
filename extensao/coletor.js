@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.22.2';
+  var VERSAO = '0.22.3';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1875,6 +1875,9 @@
     // ---- 1) GERENCIAIS ----
     var g = D.gerenciais, cg = '';
     if (g && (g.gmvPago || g.pv)) {
+      // avisa a origem do dado: dia (navegacao passiva) ou periodo (coleta/central)
+      if (g.fonte === 'dia') cg += '<div class="ld" style="color:#f5b041;font-size:11px;margin-bottom:4px">\u26a0 Dados de HOJE. Clique em "Coletar" ou abra a Central pro mes completo.</div>';
+      else if (g.fonte === 'periodo') cg += '<div class="ld" style="color:#2ecc71;font-size:11px;margin-bottom:4px">Dados do periodo (mes)</div>';
       if (g.gmvPago) cg += '<div class="ld">GMV pago: <b>' + fmtR(g.gmvPago.valor) + '</b>' + varia(g.gmvPago.variacao) + '</div>';
       if (g.pedidosPagos) cg += '<div class="ld">Pedidos: <b>' + fmtN(g.pedidosPagos.valor) + '</b>' + varia(g.pedidosPagos.variacao) + (g.ticketMedio ? ' · ticket <b>' + fmtR(g.ticketMedio) + '</b>' : '') + '</div>';
       if (g.visitantes) cg += '<div class="ld">Visitantes: <b>' + fmtN(g.visitantes.valor) + '</b>' + varia(g.visitantes.variacao) + (g.conversaoLoja != null ? ' · conversao <b>' + g.conversaoLoja + '%</b>' : '') + '</div>';

@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.4.4';
+  var VERSAO = '1.4.5';
 
   // ---- helpers ----
   function n(v) {
@@ -522,29 +522,34 @@
     var r = raiz(d);
     // FORMATO A: homepage/key-metrics (nomes curtos: sales, uv, orders + _pct_diff)
     if (/homepage\/key-metrics/.test(url) && r.sales != null) {
-      var gmvNovoA = n(r.sales) || 0;
-      var gmvAtualA = (COFRE.gerenciais.gmvPago && COFRE.gerenciais.gmvPago.valor) || 0;
-      if (gmvNovoA >= gmvAtualA) {
-        var gA = COFRE.gerenciais;
-        gA.gmvPago = { valor: n(r.sales), variacao: variacaoPct(r.sales_pct_diff) };
-        gA.pedidosPagos = { valor: n(r.orders), variacao: variacaoPct(r.orders_pct_diff) };
-        gA.pv = { valor: n(r.pv), variacao: variacaoPct(r.pv_pct_diff) };
-        gA.uv = { valor: n(r.uv), variacao: variacaoPct(r.uv_pct_diff) };
-        gA.visitantes = { valor: n(r.hybrid_uv), variacao: variacaoPct(r.hybrid_uv_pct_diff) };
-        gA.cliquesProduto = { valor: n(r.product_clicks), variacao: variacaoPct(r.product_clicks_pct_diff) };
-        if (r.conversion_rate != null) gA.conversaoLoja = Math.round(n(r.conversion_rate) * 10000) / 100;
-        if (gA.gmvPago.valor && gA.pedidosPagos.valor) gA.ticketMedio = Math.round((gA.gmvPago.valor / gA.pedidosPagos.valor) * 100) / 100;
-        logar('gerenciais', 'GMV R$' + gA.gmvPago.valor + ' · ' + gA.pedidosPagos.valor + ' pedidos (home)', url);
-      }
+      // homepage/key-metrics = ACUMULADO DO DIA (muda a cada hora).
+      // So usamos como ULTIMO recurso: se ainda nao temos o dado do PERIODO
+      // (dashboard). O dado do periodo (mes) sempre ganha do dado do dia.
+      if (COFRE.gerenciais.fonte === 'periodo') return; // ja temos o do mes, ignora o do dia
+      var gA = COFRE.gerenciais;
+      gA.fonte = 'dia';
+      gA.gmvPago = { valor: n(r.sales), variacao: variacaoPct(r.sales_pct_diff) };
+      gA.pedidosPagos = { valor: n(r.orders), variacao: variacaoPct(r.orders_pct_diff) };
+      gA.pv = { valor: n(r.pv), variacao: variacaoPct(r.pv_pct_diff) };
+      gA.uv = { valor: n(r.uv), variacao: variacaoPct(r.uv_pct_diff) };
+      gA.visitantes = { valor: n(r.hybrid_uv), variacao: variacaoPct(r.hybrid_uv_pct_diff) };
+      gA.cliquesProduto = { valor: n(r.product_clicks), variacao: variacaoPct(r.product_clicks_pct_diff) };
+      if (r.conversion_rate != null) gA.conversaoLoja = Math.round(n(r.conversion_rate) * 10000) / 100;
+      if (gA.gmvPago.valor && gA.pedidosPagos.valor) gA.ticketMedio = Math.round((gA.gmvPago.valor / gA.pedidosPagos.valor) * 100) / 100;
+      logar('gerenciais', 'GMV R$' + gA.gmvPago.valor + ' (DIA — navegue a Central pro mes)', url);
       return;
     }
     // FORMATO B: dashboard/key-metrics (nomes longos: paid_gmv, shop_pv + chain_ratio)
+    // Este e o dado do PERIODO (mes/semana escolhido) — o que a analise precisa.
     if (/dashboard\/key-metrics/.test(url)) {
-      var gmvNovo = (r.paid_gmv && r.paid_gmv.value != null) ? n(r.paid_gmv.value) : 0;
       if (!r.paid_gmv && !r.shop_pv) return;
-      var gmvAtual = (COFRE.gerenciais.gmvPago && COFRE.gerenciais.gmvPago.valor) || 0;
-      if (gmvNovo < gmvAtual) return;
       var g = COFRE.gerenciais;
+      // se ja temos periodo, so troca por outro periodo de maior GMV (mes > semana).
+      // mas SEMPRE ganha do dado do dia (fonte 'dia').
+      var gmvNovo = (r.paid_gmv && r.paid_gmv.value != null) ? n(r.paid_gmv.value) : 0;
+      var gmvAtual = (g.gmvPago && g.gmvPago.valor) || 0;
+      if (g.fonte === 'periodo' && gmvNovo < gmvAtual) return;
+      g.fonte = 'periodo';
       if (r.shop_pv) g.pv = metrica(r.shop_pv);
       if (r.shop_uv) g.uv = metrica(r.shop_uv);
       if (r.product_clicks) g.cliquesProduto = metrica(r.product_clicks);
@@ -555,7 +560,7 @@
       if (r.place_orders) g.pedidosColocados = metrica(r.place_orders);
       if (g.pedidosPagos && g.visitantes && g.visitantes.valor) g.conversaoLoja = Math.round((g.pedidosPagos.valor / g.visitantes.valor) * 10000) / 100;
       if (g.gmvPago && g.pedidosPagos && g.pedidosPagos.valor) g.ticketMedio = Math.round((g.gmvPago.valor / g.pedidosPagos.valor) * 100) / 100;
-      logar('gerenciais', 'GMV pago R$' + (g.gmvPago ? g.gmvPago.valor : '?') + ' · ' + (g.pedidosPagos ? g.pedidosPagos.valor : '?') + ' pedidos', url);
+      logar('gerenciais', 'GMV pago R$' + (g.gmvPago ? g.gmvPago.valor : '?') + ' · ' + (g.pedidosPagos ? g.pedidosPagos.valor : '?') + ' pedidos (periodo)', url);
     }
     if (/dashboard\/order-performance/.test(url)) {
       var s = COFRE.gerenciais.saude = COFRE.gerenciais.saude || {};
