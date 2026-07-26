@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.6';
+  var VERSAO = '0.23.7';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1408,7 +1408,7 @@
 
         // G) Vendas e cancelamentos (saude das vendas)
         prog('Lendo vendas e cancelamentos...');
-        var urlO = (estado.urlsReais && estado.urlsReais.orderPerf) || ('/api/mydata/dashboard/order-performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month');
+        var urlO = (estado.urlsReais && estado.urlsReais.orderPerf) || ('/api/mydata/dashboard/order-performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag&order_type=paid');
         var ro = await buscar(urlO, 'GET', null);
         totalChamadas++;
         if (ro.ok && ro.dados) processarPacote({ url: urlO, metodo: 'GET', corpo: null, dados: ro.dados, ts: Date.now() });
