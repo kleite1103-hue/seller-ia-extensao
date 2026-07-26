@@ -89,7 +89,41 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
     return true;
   }
   if (msg.tipo === 'sia:limpar') {
-    gravar({ sia_coleta: null, sia_coleta_ts: null }).then(function () { responder({ ok: true }); });
+    gravar({ sia_coleta: null, sia_coleta_ts: null, sia_diamantes: null }).then(function () { responder({ ok: true }); });
+    return true;
+  }
+
+  // ---- DIAMANTES (Camada 1): fusao entre paginas/sites ----
+  // Seller Central e Loja Shopee sao memorias separadas; aqui elas se somam.
+  if (msg.tipo === 'sia:diamantes-salvar') {
+    ler(['sia_diamantes']).then(function (v) {
+      var a = v.sia_diamantes || {};
+      var b = msg.cofre || {};
+      function merge(x, y) { // y sobrescreve x campo a campo, sem apagar o que so existe em x
+        var r = x || {};
+        for (var k in (y || {})) {
+          if (y[k] && typeof y[k] === 'object' && !Array.isArray(y[k]) && r[k] && typeof r[k] === 'object' && !Array.isArray(r[k])) {
+            r[k] = merge(r[k], y[k]);
+          } else if (y[k] !== undefined && y[k] !== null) {
+            r[k] = y[k];
+          }
+        }
+        return r;
+      }
+      var fundido = {
+        conta: merge(a.conta, b.conta),
+        ads: merge(a.ads, b.ads),
+        porProduto: merge(a.porProduto, b.porProduto),
+        porCampanha: merge(a.porCampanha, b.porCampanha),
+        busca: merge(a.busca, b.busca),
+        _atualizado: Date.now()
+      };
+      gravar({ sia_diamantes: fundido }).then(function () { responder({ ok: true }); });
+    });
+    return true;
+  }
+  if (msg.tipo === 'sia:diamantes-carregar') {
+    ler(['sia_diamantes']).then(function (v) { responder({ ok: true, cofre: v.sia_diamantes || null }); });
     return true;
   }
   if (msg.tipo === 'sia:analisar') {

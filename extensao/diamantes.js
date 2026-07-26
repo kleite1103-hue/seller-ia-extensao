@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.0.0';
+  var VERSAO = '1.1.0';
 
   // ---- helpers ----
   function n(v) { return (typeof v === 'number') ? v : (v ? parseFloat(v) : null); }
@@ -248,6 +248,7 @@
       if (/search_items/.test(url)) exBusca(url, dados);
       // varredura ampla de produto: muitas rotas trazem avg_rank/competitiveness soltos
       if (achar(dados, 'avg_rank') != null || achar(dados, 'competitiveness') != null || achar(dados, 'boosting_status') != null) exProduto(url, dados);
+      persistir(); // salva no background pra somar entre Seller Central e Loja
     } catch (e) { /* nunca derruba a coleta */ }
   }
 
@@ -264,5 +265,36 @@
     };
   }
 
-  window.SIA_Diamantes = { versao: VERSAO, processar: processar, estado: estado, resumo: resumo };
+  // ---- persistencia entre paginas/sites (via background) ----
+  // Sem isto, ir do Seller Central pra Loja Shopee zera o cofre (memorias separadas).
+  var salvarAgendado = null;
+  function persistir() {
+    if (salvarAgendado) return;
+    salvarAgendado = setTimeout(function () {
+      salvarAgendado = null;
+      try {
+        chrome.runtime.sendMessage({
+          tipo: 'sia:diamantes-salvar',
+          cofre: { conta: COFRE.conta, ads: COFRE.ads, porProduto: COFRE.porProduto, porCampanha: COFRE.porCampanha, busca: COFRE.busca }
+        }, function () { void chrome.runtime.lastError; });
+      } catch (e) { /* noop */ }
+    }, 600);
+  }
+  function carregar() {
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:diamantes-carregar' }, function (r) {
+        void chrome.runtime.lastError;
+        if (r && r.ok && r.cofre) {
+          COFRE.conta = Object.assign({}, r.cofre.conta || {}, COFRE.conta);
+          COFRE.ads = Object.assign({}, r.cofre.ads || {}, COFRE.ads);
+          COFRE.porProduto = Object.assign({}, r.cofre.porProduto || {}, COFRE.porProduto);
+          COFRE.porCampanha = Object.assign({}, r.cofre.porCampanha || {}, COFRE.porCampanha);
+          COFRE.busca = Object.assign({}, r.cofre.busca || {}, COFRE.busca);
+        }
+      });
+    } catch (e) { /* noop */ }
+  }
+  carregar(); // ao iniciar, recupera o que ja foi capturado em outras paginas
+
+  window.SIA_Diamantes = { versao: VERSAO, processar: processar, estado: estado, resumo: resumo, persistir: persistir, carregar: carregar };
 })();
