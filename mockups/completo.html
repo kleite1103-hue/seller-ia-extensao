@@ -116,6 +116,8 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
 .srow .nm{flex:1;color:var(--text2)}.srow.eu .nm{color:var(--ok);font-weight:600}
 .srow .pr{font-family:'Space Mono';font-size:10px}
 .srow .tp{font-family:'Space Mono';font-size:7.5px;padding:1px 5px;border-radius:99px;border:1px solid var(--line);color:var(--text3)}
+.scol{text-align:right;display:flex;flex-direction:column;gap:1px}
+.fat-est{font-family:'Space Mono';font-size:8px;color:var(--ok)}
 .vs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
 .vs-col{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:11px}
 .vs-col.eu{border-color:var(--ok)}
@@ -237,11 +239,11 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
       <div data-s="busca" hidden>
         <div class="ml" style="margin-bottom:8px">ESPIE UMA BUSCA COMO COMPRADOR</div>
         <div class="search-row"><input value="comedouro lento" readonly><button>Espiar</button></div>
-        <div class="tip">Barreira do TOP 10: <b>R$27,96</b> · 29 anúncios/60 · 9 com cupom. Você aparece em <b style="color:var(--ok)">2º, 8º e 60º</b>.</div>
-        <div class="srow eu"><span class="pos">2</span><span class="nm">★ Pote Comedouro (você)</span><span class="pr">R$23,99</span><span class="tp">ADS</span></div>
-        <div class="srow"><span class="pos">1</span><span class="nm">Pote Comedor Tigela</span><span class="pr">R$19,11</span><span class="tp">ADS</span></div>
-        <div class="srow"><span class="pos">3</span><span class="nm">Comedouro Lento</span><span class="pr">R$29,99</span><span class="tp">ADS</span></div>
-        <div class="srow eu"><span class="pos">60</span><span class="nm">★ Tigela Comedouro (você)</span><span class="pr">R$24,99</span><span class="tp">org</span></div>
+        <div class="tip">Barreira do TOP 10: <b>R$27,96</b> · 29 anúncios/60 · 9 com cupom. Você aparece em <b style="color:var(--ok)">2º, 8º e 60º</b>. Cada linha mostra vendas/mês e faturamento estimado (a Shopee informa o "vendido/mês" de cada produto).</div>
+        <div class="srow eu"><span class="pos">2</span><span class="nm">★ Pote Comedouro (você)</span><span class="scol"><span class="pr">R$23,99</span><span class="fat-est">57/mês · ~R$1,3k</span></span></div>
+        <div class="srow"><span class="pos">1</span><span class="nm">Pote Comedor Tigela</span><span class="scol"><span class="pr">R$19,11</span><span class="fat-est">57/mês · ~R$1,1k</span></span></div>
+        <div class="srow"><span class="pos">3</span><span class="nm">Comedouro Lento</span><span class="scol"><span class="pr">R$29,99</span><span class="fat-est">120/mês · ~R$3,6k</span></span></div>
+        <div class="srow eu"><span class="pos">60</span><span class="nm">★ Tigela Comedouro (você)</span><span class="scol"><span class="pr">R$24,99</span><span class="fat-est">18/mês · ~R$450</span></span></div>
         <div class="tip" style="margin-top:10px;border-left-color:var(--warn)"><b>Leitura:</b> seu 2º lugar está forte. O 60º está orgânico e sem cupom, enquanto vários no topo usam cupom e desconto maior. Não dá pra cravar que é só isso, mas alinhar esses pontos costuma ajudar a subir posições.</div>
 
         <div class="ml" style="margin:16px 0 8px">VOCÊ VS O CAMPEÃO DESTA BUSCA</div>
