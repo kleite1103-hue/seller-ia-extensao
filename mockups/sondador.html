@@ -47,48 +47,71 @@ h1 em{font-style:normal;color:var(--orange)}
     <p>Cole o código abaixo no console e aperte Enter. Ele lê os resultados, monta uma tabela e marca em <b style="color:var(--ok)">verde</b> os seus produtos (você troca o nome da sua loja na primeira linha).</p>
     <div class="code">
       <button class="copy" onclick="cp(this)">copiar</button>
-      <pre id="script">/* ===== SELLER.IA · SONDADOR DE BUSCA ===== */
-(async () => {
-  const MINHA_LOJA = "colorindo_shop"; // ← troque pelo nome da SUA loja
+      <pre id="script">/* ===== SELLER.IA · SONDADOR DE BUSCA v2 ===== */
+(async () =&gt; {
+  const MINHA_LOJA = "colorindo_shop"; // nome ou parte do nome da SUA loja
 
-  // pega o termo e parametros da URL atual
   const url = new URL(location.href);
   const kw = url.searchParams.get("keyword") || "";
-  if (!kw) { console.log("%cAbra uma página de RESULTADOS de busca primeiro.","color:#f5b041;font-size:14px"); return; }
+  if (!kw) { console.log("%cAbra uma pagina de RESULTADOS de busca primeiro.","color:#f5b041;font-size:14px"); return; }
 
-  // chama a API interna de busca da Shopee (mesma que a página usa)
-  const api = `/api/v4/search/search_items?by=relevancy&keyword=${encodeURIComponent(kw)}&limit=60&newest=0&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2`;
-  const r = await fetch(api, { headers: { "af-ac-enc-dat": "", "x-api-source": "pc" }, credentials: "include" });
+  const api = `/api/v4/search/search_items?by=relevancy&amp;keyword=${encodeURIComponent(kw)}&amp;limit=60&amp;newest=0&amp;order=desc&amp;page_type=search&amp;scenario=PAGE_GLOBAL_SEARCH&amp;version=2`;
+  const r = await fetch(api, { headers: { "x-api-source": "pc", "x-shopee-language": "pt-br" }, credentials: "include" });
   const j = await r.json();
-  const items = (j.items || []).map((it, i) => {
+  const raw = j.items || [];
+  if (!raw.length) { console.log("%cA busca voltou vazia — role a pagina e rode de novo.","color:#f5b041"); return; }
+
+  // helper: acha um campo em qualquer nivel do objeto testando varios nomes
+  const pick = (o, nomes) =&gt; {
+    for (const n of nomes) {
+      if (o[n] !== undefined &amp;&amp; o[n] !== null) return o[n];
+      if (o.item_basic &amp;&amp; o.item_basic[n] !== undefined) return o.item_basic[n];
+    }
+    return undefined;
+  };
+  const num = v =&gt; (typeof v === "number" ? v : (v ? +v : 0));
+
+  const items = raw.map((it, i) =&gt; {
     const b = it.item_basic || it;
+    const precoRaw = pick(it, ["price","price_min","price_max"]);
+    const preco = precoRaw ? (num(precoRaw)/100000).toFixed(2) : "?";
+    const vendidos = num(pick(it, ["historical_sold","sold","global_sold_count","item_sold"]));
+    const rat = pick(it, ["item_rating"]) || {};
+    const ehAds = !!(pick(it, ["adsid","is_ads","ads_keyword_id"]) || it.ads_keyword_id);
     return {
       pos: i + 1,
-      nome: (b.name||"").slice(0,42),
-      loja_id: b.shopid,
-      preco: (b.price/100000).toFixed(2),
-      vendidos: b.historical_sold ?? b.sold ?? 0,
-      estrelas: b.item_rating ? (b.item_rating.rating_star||0).toFixed(2) : "-",
-      avaliacoes: b.item_rating ? (b.item_rating.rating_count?.[0]||0) : 0,
-      anuncio: b.is_adult===undefined && (b.adsid || it.ads_keyword_id || b.is_ads) ? "ADS" : "org",
-      local: b.shop_location || "-",
-      frete_gratis: b.show_free_shipping ? "sim" : "-",
+      nome: (pick(it,["name","title"])||"").slice(0,45),
+      loja: num(pick(it,["shopid"])),
+      preco,
+      vendidos,
+      estrelas: rat.rating_star ? (+rat.rating_star).toFixed(2) : "-",
+      avaliacoes: rat.rating_count ? (Array.isArray(rat.rating_count)? rat.rating_count[0] : rat.rating_count) : 0,
+      tipo: ehAds ? "ADS" : "org",
+      local: pick(it,["shop_location"]) || "-",
     };
   });
 
   console.log(`%cSELLER.IA · "${kw}" — ${items.length} resultados`,"color:#ff4d1c;font-size:16px;font-weight:bold");
   console.table(items);
 
-  // meus produtos
-  const meus = items.filter(x => String(x.loja_id) && (j.items.find(o => (o.item_basic||o).shopid===x.loja_id && (o.item_basic||o).shop_name?.includes?.(MINHA_LOJA))));
+  // resumo (so com os que tem preco/vendidos validos)
+  const comPreco = items.filter(x=&gt;x.preco!=="?").map(x=&gt;+x.preco);
+  const ads = items.filter(x=&gt;x.tipo==="ADS").length;
   console.log("%c▼ Resumo","color:#7B2FFF;font-size:14px");
-  const ads = items.filter(x=>x.anuncio==="ADS").length;
-  console.log(`Anúncios no topo: ${ads} de ${items.length} · Orgânicos: ${items.length-ads}`);
-  const precoMed = (items.reduce((s,x)=>s+parseFloat(x.preco),0)/items.length).toFixed(2);
-  console.log(`Preço médio da 1ª página: R$ ${precoMed}`);
-  const top5 = items.slice(0,5);
-  console.log(`Vendidos médios do TOP 5: ${Math.round(top5.reduce((s,x)=>s+(+x.vendidos||0),0)/5)}`);
-  console.log("%cTroque MINHA_LOJA no topo pra destacar seus produtos.","color:#7d8290");
+  console.log(`Anuncios no topo: ${ads} de ${items.length} · Organicos: ${items.length-ads}`);
+  if (comPreco.length) console.log(`Preco medio da 1a pagina: R$ ${(comPreco.reduce((a,b)=&gt;a+b,0)/comPreco.length).toFixed(2)}`);
+  const top10 = items.slice(0,10);
+  const vendTop = top10.map(x=&gt;x.vendidos).filter(v=&gt;v&gt;0);
+  if (vendTop.length) console.log(`Vendidos medios do TOP 10: ${Math.round(vendTop.reduce((a,b)=&gt;a+b,0)/vendTop.length)}`);
+  const meus = items.filter(x=&gt;String(x.loja) &amp;&amp; j.items.find((o,idx)=&gt; idx===x.pos-1 &amp;&amp; ((o.item_basic||o).shop_name||"").toLowerCase().includes(MINHA_LOJA.toLowerCase())));
+  if (meus.length) { console.log(`%cSeus produtos nesta busca:`,"color:#2ecc71"); console.table(meus); }
+  else console.log("%cNenhum produto seu no top 60 desta busca (ou ajuste MINHA_LOJA).","color:#7d8290");
+
+  // diagnostico: se nome/preco vierem vazios, dumpa 1 item cru pra eu mapear
+  if (items[0].nome==="" || items[0].preco==="?") {
+    console.log("%cCampos vazios — me mande o objeto abaixo (clique com botao direito → Copy object):","color:#f5b041");
+    console.log(raw[0]);
+  }
 })();</pre>
     </div>
   </div>
