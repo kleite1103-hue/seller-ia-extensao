@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.11';
+  var VERSAO = '0.23.12';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1322,11 +1322,14 @@
         if (mFrom && mTo) { ini = inicioDoDiaBRT(parseInt(mFrom[1], 10)); fim = inicioDoDiaBRT(parseInt(mTo[1], 10)); }
         var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
         var totalChamadas = 0;
+        // o Ads (pas/) exige end_time no ULTIMO segundo do dia (23:59:59),
+        // nao 00:00 do dia seguinte. Senao retorna code 5 "invalid request".
+        var fimAds = fim - 1;
 
         // A) Campanhas do Ads (paginado por offset)
         prog('Lendo campanhas do Shopee Ads...');
         for (var off = 0; off < 400; off += 20) {
-          var corpoC = JSON.stringify({ start_time: ini, end_time: fim, filter_list: [{ campaign_type: 'product_homepage_v3', state: 'all', search_term: '', is_valid_rebate_only: false }], offset: off, limit: 20, use_paid_gmv: false });
+          var corpoC = JSON.stringify({ start_time: ini, end_time: fimAds, filter_list: [{ campaign_type: 'product_homepage_v3', state: 'all', search_term: '', is_valid_rebate_only: false }], offset: off, limit: 20, use_paid_gmv: false });
           var rc = await buscar('/api/pas/v1/homepage/query/?' + spcQ, 'POST', corpoC);
           totalChamadas++;
           if (!rc.ok || !rc.dados) break;
@@ -2077,8 +2080,8 @@
     // ---- 4) SAUDE / AVALIACOES ----
     var ca4 = '';
     // saude da conta (rating de performance + penalidade) — vem do accounthealth
-    if (R.conta && R.conta.saudeConta) {
-      var sc = R.conta.saudeConta;
+    if (D.conta && D.conta.saudeConta) {
+      var sc = D.conta.saudeConta;
       var corRating = sc.ratingPerformance === 'excellent' ? '#2ecc71' : (sc.ratingPerformance === 'good' ? '#f5b041' : '#e74c3c');
       var traduz = { excellent: 'Excelente', good: 'Boa', improvement_needed: 'Precisa melhorar', poor: 'Ruim' };
       ca4 += '<div class="ld">Saude da conta: <b style="color:' + corRating + '">' + (traduz[sc.ratingPerformance] || sc.ratingPerformance) + '</b>';
