@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.4';
+  var VERSAO = '0.23.5';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -466,6 +466,13 @@
       if (mSt && mEt && mPer && mPer[1] === 'month') {
         estado.periodoMydata = { inicio: parseInt(mSt[1], 10), fim: parseInt(mEt[1], 10) };
       }
+      // guarda a URL COMPLETA real de cada rota dashboard, pra reusar tal e qual
+      estado.urlsReais = estado.urlsReais || {};
+      if (/dashboard\/key-metrics/.test(pacote.url)) estado.urlsReais.keyMetrics = pacote.url;
+      else if (/product\/traffic\/overview/.test(pacote.url)) estado.urlsReais.funilOverview = pacote.url;
+      else if (/dashboard\/traffic-sources/.test(pacote.url)) estado.urlsReais.trafficSources = pacote.url;
+      else if (/product\/performance/.test(pacote.url)) estado.urlsReais.performance = pacote.url;
+      else if (/dashboard\/order-performance/.test(pacote.url)) estado.urlsReais.orderPerf = pacote.url;
     }
     var tag = classificar(pacote.url);
     var tamanho = 0;
@@ -1370,29 +1377,38 @@
 
         // D2) Funil de vendas (overview) — a origem do dinheiro (card/ads/afiliado)
         prog('Lendo o funil de vendas...');
-        var urlFo = '/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid';
+        var urlFo = (estado.urlsReais && estado.urlsReais.funilOverview) || ('/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
         var rfo = await buscar(urlFo, 'GET', null);
         totalChamadas++;
         if (rfo.ok && rfo.dados) processarPacote({ url: urlFo, metodo: 'GET', corpo: null, dados: rfo.dados, ts: Date.now() });
         await pausa(150);
 
-        // D3) Fontes de trafego (traffic-sources) — precisa de order_type=paid
+        // helper: prefere a URL REAL capturada da Central (a Shopee ja validou);
+        // se nao navegou aquela tela ainda, usa a reconstruida (fallback).
+        var reais = estado.urlsReais || {};
+        function urlComPagina(real, pg) {
+          // troca page_num na URL real, mantendo todo o resto identico
+          if (/page_num=/.test(real)) return real.replace(/page_num=\d+/, 'page_num=' + pg);
+          return real + '&page_num=' + pg;
+        }
+
+        // D3) Fontes de trafego (traffic-sources)
         prog('Cruzando fontes de trafego...');
-        var urlF = '/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid';
+        var urlF = reais.trafficSources || ('/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
         var rf = await buscar(urlF, 'GET', null);
         totalChamadas++;
         if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now() });
 
-        // E) Indicadores gerais da loja — key-metrics precisa de fetag=fetag
+        // E) Indicadores gerais da loja — key-metrics
         prog('Lendo os indicadores gerais...');
-        var urlK = '/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag';
+        var urlK = reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag');
         var rk = await buscar(urlK, 'GET', null);
         totalChamadas++;
         if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now() });
 
         // G) Vendas e cancelamentos (saude das vendas)
         prog('Lendo vendas e cancelamentos...');
-        var urlO = '/api/mydata/dashboard/order-performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month';
+        var urlO = (estado.urlsReais && estado.urlsReais.orderPerf) || ('/api/mydata/dashboard/order-performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month');
         var ro = await buscar(urlO, 'GET', null);
         totalChamadas++;
         if (ro.ok && ro.dados) processarPacote({ url: urlO, metodo: 'GET', corpo: null, dados: ro.dados, ts: Date.now() });

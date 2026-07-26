@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '0.7.0';
+  var VERSAO = '0.8.0';
   // v0.2: observa TODA API da Shopee (qualquer host *.shopee.*), classificacao fica no coletor
   function observar(url) {
     if (!url) return false;
@@ -53,9 +53,21 @@
 
   /* ---- fetch ---- */
   var fetchOriginal = window.fetch;
+  // guarda os headers reais das chamadas mydata (pra reusar no coletor)
+  var headersMydata = null;
   window.fetch = function () {
     var args = arguments;
     var url = urlDe(args);
+    // captura headers de chamadas mydata reais (a Shopee exige alguns especificos)
+    try {
+      if (/\/api\/mydata\//.test(url) && args[1] && args[1].headers) {
+        var h = args[1].headers;
+        var capt = {};
+        if (typeof h.forEach === 'function') { h.forEach(function (v, k) { capt[k] = v; }); }
+        else { for (var k in h) capt[k] = h[k]; }
+        if (Object.keys(capt).length) { headersMydata = capt; window.__SIA_HEADERS_MYDATA = capt; }
+      }
+    } catch (e) { /* noop */ }
     var promessa = fetchOriginal.apply(this, args);
     if (observar(url)) {
       var metodo = 'GET', corpo = null;
@@ -126,6 +138,18 @@
       return;
     }
     var opts = { method: req.metodo || 'GET', credentials: 'include', headers: { accept: 'application/json' } };
+    // se for uma rota mydata e ja capturamos os headers reais da Shopee, reusa
+    // (a Shopee exige headers especificos como x-traceid, x-region, etc)
+    try {
+      if (/\/api\/mydata\//.test(req.url) && headersMydata) {
+        for (var hk in headersMydata) {
+          var lk = hk.toLowerCase();
+          // nao reusa content-length/host (o navegador recalcula)
+          if (lk === 'content-length' || lk === 'host' || lk === 'cookie') continue;
+          opts.headers[hk] = headersMydata[hk];
+        }
+      }
+    } catch (e) { /* noop */ }
     if (opts.method !== 'GET' && req.corpo) {
       opts.headers['content-type'] = 'application/json';
       opts.body = req.corpo;
