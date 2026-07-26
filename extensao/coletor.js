@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.20.0';
+  var VERSAO = '0.21.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1428,6 +1428,7 @@
   var ABAS = [
     { id: 'semaforo', rotulo: '\u25cf Semaforo' },
     { id: 'conta360', rotulo: '\u25c9 Conta 360' },
+    { id: 'calc', rotulo: '\u2696 Margem' },
     { id: 'diagnostico', rotulo: 'Diagnostico' },
     { id: 'visao', rotulo: 'Visao da Conta' },
     { id: 'campanhas', rotulo: 'Campanhas' },
@@ -1738,6 +1739,88 @@
   }
 
   // ==========================================================
+  // CALCULADORA DE MARGEM REAL — custo + taxas Shopee + ads
+  // ==========================================================
+  function renderCalculadora() {
+    var i = 'width:100%;box-sizing:border-box;background:#0c0e12;border:1px solid #242630;border-radius:8px;padding:9px 11px;color:#f2f2f4;font-size:13px;margin-top:4px';
+    var lbl = 'font-size:11px;color:#9aa0ac;font-weight:600';
+    var h = '<div style="padding:2px">';
+    h += '<div class="nota" style="margin:0 0 12px">Sua margem <b>real</b> cruzando custo, taxas da Shopee e o gasto de ads. Descobre se voce lucra de verdade.</div>';
+
+    h += '<div class="bloco-d"><div class="td">O PRODUTO</div>';
+    h += '<div style="margin-bottom:8px"><div style="' + lbl + '">Preco de venda (R$) *</div><input id="calc-preco" type="tel" inputmode="decimal" placeholder="29,90" style="' + i + '"></div>';
+    h += '<div style="margin-bottom:8px"><div style="' + lbl + '">Custo do fornecedor (R$) *</div><input id="calc-custo" type="tel" inputmode="decimal" placeholder="8,00" style="' + i + '"></div>';
+    h += '<div style="display:flex;gap:8px"><div style="flex:1"><div style="' + lbl + '">Embalagem/outros</div><input id="calc-outros" type="tel" inputmode="decimal" placeholder="0,00" style="' + i + '"></div>';
+    h += '<div style="flex:1"><div style="' + lbl + '">Imposto NF (%)</div><input id="calc-imposto" type="tel" inputmode="decimal" placeholder="6" style="' + i + '"></div></div>';
+    h += '</div>';
+
+    h += '<div class="bloco-d"><div class="td">ADS (opcional)</div>';
+    h += '<div style="' + lbl + '">Gasto de ads por venda (R$)</div><input id="calc-ads" type="tel" inputmode="decimal" placeholder="deixe vazio se nao usa" style="' + i + '">';
+    h += '<div class="ld" style="font-size:11px;color:#7d8290;margin-top:5px">Se preencher, cruzamos com o ROAS minimo pra ver se ta no lucro.</div>';
+    h += '</div>';
+
+    h += '<button id="calc-btn" style="all:unset;cursor:pointer;display:block;text-align:center;background:linear-gradient(135deg,#ff4d1c,#7B2FFF);color:#fff;font-weight:700;font-size:13px;padding:11px;border-radius:9px;margin:4px 0 12px">Calcular margem real</button>';
+
+    h += '<div id="calc-resultado"></div>';
+    h += '</div>';
+    return h;
+  }
+
+  function ligarCalculadora() {
+    var btn = $('calc-btn');
+    if (!btn || !window.SIA_Calc) return;
+    btn.addEventListener('click', function () {
+      var ent = {
+        preco: ($('calc-preco') || {}).value,
+        custo: ($('calc-custo') || {}).value,
+        outros: ($('calc-outros') || {}).value,
+        impostoPct: ($('calc-imposto') || {}).value,
+        adsReais: ($('calc-ads') || {}).value
+      };
+      var m = window.SIA_Calc.margem(ent);
+      var alvo = $('calc-resultado');
+      if (!m) { if (alvo) alvo.innerHTML = '<div class="nota" style="color:#e74c3c">Preencha ao menos o preco de venda.</div>'; return; }
+      alvo.innerHTML = montarResultadoCalc(m, ent.adsReais);
+    });
+  }
+
+  function montarResultadoCalc(m, adsInput) {
+    function fr(v) { return 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
+    var corLucro = m.noLucro ? '#2ecc71' : '#e74c3c';
+    var h = '<div class="bloco-d" style="border-color:' + (m.noLucro ? '#1f5a30' : '#5a1f1f') + '">';
+    h += '<div class="td">RESULTADO · ' + esc(m.faixa) + '</div>';
+    // cascata de custos
+    h += '<div class="ld">Preco de venda: <b>' + fr(m.preco) + '</b></div>';
+    h += '<div class="ld" style="color:#9aa0ac">− Custo produto: ' + fr(m.custoProduto) + (m.outros ? ' · outros ' + fr(m.outros) : '') + '</div>';
+    h += '<div class="ld" style="color:#9aa0ac">− Comissao Shopee (' + m.comissao.pct + '%): ' + fr(m.comissao.reais) + ' + taxa fixa ' + fr(m.taxaFixa) + '</div>';
+    if (m.imposto.reais > 0) h += '<div class="ld" style="color:#9aa0ac">− Imposto (' + m.imposto.pct + '%): ' + fr(m.imposto.reais) + '</div>';
+    if (m.ads > 0) h += '<div class="ld" style="color:#9aa0ac">− Ads por venda: ' + fr(m.ads) + '</div>';
+    h += '<div style="border-top:1px solid #242630;margin:8px 0 6px"></div>';
+    h += '<div class="ld" style="font-size:15px">Lucro por venda: <b style="color:' + corLucro + '">' + fr(m.lucro) + '</b> <span style="color:#7d8290;font-size:12px">(margem ' + m.margemPct + '%)</span></div>';
+    if (!m.noLucro) h += '<div class="ld" style="color:#e74c3c;font-size:11px;margin-top:4px">Atencao: este produto esta no PREJUIZO com esses numeros.</div>';
+    // ROAS minimo + cruzamento
+    if (m.roasMinimo) {
+      h += '<div style="border-top:1px solid #242630;margin:8px 0 6px"></div>';
+      h += '<div class="ld">ROAS minimo pra empatar o ads: <b>' + m.roasMinimo + 'x</b></div>';
+      // tenta cruzar com o ROAS real da conta (se houver)
+      var roasReal = null;
+      try {
+        var D = window.SIA_Diamantes ? window.SIA_Diamantes.resumo() : null;
+        if (D && D.metaRoas && D.metaRoas.exato) roasReal = D.metaRoas.exato;
+      } catch (e) { }
+      var cruz = window.SIA_Calc.cruzarAds(m, roasReal);
+      if (cruz && roasReal) {
+        var cor = { verde: '#2ecc71', amarelo: '#f5b041', vermelho: '#e74c3c', cinza: '#7d8290' }[cruz.nivel];
+        h += '<div class="ld" style="color:' + cor + ';font-size:11.5px;margin-top:3px">' + esc(cruz.texto) + '</div>';
+      } else {
+        h += '<div class="ld" style="color:#7d8290;font-size:11px;margin-top:3px">Rode a coleta pra cruzar com seu ROAS real da conta.</div>';
+      }
+    }
+    h += '</div>';
+    return h;
+  }
+
+  // ==========================================================
   // CONTA 360 — as 6 inteligencias do cerebro geral (visual)
   // So MOSTRA o que a coleta capturou. A analise vem depois.
   // ==========================================================
@@ -1898,6 +1981,12 @@
     if (abaAtiva === 'conta360') {
       corpo.innerHTML = renderConta360();
       ligarBotaoColeta();
+      return;
+    }
+
+    if (abaAtiva === 'calc') {
+      corpo.innerHTML = renderCalculadora();
+      ligarCalculadora();
       return;
     }
 
