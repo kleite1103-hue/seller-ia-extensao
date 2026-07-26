@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Protótipo Completo</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.5}
+.wrap{max-width:460px;margin:0 auto;padding:22px 12px 40px}
+.title{text-align:center;margin-bottom:16px}
+.title h1{font-family:'Bebas Neue';font-size:32px;letter-spacing:.02em}
+.title h1 em{font-style:normal;color:var(--orange)}
+.title p{color:var(--text2);font-size:12.5px;margin-top:4px}
+
+/* simulacao da gaveta */
+.frame{background:var(--bg2);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.6)}
+.topbar{display:flex;align-items:center;gap:9px;padding:12px 15px;border-bottom:1px solid var(--line);background:var(--bg3)}
+.topbar svg{width:23px;height:23px}
+.topbar .nm{font-family:'Bebas Neue';font-size:17px;letter-spacing:.04em;flex:1}
+.topbar .st{font-family:'Space Mono';font-size:8px;color:var(--ok);display:flex;align-items:center;gap:4px}
+.topbar .st::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ok)}
+
+/* barra de navegacao deslizavel */
+.nav{display:flex;gap:4px;padding:9px 10px;background:var(--bg3);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav button{font-family:'Space Mono';font-size:10px;letter-spacing:.03em;color:var(--text3);padding:7px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;border:1px solid transparent;background:transparent}
+.nav button.on{color:#fff;background:var(--bg2);border-color:var(--line)}
+.screen{padding:15px;min-height:400px}
+.ml{font-family:'Space Mono';font-size:9px;color:var(--text3);letter-spacing:.06em}
+
+.hero-btn{width:100%;background:linear-gradient(120deg,var(--orange),var(--purple));border:none;color:#fff;font-weight:700;font-size:14px;padding:13px;border-radius:11px;cursor:pointer}
+.progress{margin-top:12px;background:var(--bg3);border-radius:8px;padding:11px 13px;border:1px solid var(--line)}
+.progress .lbl{font-family:'Space Mono';font-size:10px;color:var(--text2);display:flex;justify-content:space-between;margin-bottom:7px}
+.bar{height:6px;background:#191c22;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:72%;background:linear-gradient(90deg,var(--orange),var(--purple));border-radius:99px}
+.last{text-align:center;font-family:'Space Mono';font-size:9.5px;color:var(--text3);margin-top:10px}
+.period{display:flex;gap:5px;margin:12px 0}
+.period span{flex:1;text-align:center;font-family:'Space Mono';font-size:10px;padding:6px;border-radius:7px;border:1px solid var(--line);color:var(--text3)}
+.period span.on{border-color:var(--orange);color:var(--orange)}
+.health{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.hc{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:10px}
+.hc .k{font-family:'Space Mono';font-size:8px;color:var(--text3)}
+.hc .v{font-family:'Bebas Neue';font-size:24px;line-height:1;margin-top:3px}
+.hc .b{font-family:'Space Mono';font-size:7.5px;padding:2px 6px;border-radius:99px;margin-top:4px;display:inline-block}
+
+/* card produto reduzido */
+.pcard{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:4px}
+.alert{display:flex;gap:7px;padding:8px 12px;background:rgba(245,176,65,.1);border-bottom:1px solid rgba(245,176,65,.25);font-size:11px;color:#ffd89e}
+.pm{padding:12px}
+.pm .top{display:flex;justify-content:space-between;margin-bottom:9px}
+.verdict{font-family:'Space Mono';font-weight:700;font-size:9px;letter-spacing:.06em;padding:3px 9px;border-radius:5px;text-transform:uppercase;border:1px solid}
+.v-otim{color:var(--warn);border-color:var(--warn);background:rgba(245,176,65,.12)}
+.mrow{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:var(--text2)}
+.mrow.t{border-top:1px solid var(--line);margin-top:4px;padding-top:6px}
+.mrow.t .l{color:var(--text);font-weight:600}.mrow.t .v{font-family:'Bebas Neue';font-size:26px;color:var(--ok)}
+.roasb{margin-top:10px;padding:9px 11px;background:var(--bg3);border-radius:8px;border-left:3px solid var(--purple)}
+.roasb .k{font-family:'Space Mono';font-size:8px;color:#c88bff;margin-bottom:6px}
+.rscale{display:flex;height:22px;border-radius:5px;overflow:hidden;font-family:'Space Mono';font-size:7.5px;color:#fff;text-align:center}
+.rscale i{display:flex;align-items:center;justify-content:center}
+.roasb .cap{font-size:10.5px;color:var(--text2);line-height:1.4;margin-top:5px}
+.say{padding:11px 12px;border-top:1px solid var(--line)}
+.say .big{font-family:'Bebas Neue';font-size:17px;line-height:1.1}
+.say p{font-size:11.5px;color:var(--text2);margin-top:6px;line-height:1.45}
+.say p b{color:var(--text)}
+.do{margin-top:9px;background:var(--bg3);border-left:3px solid var(--orange);border-radius:0 8px 8px 0;padding:9px 11px}
+.do .k{font-family:'Space Mono';font-size:8px;color:var(--orange);margin-bottom:4px}
+.do ol{margin:0 0 0 14px}.do li{font-size:11px;color:var(--text);margin:2px 0}
+.gold{padding:10px 12px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.gc{background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+.gc .k{font-family:'Space Mono';font-size:7px;color:var(--text3)}
+.gc .v{font-family:'Bebas Neue';font-size:16px;margin-top:1px}
+.gc .t{font-size:8px;color:var(--text3)}
+.fun{padding:12px;border-top:1px solid var(--line)}
+.flow{display:flex;align-items:center;justify-content:space-between}
+.node{text-align:center;flex:1}
+.circ{width:40px;height:40px;border-radius:50%;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:14px;border:2.5px solid;background:var(--bg3)}
+.node .l{font-family:'Space Mono';font-size:6.5px;color:var(--text3)}
+.gap{padding:0 1px;text-align:center}.gap .ar{color:var(--text3);font-size:11px}.gap .dp{font-family:'Space Mono';font-size:7px;color:var(--bad)}
+
+.list-item{border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:8px;background:var(--bg3);cursor:pointer}
+.list-item.g{border-left-color:var(--ok)}
+.list-item .h{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.list-item .n{font-size:12.5px;font-weight:600}
+.list-item .d{font-size:10.5px;color:var(--text2)}
+
+.tool{display:flex;align-items:center;gap:11px;background:var(--bg3);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:9px}
+.tool .ic{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--orange),var(--purple));display:flex;align-items:center;justify-content:center;flex:none;color:#fff;font-family:'Space Mono';font-size:9px}
+.tool .n{font-weight:600;font-size:13px}.tool .d{font-size:10.5px;color:var(--text3)}
+.tool .go{margin-left:auto;color:var(--text3)}
+
+.tip{background:var(--bg3);border-left:3px solid var(--purple);border-radius:0 9px 9px 0;padding:10px 12px;font-size:11.5px;color:var(--text2);margin-bottom:9px;line-height:1.45}
+.tip b{color:var(--text)}
+.search-row{display:flex;gap:6px;margin-bottom:12px}
+.search-row input{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'Outfit';font-size:12px}
+.search-row button{background:var(--orange);border:none;color:#fff;border-radius:8px;padding:0 14px;font-size:12px;cursor:pointer}
+.srow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:11px}
+.srow .pos{font-family:'Bebas Neue';font-size:16px;width:22px;color:var(--text3)}
+.srow.eu .pos{color:var(--ok)}
+.srow .nm{flex:1;color:var(--text2)}.srow.eu .nm{color:var(--ok);font-weight:600}
+.srow .pr{font-family:'Space Mono';font-size:10px}
+.srow .tp{font-family:'Space Mono';font-size:7.5px;padding:1px 5px;border-radius:99px;border:1px solid var(--line);color:var(--text3)}
+.foot{text-align:center;font-family:'Space Mono';font-size:9px;color:var(--text3);margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title"><h1>SELLER.IA <em>COMPLETO</em></h1><p>Protótipo navegável — deslize as abas. É este o produto.</p></div>
+
+  <div class="frame">
+    <div class="topbar">
+      <svg viewBox="0 0 128 128"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d1c"/><stop offset="1" stop-color="#7B2FFF"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#g)" stroke-width="8"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#g)" stroke-width="15" stroke-linecap="round"/></svg>
+      <span class="nm">SELLER.IA</span><span class="st">ao vivo</span>
+    </div>
+    <div class="nav">
+      <button class="on" onclick="go(this,'inicio')">Início</button>
+      <button onclick="go(this,'produto')">Card do Produto</button>
+      <button onclick="go(this,'produtos')">Produtos</button>
+      <button onclick="go(this,'espec')">Especialista</button>
+      <button onclick="go(this,'busca')">Espião de Busca</button>
+      <button onclick="go(this,'ferr')">Ferramentas</button>
+    </div>
+    <div class="screen">
+
+      <!-- INICIO -->
+      <div data-s="inicio">
+        <div class="ml">PERÍODO DA ANÁLISE</div>
+        <div class="period"><span>7d</span><span class="on">30d</span><span>Mês passado</span><span>Custom</span></div>
+        <button class="hero-btn">⟳ Coletar conta completa + Analisar</button>
+        <div class="progress"><div class="lbl"><span>Coletando produtos...</span><span>72%</span></div><div class="bar"><i></i></div></div>
+        <div class="last">última leitura: hoje 01:47 · 20 campanhas · 8 produtos</div>
+        <div class="health">
+          <div class="hc"><div class="k">SAÚDE DA CONTA</div><div class="v" style="color:var(--ok)">Boa</div><span class="b" style="background:rgba(46,204,113,.14);color:var(--ok)">0 penalidades</span></div>
+          <div class="hc"><div class="k">DEPENDÊNCIA ADS</div><div class="v" style="color:var(--warn)">76%</div><span class="b" style="background:rgba(245,176,65,.14);color:var(--warn)">acima de 68%</span></div>
+          <div class="hc"><div class="k">ROAS BLENDADO</div><div class="v" style="color:var(--ok)">6,2×</div><span class="b" style="background:rgba(46,204,113,.14);color:var(--ok)">saudável</span></div>
+          <div class="hc"><div class="k">PERCENTIL CATEGORIA</div><div class="v">50</div><span class="b" style="background:rgba(245,176,65,.14);color:var(--warn)">mediano</span></div>
+        </div>
+      </div>
+
+      <!-- CARD PRODUTO -->
+      <div data-s="produto" hidden>
+        <div class="pcard">
+          <div class="alert"><span>⚠</span><span><b>Em aprendizado:</b> faltam 5 dias — não altere preço nem lance (reinicia a contagem).</span></div>
+          <div class="pm">
+            <div class="top"><span class="ml">VASO PRETO · ID 58212604692</span><span class="verdict v-otim">otimizar</span></div>
+            <div class="mrow"><span>Preço</span><span>R$ 49,99</span></div>
+            <div class="mrow"><span>− Comissão</span><span style="color:var(--bad)">− R$ 14,00</span></div>
+            <div class="mrow"><span>− Ads/pedido</span><span style="color:var(--bad)">− R$ 1,99</span></div>
+            <div class="mrow t"><span class="l">Líquido/pedido</span><span class="v">R$ 34,00</span></div>
+            <div class="roasb"><div class="k">POR QUE ESTE ROAS? (A SHOPEE EXPLICA)</div>
+              <div class="rscale"><i style="width:33%;background:#e74c3c">2,4× +gasto</i><i style="width:34%;background:#2ecc71">5,1× ideal</i><i style="width:33%;background:#f5b041">10× -entrega</i></div>
+              <div class="cap">Shopee sugere <b>5,1×</b> (projeta +30% vendas). Seu equilíbrio real: <b>4×</b>. Entre 4× e 5,1× você lucra E cresce.</div>
+            </div>
+          </div>
+          <div class="say"><div class="big">CLICA BEM, MAS A PÁGINA NÃO FECHA.</div>
+            <p>De 100 que veem, <b>4</b> clicam (ótimo), só <b>1</b> compra. Gargalo: a página. E ele é <b>33%</b> da loja.</p>
+            <div class="do"><div class="k">FAÇA NESTA ORDEM</div><ol><li>Página no celular: preço, variação, avaliações.</li><li>Kit &gt; R$80 sobe margem e leilão.</li><li>Não mexa no lance ainda.</li></ol></div>
+          </div>
+          <div class="gold">
+            <div class="gc"><div class="k">LEILÃO</div><div class="v" style="color:var(--warn)">pos 61</div><div class="t">fundo de vitrine</div></div>
+            <div class="gc"><div class="k">PREÇO vs CATEGORIA</div><div class="v">50/100</div><div class="t">na média</div></div>
+            <div class="gc"><div class="k">STATUS SHOPEE</div><div class="v" style="color:var(--ok)">Normal</div><div class="t">sem deboost</div></div>
+            <div class="gc"><div class="k">DIAGNÓSTICO SHOPEE</div><div class="v" style="color:var(--warn)">no_conv</div><div class="t">concorda: página</div></div>
+          </div>
+          <div class="fun"><div class="ml" style="margin-bottom:9px">O CAMINHO ATÉ A VENDA</div>
+            <div class="flow">
+              <div class="node"><div class="circ" style="border-color:var(--orange);color:var(--orange)">73k</div><div class="l">IMPR.</div></div>
+              <div class="gap"><div class="ar">›</div><div class="dp">-96%</div></div>
+              <div class="node"><div class="circ" style="border-color:#a24bd6;color:#c88bff">3k</div><div class="l">CLIQUES</div></div>
+              <div class="gap"><div class="ar">›</div><div class="dp">-90%</div></div>
+              <div class="node"><div class="circ" style="border-color:var(--purple);color:#c88bff">300</div><div class="l">CARRINHO</div></div>
+              <div class="gap"><div class="ar">›</div><div class="dp">-90%</div></div>
+              <div class="node"><div class="circ" style="border-color:var(--ok);color:var(--ok)">30</div><div class="l">VENDAS</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRODUTOS -->
+      <div data-s="produtos" hidden>
+        <div class="ml" style="margin-bottom:10px">TOQUE NUM PRODUTO PARA O CARD COMPLETO</div>
+        <div class="list-item"><div class="h"><span class="n">Vaso Decorativo Preto</span><span class="verdict v-otim">otimizar</span></div><div class="d">Líq R$34 · ROAS 5,6× · leilão 61 · 33% da loja</div></div>
+        <div class="list-item g"><div class="h"><span class="n">Kit Porta Toalha</span><span class="verdict" style="color:var(--ok);border-color:var(--ok);background:rgba(46,204,113,.12)">manter</span></div><div class="d">Líq R$41 · ROAS 6,5× · leilão 18 · saudável</div></div>
+        <div class="list-item"><div class="h"><span class="n">Tigela Lenta Gatos</span><span class="verdict v-otim">observação</span></div><div class="d">22 vendas · aguardando volume p/ leitura</div></div>
+      </div>
+
+      <!-- ESPECIALISTA -->
+      <div data-s="espec" hidden>
+        <button class="hero-btn" style="font-size:13px">✦ Gerar Análise do Especialista</button>
+        <div class="last" style="margin-bottom:12px">relatório completo no método Efeito Vendas · exporta PDF</div>
+        <div class="tip"><b>Snapshot</b><br>GMV pago R$9.799 (+18%) · 332 pedidos · conversão 1,81% · ticket R$29,52</div>
+        <div class="tip"><b>Diagnóstico principal</b><br>Loja puxada por ads (76%). Prioridade 30d: subir ticket com kits &gt;R$80 e reduzir dependência.</div>
+        <div class="tip"><b>Plano · Semana 1</b><br>Corrigir 3 campanhas "no_conversion" (Shopee concorda): página, não lance. Meta conversão &gt;1%.</div>
+      </div>
+
+      <!-- BUSCA -->
+      <div data-s="busca" hidden>
+        <div class="ml" style="margin-bottom:8px">ESPIE UMA BUSCA COMO COMPRADOR</div>
+        <div class="search-row"><input value="comedouro lento" readonly><button>Espiar</button></div>
+        <div class="tip">Barreira do TOP 10: <b>R$27,96</b> · 29 anúncios/60 · 9 com cupom. Você aparece em <b style="color:var(--ok)">2º, 8º e 60º</b>.</div>
+        <div class="srow eu"><span class="pos">2</span><span class="nm">★ Pote Comedouro (você)</span><span class="pr">R$23,99</span><span class="tp">ADS</span></div>
+        <div class="srow"><span class="pos">1</span><span class="nm">Pote Comedor Tigela</span><span class="pr">R$19,11</span><span class="tp">ADS</span></div>
+        <div class="srow"><span class="pos">3</span><span class="nm">Comedouro Lento</span><span class="pr">R$29,99</span><span class="tp">ADS</span></div>
+        <div class="srow eu"><span class="pos">60</span><span class="nm">★ Tigela Comedouro (você)</span><span class="pr">R$24,99</span><span class="tp">org</span></div>
+        <div class="tip" style="margin-top:10px;border-left-color:var(--warn)"><b>Leitura:</b> seu 2º lugar está forte. O 60º está orgânico e sem cupom — o topo usa cupom + desconto maior. Caminho: ativar cupom e ads nesse item.</div>
+      </div>
+
+      <!-- FERRAMENTAS -->
+      <div data-s="ferr" hidden>
+        <div class="tool"><div class="ic">R$</div><div><div class="n">Calculadora Shopee</div><div class="d">margem, comissão, ROAS equilíbrio</div></div><span class="go">→</span></div>
+        <div class="tool"><div class="ic">◫</div><div><div class="n">Cofre de Custos</div><div class="d">custo → margem real por produto</div></div><span class="go">→</span></div>
+        <div class="tool"><div class="ic">▶</div><div><div class="n">ClipSeller</div><div class="d">criativos e vídeos dos anúncios</div></div><span class="go">→</span></div>
+        <div class="tool"><div class="ic">?</div><div><div class="n">Suporte Efeito Vendas</div><div class="d">ajuda e atendimento do time</div></div><span class="go">→</span></div>
+      </div>
+
+    </div>
+  </div>
+  <div class="foot">GAVETA LATERAL · NAVEGAÇÃO DESLIZÁVEL · DESIGN SYSTEM SELLER.IA</div>
+</div>
+<script>
+function go(btn,id){document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+document.querySelectorAll('[data-s]').forEach(s=>s.hidden=s.getAttribute('data-s')!==id);}
+</script>
+</body>
+</html>
