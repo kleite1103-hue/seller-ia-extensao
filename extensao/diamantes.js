@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.1.0';
+  var VERSAO = '1.2.0';
 
   // ---- helpers ----
   function n(v) { return (typeof v === 'number') ? v : (v ? parseFloat(v) : null); }
@@ -73,6 +73,30 @@
 
   // 1) LEILAO + META ROAS (criacao de campanha, recomendacoes)
   function exLeilaoRoas(url, d) {
+    // CPM real + posicao no leilao (get_time_graph = retrato do leilao no tempo)
+    var cpm = achar(d, 'cpm');
+    var avgRank = achar(d, 'avg_rank');
+    if ((cpm != null || avgRank != null) && /time_graph|report/.test(url)) {
+      COFRE.ads.leilao = COFRE.ads.leilao || {};
+      if (cpm != null) COFRE.ads.leilao.cpmReal = real(cpm);   // R$ por mil impressoes
+      if (avgRank != null) COFRE.ads.leilao.posicaoMedia = n(avgRank);
+      var cpc = achar(d, 'cpc');
+      if (cpc != null) COFRE.ads.leilao.cpc = real(cpc);
+      logar('leilao_cpm', 'CPM R$' + (COFRE.ads.leilao.cpmReal || '?') + ' pos ' + (COFRE.ads.leilao.posicaoMedia || '?'), url);
+    }
+    // permissao de lance por preco (prova do oCPM: se false, lance manual acabou)
+    var permBid = achar(d, 'has_price_bidding_permission');
+    if (permBid !== undefined) { COFRE.ads.lancePorPrecoLiberado = !!permBid; }
+    // gasto real da campanha
+    var hoje = achar(d, 'today_expense');
+    var media7 = achar(d, 'avg_seven_day_expense');
+    if (hoje != null || media7 != null) {
+      COFRE.ads.gasto = COFRE.ads.gasto || {};
+      if (hoje != null) COFRE.ads.gasto.hoje = real(hoje);
+      if (media7 != null) COFRE.ads.gasto.mediaSeteDias = real(media7);
+      logar('gasto_ads', 'hoje R$' + (COFRE.ads.gasto.hoje || '?'), url);
+    }
+
     // meta de ROAS com percentis: get_recommended_target_roi / get_recommended_roi_two_target
     var exact = acharObj(d, 'exact');
     if (exact && exact.value != null) {
@@ -240,7 +264,7 @@
   function processar(url, dados) {
     if (!url || !dados) return;
     try {
-      if (/get_recommended_target_roi|recommended_roi_two_target|estimated_auto_ads_data|budget_data_for_creation|bidding_strategy_eligibility/.test(url)) exLeilaoRoas(url, dados);
+      if (/get_recommended_target_roi|recommended_roi_two_target|estimated_auto_ads_data|budget_data_for_creation|bidding_strategy_eligibility|report\/get_time_graph|campaign_expense_statistics|price-bidding-product-permission/.test(url)) exLeilaoRoas(url, dados);
       if (/diagnosis\/(list_verdict|homepage_batch_list_verdict)/.test(url)) exDiagnostico(url, dados);
       if (/product\/get_product_info|get_product_recommend|ads.*product|product.*ads|homepage\/query/.test(url)) exProduto(url, dados);
       if (/penalty|performance|account.*health|shop\/get/.test(url)) { exConta(url, dados); exProduto(url, dados); }
@@ -257,6 +281,9 @@
     return {
       metaRoas: COFRE.ads.metaRoas || null,
       projecao: COFRE.ads.projecao || null,
+      leilao: COFRE.ads.leilao || null,
+      gasto: COFRE.ads.gasto || null,
+      lancePorPrecoLiberado: COFRE.ads.lancePorPrecoLiberado,
       conta: COFRE.conta,
       produtos: Object.keys(COFRE.porProduto).length,
       campanhasDiagnosticadas: Object.keys(COFRE.porCampanha).length,

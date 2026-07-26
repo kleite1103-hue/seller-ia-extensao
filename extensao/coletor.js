@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.17.3';
+  var VERSAO = '0.17.4';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1897,6 +1897,16 @@
           if (R.metaRoas.conservador != null) hd += '<div class="ld" style="color:#7d8290;font-size:11px">(ela entrega bem de ' + R.metaRoas.conservador.toFixed(1) + 'x ate ' + (R.metaRoas.agressivo != null ? R.metaRoas.agressivo.toFixed(1) + 'x' : '?') + ' — quanto mais alto o ROAS, menos ela entrega)</div>';
           if (R.projecao) hd += '<div class="ld">Nesse ritmo ela projeta <b>+' + (R.projecao.gmvUpliftPct != null ? R.projecao.gmvUpliftPct.toFixed(0) : '?') + '% em vendas</b></div>';
         } else hd += '<div class="ld vazio-d">abra "criar campanha" no Ads para capturar</div>';
+        hd += '</div>';
+
+        // bloco LEILAO / CPM (o coracao do Leilao Reverso)
+        hd += '<div class="bloco-d"><div class="td">O LEILAO (CPM REAL)</div>';
+        if (R.leilao || R.gasto || R.lancePorPrecoLiberado !== undefined) {
+          if (R.leilao && R.leilao.cpmReal != null) hd += '<div class="ld">CPM real: <b>R$ ' + R.leilao.cpmReal.toFixed(2) + '</b> por mil impressoes</div>';
+          if (R.leilao && R.leilao.posicaoMedia != null) hd += '<div class="ld">Posicao media no leilao: <b>' + R.leilao.posicaoMedia + '</b></div>';
+          if (R.gasto && R.gasto.hoje != null) hd += '<div class="ld">Gasto hoje: <b>R$ ' + R.gasto.hoje.toFixed(2) + '</b>' + (R.gasto.mediaSeteDias != null ? ' · media 7d R$ ' + R.gasto.mediaSeteDias.toFixed(2) : '') + '</div>';
+          if (R.lancePorPrecoLiberado !== undefined) hd += '<div class="ld" style="color:#7d8290;font-size:11px">Lance manual por preco: ' + (R.lancePorPrecoLiberado ? 'liberado' : '<b style="color:#f5b041">desligado</b> (oCPM: a alavanca agora e preco competitivo + Meta de ROAS)') + '</div>';
+        } else hd += '<div class="ld vazio-d">abra o grafico de desempenho de uma campanha no Ads para capturar</div>';
         hd += '</div>';
 
         // bloco CONTA
