@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.19.5';
+  var VERSAO = '0.20.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -456,7 +456,7 @@
   function processarPacote(pacote) {
     if (!pacote || !pacote.url) return;
     var mSpc = pacote.url.match(/SPC_CDS=([a-f0-9-]{20,})/i);
-    if (mSpc) estado.spc = mSpc[1];
+    if (mSpc) { estado.spc = mSpc[1]; try { window.SIA_ULTIMO_CDS = mSpc[1]; } catch (e) { } }
     var tag = classificar(pacote.url);
     var tamanho = 0;
     try { tamanho = JSON.stringify(pacote.dados).length; } catch (e) { /* noop */ }
@@ -1687,6 +1687,56 @@
     return h;
   }
 
+  // liga o botao "Coletar conta agora" (coletor em lote)
+  var coletaEmAndamento = false;
+  var coletaJaTentada = false;
+  function ligarBotaoColeta() {
+    var btn = $('sia-btn-coletar');
+    if (!btn || !window.SIA_Lote) return;
+    btn.addEventListener('click', function () { dispararColeta(); });
+    // AUTOMATICO: se a conta ainda esta vazia e nunca tentamos, dispara sozinho
+    if (!coletaJaTentada) {
+      var vazio = true;
+      try {
+        var D = window.SIA_Diamantes ? window.SIA_Diamantes.resumo() : null;
+        if (D && (D.gerenciais || D.funil || D.afiliados)) vazio = false;
+      } catch (e) { }
+      if (vazio) { coletaJaTentada = true; setTimeout(dispararColeta, 400); }
+    }
+  }
+
+  function dispararColeta() {
+    if (coletaEmAndamento || !window.SIA_Lote) return;
+    coletaJaTentada = true;
+    coletaEmAndamento = true;
+    var btn = $('sia-btn-coletar');
+    var status = $('sia-lote-status');
+    var barraBg = $('sia-lote-barra-bg');
+    var barra = $('sia-lote-barra');
+    if (btn) { btn.style.opacity = '0.6'; btn.textContent = 'Coletando…'; }
+    if (barraBg) barraBg.style.display = 'block';
+    if (status) status.textContent = 'iniciando…';
+
+    window.SIA_Lote.coletar(
+      function (feito, total, nome) {
+        var pct = total ? Math.round((feito / total) * 100) : 0;
+        if (barra) barra.style.width = pct + '%';
+        if (status) status.textContent = 'coletando ' + feito + ' de ' + total + ' · ' + (nome || '');
+      },
+      function (resultado) {
+        coletaEmAndamento = false;
+        if (btn) { btn.style.opacity = '1'; btn.textContent = 'Coletar de novo'; }
+        if (!resultado.ok) {
+          if (status) status.textContent = resultado.erro || 'nao foi possivel coletar';
+          return;
+        }
+        if (status) status.textContent = 'pronto! ' + resultado.sucesso + ' de ' + resultado.total + ' fontes lidas';
+        if (barra) barra.style.width = '100%';
+        setTimeout(function () { if (abaAtiva === 'conta360') render(); }, 700);
+      }
+    );
+  }
+
   // ==========================================================
   // CONTA 360 — as 6 inteligencias do cerebro geral (visual)
   // So MOSTRA o que a coleta capturou. A analise vem depois.
@@ -1717,7 +1767,15 @@
     }
 
     var h = '<div style="padding:2px">';
-    h += '<div class="nota" style="margin:0 0 12px">Retrato da conta lido direto da Shopee. Navegue pela Central de Dados, Produtos e Afiliados para preencher.</div>';
+    // ---- COLETA AUTOMATICA (coletor em lote) ----
+    h += '<div id="sia-lote-box" style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:12px;margin-bottom:12px">';
+    h += '<div style="display:flex;align-items:center;gap:8px">';
+    h += '<button id="sia-btn-coletar" style="all:unset;cursor:pointer;background:linear-gradient(135deg,#ff4d1c,#7B2FFF);color:#fff;font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:8px;text-align:center">Coletar conta agora</button>';
+    h += '<div id="sia-lote-status" style="font-size:11px;color:#7d8290;flex:1">Clique para a extensao buscar tudo sozinha</div>';
+    h += '</div>';
+    h += '<div id="sia-lote-barra-bg" style="display:none;height:6px;background:#1d212a;border-radius:3px;margin-top:10px;overflow:hidden"><div id="sia-lote-barra" style="height:100%;width:0%;background:linear-gradient(90deg,#ff4d1c,#7B2FFF);transition:width .3s"></div></div>';
+    h += '</div>';
+    h += '<div class="nota" style="margin:0 0 12px">Retrato da conta lido direto da Shopee. Use o botao acima ou navegue pelas telas.</div>';
 
     // ---- 1) GERENCIAIS ----
     var g = D.gerenciais, cg = '';
@@ -1839,6 +1897,7 @@
 
     if (abaAtiva === 'conta360') {
       corpo.innerHTML = renderConta360();
+      ligarBotaoColeta();
       return;
     }
 
