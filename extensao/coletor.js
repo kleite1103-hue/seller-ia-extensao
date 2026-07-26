@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.0';
+  var VERSAO = '0.23.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1273,12 +1273,22 @@
       (async function () {
         function prog(t) { estado.coletaProgresso = t; estado.sujo = true; if (aoProgresso) aoProgresso(t); }
         if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina do Seller Centre e tente de novo (chave de sessao ainda nao capturada).' }); return; }
-        // espelha a janela selecionada na tela do Ads (from/to na URL); senao, 30 dias
-        var fim = Math.floor(Date.now() / 1000);
-        var ini = fim - 30 * 86400;
+        // A Shopee EXIGE datas alinhadas ao dia no fuso do Brasil (UTC-3),
+        // senao retorna code 10006 "invalid param". Calculamos inicio do dia
+        // (00:00 BRT = 03:00 UTC) e fim do dia (23:59 BRT).
+        // BRT = UTC-3, entao o offset e 3*3600 = 10800s.
+        var BRT = 3 * 3600;
+        function inicioDoDiaBRT(ts) {
+          // 00:00 BRT = 03:00 UTC. Vai pro dia UTC deslocado, arredonda, volta.
+          return Math.floor((ts - BRT) / 86400) * 86400 + BRT;
+        }
+        var agora = Math.floor(Date.now() / 1000);
+        // periodo padrao: ultimos 30 dias, alinhados ao dia
+        var fim = inicioDoDiaBRT(agora) + 86400 - 1;       // fim de hoje (23:59:59 BRT)
+        var ini = inicioDoDiaBRT(agora - 29 * 86400);       // 00:00 BRT de 30 dias atras
         var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
         var mTo = location.search.match(/[?&]to=(\d{9,11})/);
-        if (mFrom && mTo) { ini = parseInt(mFrom[1], 10); fim = parseInt(mTo[1], 10); }
+        if (mFrom && mTo) { ini = inicioDoDiaBRT(parseInt(mFrom[1], 10)); fim = inicioDoDiaBRT(parseInt(mTo[1], 10)) + 86400 - 1; }
         var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
         var totalChamadas = 0;
 
@@ -1743,7 +1753,7 @@
   }
 
   function dispararColeta() {
-    if (coletaEmAndamento) return;
+    if (coletaEmAndamento || estado.coletaProgresso) return;
     if (!estado.spc) {
       var st0 = $('sia-lote-status');
       if (st0) { st0.textContent = 'Abra a Central de Dados uma vez pra capturar a sessao, e volte aqui.'; st0.style.color = '#f5b041'; }
