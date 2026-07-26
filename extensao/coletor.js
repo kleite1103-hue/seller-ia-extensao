@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.22.0';
+  var VERSAO = '0.22.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1728,10 +1728,15 @@
         coletaEmAndamento = false;
         if (btn) { btn.style.opacity = '1'; btn.textContent = 'Coletar de novo'; }
         if (!resultado.ok) {
-          if (status) status.textContent = resultado.erro || 'nao foi possivel coletar';
+          if (status) { status.textContent = resultado.erro || 'nao foi possivel coletar'; status.style.color = '#e74c3c'; }
+          if (barra) barra.style.background = '#e74c3c';
           return;
         }
-        if (status) status.textContent = 'pronto! ' + resultado.sucesso + ' de ' + resultado.total + ' fontes lidas';
+        var falhou = resultado.total - resultado.sucesso;
+        if (status) {
+          status.style.color = falhou > 0 ? '#f5b041' : '#2ecc71';
+          status.textContent = 'pronto! ' + resultado.sucesso + ' de ' + resultado.total + ' fontes lidas' + (falhou > 0 ? ' (' + falhou + ' falharam)' : '');
+        }
         if (barra) barra.style.width = '100%';
         setTimeout(function () { if (abaAtiva === 'conta360') render(); }, 700);
       }

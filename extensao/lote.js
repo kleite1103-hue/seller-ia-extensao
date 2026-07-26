@@ -19,7 +19,7 @@
   'use strict';
   if (window.SIA_Lote) return;
 
-  var VERSAO = '1.1.0';
+  var VERSAO = '1.2.0';
   var BASE = 'https://seller.shopee.com.br';
   var RESPIRO_MS = 220;   // pausa entre chamadas pra nao sufocar a thread
 
@@ -47,9 +47,18 @@
   function acharCDS() {
     try {
       if (window.SIA_ULTIMO_CDS) return window.SIA_ULTIMO_CDS;
-      // tenta dos cookies (SPC_CDS costuma estar la)
+      // tenta dos cookies (SPC_CDS costuma estar la, mas pode ser HttpOnly)
       var m = document.cookie.match(/SPC_CDS=([^;]+)/);
       if (m) return m[1];
+      // tenta achar em qualquer <script> ou no HTML da pagina (a Shopee injeta)
+      var html = document.documentElement ? document.documentElement.innerHTML : '';
+      var m2 = html.match(/SPC_CDS["'=:\s]+([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+      if (m2) return m2[1];
+      // tenta o localStorage/sessionStorage
+      try {
+        var ls = window.localStorage;
+        for (var k in ls) { if (/cds/i.test(k) && ls[k] && ls[k].length > 20) return ls[k]; }
+      } catch (e2) { }
     } catch (e) { }
     return null;
   }
@@ -140,11 +149,24 @@
   // ---- rodar tudo, reportando progresso ----
   // onProgress(feito, total, nomeAtual)
   function coletar(onProgress, onDone) {
-    var cds = acharCDS();
-    if (!cds) {
-      if (onDone) onDone({ ok: false, erro: 'sessao nao encontrada. Navegue uma vez pela Shopee e tente de novo.' });
-      return;
+    // tenta achar o CDS; se nao achar, espera ate 3s (uma chamada da Shopee
+    // pode passar e preencher o cracha) antes de desistir.
+    var tentativas = 0;
+    function tentar() {
+      var cds = acharCDS();
+      if (cds) { rodar(cds, onProgress, onDone); return; }
+      tentativas++;
+      if (tentativas > 6) { // ~3 segundos
+        if (onDone) onDone({ ok: false, erro: 'Nao achei a sessao. Abra uma tela da Shopee (ex: Central de Dados) e tente de novo.' });
+        return;
+      }
+      if (onProgress) onProgress(0, 1, 'procurando a sessao…');
+      setTimeout(tentar, 500);
     }
+    tentar();
+  }
+
+  function rodar(cds, onProgress, onDone) {
     var onda1 = montarOnda1(cds);
     var total = onda1.length; // onda 2 soma depois
     var feito = 0;
@@ -153,8 +175,6 @@
     function passo(nome) { feito++; if (onProgress) onProgress(feito, total, nome); }
 
     // BLINDAGEM 1: dispara UMA de cada vez, com um respiro entre elas.
-    // Demora um pouco mais, mas a thread nunca congela — cada resposta e
-    // processada isolada, com a tela livre entre uma e outra.
     function emSerie(lista, aoFim) {
       var idx = 0;
       function proxima() {
@@ -163,7 +183,6 @@
         disparar(item).then(function (res) {
           resultados.push(res);
           passo(item.nome);
-          // respiro de 120ms entre chamadas: da folego pra tela e pro servidor
           setTimeout(proxima, 120);
         });
       }
