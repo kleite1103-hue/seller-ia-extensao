@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.22.3';
+  var VERSAO = '0.22.4';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1701,15 +1701,19 @@
       return;
     }
     btn.addEventListener('click', function () { dispararColeta(); });
-    // AUTOMATICO: dispara se FALTAR qualquer inteligencia (nao so se tudo vazio)
+    // AUTOMATICO: dispara se ainda nao temos os dados do PERIODO (mes).
+    // O dado do DIA (que a pagina inicial sempre preenche) NAO conta como
+    // "ja tem" — precisamos buscar o periodo de qualquer forma.
     if (!coletaJaTentada) {
-      var faltaAlgo = true;
+      var precisaBuscar = true;
       try {
         var D = window.SIA_Diamantes ? window.SIA_Diamantes.resumo() : null;
-        // so considera "completo" se tem as 4 principais
-        if (D && D.gerenciais && D.funil && D.afiliados && D.financeiro) faltaAlgo = false;
+        // so considera "pronto" se o gerencial e do PERIODO e temos as outras inteligencias
+        var temPeriodo = D && D.gerenciais && D.gerenciais.fonte === 'periodo';
+        var temResto = D && D.funil && D.afiliados && D.financeiro;
+        if (temPeriodo && temResto) precisaBuscar = false;
       } catch (e) { }
-      if (faltaAlgo) { coletaJaTentada = true; setTimeout(dispararColeta, 400); }
+      if (precisaBuscar) { coletaJaTentada = true; setTimeout(dispararColeta, 400); }
     }
   }
 
