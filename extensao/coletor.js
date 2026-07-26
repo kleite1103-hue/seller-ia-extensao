@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.17.4';
+  var VERSAO = '0.17.5';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1909,7 +1909,47 @@
         } else hd += '<div class="ld vazio-d">abra o grafico de desempenho de uma campanha no Ads para capturar</div>';
         hd += '</div>';
 
-        // bloco CONTA
+        // bloco ALGORITMO (as regras do oCPM)
+        if (R.algoritmo && R.algoritmo.metaRoas) {
+          var a = R.algoritmo;
+          hd += '<div class="bloco-d"><div class="td">REGRAS DO ALGORITMO (oCPM)</div>';
+          hd += '<div class="ld">Aprendizado: <b>' + a.metaRoas.aprendizadoDias + ' dias</b> (nao mexa nesse periodo)</div>';
+          hd += '<div class="ld">Meta de ROAS muda no maximo <b>' + a.metaRoas.mudancaMaxPct + '%</b> por vez, <b>' + a.metaRoas.mudancasPorDia + 'x ao dia</b></div>';
+          hd += '<div class="ld">Bloqueio de campanha: <b>' + a.metaRoas.bloqueioDias + ' dias</b> · teto do lance: <b>' + a.metaRoas.tetoMultiplicador + 'x</b></div>';
+          if (a.lanceMinimo) hd += '<div class="ld">Lance minimo: busca produto <b>R$ ' + a.lanceMinimo.buscaProduto.toFixed(2) + '</b> · loja R$ ' + (a.lanceMinimo.buscaLoja != null ? a.lanceMinimo.buscaLoja.toFixed(2) : '?') + '</div>';
+          if (a.notaMinimaAuto != null) hd += '<div class="ld" style="color:#7d8290;font-size:11px">Precisa nota &ge; ' + a.notaMinimaAuto + ' para o modo automatico</div>';
+          hd += '</div>';
+        }
+
+        // bloco META SUGERIDA POR CAMPANHA (a Shopee te diz o ROAS ideal)
+        var campsMeta = Object.keys(D.porCampanha).filter(function (k) { return D.porCampanha[k].metaShopee; });
+        if (campsMeta.length) {
+          hd += '<div class="bloco-d"><div class="td">META IDEAL DA SHOPEE (' + campsMeta.length + ' campanhas)</div>';
+          campsMeta.slice(0, 6).forEach(function (k) {
+            var ms = D.porCampanha[k].metaShopee;
+            var seta = (ms.sugerida < ms.atual) ? 'baixar' : 'subir';
+            hd += '<div class="ld">Campanha ' + k + ': voce em <b>' + (ms.atual != null ? ms.atual.toFixed(1) + 'x' : '?') + '</b>, Shopee sugere <b style="color:#f5b041">' + (ms.sugerida != null ? ms.sugerida.toFixed(1) + 'x' : '?') + '</b> (' + seta + ')' + (ms.ganhoGmvPct ? ' · +' + ms.ganhoGmvPct + '% vendas' : '') + '</div>';
+          });
+          if (campsMeta.length > 6) hd += '<div class="ld" style="color:#5a5f6a;font-size:11px">+ ' + (campsMeta.length - 6) + ' outras</div>';
+          hd += '</div>';
+        }
+
+        // bloco CREDITOS E INCENTIVOS (dinheiro de ads)
+        if (R.creditos || (R.incentivos && Object.keys(R.incentivos).length)) {
+          hd += '<div class="bloco-d"><div class="td">CREDITOS E INCENTIVOS</div>';
+          if (R.creditos && R.creditos.total != null) hd += '<div class="ld">Credito de ads: <b>R$ ' + R.creditos.total.toFixed(2) + '</b>' + (R.creditos.vencendo30d ? ' · <span style="color:#f5b041">R$ ' + R.creditos.vencendo30d.toFixed(2) + ' vence em 30d</span>' : '') + '</div>';
+          if (R.incentivos && R.incentivos.metaGasto) hd += '<div class="ld">Gaste <b>R$ ' + R.incentivos.metaGasto.gasteParaGanhar.toFixed(2) + '</b> e ganhe <b>R$ ' + R.incentivos.metaGasto.recompensa.toFixed(2) + '</b> de credito</div>';
+          if (R.incentivos && R.incentivos.surge) hd += '<div class="ld" style="color:#7d8290;font-size:11px">Impulso ativo pode elevar vendas em ~' + R.incentivos.surge.upliftGmvPct + '%</div>';
+          hd += '</div>';
+        }
+
+        // bloco LOJA (saude geral)
+        if (R.loja && R.loja.rating != null) {
+          hd += '<div class="bloco-d"><div class="td">SUA LOJA</div>';
+          hd += '<div class="ld">Nota: <b>' + R.loja.rating.toFixed(2) + '</b> (' + R.loja.avaliacoes + ' avaliacoes) · <b>' + R.loja.seguidores + '</b> seguidores</div>';
+          if (R.loja.tag) hd += '<div class="ld">Selo: <b>' + esc(R.loja.tag) + '</b> · resposta no chat: <b>' + R.loja.taxaRespostaChat + '%</b></div>';
+          hd += '</div>';
+        }
         hd += '<div class="bloco-d"><div class="td">SAUDE DA CONTA</div>';
         var c = D.conta;
         if (c && (c.penalidade != null || c.percentilCategoria != null || c.fontes)) {

@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.2.0';
+  var VERSAO = '1.3.0';
 
   // ---- helpers ----
   function n(v) { return (typeof v === 'number') ? v : (v ? parseFloat(v) : null); }
@@ -55,9 +55,12 @@
   // ---- o cofre dos diamantes capturados ----
   var COFRE = {
     conta: {},       // saude, penalidade, percentil, fontes
-    ads: {},         // meta roas, estrategia, cpm
+    loja: {},        // rating, seguidores, tag, resposta chat
+    ads: {},         // meta roas, estrategia, cpm, leilao, gasto, creditos
+    algoritmo: {},   // regras do oCPM: cold start, limites de mudanca, minimos de lance, percentis
+    incentivos: {},  // creditos gratis, metas de gasto, surge
     porProduto: {},  // { itemid: { ...diamantes do produto } }
-    porCampanha: {}, // { campaign_id: { veredito, motivo } }
+    porCampanha: {}, // { campaign_id: { veredito, motivo, report completo } }
     busca: {},       // { keyword: [ resultados ] }
     _log: []         // rastro do que foi capturado (Debug)
   };
@@ -147,19 +150,19 @@
       entradas.forEach(function (e) {
         if (!e || e.campaign_id == null) return;
         var vs = (e.verdict_list || []).map(function (v) { return { eixo: v.type, nota: v.result, motivo: v.issue }; });
-        COFRE.porCampanha[e.campaign_id] = {
-          nota: (e.summary && e.summary.result) || null,
-          problema: (e.summary && e.summary.main_issue) || null,
-          eixos: vs
-        };
+        var pc = COFRE.porCampanha[e.campaign_id] || {};
+        pc.nota = (e.summary && e.summary.result) || pc.nota || null;
+        pc.problema = (e.summary && e.summary.main_issue) || pc.problema || null;
+        pc.eixos = vs;
+        COFRE.porCampanha[e.campaign_id] = pc;
       });
       logar('diagnostico_campanhas', entradas.length + ' campanhas', url);
     } else if (dataObj.verdict_list) {
       var vs2 = dataObj.verdict_list.map(function (v) { return { eixo: v.type, nota: v.result, motivo: v.issue }; });
-      COFRE.porCampanha[dataObj.campaign_id || 'atual'] = {
-        nota: dataObj.summary && dataObj.summary.result,
-        eixos: vs2
-      };
+      var pc2 = COFRE.porCampanha[dataObj.campaign_id || 'atual'] || {};
+      pc2.nota = (dataObj.summary && dataObj.summary.result) || pc2.nota;
+      pc2.eixos = vs2;
+      COFRE.porCampanha[dataObj.campaign_id || 'atual'] = pc2;
       logar('diagnostico_campanha', (dataObj.summary && dataObj.summary.result) || '?', url);
     }
   }
@@ -260,12 +263,187 @@
     logar('busca', '"' + kw + '" ' + lista.length + ' resultados', url);
   }
 
+  // 7) REPORT COMPLETO POR CAMPANHA (homepage/query e report/get) — o retrato do leilao
+  function exReportCampanha(url, d) {
+    // homepage/query: entry_list com report + ratio por campanha
+    var entry = acharObj(d, 'entry_list');
+    var reports = [];
+    if (entry) {
+      // pode ser array (varias campanhas) ou objeto
+      var lista = Array.isArray(entry) ? entry : [entry];
+      lista.forEach(function (e) {
+        var camp = (e.campaign && e.campaign.campaign_id) || e.campaign_id;
+        var rep = e.report; var rat = e.ratio;
+        if (camp && rep) reports.push({ camp: String(camp), rep: rep, rat: rat, roiTarget: e.campaign && e.campaign.roi_two_target, sub: e.subtype, estado: e.state, titulo: e.title });
+      });
+    }
+    // report/get e get_time_graph: um so, com data.key = campaign_id
+    var dObj = acharObj(d, 'data') || {};
+    if (dObj.metrics && dObj.key) reports.push({ camp: String(dObj.key), rep: dObj.metrics, rat: dObj.ratio });
+    var agg = dObj.report_aggregate;
+    if (agg && dObj.key) reports.push({ camp: String(dObj.key), rep: agg, rat: null });
+
+    reports.forEach(function (r) {
+      var pc = COFRE.porCampanha[r.camp] || {};
+      var rep = r.rep;
+      pc.leilao = {
+        posicao: rep.avg_rank != null ? n(rep.avg_rank) : (pc.leilao && pc.leilao.posicao),
+        cpm: rep.cpm != null ? real(rep.cpm) : (pc.leilao && pc.leilao.cpm),
+        cpc: rep.cpc != null ? real(rep.cpc) : null,
+        custoPosicao: rep.location_in_ads != null ? real(rep.location_in_ads) : null, // custo da posicao no anuncio
+        sov: rep.sov != null ? n(rep.sov) : null, // share of voice
+        gasto: rep.cost != null ? real(rep.cost) : null
+      };
+      pc.funil = {
+        impressoes: rep.impression != null ? n(rep.impression) : null,
+        cliques: rep.click != null ? n(rep.click) : null,
+        ctr: rep.ctr != null ? n(rep.ctr) : null,
+        atc: rep.atc != null ? n(rep.atc) : null,
+        atcRate: rep.atc_rate != null ? n(rep.atc_rate) : null,
+        checkout: rep.checkout != null ? n(rep.checkout) : null,
+        checkoutRate: rep.checkout_rate != null ? n(rep.checkout_rate) : null,
+        cr: rep.cr != null ? n(rep.cr) : null,
+        pageViews: rep.page_views != null ? n(rep.page_views) : null
+      };
+      pc.resultado = {
+        roiAmplo: rep.broad_roi != null ? n(rep.broad_roi) : null,
+        roiDireto: rep.direct_roi != null ? n(rep.direct_roi) : null,
+        gmvAmplo: rep.broad_gmv != null ? real(rep.broad_gmv) : null,
+        pedidos: rep.broad_order != null ? n(rep.broad_order) : null,
+        cir: rep.broad_cir != null ? n(rep.broad_cir) : null // custo sobre receita
+      };
+      if (r.roiTarget != null) pc.roiTargetAtual = n(r.roiTarget) / 100000;
+      if (r.titulo) pc.titulo = r.titulo;
+      if (r.estado) pc.estado = r.estado;
+      COFRE.porCampanha[r.camp] = pc;
+    });
+    if (reports.length) logar('report_campanha', reports.length + ' campanha(s) com leilao', url);
+  }
+
+  // 8) DIAGNOSTICO COM META SUGERIDA (a Shopee te diz o ROAS ideal por campanha)
+  function exMetaSugerida(url, d) {
+    function pega(entry) {
+      if (!entry) return;
+      var camp = entry.campaign_id;
+      var vl = entry.verdict_list;
+      var vlist = Array.isArray(vl) ? vl : (vl ? [vl] : []);
+      if (!vlist.length) return; // campanha sem sugestao (boa)
+      vlist.forEach(function (v) {
+        var f = v && v.data && v.data.integer_field;
+        if (!f) return;
+        var pc = COFRE.porCampanha[camp || 'atual'] || {};
+        pc.metaShopee = {
+          atual: f.current_roi_two_target != null ? n(f.current_roi_two_target) / 100000 : null,
+          sugerida: f.suggested_roi_two_target != null ? n(f.suggested_roi_two_target) / 100000 : null,
+          ganhoGmvPct: f.estimate_gmv_pct != null ? n(f.estimate_gmv_pct) / 1000 : null,
+          ganhoPedidosPct: f.estimate_order_pct != null ? n(f.estimate_order_pct) / 1000 : null,
+          problema: v.issue,
+          nota: v.result
+        };
+        COFRE.porCampanha[camp || 'atual'] = pc;
+      });
+    }
+    var data = d && d.data ? d.data : {};
+    if (Array.isArray(data.entry_list)) data.entry_list.forEach(pega);
+    else if (data.verdict_list) pega({ campaign_id: data.campaign_id, verdict_list: data.verdict_list });
+    var comMeta = Object.keys(COFRE.porCampanha).filter(function (k) { return COFRE.porCampanha[k].metaShopee; }).length;
+    if (comMeta) logar('meta_sugerida', comMeta + ' campanhas com meta ideal', url);
+  }
+
+  // 9) REGRAS DO ALGORITMO (config/get) — como o oCPM funciona por dentro
+  function exAlgoritmo(url, d) {
+    var data = d && d.data ? d.data : d;
+    var cfg = data && data.ads_config ? data.ads_config : acharObj(d, 'ads_config');
+    if (!cfg) return;
+    var r2 = cfg.roi_two || {};
+    var cps = r2.cps || {};
+    var alg = {
+      metaRoas: {
+        aprendizadoDias: r2.cold_start_duration != null ? n(r2.cold_start_duration) : null,
+        mudancaMaxPct: cps.change_target_roi_ratio_pct != null ? n(cps.change_target_roi_ratio_pct) : null,
+        mudancasPorDia: cps.change_target_roi_daily_limit != null ? n(cps.change_target_roi_daily_limit) : null,
+        bloqueioDias: cps.campaign_block_period_days != null ? n(cps.campaign_block_period_days) : null,
+        tetoMultiplicador: cps.max_limit_multiplier != null ? n(cps.max_limit_multiplier) : null
+      },
+      percentis: r2.recommendation_percentiles || (cfg.target_roi && cfg.target_roi.recommendation_percentiles) || null,
+      notaMinimaAuto: (cfg.shop_ads && cfg.shop_ads.auto_whitelist_min_rating != null) ? n(cfg.shop_ads.auto_whitelist_min_rating) / 10 : null
+    };
+    // lance minimo real vem de data.bid_price
+    var bp = data && data.bid_price ? data.bid_price : null;
+    if (bp && bp.search_product && bp.search_product.exact_match) {
+      alg.lanceMinimo = {
+        buscaProduto: real(bp.search_product.exact_match.min),
+        buscaLoja: bp.search_shop && bp.search_shop.exact_match ? real(bp.search_shop.exact_match.min) : null,
+        passo: real(bp.search_product.exact_match.step)
+      };
+    }
+    // funde (algumas chamadas de config nao trazem bid_price)
+    COFRE.algoritmo = Object.assign({}, COFRE.algoritmo, alg);
+    if (alg.lanceMinimo) COFRE.algoritmo.lanceMinimo = alg.lanceMinimo;
+    logar('algoritmo', 'regras do oCPM capturadas', url);
+  }
+
+  // 10) CREDITOS E INCENTIVOS (dinheiro gratis de ads)
+  function exIncentivos(url, d) {
+    var cr = acharObj(d, 'ads_credit');
+    if (cr) {
+      COFRE.ads.creditos = {
+        total: real(cr.total),
+        vencendo30d: cr.expiring_in_30d != null ? real(cr.expiring_in_30d) : null,
+        statusSaldo: cr.low_balance_status
+      };
+      logar('creditos', 'R$' + (COFRE.ads.creditos.total || '?') + ' em credito', url);
+    }
+    var inc = acharObj(d, 'incentive_list');
+    if (inc) {
+      var ext = inc.extinfo && inc.extinfo.sustained_abi;
+      if (ext) {
+        COFRE.incentivos.metaGasto = {
+          gasteParaGanhar: real(ext.target_spending_amount),
+          recompensa: real(ext.fixed_reward_amount),
+          jaGastou: real(ext.total_spending_amount),
+          tipo: inc.incentive_type,
+          fim: ext.activate_deadline_time
+        };
+        logar('incentivo', 'gaste R$' + (COFRE.incentivos.metaGasto.gasteParaGanhar || '?') + ' ganhe R$' + (COFRE.incentivos.metaGasto.recompensa || '?'), url);
+      }
+    }
+    // smart booster (campaign surge)
+    var sb = acharObj(d, 'campaign_surge');
+    if (sb && sb.uplift) {
+      COFRE.incentivos.surge = {
+        upliftGmvPct: sb.uplift.gmv != null ? n(sb.uplift.gmv) / 1000 : null,
+        upliftPedidosPct: sb.uplift.order != null ? n(sb.uplift.order) / 1000 : null
+      };
+    }
+  }
+
+  // 11) SAUDE DA LOJA (rating, seguidores, tag, resposta)
+  function exLoja(url, d) {
+    var pv = acharObj(d, 'data');
+    if (!pv || !/shop\/get_preview_data/.test(url)) return;
+    COFRE.loja = {
+      rating: pv.shop_rating != null ? n(pv.shop_rating) : null,
+      avaliacoes: pv.rating_count != null ? n(pv.rating_count) : null,
+      seguidores: pv.shop_follower != null ? n(pv.shop_follower) : null,
+      seguindo: pv.shop_following != null ? n(pv.shop_following) : null,
+      itens: pv.item_count != null ? n(pv.item_count) : null,
+      tag: pv.shop_tag,
+      taxaRespostaChat: pv.chat_response_rate != null ? n(pv.chat_response_rate) : null
+    };
+    logar('loja', 'rating ' + (COFRE.loja.rating || '?') + ' · ' + (COFRE.loja.tag || ''), url);
+  }
+
   // ---- roteador: decide qual extrator roda pra cada rota ----
   function processar(url, dados) {
     if (!url || !dados) return;
     try {
       if (/get_recommended_target_roi|recommended_roi_two_target|estimated_auto_ads_data|budget_data_for_creation|bidding_strategy_eligibility|report\/get_time_graph|campaign_expense_statistics|price-bidding-product-permission/.test(url)) exLeilaoRoas(url, dados);
-      if (/diagnosis\/(list_verdict|homepage_batch_list_verdict)/.test(url)) exDiagnostico(url, dados);
+      if (/homepage\/query|report\/get(_time_graph)?(\/|$|\?)/.test(url)) exReportCampanha(url, dados);
+      if (/diagnosis\/(list_verdict|homepage_batch_list_verdict)/.test(url)) { exDiagnostico(url, dados); exMetaSugerida(url, dados); }
+      if (/config\/get/.test(url)) exAlgoritmo(url, dados);
+      if (/meta\/get_ads_data|incentive\/query|sc_pc_homepage\/adopter\/list_incentive|smart_booster\/get/.test(url)) exIncentivos(url, dados);
+      if (/shop\/get_preview_data/.test(url)) exLoja(url, dados);
       if (/product\/get_product_info|get_product_recommend|ads.*product|product.*ads|homepage\/query/.test(url)) exProduto(url, dados);
       if (/penalty|performance|account.*health|shop\/get/.test(url)) { exConta(url, dados); exProduto(url, dados); }
       if (/overview|meta\/get_non_ads|meta\/get_ads/.test(url)) { exFontes(url, dados); exProduto(url, dados); }
@@ -283,7 +461,11 @@
       projecao: COFRE.ads.projecao || null,
       leilao: COFRE.ads.leilao || null,
       gasto: COFRE.ads.gasto || null,
+      creditos: COFRE.ads.creditos || null,
       lancePorPrecoLiberado: COFRE.ads.lancePorPrecoLiberado,
+      algoritmo: COFRE.algoritmo && Object.keys(COFRE.algoritmo).length ? COFRE.algoritmo : null,
+      incentivos: COFRE.incentivos && Object.keys(COFRE.incentivos).length ? COFRE.incentivos : null,
+      loja: COFRE.loja && Object.keys(COFRE.loja).length ? COFRE.loja : null,
       conta: COFRE.conta,
       produtos: Object.keys(COFRE.porProduto).length,
       campanhasDiagnosticadas: Object.keys(COFRE.porCampanha).length,
@@ -302,7 +484,7 @@
       try {
         chrome.runtime.sendMessage({
           tipo: 'sia:diamantes-salvar',
-          cofre: { conta: COFRE.conta, ads: COFRE.ads, porProduto: COFRE.porProduto, porCampanha: COFRE.porCampanha, busca: COFRE.busca }
+          cofre: { conta: COFRE.conta, loja: COFRE.loja, ads: COFRE.ads, algoritmo: COFRE.algoritmo, incentivos: COFRE.incentivos, porProduto: COFRE.porProduto, porCampanha: COFRE.porCampanha, busca: COFRE.busca }
         }, function () { void chrome.runtime.lastError; });
       } catch (e) { /* noop */ }
     }, 600);
@@ -313,6 +495,9 @@
         void chrome.runtime.lastError;
         if (r && r.ok && r.cofre) {
           COFRE.conta = Object.assign({}, r.cofre.conta || {}, COFRE.conta);
+          COFRE.loja = Object.assign({}, r.cofre.loja || {}, COFRE.loja);
+          COFRE.algoritmo = Object.assign({}, r.cofre.algoritmo || {}, COFRE.algoritmo);
+          COFRE.incentivos = Object.assign({}, r.cofre.incentivos || {}, COFRE.incentivos);
           COFRE.ads = Object.assign({}, r.cofre.ads || {}, COFRE.ads);
           COFRE.porProduto = Object.assign({}, r.cofre.porProduto || {}, COFRE.porProduto);
           COFRE.porCampanha = Object.assign({}, r.cofre.porCampanha || {}, COFRE.porCampanha);
