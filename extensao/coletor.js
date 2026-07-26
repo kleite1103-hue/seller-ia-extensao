@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.17.2';
+  var VERSAO = '0.17.3';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1451,6 +1451,8 @@
     var pacote = fotoDoEstado();
     pacote.chamadas = estado.chamadas;
     pacote.brutos = estado.brutos;
+    // inclui o cofre de diamantes capturado (Camada 1) para conferencia
+    try { if (window.SIA_Diamantes) pacote.diamantes = window.SIA_Diamantes.estado(); } catch (e) { /* noop */ }
     var blob = new Blob([JSON.stringify(pacote, null, 2)], { type: 'application/json' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
