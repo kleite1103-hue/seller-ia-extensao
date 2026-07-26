@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Mapa de Todas as Telas</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.5;padding:28px 16px 70px}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-family:'Bebas Neue';font-size:clamp(30px,6vw,46px);text-align:center;letter-spacing:.02em;line-height:1}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);text-align:center;font-size:14.5px;max-width:640px;margin:10px auto 6px}
+.note{font-family:'Space Mono';font-size:10.5px;color:var(--text3);text-align:center;margin-bottom:24px;letter-spacing:.05em}
+.grp{margin:30px 0 12px;font-family:'Bebas Neue';font-size:26px;letter-spacing:.03em;display:flex;align-items:center;gap:10px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+.grp .n{width:30px;height:30px;border-radius:8px;background:linear-gradient(120deg,var(--orange),var(--purple));display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-weight:700;font-size:15px;color:#fff}
+.tela{background:var(--bg2);border:1px solid var(--line);border-radius:13px;padding:15px 17px;margin-bottom:12px}
+.tela .h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.tela .num{font-family:'Space Mono';font-size:11px;color:var(--orange);font-weight:700}
+.tela .nome{font-size:16px;font-weight:600;color:var(--text)}
+.tela .st{font-family:'Space Mono';font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;border-radius:99px;padding:2px 9px;margin-left:auto;border:1px solid}
+.st-ok{border-color:var(--ok);color:var(--ok)}
+.st-parcial{border-color:var(--warn);color:var(--warn)}
+.st-novo{border-color:var(--purple);color:#c88bff}
+.tela .oq{font-size:13.5px;color:var(--text2);margin-bottom:7px}
+.tela .comp{font-size:12.5px;color:var(--text);background:var(--bg3);border-left:3px solid var(--purple);border-radius:0 8px 8px 0;padding:9px 12px}
+.tela .comp b{color:#c88bff}
+.tela .dados{font-family:'Space Mono';font-size:10.5px;color:var(--text3);margin-top:6px}
+.tela .dados b{color:var(--ok)}
+.foot{margin-top:34px;padding:18px;border:1px dashed var(--purple);border-radius:12px;font-size:14px;color:var(--text2);text-align:center}
+.foot b{color:var(--orange)}
+.legenda{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:10px 0 4px;font-family:'Space Mono';font-size:10px;color:var(--text3)}
+.legenda span{display:flex;align-items:center;gap:5px}
+.legenda i{width:9px;height:9px;border-radius:2px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TODAS AS TELAS DO <em>SELLER.IA</em></h1>
+  <p class="sub">Mapa de engenharia: cada tela que o sistema vai exibir, o que mostra, o que a alimenta. Antes do design criar, você valida se está tudo aqui.</p>
+  <p class="note">18 TELAS · 6 GRUPOS · TUDO QUE A EXTENSÃO COLETA VIRA TELA</p>
+  <div class="legenda">
+    <span><i style="background:var(--ok)"></i> já existe (refinar)</span>
+    <span><i style="background:var(--warn)"></i> parcial</span>
+    <span><i style="background:#c88bff"></i> criar do zero</span>
+  </div>
+
+  <!-- GRUPO 1: ENTRADA -->
+  <div class="grp"><span class="n">1</span> ENTRADA E COLETA</div>
+
+  <div class="tela"><div class="h"><span class="num">1.1</span><span class="nome">Botão flutuante</span><span class="st st-ok">refinar</span></div>
+    <div class="oq">O botão redondo que fica na tela da Shopee. Clica e abre a gaveta lateral. Mostra um pontinho verde quando a conta já foi lida.</div>
+    <div class="comp"><b>Componentes:</b> logo Seller.IA, indicador de status (lido/não lido), animação de abrir gaveta.</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">1.2</span><span class="nome">Estado de coleta (barra de progresso)</span><span class="st st-parcial">parcial</span></div>
+    <div class="oq">Enquanto a extensão lê a conta sozinha: barra de progresso + texto do que está fazendo ("lendo campanhas...", "cruzando funil...").</div>
+    <div class="comp"><b>Componentes:</b> barra animada laranja→roxo, texto de passo atual, indicador de sessão capturada (verde/laranja).</div>
+    <div class="dados">Alimenta: <b>auto-disparo</b> · coletaCompleta (10 rotas)</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">1.3</span><span class="nome">Cabeçalho da gaveta</span><span class="st st-ok">refinar</span></div>
+    <div class="oq">Topo fixo da gaveta: nome da loja, "última leitura: hoje 23:15", botão coletar de novo, botão fechar.</div>
+    <div class="comp"><b>Componentes:</b> logo, nome loja, timestamp, botão ⟳ coletar, botão ✕.</div>
+    <div class="dados">Alimenta: <b>estado.loja</b> · gerenciais</div>
+  </div>
+
+  <!-- GRUPO 2: TELA PRINCIPAL -->
+  <div class="grp"><span class="n">2</span> TELA PRINCIPAL (rolagem única)</div>
+
+  <div class="tela"><div class="h"><span class="num">2.1</span><span class="nome">Semáforo de campanhas</span><span class="st st-ok">refinar</span></div>
+    <div class="oq">Topo da tela principal. 4 números coloridos: sangrando / sufocada / escalando / aprendendo. Abaixo, o alerta da campanha mais crítica (clicável → abre o card).</div>
+    <div class="comp"><b>Componentes:</b> 4 cartões de contagem, alerta destacado da pior campanha, borda colorida por status.</div>
+    <div class="dados">Alimenta: <b>SIA_Triagem</b> · porCampanha (veredito)</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">2.2</span><span class="nome">Inteligência 1 — Visão Gerencial</span><span class="st st-ok">refinar</span></div>
+    <div class="oq">Card com GMV do período (selo verde "mês"), pedidos, ticket, conversão, visitantes. + Saúde das vendas (reembolsos, cancelamentos).</div>
+    <div class="dados">Alimenta: <b>gerenciais</b> (GMV, pedidos, ticket, conversão, PV/UV, reembolsos, cancelamentos)</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">2.3</span><span class="nome">Inteligência 2 — Origem do Dinheiro (funil)</span><span class="st st-ok">refinar</span></div>
+    <div class="oq">Barras de onde vêm as vendas: Vitrine (card), Anúncios, Afiliados, Vídeo, Live. Com % e variação. Aponta canal parado.</div>
+    <div class="dados">Alimenta: <b>funil</b> (card/ads/afiliado/live/video ratio)</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">2.4</span><span class="nome">Inteligência 3 — Performance de Produto</span><span class="st st-ok">refinar</span></div>
+    <div class="oq">Top produtos com CTR, conversão, rejeição, venda. Cada um clicável → abre o card de produto completo.</div>
+    <div class="dados">Alimenta: <b>porProduto[].perf</b> (CTR, conv, rejeição, venda)</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">2.5</span><span class="nome">Inteligência 4 — Saúde da Conta</span><span class="st st-ok">refinar</span></div>
+    <div class="oq">Rating (Excelente/Boa), pontos de penalidade, percentil na categoria, avaliações dos top produtos (baixas 1-2★).</div>
+    <div class="dados">Alimenta: <b>conta.saudeConta</b> (rating, penalidade, percentil) + avaliações</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">2.6</span><span class="nome">Inteligência 5 — Afiliados</span><span class="st st-ok">refinar</span></div>
+    <div class="oq">ROI do canal, GMV afiliados, pedidos, comissão paga, top afiliados, creators disponíveis pra recrutar. Tudo em português (nada de campo cru).</div>
+    <div class="dados">Alimenta: <b>afiliados</b> (ROI, GMV, pedidos, comissão, top5)</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">2.7</span><span class="nome">Inteligência 6 — Financeiro (margem real)</span><span class="st st-novo">criar</span></div>
+    <div class="oq">Margem verdadeira por pedido (comissão + taxa + frete reais). Hoje precisa abrir um pedido — vamos automatizar a busca.</div>
+    <div class="comp"><b>Componentes:</b> quando vazio, botão/instrução pra ler um pedido; quando cheio, breakdown das taxas reais.</div>
+    <div class="dados">Alimenta: <b>financeiro</b> (get_order_income_components)</div>
+  </div>
+
+  <!-- GRUPO 3: CARD DE PRODUTO -->
+  <div class="grp"><span class="n">3</span> CARD DE PRODUTO/CAMPANHA (6 partes)</div>
+
+  <div class="tela"><div class="h"><span class="num">3.1</span><span class="nome">Card completo — as 6 partes</span><span class="st st-ok">aprovado</span></div>
+    <div class="oq">Abre ao clicar numa campanha/produto. (1) Alerta de aprendizado, (2) Dinheiro + Cofre, (3) ROAS explicado, (4) Consultor + Faça nesta ordem, (5) Ouro/Espião (4 chips), (6) Funil de círculos.</div>
+    <div class="comp"><b>Já aprovado</b> em card-final.html. Ajustes: custo completo da IA de margem; consultor do cérebro treinado.</div>
+    <div class="dados">Alimenta: <b>porProduto[itemid]</b> + porCampanha + os 12 diamantes</div>
+  </div>
+
+  <!-- GRUPO 4: FERRAMENTAS -->
+  <div class="grp"><span class="n">4</span> FERRAMENTAS</div>
+
+  <div class="tela"><div class="h"><span class="num">4.1</span><span class="nome">Calculadora Shopee</span><span class="st st-parcial">parcial</span></div>
+    <div class="oq">Digita preço, custo, embalagem, imposto → mostra comissão por faixa, margem líquida, ROAS de equilíbrio (100÷margem), ROAS mínimo pra lucro. Semáforo de zona.</div>
+    <div class="comp"><b>Componentes:</b> inputs (vírgula E ponto), tabela de comissão por faixa, breakdown, 3 zonas de ROAS.</div>
+    <div class="dados">Alimenta: <b>calculadora.js</b> (tabela comissão mar/2026)</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">4.2</span><span class="nome">Cofre de Custos</span><span class="st st-novo">criar</span></div>
+    <div class="oq">Cadastra o custo de cada produto uma vez. A margem real aparece automática no card e no financeiro. Salvo por loja.</div>
+    <div class="comp"><b>Componentes:</b> lista de produtos, campo de custo por item, status (cadastrado/faltando), margem calculada.</div>
+    <div class="dados">Alimenta: base da IA de margem (comissão+taxa+imposto+embalagem+ads)</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">4.3</span><span class="nome">ClipSeller (atalho)</span><span class="st st-novo">criar</span></div>
+    <div class="oq">Botão que abre o ClipSeller externo. E sugestão de criativo dentro do card do produto ("este produto precisa de foto melhor → gerar").</div>
+    <div class="comp"><b>Componentes:</b> botão de acesso, sugestão contextual no card.</div>
+  </div>
+
+  <!-- GRUPO 5: ESPECIALISTA + EXPORTAR -->
+  <div class="grp"><span class="n">5</span> ANÁLISE E EXPORTAÇÃO</div>
+
+  <div class="tela"><div class="h"><span class="num">5.1</span><span class="nome">Análise do Especialista (relatório completo)</span><span class="st st-parcial">parcial</span></div>
+    <div class="oq">O relatório inteiro no molde do gabarito: Snapshot → Tráfego → Conversão → Ticket → Funil → Ads → Afiliados → Plano de Ação (4 semanas + 3 cenários). Cada bloco: dados → análise → sugestão.</div>
+    <div class="comp"><b>Componentes:</b> botão gerar, seletor de período, blocos do gabarito, texto do cérebro treinado.</div>
+    <div class="dados">Alimenta: todas as 6 inteligências + cérebro-servidor</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">5.2</span><span class="nome">Exportar PDF</span><span class="st st-parcial">parcial</span></div>
+    <div class="oq">Gera o relatório em PDF com a marca da consultoria — o padrão que Karina entrega aos clientes.</div>
+    <div class="comp"><b>Componentes:</b> botão baixar, marca Efeito Vendas, layout do PDF.</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">5.3</span><span class="nome">Seletor de período</span><span class="st st-novo">criar</span></div>
+    <div class="oq">7 dias / 30 dias / mês passado / personalizado. A análise usa a própria janela, independente da tela da Shopee (resolve o bug de datas).</div>
+    <div class="dados">Alimenta: define start/end da coleta</div>
+  </div>
+
+  <!-- GRUPO 6: SUPORTE -->
+  <div class="grp"><span class="n">6</span> SUPORTE E EXTRAS</div>
+
+  <div class="tela"><div class="h"><span class="num">6.1</span><span class="nome">Suporte</span><span class="st st-ok">refinar</span></div>
+    <div class="oq">Central de ajuda (tutoriais, dúvidas) + falar com o time Efeito Vendas.</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">6.2</span><span class="nome">Baú / Oportunidades (futuro)</span><span class="st st-novo">criar</span></div>
+    <div class="oq">Os diamantes que ainda não entram no card: Product Opportunities (a Shopee sugere produtos de alta demanda), boost por nível, créditos grátis de ads esperando.</div>
+    <div class="dados">Alimenta: incentivos + algoritmo + ads</div>
+  </div>
+
+  <div class="foot">
+    <b>Como funciona daqui:</b> essa é a lista completa — 18 telas. Você confirma se falta algo ou se alguma sobra. Aí o design cria tela por tela, todas no card-final.html como referência de estilo. Nada é recriado do zero: o que já existe (verde) a gente refina, o parcial (amarelo) completa, o novo (roxo) desenha. Bora.
+  </div>
+</div>
+</body>
+</html>

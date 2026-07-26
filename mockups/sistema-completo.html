@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Sistema Completo</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;padding:20px 12px 60px}
+.wrap{max-width:1200px;margin:0 auto}
+.head{text-align:center;margin-bottom:24px}
+h1{font-family:'Bebas Neue';font-size:38px;letter-spacing:.02em}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);font-size:14px;margin-top:4px}
+.grid{display:flex;flex-wrap:wrap;gap:26px;justify-content:center;align-items:flex-start}
+.screen{width:340px;flex:none}
+.screen-label{font-family:'Space Mono';font-size:11px;color:var(--orange);letter-spacing:1px;margin-bottom:8px;text-align:center;text-transform:uppercase}
+.phone{background:var(--bg);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.hd{padding:13px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.hd .lg{width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,var(--orange),var(--purple));display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Bebas Neue';font-size:13px}
+.hd .nm{font-family:'Bebas Neue';font-size:13px;letter-spacing:.5px}
+.hd .lj{font-family:'Space Mono';font-size:8px;color:var(--text3)}
+.hd .st{color:var(--ok);font-size:9px}
+.body{padding:13px;max-height:640px;overflow-y:auto}
+.k{color:var(--text3);font-family:'Space Mono';font-size:9px;letter-spacing:1.5px;margin-bottom:8px;text-transform:uppercase}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px}
+.orange{color:var(--orange)}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.purple{color:var(--purple)}
+.big{font-family:'Bebas Neue';font-size:22px;line-height:1}
+.tabs{display:flex;gap:5px;padding:9px 12px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{font-size:10px;padding:5px 11px;border-radius:20px;white-space:nowrap;background:var(--bg3);color:var(--text2)}
+.tab.on{background:var(--orange);color:#fff}
+.tools{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.tool{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:7px;text-align:center;font-size:8px;color:var(--text2)}
+.tool .i{font-size:14px}
+.sem{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:9px}
+.semc{background:var(--bg3);border-radius:9px;padding:8px;text-align:center}
+.semc .n{font-family:'Bebas Neue';font-size:20px;line-height:1}
+.semc .l{font-size:8px;color:var(--text3)}
+.row{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);padding:2px 0}
+.bar{height:4px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:2px}
+.bar i{display:block;height:100%}
+.hs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px}
+.hsc{background:var(--bg3);border-radius:9px;padding:9px}
+.hsc .l{font-size:8px;color:var(--text3);font-family:'Space Mono'}
+.hsc .v{font-family:'Bebas Neue';font-size:18px;margin-top:2px}
+.hsc .t{font-size:8px;color:var(--text3)}
+.period{display:flex;gap:5px;margin-bottom:9px}
+.per{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:7px;padding:6px;text-align:center;font-size:9px;color:var(--text2)}
+.per.on{border-color:var(--orange);color:var(--orange)}
+.btn{background:linear-gradient(135deg,var(--orange),var(--purple));color:#fff;border-radius:8px;padding:9px;text-align:center;font-size:12px;font-weight:600;margin-bottom:8px}
+.btn2{background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:9px;text-align:center;font-size:11px;color:var(--text2)}
+.inp{background:var(--bg3);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-size:11px;color:var(--text3);margin-bottom:7px}
+.prog{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin:10px 0}
+.prog i{display:block;height:100%;width:65%;background:linear-gradient(90deg,var(--orange),var(--purple))}
+.li{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.li .nm2{font-size:11px}
+.li .mt{font-size:9px;color:var(--text3)}
+.vd{font-family:'Space Mono';font-size:8px;padding:2px 7px;border-radius:5px;border:1px solid}
+.v-ot{color:var(--warn);border-color:var(--warn)}.v-mn{color:var(--ok);border-color:var(--ok)}.v-ob{color:var(--text3);border-color:var(--text3)}
+.note{font-family:'Space Mono';font-size:9px;color:var(--text3);text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><h1>SELLER.IA — <em>SISTEMA COMPLETO</em></h1><div class="sub">Todas as telas da extensão, tela por tela. Design travado no padrão Efeito Vendas.</div></div>
+  <div class="grid" id="grid"></div>
+  <div class="note">Cada quadro é uma tela real da extensão. Revise e me diga o que ajustar em cada uma.</div>
+</div>
+<script>
+function phone(label, tabs, tabOn, body, tools){
+  var t = tabs ? '<div class="tabs">'+tabs.map(function(x){return '<div class="tab'+(x==tabOn?' on':'')+'">'+x+'</div>'}).join('')+'</div>' : '';
+  var tl = tools ? '<div class="tools">'+tools.map(function(x){return '<div class="tool"><div class="i">'+x[0]+'</div>'+x[1]+'</div>'}).join('')+'</div>' : '';
+  return '<div class="screen"><div class="screen-label">'+label+'</div><div class="phone">'+
+    '<div class="hd"><div style="display:flex;align-items:center;gap:8px"><div class="lg">S</div><div><div class="nm">SELLER.IA</div><div class="lj">LUXURY LINGERIE OFICIAL</div></div></div><div class="st">● lido agora</div></div>'+
+    t+tl+'<div class="body">'+body+'</div></div></div>';
+}
+var ABAS=['Inicio','Especialista','Produtos','Ferramentas','Exportar','Suporte'];
+var TOOLS=[['⚙','Calculadora'],['◈','Cofre'],['▶','ClipSeller']];
+var G=[];
+
+// TELA 0 — COLETA
+G.push(phone('0 · Coletando a conta', ABAS,'Inicio',
+  '<div class="k">Lendo a conta na Shopee</div>'+
+  '<div class="card"><div style="font-size:12px;margin-bottom:4px">Coletando dados...</div>'+
+  '<div class="prog"><i></i></div>'+
+  '<div style="font-size:10px;color:var(--text3)">Cruzando fatia de vendas e campanhas... 65%</div></div>'+
+  '<div style="font-size:10px;color:var(--text3);line-height:1.8">✓ Campanhas do Ads<br>✓ Funil de vendas<br>✓ Performance de produtos<br>⟳ Afiliados<br>○ Saúde da conta</div>'));
+
+// TELA 1 — PRINCIPAL (rolagem unica)
+G.push(phone('1 · Tela principal (rolagem única)', ABAS,'Inicio', TOOLS ? 
+  '<div class="period"><div class="per">7d</div><div class="per on">30d</div><div class="per">mês</div><div class="per">•••</div></div>'+
+  '<div class="btn">⟳ Coletar + Analisar</div>'+
+  '<div style="font-size:9px;color:var(--text3);text-align:center;margin-bottom:12px">última leitura: hoje 23:15 · 58 campanhas · 15 produtos</div>'+
+  '<div class="hs"><div class="hsc"><div class="l">SAÚDE CONTA</div><div class="v ok">Excelente</div><div class="t">0 penalidades</div></div>'+
+  '<div class="hsc"><div class="l">DEPENDÊNCIA ADS</div><div class="v warn">61%</div><div class="t">acima de 68%? não</div></div>'+
+  '<div class="hsc"><div class="l">ROAS BLENDADO</div><div class="v ok">6.2×</div><div class="t">saudável</div></div>'+
+  '<div class="hsc"><div class="l">PERCENTIL</div><div class="v">50</div><div class="t">mediano</div></div></div>'+
+  '<div class="k">Semáforo · 58 campanhas</div>'+
+  '<div class="sem"><div class="semc"><div class="n bad">2</div><div class="l">sangrando</div></div>'+
+  '<div class="semc"><div class="n warn">6</div><div class="l">sufocada</div></div>'+
+  '<div class="semc"><div class="n ok">7</div><div class="l">escalando</div></div>'+
+  '<div class="semc"><div class="n" style="color:var(--text3)">43</div><div class="l">aprendendo</div></div></div>'+
+  '<div class="card" style="border-left:3px solid var(--bad)"><div class="row"><b style="color:var(--text)">Cinta Modeladora — sangrando</b><span style="color:var(--text3)">›</span></div><div style="font-size:10px;color:var(--text2);margin-top:2px">ROAS 1.2×, abaixo do mínimo 3×. Toque pra ver.</div></div>'+
+  '<div class="k" style="margin-top:14px">Retrato da conta</div>'+
+  '<div class="card"><div class="row"><span class="orange" style="font-family:Space Mono;font-size:10px">1 · GERENCIAL</span><span class="ok" style="font-size:8px">mês</span></div>'+
+  '<div class="big" style="margin-top:4px">R$ 355.220 <span class="ok" style="font-size:10px;font-family:Outfit">▲26%</span></div>'+
+  '<div style="font-size:10px;color:var(--text2);margin-top:4px">6.625 pedidos · ticket R$53,62 · conv 2.75%</div></div>'+
+  '<div class="card"><div class="orange" style="font-family:Space Mono;font-size:10px;margin-bottom:8px">2 · ORIGEM DO DINHEIRO</div>'+
+  '<div class="row"><span>Vitrine</span><span style="color:var(--text)">62.5%</span></div><div class="bar"><i style="width:62%;background:var(--purple)"></i></div>'+
+  '<div class="row" style="margin-top:5px"><span>Anúncios ▲101%</span><span style="color:var(--text)">60.9%</span></div><div class="bar"><i style="width:60%;background:var(--orange)"></i></div>'+
+  '<div class="row" style="margin-top:5px"><span>Afiliados</span><span style="color:var(--text)">37%</span></div><div class="bar"><i style="width:37%;background:#378add"></i></div></div>'+
+  '<div class="card"><div class="orange" style="font-family:Space Mono;font-size:10px;margin-bottom:8px">3 · PERFORMANCE</div>'+
+  '<div class="li"><div><div class="nm2">Cinta faixa emagrecedora</div></div><div class="mt">CTR 4.3% · R$159k ›</div></div>'+
+  '<div class="li" style="border:none"><div><div class="nm2">Sutiã Drapeado</div></div><div class="mt">CTR 5.4% · R$55k ›</div></div></div>'+
+  '<div class="hs"><div class="hsc"><div class="orange" style="font-family:Space Mono;font-size:10px">4 · SAÚDE</div><div class="v ok" style="font-size:13px">Excelente</div><div class="t">0 penalidades</div></div>'+
+  '<div class="hsc"><div class="orange" style="font-family:Space Mono;font-size:10px">5 · AFILIADOS</div><div class="v" style="font-size:13px">ROI 12.3×</div><div class="t">R$191k · 3.731</div></div></div>'+
+  '<div class="card" style="border-style:dashed"><div class="orange" style="font-family:Space Mono;font-size:10px;margin-bottom:3px">6 · FINANCEIRO</div><div style="font-size:10px;color:var(--text3)">Abra um pedido pra ler as taxas reais.</div></div>'
+  : '', TOOLS));
+
+document.getElementById('grid').innerHTML = G.join('');
+</script>
+</body>
+</html>
