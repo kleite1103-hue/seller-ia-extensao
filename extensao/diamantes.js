@@ -13,10 +13,15 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.3.1';
+  var VERSAO = '1.4.0';
 
   // ---- helpers ----
-  function n(v) { return (typeof v === 'number') ? v : (v ? parseFloat(v) : null); }
+  function n(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    if (v == null || v === '') return null;
+    var x = parseFloat(v);
+    return isFinite(x) ? x : null;
+  }
   function real(micro) { // dinheiro Shopee vem em micro-unidades (÷100000)
     var x = n(micro);
     return (x === null || x === -1000000) ? null : x / 100000;
@@ -62,12 +67,57 @@
     porProduto: {},  // { itemid: { ...diamantes do produto } }
     porCampanha: {}, // { campaign_id: { veredito, motivo, report completo } }
     busca: {},       // { keyword: [ resultados ] }
+    // ---- CEREBRO GERAL (6 inteligencias) ----
+    gerenciais: {},  // 1) PV, UV, GMV, pedidos, cancelamentos, reembolsos (com variacao e serie)
+    funil: {},       // 2) origem do dinheiro: card/ads/afiliado/live/video, onde vaza
+    afiliados: {},   // 5) ROI do canal, top afiliados, creators pra recrutar
+    financeiro: {},  // 6) margem verdadeira: comissao/taxa/frete reais por pedido
     _log: []         // rastro do que foi capturado (Debug)
+    // (performance de produto e saude/cadastro entram em porProduto[itemid])
   };
 
   function logar(diamante, valor, rota) {
     COFRE._log.unshift({ d: diamante, v: valor, rota: (rota || '').split('?')[0], ts: Date.now() });
     if (COFRE._log.length > 120) COFRE._log.pop();
+  }
+
+  // ---- helpers do cerebro geral (rotas mydata/dashboard/affiliate) ----
+  // essas rotas usam "result" (nao "data"), taxas em decimal (0.04 = 4%),
+  // e valores com { value, chain_ratio, points[] } (numero + variacao + serie).
+  function raiz(d) { // pega result OU data OU o proprio objeto
+    if (!d || typeof d !== 'object') return {};
+    return d.result || d.data || d;
+  }
+  function pctReal(v) { // 0.0407 -> 4.07 ; se ja vier >1 assume que ja e %
+    var x = n(v);
+    if (x === null || x === -1000000) return null;
+    return x <= 1 ? x * 100 : x;
+  }
+  // extrai { valor, variacao } de um campo tipo { value, chain_ratio }
+  function metrica(o) {
+    if (o == null) return null;
+    if (typeof o === 'number') return { valor: o, variacao: null };
+    if (typeof o !== 'object') return null;
+    var val = (o.value != null) ? n(o.value) : null;
+    // chain_ratio 1.08 = +8%; 0.51 = -49%. guardamos como % de variacao.
+    var vr = (o.chain_ratio != null) ? (n(o.chain_ratio) - 1) * 100 : null;
+    return { valor: val, variacao: vr != null ? Math.round(vr * 10) / 10 : null };
+  }
+  // reduz uma serie de points[] a um resumo leve (nao guardamos ponto a ponto)
+  function tendencia(points) {
+    if (!Array.isArray(points) || points.length < 3) return null;
+    var vals = points.map(function (p) { return n(p.value); }).filter(function (v) { return v != null; });
+    if (vals.length < 3) return null;
+    var meta = Math.ceil(vals.length / 2);
+    var ini = vals.slice(0, meta).reduce(function (a, b) { return a + b; }, 0) / meta;
+    var fim = vals.slice(meta).reduce(function (a, b) { return a + b; }, 0) / (vals.length - meta);
+    var dir = 'estavel';
+    if (ini > 0) {
+      var delta = (fim - ini) / ini;
+      if (delta > 0.15) dir = 'subindo';
+      else if (delta < -0.15) dir = 'caindo';
+    }
+    return { direcao: dir, inicio: Math.round(ini * 100) / 100, fim: Math.round(fim * 100) / 100, pontos: vals.length };
   }
 
   // =========================================================
@@ -450,6 +500,296 @@
     logar('loja', 'rating ' + (COFRE.loja.rating || '?') + ' · ' + (COFRE.loja.tag || ''), url);
   }
 
+  // =========================================================
+  // CEREBRO GERAL — 6 inteligencias (coleta)
+  // =========================================================
+
+  // [1] GERENCIAIS — o Snapshot Executivo (key-metrics + order-performance)
+  function exGerenciais(url, d) {
+    var r = raiz(d);
+    if (/dashboard\/key-metrics|homepage\/key-metrics/.test(url)) {
+      // a Shopee manda key-metrics de varios periodos (mes/7d/hoje).
+      // guardamos SEMPRE o de maior GMV pago (o periodo mais completo),
+      // pra "hoje" (as vezes zero) nao apagar o retrato do mes.
+      var gmvNovo = (r.paid_gmv && r.paid_gmv.value != null) ? n(r.paid_gmv.value) : 0;
+      if (!r.paid_gmv && !r.shop_pv) return; // resposta vazia (homepage costuma vir sem dados)
+      var gmvAtual = (COFRE.gerenciais.gmvPago && COFRE.gerenciais.gmvPago.valor) || 0;
+      if (gmvNovo < gmvAtual) return; // ja temos um periodo mais rico
+      var g = COFRE.gerenciais;
+      // topo do funil da loja
+      if (r.shop_pv) g.pv = metrica(r.shop_pv);
+      if (r.shop_uv) g.uv = metrica(r.shop_uv);
+      if (r.product_clicks) g.cliquesProduto = metrica(r.product_clicks);
+      if (r.hybrid_uv) g.visitantes = metrica(r.hybrid_uv);
+      // dinheiro
+      if (r.paid_gmv) g.gmvPago = metrica(r.paid_gmv);
+      if (r.place_gmv) g.gmvColocado = metrica(r.place_gmv);
+      if (r.paid_orders) g.pedidosPagos = metrica(r.paid_orders);
+      if (r.place_orders) g.pedidosColocados = metrica(r.place_orders);
+      // conversao da loja inteira (pedidos pagos / visitantes)
+      if (g.pedidosPagos && g.visitantes && g.visitantes.valor) {
+        g.conversaoLoja = Math.round((g.pedidosPagos.valor / g.visitantes.valor) * 10000) / 100;
+      }
+      // ticket medio
+      if (g.gmvPago && g.pedidosPagos && g.pedidosPagos.valor) {
+        g.ticketMedio = Math.round((g.gmvPago.valor / g.pedidosPagos.valor) * 100) / 100;
+      }
+      logar('gerenciais', 'GMV pago R$' + (g.gmvPago ? g.gmvPago.valor : '?') + ' · ' + (g.pedidosPagos ? g.pedidosPagos.valor : '?') + ' pedidos', url);
+    }
+    if (/dashboard\/order-performance/.test(url)) {
+      var s = COFRE.gerenciais.saude = COFRE.gerenciais.saude || {};
+      if (r.cancelled_sales) s.vendasCanceladas = metrica(r.cancelled_sales);
+      if (r.return_refund_sales) s.reembolsos = metrica(r.return_refund_sales);
+      if (r.cancelled_orders) s.pedidosCancelados = metrica(r.cancelled_orders);
+      if (r.return_refund_orders) s.pedidosDevolvidos = metrica(r.return_refund_orders);
+      logar('gerenciais_saude', 'reembolsos R$' + (s.reembolsos ? s.reembolsos.valor : '?'), url);
+    }
+  }
+
+  // [2] FUNIL DE VENDAS — a origem do dinheiro (traffic-sources + traffic/overview)
+  function exFunil(url, d) {
+    var r = raiz(d);
+    // overview: quanto cada canal traz de venda (card, ads, afiliado, live, video)
+    var ov = r.overview;
+    if (ov && /traffic\/overview/.test(url)) {
+      var totalNovo = n(ov.total_sales) || 0;
+      var totalAtual = COFRE.funil.totalVendas || 0;
+      if (totalNovo < totalAtual) return; // ja temos periodo mais rico
+      var f = COFRE.funil;
+      f.totalVendas = n(ov.total_sales);
+      f.canais = {
+        card: { valor: n(ov.product_card), ratio: pctReal(ov.product_card_ratio), variacao: pctReal(ov.product_card_pct_diff) },
+        ads: { valor: n(ov.paid_ads), ratio: pctReal(ov.paid_ads_ratio), variacao: pctReal(ov.paid_ads_pct_diff) },
+        afiliado: { valor: n(ov.affiliate), ratio: pctReal(ov.affiliate_ratio), variacao: pctReal(ov.affiliate_pct_diff) },
+        live: { valor: n(ov.live), ratio: pctReal(ov.live_ratio) },
+        video: { valor: n(ov.video), ratio: pctReal(ov.video_ratio) }
+      };
+      // dependencia: qual canal domina (risco se um so canal > 70%)
+      var maior = null, maiorR = 0;
+      ['card', 'ads', 'afiliado', 'live', 'video'].forEach(function (k) {
+        var rt = f.canais[k].ratio || 0;
+        if (rt > maiorR) { maiorR = rt; maior = k; }
+      });
+      f.canalDominante = maior;
+      f.dependenciaPct = Math.round(maiorR * 10) / 10;
+      // sinaliza canais nao usados (oportunidade)
+      f.naoUsa = [];
+      if (!f.canais.live.valor) f.naoUsa.push('live');
+      if (!f.canais.video.valor) f.naoUsa.push('video');
+      logar('funil', 'dominante ' + maior + ' ' + f.dependenciaPct + '%', url);
+    }
+  }
+
+  // [3] PERFORMANCE DE PRODUTO — o funil de cada item (product/performance + rankings)
+  function exPerformanceProduto(url, d) {
+    var r = raiz(d);
+    var itens = r.items || r.item || null;
+    if (!Array.isArray(itens)) return;
+    if (!/product\/performance|product-rankings|traffic-sources\/product-contribution|traffic\/item-list/.test(url)) return;
+    var n0 = 0;
+    itens.forEach(function (it) {
+      var id = String(it.id != null ? it.id : (it.itemid != null ? it.itemid : ''));
+      if (!id) return;
+      var p = COFRE.porProduto[id] || {};
+      // guarda o periodo mais rico (mais impressoes) — evita "hoje" apagar o mes
+      var imprNovo = n(it.product_card_impressions) || n(it.product_impressions) || 0;
+      var imprAtual = (p.perf && p.perf.impressoes) || 0;
+      if (p.perf && imprNovo < imprAtual) { if (it.name) p.nome = it.name; return; }
+      p.perf = p.perf || {};
+      var P = p.perf;
+      if (it.name) p.nome = it.name;
+      // funil do card
+      if (it.ctr != null) P.ctr = pctReal(it.ctr);
+      if (it.product_card_impressions != null) P.impressoes = n(it.product_card_impressions);
+      if (it.product_card_clicks != null) P.cliques = n(it.product_card_clicks);
+      if (it.product_impressions != null) P.impressoes = n(it.product_impressions);
+      if (it.product_clicks != null) P.cliques = n(it.product_clicks);
+      // conversao (3 estagios)
+      if (it.placed_order_conversion_rate != null) P.convColocado = pctReal(it.placed_order_conversion_rate);
+      if (it.paid_order_conversion_rate != null) P.convPago = pctReal(it.paid_order_conversion_rate);
+      if (it.product_clicks_to_orders_rate != null) P.convClique = pctReal(it.product_clicks_to_orders_rate);
+      // pagina do produto
+      if (it.uv != null) P.uv = n(it.uv);
+      if (it.pv != null) P.pv = n(it.pv);
+      if (it.likes != null) P.likes = n(it.likes);
+      if (it.bounce_rate != null) P.rejeicao = pctReal(it.bounce_rate);
+      if (it.bounce_visitors != null) P.visitantesRejeicao = n(it.bounce_visitors);
+      if (it.search_clicks != null) P.cliquesBusca = n(it.search_clicks);
+      // carrinho
+      if (it.add_to_cart_units != null) P.carrinhoUnid = n(it.add_to_cart_units);
+      if (it.add_to_cart_buyers != null) P.carrinhoCompradores = n(it.add_to_cart_buyers);
+      // vendas (3 estagios: colocado, pago, confirmado)
+      if (it.placed_sales != null) P.vendaColocada = n(it.placed_sales);
+      if (it.paid_sales != null) P.vendaPaga = n(it.paid_sales);
+      if (it.placed_orders != null) P.pedidosColocados = n(it.placed_orders);
+      if (it.paid_orders != null) P.pedidosPagos = n(it.paid_orders);
+      if (it.sales != null) P.venda = n(it.sales);
+      if (it.orders != null) P.pedidos = n(it.orders);
+      if (it.sales_ratio != null) P.fatiaVendas = pctReal(it.sales_ratio); // % das vendas da loja (concentracao)
+      else if (COFRE.funil.totalVendas) {
+        var vendaItem = n(it.sales) || n(it.paid_sales) || n(it.placed_sales) || 0;
+        if (vendaItem > 0) P.fatiaVendas = Math.round((vendaItem / COFRE.funil.totalVendas) * 10000) / 100;
+      }
+      if (it.sales_per_order != null) P.ticket = n(it.sales_per_order);
+      // vinculo com ads
+      if (it.campaign_id != null) p.campaignId = String(it.campaign_id);
+      if (it.view_ads != null) P.temAds = !!it.view_ads;
+      COFRE.porProduto[id] = p;
+      n0++;
+    });
+    if (n0) logar('performance_produto', n0 + ' produtos com funil', url);
+  }
+
+  // [4] SAUDE / CADASTRO — moderacao, travas, avaliacoes (lock + ratings)
+  function exSaudeProduto(url, d) {
+    // travas de edicao (product_lock_info) — vem por produto via id na url
+    if (/get_product_lock_info/.test(url)) {
+      var lock = d && d.data ? d.data : d;
+      if (!lock || typeof lock !== 'object') return;
+      var travas = [];
+      Object.keys(lock).forEach(function (k) {
+        if (lock[k] && lock[k].is_locked === true) travas.push(k.replace(/_edit$/, ''));
+      });
+      // guardamos no cofre geral (por enquanto sem itemid confiavel na resposta)
+      COFRE.gerenciais.travasDetectadas = COFRE.gerenciais.travasDetectadas || {};
+      if (travas.length) {
+        var chave = 'lote_' + Date.now();
+        COFRE.gerenciais.travasDetectadas[chave] = travas;
+        logar('saude_travas', travas.length + ' travas: ' + travas.slice(0, 3).join(','), url);
+      }
+    }
+    // avaliacoes (get_ratings) — detecta notas baixas recentes
+    if (/item\/get_ratings/.test(url)) {
+      var r = raiz(d);
+      var lista = r.ratings || (Array.isArray(r) ? r : null);
+      if (!Array.isArray(lista)) return;
+      lista.forEach(function (av) {
+        var id = String(av.itemid != null ? av.itemid : '');
+        if (!id) return;
+        var p = COFRE.porProduto[id] || {};
+        p.avaliacoes = p.avaliacoes || { total: 0, baixas: 0, soma: 0, comFoto: 0, ultimaBaixa: null };
+        var estrela = n(av.rating_star);
+        if (estrela != null && estrela > 0) {
+          p.avaliacoes.total++;
+          p.avaliacoes.soma += estrela;
+          if (av.images && av.images.length) p.avaliacoes.comFoto++;
+          if (estrela <= 2) {
+            p.avaliacoes.baixas++;
+            var quando = n(av.ctime);
+            if (quando && (!p.avaliacoes.ultimaBaixa || quando > p.avaliacoes.ultimaBaixa)) p.avaliacoes.ultimaBaixa = quando;
+          }
+          p.avaliacoes.media = Math.round((p.avaliacoes.soma / p.avaliacoes.total) * 100) / 100;
+        }
+        COFRE.porProduto[id] = p;
+      });
+      logar('saude_avaliacoes', lista.length + ' avaliacoes lidas', url);
+    }
+  }
+
+  // [3b] TENDENCIA DO PRODUTO — a serie dia a dia (metric-trends / overview)
+  function exTendenciaProduto(url, d) {
+    if (!/product\/overview\/metric-trends|product\/overview\/$|product\/traffic\/overview/.test(url)) return;
+    var r = raiz(d);
+    // essas rotas trazem series soltas (uv[], bounce_rate[], atc_rate[]...).
+    // como nem sempre ha itemid na resposta, guardamos a tendencia geral da loja.
+    var t = COFRE.gerenciais.tendencias = COFRE.gerenciais.tendencias || {};
+    if (Array.isArray(r.bounce_rate)) t.rejeicao = tendencia(r.bounce_rate);
+    if (Array.isArray(r.atc_rate)) t.carrinho = tendencia(r.atc_rate);
+    if (Array.isArray(r.uv)) t.visitantes = tendencia(r.uv);
+    if (Array.isArray(r.search_clicks)) t.buscas = tendencia(r.search_clicks);
+    if (t.rejeicao || t.carrinho || t.visitantes) logar('tendencia_produto', 'series capturadas', url);
+  }
+
+  // [5] AFILIADOS — canal, ROI, top afiliados, creators pra recrutar
+  function exAfiliados(url, d) {
+    // resumo diario do canal (seller_daily) — dados vem em data
+    if (/affiliateplatform\/dashboard\/seller_daily/.test(url)) {
+      var rd = raiz(d);
+      var pedidosNovo = n(rd.total_order_count) || 0;
+      var pedidosAtual = (COFRE.afiliados.resumo && COFRE.afiliados.resumo.pedidos) || 0;
+      if (pedidosNovo < pedidosAtual) return; // ja temos periodo mais amplo
+      var a = COFRE.afiliados;
+      a.resumo = {
+        pedidos: n(rd.total_order_count),
+        gmv: n(rd.dis_total_actual_amount),           // ja em reais (dis_ = display)
+        comissaoPaga: n(rd.dis_total_seller_commission),
+        roi: n(rd.dis_total_roi),
+        roiVariacao: rd.roi_diff != null ? Math.round(n(rd.roi_diff) * 10) / 10 : null,
+        itensVendidos: n(rd.total_gross_item_sold)
+      };
+      logar('afiliados', 'ROI ' + (a.resumo.roi ? a.resumo.roi.toFixed(1) : '?') + 'x · ' + a.resumo.pedidos + ' pedidos', url);
+    }
+    // top 5 afiliados (por ROI/GMV)
+    if (/affiliate_performance\/top5/.test(url)) {
+      var lista = raiz(d).list || (d && d.list) || null;
+      if (Array.isArray(lista)) {
+        COFRE.afiliados.top = lista.slice(0, 5).map(function (af) {
+          // ROI: dis_roi as vezes vem "--" (sem dado); roi=-1 = invalido
+          var roiBruto = n(af.dis_roi);
+          if (roiBruto === null || roiBruto < 0) roiBruto = n(af.roi);
+          if (roiBruto !== null && roiBruto < 0) roiBruto = null; // -1 = sem dado
+          return {
+            nome: af.display_name || af.shopee_username,
+            usuario: af.shopee_username,
+            cliques: n(af.dis_clicks),
+            pedidos: n(af.dis_orders),
+            gmv: n(af.dis_gmv),
+            comissao: n(af.dis_est_commission),
+            roi: roiBruto,
+            itensVendidos: n(af.item_sold),
+            novosCompradores: n(af.new_buyers),
+            seguidores: af.social_medias && af.social_medias[0] ? n(af.social_medias[0].follower_count) : null
+          };
+        });
+        logar('afiliados_top', COFRE.afiliados.top.length + ' top afiliados', url);
+      }
+    }
+    // catalogo de creators pra recrutar (creator/list)
+    if (/affiliateplatform\/creator\/list/.test(url)) {
+      var cl = raiz(d).list || (d && d.list) || null;
+      if (Array.isArray(cl)) {
+        COFRE.afiliados.creatorsDisponiveis = cl.length;
+        COFRE.afiliados.creators = cl.slice(0, 20).map(function (c) {
+          return {
+            usuario: c.username,
+            seguidores: n(c.total_follower),
+            nichos: c.promote_category_ids || null,
+            plataforma: c.popular_social_media ? c.popular_social_media.platform : null
+          };
+        });
+        logar('afiliados_creators', cl.length + ' creators disponiveis', url);
+      }
+    }
+  }
+
+  // [6] FINANCEIRO — a margem verdadeira por pedido (income_components)
+  function exFinanceiro(url, d) {
+    if (!/get_order_income_components/.test(url)) return;
+    var r = raiz(d);
+    var bd = r.seller_income_breakdown && r.seller_income_breakdown.breakdown;
+    if (!Array.isArray(bd)) return;
+    // acumula as taxas reais pra montar a "planilha de custos" da Shopee
+    var f = COFRE.financeiro;
+    f.amostras = (f.amostras || 0) + 1;
+    f.componentes = f.componentes || {};
+    function somar(nome, valor) {
+      if (valor == null) return;
+      f.componentes[nome] = (f.componentes[nome] || 0) + valor;
+    }
+    bd.forEach(function (item) {
+      var nomeCampo = item.field_name || item.display_name;
+      var valor = real(item.amount);
+      somar(nomeCampo, valor);
+      // sub-breakdown (comissoes detalhadas)
+      if (Array.isArray(item.sub_breakdown)) {
+        item.sub_breakdown.forEach(function (sub) {
+          somar(sub.field_name || sub.display_name, real(sub.amount));
+        });
+      }
+    });
+    logar('financeiro', f.amostras + ' pedidos analisados (taxas reais)', url);
+  }
+
   // ---- roteador: decide qual extrator roda pra cada rota ----
   function processar(url, dados) {
     if (!url || !dados) return;
@@ -460,6 +800,14 @@
       if (/config\/get/.test(url)) exAlgoritmo(url, dados);
       if (/meta\/get_ads_data|incentive\/query|sc_pc_homepage\/adopter\/list_incentive|smart_booster\/get/.test(url)) exIncentivos(url, dados);
       if (/shop\/get_preview_data/.test(url)) exLoja(url, dados);
+      // ---- CEREBRO GERAL (6 inteligencias) ----
+      if (/dashboard\/key-metrics|homepage\/key-metrics|dashboard\/order-performance/.test(url)) exGerenciais(url, dados);
+      if (/traffic\/overview|dashboard\/traffic-sources/.test(url)) exFunil(url, dados);
+      if (/product\/performance|product-rankings|traffic-sources\/product-contribution|traffic\/item-list/.test(url)) exPerformanceProduto(url, dados);
+      if (/product\/overview\/metric-trends|product\/overview\/|product\/traffic\/overview/.test(url)) exTendenciaProduto(url, dados);
+      if (/get_product_lock_info|item\/get_ratings/.test(url)) exSaudeProduto(url, dados);
+      if (/affiliateplatform\/dashboard\/seller_daily|affiliate_performance\/top5|affiliateplatform\/creator\/list/.test(url)) exAfiliados(url, dados);
+      if (/get_order_income_components/.test(url)) exFinanceiro(url, dados);
       if (/product\/get_product_info|get_product_recommend|ads.*product|product.*ads|homepage\/query/.test(url)) exProduto(url, dados);
       if (/penalty|performance|account.*health|shop\/get/.test(url)) { exConta(url, dados); exProduto(url, dados); }
       if (/overview|meta\/get_non_ads|meta\/get_ads/.test(url)) { exFontes(url, dados); exProduto(url, dados); }
@@ -483,6 +831,10 @@
       incentivos: COFRE.incentivos && Object.keys(COFRE.incentivos).length ? COFRE.incentivos : null,
       loja: COFRE.loja && Object.keys(COFRE.loja).length ? COFRE.loja : null,
       conta: COFRE.conta,
+      gerenciais: COFRE.gerenciais && Object.keys(COFRE.gerenciais).length ? COFRE.gerenciais : null,
+      funil: COFRE.funil && Object.keys(COFRE.funil).length ? COFRE.funil : null,
+      afiliados: COFRE.afiliados && Object.keys(COFRE.afiliados).length ? COFRE.afiliados : null,
+      financeiro: COFRE.financeiro && Object.keys(COFRE.financeiro).length ? COFRE.financeiro : null,
       produtos: Object.keys(COFRE.porProduto).length,
       campanhasDiagnosticadas: Object.keys(COFRE.porCampanha).length,
       buscas: Object.keys(COFRE.busca),
@@ -500,7 +852,7 @@
       try {
         chrome.runtime.sendMessage({
           tipo: 'sia:diamantes-salvar',
-          cofre: { conta: COFRE.conta, loja: COFRE.loja, ads: COFRE.ads, algoritmo: COFRE.algoritmo, incentivos: COFRE.incentivos, porProduto: COFRE.porProduto, porCampanha: COFRE.porCampanha, busca: COFRE.busca }
+          cofre: { conta: COFRE.conta, loja: COFRE.loja, ads: COFRE.ads, algoritmo: COFRE.algoritmo, incentivos: COFRE.incentivos, gerenciais: COFRE.gerenciais, funil: COFRE.funil, afiliados: COFRE.afiliados, financeiro: COFRE.financeiro, porProduto: COFRE.porProduto, porCampanha: COFRE.porCampanha, busca: COFRE.busca }
         }, function () { void chrome.runtime.lastError; });
       } catch (e) { /* noop */ }
     }, 600);
@@ -514,6 +866,10 @@
           COFRE.loja = Object.assign({}, r.cofre.loja || {}, COFRE.loja);
           COFRE.algoritmo = Object.assign({}, r.cofre.algoritmo || {}, COFRE.algoritmo);
           COFRE.incentivos = Object.assign({}, r.cofre.incentivos || {}, COFRE.incentivos);
+          COFRE.gerenciais = Object.assign({}, r.cofre.gerenciais || {}, COFRE.gerenciais);
+          COFRE.funil = Object.assign({}, r.cofre.funil || {}, COFRE.funil);
+          COFRE.afiliados = Object.assign({}, r.cofre.afiliados || {}, COFRE.afiliados);
+          COFRE.financeiro = Object.assign({}, r.cofre.financeiro || {}, COFRE.financeiro);
           COFRE.ads = Object.assign({}, r.cofre.ads || {}, COFRE.ads);
           COFRE.porProduto = Object.assign({}, r.cofre.porProduto || {}, COFRE.porProduto);
           COFRE.porCampanha = Object.assign({}, r.cofre.porCampanha || {}, COFRE.porCampanha);

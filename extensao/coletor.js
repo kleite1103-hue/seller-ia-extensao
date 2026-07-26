@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.18.0';
+  var VERSAO = '0.19.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
