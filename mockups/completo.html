@@ -82,6 +82,12 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
 .gc .v{font-family:'Bebas Neue';font-size:16px;margin-top:1px}
 .gc .t{font-size:8px;color:var(--text3)}
 .fun{padding:12px;border-top:1px solid var(--line)}
+.fatb{padding:12px;border-top:1px solid var(--line)}
+.fat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.fat{background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:9px 7px;text-align:center}
+.fat .fl{font-family:'Space Mono';font-size:7.5px;color:var(--text3);display:block}
+.fat .fv{font-family:'Bebas Neue';font-size:17px;display:block;line-height:1.15;margin:2px 0;color:var(--ok)}
+.fat .fd{font-size:8.5px;color:var(--text3);display:block}
 .flow{display:flex;align-items:center;justify-content:space-between}
 .node{text-align:center;flex:1}
 .circ{width:40px;height:40px;border-radius:50%;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:14px;border:2.5px solid;background:var(--bg3)}
@@ -186,6 +192,14 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
             <div class="gc"><div class="k">A SHOPEE ESTÁ LIMITANDO?</div><div class="v" style="color:var(--ok)">Não</div><div class="t">produto liberado, tudo certo</div></div>
             <div class="gc"><div class="k">FASE DO PRODUTO</div><div class="v" style="color:var(--warn)">Novo</div><div class="t">45 de 90 dias de impulso</div></div>
           </div>
+          <div class="fatb">
+            <div class="ml" style="margin-bottom:8px">VENDAS DESTE PRODUTO</div>
+            <div class="fat-grid">
+              <div class="fat"><span class="fl">7 DIAS</span><span class="fv">8 vendas</span><span class="fd">R$ 380</span></div>
+              <div class="fat"><span class="fl">30 DIAS</span><span class="fv">31 vendas</span><span class="fd">R$ 1.425</span></div>
+              <div class="fat"><span class="fl">TICKET</span><span class="fv">R$ 47,52</span><span class="fd">por pedido</span></div>
+            </div>
+          </div>
           <div class="fun"><div class="ml" style="margin-bottom:4px">O CAMINHO ATÉ A VENDA</div>
             <div style="font-size:10.5px;color:var(--text3);margin-bottom:10px;line-height:1.4">Onde as pessoas somem entre ver seu produto e comprar. A etapa que mais vaza é onde está seu dinheiro.</div>
             <div class="flow">
@@ -228,7 +242,7 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
         <div class="srow"><span class="pos">1</span><span class="nm">Pote Comedor Tigela</span><span class="pr">R$19,11</span><span class="tp">ADS</span></div>
         <div class="srow"><span class="pos">3</span><span class="nm">Comedouro Lento</span><span class="pr">R$29,99</span><span class="tp">ADS</span></div>
         <div class="srow eu"><span class="pos">60</span><span class="nm">★ Tigela Comedouro (você)</span><span class="pr">R$24,99</span><span class="tp">org</span></div>
-        <div class="tip" style="margin-top:10px;border-left-color:var(--warn)"><b>Leitura:</b> seu 2º lugar está forte. O 60º está orgânico e sem cupom — o topo usa cupom + desconto maior. Caminho: ativar cupom e ads nesse item.</div>
+        <div class="tip" style="margin-top:10px;border-left-color:var(--warn)"><b>Leitura:</b> seu 2º lugar está forte. O 60º está orgânico e sem cupom, enquanto vários no topo usam cupom e desconto maior. Não dá pra cravar que é só isso, mas alinhar esses pontos costuma ajudar a subir posições.</div>
 
         <div class="ml" style="margin:16px 0 8px">VOCÊ VS O CAMPEÃO DESTA BUSCA</div>
         <div class="vs">
@@ -245,13 +259,13 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
             <div class="vs-r"><span>Vendas</span><b>340</b></div>
           </div>
         </div>
-        <div class="tip" style="border-left-color:var(--orange)"><b>O que te separa dele:</b> você está R$4,88 mais caro e sem cupom. Ele vende 3× mais mesmo com desconto menor, porque o cupom aparece como selo na busca e atrai o clique. <b>Ação: ative um cupom de R$3 neste produto. Meta: chegar ao 1º. Prazo: 7 dias.</b></div>
+        <div class="tip" style="border-left-color:var(--orange)"><b>Diferenças vs o líder:</b> você está R$4,88 mais caro e sem cupom; ele tem cupom ativo e mais vendas acumuladas. O cupom vira selo na busca, o que tende a atrair mais clique. <b>Ação sugerida: testar um cupom de R$3 neste produto. Meta: melhorar posição e clique. Prazo: reavaliar em 7 dias.</b></div>
 
         <div class="ml" style="margin:16px 0 8px">PALAVRAS QUE OS CAMPEÕES USAM E VOCÊ NÃO</div>
         <div class="kws">
           <span class="kw">interativo</span><span class="kw">antiestress</span><span class="kw">lento</span><span class="kw">educativo</span><span class="kw">pet</span>
         </div>
-        <div class="tip" style="border-left-color:var(--purple)"><b>Por que importa:</b> a Shopee cruza o título do seu produto com o que a pessoa pesquisa. Os 5 primeiros usam essas palavras no título; o seu não tem "interativo" nem "antiestress". <b>Ação: inclua esses termos no título. Meta: aparecer em mais buscas. Prazo: já.</b></div>
+        <div class="tip" style="border-left-color:var(--purple)"><b>Por que observar:</b> a Shopee cruza o título do produto com o que a pessoa pesquisa. Os 5 primeiros usam essas palavras no título e o seu não tem "interativo" nem "antiestress" — incluir termos relevantes tende a ampliar em quantas buscas você aparece. <b>Ação sugerida: revisar o título com esses termos, se fizerem sentido pro produto. Prazo: já.</b></div>
       </div>
 
       <!-- FERRAMENTAS -->
