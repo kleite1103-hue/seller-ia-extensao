@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.12';
+  var VERSAO = '0.23.13';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1540,13 +1540,10 @@
     { id: 'conta360', rotulo: '\u25c9 Conta 360' },
     { id: 'calc', rotulo: '\u2696 Margem' },
     { id: 'diagnostico', rotulo: 'Diagnostico' },
-    { id: 'visao', rotulo: 'Visao da Conta' },
     { id: 'campanhas', rotulo: 'Campanhas' },
     { id: 'produtos', rotulo: 'Produtos (Ads)' },
     { id: 'performance', rotulo: 'Performance' },
-    { id: 'afiliados', rotulo: 'Afiliados' },
     { id: 'cadastro', rotulo: 'Anuncio' },
-    { id: 'diamantes', rotulo: '\u2666 Diamantes' },
     { id: 'debug', rotulo: 'Debug' }
   ];
 
