@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.14';
+  var VERSAO = '0.23.15';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -2305,23 +2305,35 @@
       corpo.innerHTML = h2;
 
     } else if (abaAtiva === 'produtos') {
-      var mapa = estado.produtos;
-      var ids = Object.keys(mapa).filter(function (id) { return mapa[id].metricas.gasto !== undefined || mapa[id].metricas.roas !== undefined; });
-      if (!ids.length) {
-        // sem metricas de ads por item: mostra mensagem clara, sem pular de aba
-        corpo.innerHTML = '<div class="vazio">Sem metricas de Ads por produto ainda.<br>Rode a coleta na aba <b>Conta 360</b> (o Ads entra junto) ou veja a aba <b>Performance</b> para o funil de vendas dos produtos.</div>';
+      // mostra as CAMPANHAS do Ads (o dado que o coletor traz via homepage/query).
+      // produto-a-produto exige abrir cada campanha — fica pra busca ativa depois.
+      var camps = estado.campanhas || {};
+      var idsC = Object.keys(camps).filter(function (id) {
+        var m = camps[id].metricas || {};
+        return m.gasto !== undefined || m.gmv !== undefined || m.roas !== undefined;
+      });
+      if (!idsC.length) {
+        corpo.innerHTML = '<div class="vazio">Sem campanhas de Ads ainda.<br>Rode a coleta na aba <b>Conta 360</b> (o bot\u00e3o "Coletar conta") \u2014 o Ads entra junto.</div>';
         return;
       }
-      ids.sort(function (a, b) { return (mapa[b].metricas.gasto || 0) - (mapa[a].metricas.gasto || 0); });
-      var h2b = '<table><tr><th>Produto</th><th>ID</th>' +
+      idsC.sort(function (a, b) { return (camps[b].metricas.gasto || 0) - (camps[a].metricas.gasto || 0); });
+      var h2b = '<table><tr><th>Campanha</th>' +
         '<th class="num">Gasto</th><th class="num">GMV</th><th class="num">ROAS</th><th class="num">Impr.</th>' +
-        '<th class="num">Cliques</th><th class="num">CTR</th><th class="num">Pedidos</th><th class="num">Pos.</th></tr>';
-      for (var j2 = 0; j2 < ids.length; j2++) {
-        var item = mapa[ids[j2]];
-        h2b += '<tr><td class="nome">' + esc(item.nome || '(sem nome capturado)') + '</td>' +
-          '<td>' + esc(item.id) + '</td>' + linhaMetrica(item.metricas) + '</tr>';
+        '<th class="num">Cliques</th><th class="num">CTR</th><th class="num">Pedidos</th></tr>';
+      for (var j2 = 0; j2 < idsC.length; j2++) {
+        var camp = camps[idsC[j2]];
+        var mc = camp.metricas || {};
+        function nz(v, suf) { return v != null ? (typeof v === 'number' ? fmtN(v) : v) + (suf || '') : '—'; }
+        h2b += '<tr><td class="nome">' + esc(camp.nome || '(campanha ' + idsC[j2] + ')') + '</td>' +
+          '<td class="num">' + (mc.gasto != null ? fmtR(mc.gasto) : '—') + '</td>' +
+          '<td class="num">' + (mc.gmv != null ? fmtR(mc.gmv) : '—') + '</td>' +
+          '<td class="num">' + (mc.roas != null ? mc.roas.toFixed(1) + 'x' : '—') + '</td>' +
+          '<td class="num">' + nz(mc.impressoes) + '</td>' +
+          '<td class="num">' + nz(mc.cliques) + '</td>' +
+          '<td class="num">' + (mc.ctr != null ? (mc.ctr * (mc.ctr < 1 ? 100 : 1)).toFixed(1) + '%' : '—') + '</td>' +
+          '<td class="num">' + nz(mc.pedidos) + '</td></tr>';
       }
-      h2b += '</table><div class="nota">Ordenado por gasto. Micro-unidades convertidas (÷100.000).</div>';
+      h2b += '</table><div class="nota">Campanhas do Shopee Ads, ordenadas por gasto.</div>';
       corpo.innerHTML = h2b;
 
     } else if (abaAtiva === 'performance') {
