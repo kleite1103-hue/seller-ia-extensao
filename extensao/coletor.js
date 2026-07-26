@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.22.1';
+  var VERSAO = '0.22.2';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1693,16 +1693,23 @@
   var coletaJaTentada = false;
   function ligarBotaoColeta() {
     var btn = $('sia-btn-coletar');
-    if (!btn || !window.SIA_Lote) return;
+    if (!btn) return;
+    var status = $('sia-lote-status');
+    // se o coletor em lote nao carregou, avisa em vez de ficar mudo
+    if (!window.SIA_Lote) {
+      if (status) { status.textContent = 'motor de coleta nao carregou — recarregue a extensao (remover + carregar)'; status.style.color = '#e74c3c'; }
+      return;
+    }
     btn.addEventListener('click', function () { dispararColeta(); });
-    // AUTOMATICO: se a conta ainda esta vazia e nunca tentamos, dispara sozinho
+    // AUTOMATICO: dispara se FALTAR qualquer inteligencia (nao so se tudo vazio)
     if (!coletaJaTentada) {
-      var vazio = true;
+      var faltaAlgo = true;
       try {
         var D = window.SIA_Diamantes ? window.SIA_Diamantes.resumo() : null;
-        if (D && (D.gerenciais || D.funil || D.afiliados)) vazio = false;
+        // so considera "completo" se tem as 4 principais
+        if (D && D.gerenciais && D.funil && D.afiliados && D.financeiro) faltaAlgo = false;
       } catch (e) { }
-      if (vazio) { coletaJaTentada = true; setTimeout(dispararColeta, 400); }
+      if (faltaAlgo) { coletaJaTentada = true; setTimeout(dispararColeta, 400); }
     }
   }
 
