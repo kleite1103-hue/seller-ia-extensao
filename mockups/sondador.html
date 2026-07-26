@@ -47,71 +47,58 @@ h1 em{font-style:normal;color:var(--orange)}
     <p>Cole o código abaixo no console e aperte Enter. Ele lê os resultados, monta uma tabela e marca em <b style="color:var(--ok)">verde</b> os seus produtos (você troca o nome da sua loja na primeira linha).</p>
     <div class="code">
       <button class="copy" onclick="cp(this)">copiar</button>
-      <pre id="script">/* ===== SELLER.IA · SONDADOR DE BUSCA v2 ===== */
+      <pre id="script">/* ===== SELLER.IA · SONDADOR DE BUSCA v3 ===== */
 (async () =&gt; {
-  const MINHA_LOJA = "colorindo_shop"; // nome ou parte do nome da SUA loja
+  const MINHA_LOJA_ID = 413140457; // shopid do colorindo_shop (visto na busca)
 
-  const url = new URL(location.href);
-  const kw = url.searchParams.get("keyword") || "";
+  const kw = new URL(location.href).searchParams.get("keyword") || "";
   if (!kw) { console.log("%cAbra uma pagina de RESULTADOS de busca primeiro.","color:#f5b041;font-size:14px"); return; }
 
   const api = `/api/v4/search/search_items?by=relevancy&amp;keyword=${encodeURIComponent(kw)}&amp;limit=60&amp;newest=0&amp;order=desc&amp;page_type=search&amp;scenario=PAGE_GLOBAL_SEARCH&amp;version=2`;
-  const r = await fetch(api, { headers: { "x-api-source": "pc", "x-shopee-language": "pt-br" }, credentials: "include" });
+  const r = await fetch(api, { headers: { "x-api-source":"pc" }, credentials:"include" });
   const j = await r.json();
   const raw = j.items || [];
-  if (!raw.length) { console.log("%cA busca voltou vazia — role a pagina e rode de novo.","color:#f5b041"); return; }
-
-  // helper: acha um campo em qualquer nivel do objeto testando varios nomes
-  const pick = (o, nomes) =&gt; {
-    for (const n of nomes) {
-      if (o[n] !== undefined &amp;&amp; o[n] !== null) return o[n];
-      if (o.item_basic &amp;&amp; o.item_basic[n] !== undefined) return o.item_basic[n];
-    }
-    return undefined;
-  };
-  const num = v =&gt; (typeof v === "number" ? v : (v ? +v : 0));
+  if (!raw.length) { console.log("%cBusca vazia — role a pagina e rode de novo.","color:#f5b041"); return; }
 
   const items = raw.map((it, i) =&gt; {
-    const b = it.item_basic || it;
-    const precoRaw = pick(it, ["price","price_min","price_max"]);
-    const preco = precoRaw ? (num(precoRaw)/100000).toFixed(2) : "?";
-    const vendidos = num(pick(it, ["historical_sold","sold","global_sold_count","item_sold"]));
-    const rat = pick(it, ["item_rating"]) || {};
-    const ehAds = !!(pick(it, ["adsid","is_ads","ads_keyword_id"]) || it.ads_keyword_id);
+    const d = it.item_data || {};
+    const asset = it.item_card_displayed_asset || {};
+    const dp = d.item_card_display_price || {};
+    const rating = d.item_rating || d.tier_variations || {};
+    const preco = dp.price ? (dp.price/100000) : null;
+    const riscado = dp.strikethrough_price ? (dp.strikethrough_price/100000) : null;
+    const voucher = d.recommended_shop_voucher_info || (dp.recommended_shop_voucher_info) || null;
     return {
-      pos: i + 1,
-      nome: (pick(it,["name","title"])||"").slice(0,45),
-      loja: num(pick(it,["shopid"])),
-      preco,
-      vendidos,
-      estrelas: rat.rating_star ? (+rat.rating_star).toFixed(2) : "-",
-      avaliacoes: rat.rating_count ? (Array.isArray(rat.rating_count)? rat.rating_count[0] : rat.rating_count) : 0,
-      tipo: ehAds ? "ADS" : "org",
-      local: pick(it,["shop_location"]) || "-",
+      pos: i+1,
+      nome: (asset.name||"").slice(0,44),
+      loja: d.shopid,
+      eu: d.shopid===MINHA_LOJA_ID ? "★ EU" : "",
+      preco: preco!=null ? "R$"+preco.toFixed(2) : "?",
+      desconto: dp.discount ? dp.discount+"%" : "-",
+      cupom: voucher ? (voucher.voucher_code||"sim") : "-",
+      tipo: it.adsid ? "ADS" : "org",
+      itemid: d.itemid,
     };
   });
 
   console.log(`%cSELLER.IA · "${kw}" — ${items.length} resultados`,"color:#ff4d1c;font-size:16px;font-weight:bold");
   console.table(items);
 
-  // resumo (so com os que tem preco/vendidos validos)
-  const comPreco = items.filter(x=&gt;x.preco!=="?").map(x=&gt;+x.preco);
+  const precos = items.filter(x=&gt;x.preco!=="?").map(x=&gt;+x.preco.replace("R$",""));
   const ads = items.filter(x=&gt;x.tipo==="ADS").length;
-  console.log("%c▼ Resumo","color:#7B2FFF;font-size:14px");
-  console.log(`Anuncios no topo: ${ads} de ${items.length} · Organicos: ${items.length-ads}`);
-  if (comPreco.length) console.log(`Preco medio da 1a pagina: R$ ${(comPreco.reduce((a,b)=&gt;a+b,0)/comPreco.length).toFixed(2)}`);
-  const top10 = items.slice(0,10);
-  const vendTop = top10.map(x=&gt;x.vendidos).filter(v=&gt;v&gt;0);
-  if (vendTop.length) console.log(`Vendidos medios do TOP 10: ${Math.round(vendTop.reduce((a,b)=&gt;a+b,0)/vendTop.length)}`);
-  const meus = items.filter(x=&gt;String(x.loja) &amp;&amp; j.items.find((o,idx)=&gt; idx===x.pos-1 &amp;&amp; ((o.item_basic||o).shop_name||"").toLowerCase().includes(MINHA_LOJA.toLowerCase())));
-  if (meus.length) { console.log(`%cSeus produtos nesta busca:`,"color:#2ecc71"); console.table(meus); }
-  else console.log("%cNenhum produto seu no top 60 desta busca (ou ajuste MINHA_LOJA).","color:#7d8290");
-
-  // diagnostico: se nome/preco vierem vazios, dumpa 1 item cru pra eu mapear
-  if (items[0].nome==="" || items[0].preco==="?") {
-    console.log("%cCampos vazios — me mande o objeto abaixo (clique com botao direito → Copy object):","color:#f5b041");
-    console.log(raw[0]);
+  console.log("%c▼ Resumo da concorrencia","color:#7B2FFF;font-size:14px");
+  console.log(`Anuncios: ${ads}/${items.length} · Organicos: ${items.length-ads}`);
+  if (precos.length) {
+    precos.sort((a,b)=&gt;a-b);
+    console.log(`Preco: menor R$${precos[0].toFixed(2)} · mediano R$${precos[Math.floor(precos.length/2)].toFixed(2)} · maior R$${precos[precos.length-1].toFixed(2)}`);
+    const top10 = items.slice(0,10).filter(x=&gt;x.preco!=="?").map(x=&gt;+x.preco.replace("R$",""));
+    if (top10.length) console.log(`Preco medio do TOP 10 (a barreira): R$${(top10.reduce((a,b)=&gt;a+b,0)/top10.length).toFixed(2)}`);
   }
+  const comCupom = items.filter(x=&gt;x.cupom!=="-").length;
+  console.log(`Concorrentes com cupom ativo: ${comCupom}/${items.length}`);
+  const meus = items.filter(x=&gt;x.eu);
+  if (meus.length) { console.log("%c★ SEUS PRODUTOS nesta busca:","color:#2ecc71;font-size:13px"); console.table(meus); }
+  else console.log("%cVoce nao aparece no top 60 desta busca.","color:#f5b041");
 })();</pre>
     </div>
   </div>
