@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Auditoria: o que falta</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.5;padding:26px 15px 70px}
+.wrap{max-width:840px;margin:0 auto}
+h1{font-family:'Bebas Neue';font-size:clamp(28px,6vw,44px);text-align:center;letter-spacing:.02em;line-height:1}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);text-align:center;font-size:14px;max-width:620px;margin:9px auto 22px}
+.grp{margin:28px 0 10px;font-family:'Bebas Neue';font-size:24px;letter-spacing:.03em;display:flex;align-items:center;gap:9px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.grp .n{width:28px;height:28px;border-radius:7px;background:linear-gradient(120deg,var(--orange),var(--purple));display:flex;align-items:center;justify-content:center;font-family:'Space Mono';font-weight:700;font-size:13px;color:#fff}
+.row{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
+.row .ic{width:26px;height:26px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+.ic-tem{background:rgba(46,204,113,.14);color:var(--ok);border:1px solid var(--ok)}
+.ic-falta{background:rgba(231,76,60,.14);color:var(--bad);border:1px solid var(--bad)}
+.ic-parcial{background:rgba(245,176,65,.14);color:var(--warn);border:1px solid var(--warn)}
+.row .txt{flex:1}
+.row .nome{font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px}
+.row .desc{font-size:12.5px;color:var(--text2)}
+.row .tag{font-family:'Space Mono';font-size:8px;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:99px;border:1px solid;white-space:nowrap}
+.t-tem{border-color:var(--ok);color:var(--ok)}
+.t-falta{border-color:var(--bad);color:#ff8b7d}
+.t-parcial{border-color:var(--warn);color:var(--warn)}
+.resumo{background:var(--bg3);border:1px solid var(--line);border-radius:14px;padding:18px;margin:24px 0}
+.resumo h3{font-family:'Bebas Neue';font-size:20px;color:var(--orange);margin-bottom:10px;letter-spacing:.03em}
+.resumo ol{margin:0 0 0 18px}
+.resumo li{font-size:13.5px;color:var(--text2);margin:6px 0;line-height:1.5}
+.resumo li b{color:var(--text)}
+.foot{margin-top:28px;padding:17px;border:1px dashed var(--purple);border-radius:12px;font-size:13.5px;color:var(--text2);text-align:center}
+.foot b{color:var(--orange)}
+.leg{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;font-family:'Space Mono';font-size:10px;color:var(--text3);margin-bottom:6px}
+.leg span{display:flex;align-items:center;gap:5px}
+.leg i{width:9px;height:9px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AUDITORIA: <em>O QUE FALTA</em></h1>
+  <p class="sub">Comparei o código real da extensão (v0.23.15) com tudo que aprovamos. Aqui está, sem esconder nada: o que já existe, o que está pela metade, e o que passou batido.</p>
+  <div class="leg">
+    <span><i style="background:var(--ok)"></i> tem no código</span>
+    <span><i style="background:var(--warn)"></i> existe mas incompleto</span>
+    <span><i style="background:var(--bad)"></i> FALTA</span>
+  </div>
+
+  <!-- ESTRUTURA ATUAL -->
+  <div class="grp"><span class="n">A</span> ABAS QUE A EXTENSÃO TEM HOJE</div>
+
+  <div class="row"><div class="ic ic-tem">✓</div><div class="txt"><div class="nome">● Semáforo</div><div class="desc">Existe e funciona. Classifica campanhas em sangrando/sufocada/escalando/aprendendo.</div></div><span class="tag t-tem">tem</span></div>
+  <div class="row"><div class="ic ic-tem">✓</div><div class="txt"><div class="nome">◉ Conta 360</div><div class="desc">Existe. É o retrato da conta com as inteligências (gerencial, funil, saúde, afiliados).</div></div><span class="tag t-tem">tem</span></div>
+  <div class="row"><div class="ic ic-tem">✓</div><div class="txt"><div class="nome">⚖ Margem (Calculadora)</div><div class="desc">Existe e funciona. Calcula margem e ROAS de equilíbrio.</div></div><span class="tag t-tem">tem</span></div>
+  <div class="row"><div class="ic ic-parcial">~</div><div class="txt"><div class="nome">Diagnóstico</div><div class="desc">Existe — puxa vereditos do Cérebro no servidor. É a base do "Especialista", mas ainda não no molde do gabarito completo.</div></div><span class="tag t-parcial">parcial</span></div>
+  <div class="row"><div class="ic ic-parcial">~</div><div class="txt"><div class="nome">Campanhas</div><div class="desc">Existe — lista as campanhas coletadas. Mas ainda não abre o card de 6 partes ao clicar.</div></div><span class="tag t-parcial">parcial</span></div>
+  <div class="row"><div class="ic ic-parcial">~</div><div class="txt"><div class="nome">Produtos (Ads)</div><div class="desc">Existe — mostra os produtos dentro dos anúncios. Não abre o card completo ainda.</div></div><span class="tag t-parcial">parcial</span></div>
+  <div class="row"><div class="ic ic-parcial">~</div><div class="txt"><div class="nome">Performance</div><div class="desc">Existe — indicadores por produto (CTR, conversão). Não vira card clicável.</div></div><span class="tag t-parcial">parcial</span></div>
+  <div class="row"><div class="ic ic-parcial">~</div><div class="txt"><div class="nome">Anúncio (Cadastro)</div><div class="desc">Existe — dados do cadastro do produto (preço, promo).</div></div><span class="tag t-parcial">parcial</span></div>
+  <div class="row"><div class="ic ic-tem">✓</div><div class="txt"><div class="nome">Debug</div><div class="desc">Existe. Rastro do que foi capturado + exportar JSON.</div></div><span class="tag t-tem">tem</span></div>
+
+  <!-- O QUE APROVAMOS E FALTA -->
+  <div class="grp"><span class="n">B</span> O QUE APROVAMOS E ESTÁ FALTANDO</div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">O CARD DE 6 PARTES não está ligado</div><div class="desc">O card-final.html está desenhado e aprovado, mas a extensão ainda NÃO abre ele ao clicar num produto/campanha. As abas Campanhas/Produtos/Performance listam, mas não abrem o card. <b>Este é o coração que falta conectar.</b></div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">O ESPIÃO (ouro da Shopee) no card</div><div class="desc">Os 4 chips — posição no leilão, competitividade de preço, status (deboost), diagnóstico oficial da Shopee. Os dados são coletados (diamantes.js tem eles), mas não aparecem em tela nenhuma ainda.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">ROAS EXPLICADO (faixa da Shopee)</div><div class="desc">A barra 2,4× / 5,1× ideal / 10× + projeção +30% cruzada com o equilíbrio real. Aprovado no card, não está em lugar nenhum da extensão.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">ALERTA DE APRENDIZADO (cold start)</div><div class="desc">"Faltam X dias, não mexa". O dado é coletado, mas não vira o alerta no topo do card.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">ANÁLISE DE ADS POR PRODUTO</div><div class="desc">Você perguntou "cadê as análises de ads por produto?". A performance existe como lista, mas a análise cruzada (ROAS vs equilíbrio, posição no leilão, veredito por anúncio) que vai no card ainda não foi montada por produto.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">FERRAMENTAS como grupo próprio</div><div class="desc">Você notou certo: hoje a Calculadora é uma aba solta (⚖ Margem) e o Cofre/ClipSeller não existem como telas. Precisam virar o grupo "Ferramentas" (Calculadora + Cofre + ClipSeller juntos), não espalhados.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">COFRE DE CUSTOS</div><div class="desc">Cadastrar custo por produto → margem real automática. Aprovado, não existe no código ainda.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">FINANCEIRO (margem real / abrir pedido)</div><div class="desc">A 6ª inteligência. O cofre de dados tem o campo, mas a tela e a leitura automática do pedido não existem.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">EXPORTAR PDF com a marca</div><div class="desc">O relatório em PDF no padrão que você entrega aos clientes. Não existe.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">SUPORTE</div><div class="desc">Tela de ajuda + falar com o time. Não existe.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-falta">✕</div><div class="txt"><div class="nome">BAÚ / OPORTUNIDADES</div><div class="desc">Product Opportunities, boost por nível, créditos grátis de ads. Coletados, sem tela.</div></div><span class="tag t-falta">falta</span></div>
+
+  <div class="row"><div class="ic ic-parcial">~</div><div class="txt"><div class="nome">ANÁLISE DO ESPECIALISTA (gabarito completo)</div><div class="desc">O Diagnóstico existe, mas não no molde completo: Snapshot → Tráfego → Conversão → Ticket → Funil → Ads → Afiliados → Plano de Ação (4 semanas + 3 cenários).</div></div><span class="tag t-parcial">parcial</span></div>
+
+  <!-- RESUMO -->
+  <div class="resumo">
+    <h3>A VERDADE, RESUMIDA</h3>
+    <ol>
+      <li>A extensão hoje <b>coleta tudo</b> (a parte difícil, que funciona). Os dados dos diamantes/espião estão lá dentro.</li>
+      <li>Mas ela <b>ainda mostra os dados em abas técnicas cruas</b> (Campanhas, Produtos, Performance separados) — não na experiência que aprovamos.</li>
+      <li>O <b>card de 6 partes não está conectado</b> — é o principal. Sem ele, o espião, o ROAS explicado e o alerta de aprendizado não aparecem em lugar nenhum.</li>
+      <li>As <b>ferramentas estão espalhadas</b> e Cofre/ClipSeller/Financeiro/PDF/Suporte/Baú <b>não existem como tela</b>.</li>
+    </ol>
+  </div>
+
+  <div class="foot">
+    <b>O plano certo:</b> não recriar nada do zero. A coleta fica intacta. O trabalho é <b>ligar o card de 6 partes</b> (com espião, ROAS explicado, alerta) ao clicar num produto, <b>reorganizar as abas</b> na estrutura aprovada (Início/Conta360 · Especialista · Produtos→card · Ferramentas · Exportar · Suporte), e <b>construir as telas que faltam</b> (Cofre, Financeiro, PDF, Suporte, Baú). Esse documento é o mapa do que fazer — nada mais vai passar batido.
+  </div>
+</div>
+</body>
+</html>
