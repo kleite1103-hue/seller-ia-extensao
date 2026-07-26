@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.5';
+  var VERSAO = '0.23.6';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1351,7 +1351,7 @@
         // C) Funil de todos os produtos (Central de Dados, paginado)
         prog('Lendo o funil dos produtos...');
         for (var pg = 1; pg <= 12; pg++) {
-          var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&category_type=shopee&category_id=-1&page_size=20&page_num=' + pg + '&order_type=paid&order_by=paid_sales.desc';
+          var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&category_type=shopee&category_id=-1&page_size=10&page_num=' + pg + '&order_type=paid&order_by=paid_sales.desc';
           var rp = await buscar(urlP, 'GET', null);
           totalChamadas++;
           if (!rp.ok || !rp.dados) break;
@@ -1365,7 +1365,7 @@
         // D) Fatia de vendas + vinculo campanha (traffic item-list, paginado)
         prog('Cruzando fatia de vendas e campanhas...');
         for (var pg2 = 1; pg2 <= 12; pg2++) {
-          var urlT = '/api/mydata/v1/product/traffic/item-list/?' + spcQ + '&keyword=&order_by=&page_size=20&page_num=' + pg2 + '&category_type=shop&start_time=' + ini + '&end_time=' + fim + '&period=month&category_id=-1';
+          var urlT = '/api/mydata/v1/product/traffic/item-list/?' + spcQ + '&keyword=&order_by=&page_size=10&page_num=' + pg2 + '&category_type=shop&start_time=' + ini + '&end_time=' + fim + '&period=month&category_id=-1';
           var rt = await buscar(urlT, 'GET', null);
           totalChamadas++;
           if (!rt.ok || !rt.dados) break;
