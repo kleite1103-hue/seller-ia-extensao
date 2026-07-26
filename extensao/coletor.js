@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.9';
+  var VERSAO = '0.23.10';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1312,7 +1312,9 @@
           var dNow = new Date(hoje0 * 1000);
           var primeiroMes = new Date(Date.UTC(dNow.getUTCFullYear(), dNow.getUTCMonth(), 1, 3, 0, 0));
           ini = Math.floor(primeiroMes.getTime() / 1000);
-          fim = hoje0 - 86400;
+          // end = HOJE 00:00 BRT. Isso representa "ate o fim de ontem" (D-1),
+          // que e o que a Shopee disponibiliza. Testado: funciona (v0.23.6).
+          fim = hoje0;
         }
         // se estiver na tela de Ads com janela selecionada, espelha (alinhado ao dia)
         var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
