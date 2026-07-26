@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.10';
+  var VERSAO = '0.23.11';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1435,6 +1435,27 @@
         var rtop = await buscar(urlTop, 'GET', null);
         totalChamadas++;
         if (rtop.ok && rtop.dados) processarPacote({ url: urlTop, metodo: 'GET', corpo: null, dados: rtop.dados, ts: Date.now() });
+        await pausa(150);
+
+        // J) Avaliacoes dos top produtos (1-2 estrelas = risco). Pega ate 6 produtos
+        // com mais venda (ja temos no cofre pela performance).
+        prog('Lendo avaliacoes dos produtos...');
+        try {
+          var cofreP = window.SIA_Diamantes ? window.SIA_Diamantes.estado().porProduto : null;
+          if (cofreP) {
+            var idsAval = Object.keys(cofreP)
+              .filter(function (k) { return cofreP[k].perf && cofreP[k].perf.vendaPaga; })
+              .sort(function (a, b) { return (cofreP[b].perf.vendaPaga || 0) - (cofreP[a].perf.vendaPaga || 0); })
+              .slice(0, 6);
+            for (var ia = 0; ia < idsAval.length; ia++) {
+              var urlAv = '/api/v2/item/get_ratings?itemid=' + idsAval[ia] + '&filter=0&flag=1&limit=6&offset=0&type=0&exclude_filter=1';
+              var rav = await buscar(urlAv, 'GET', null);
+              totalChamadas++;
+              if (rav.ok && rav.dados) processarPacote({ url: urlAv, metodo: 'GET', corpo: null, dados: rav.dados, ts: Date.now() });
+              await pausa(120);
+            }
+          }
+        } catch (eAv) { /* noop */ }
 
         prog(null);
         resolver({ ok: true, chamadas: totalChamadas, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
@@ -2055,6 +2076,15 @@
 
     // ---- 4) SAUDE / AVALIACOES ----
     var ca4 = '';
+    // saude da conta (rating de performance + penalidade) — vem do accounthealth
+    if (R.conta && R.conta.saudeConta) {
+      var sc = R.conta.saudeConta;
+      var corRating = sc.ratingPerformance === 'excellent' ? '#2ecc71' : (sc.ratingPerformance === 'good' ? '#f5b041' : '#e74c3c');
+      var traduz = { excellent: 'Excelente', good: 'Boa', improvement_needed: 'Precisa melhorar', poor: 'Ruim' };
+      ca4 += '<div class="ld">Saude da conta: <b style="color:' + corRating + '">' + (traduz[sc.ratingPerformance] || sc.ratingPerformance) + '</b>';
+      if (sc.pontosPenalidade != null) ca4 += ' · ' + sc.pontosPenalidade + ' pts penalidade';
+      ca4 += '</div>';
+    }
     if (E && E.porProduto) {
       var comAval = Object.keys(E.porProduto).filter(function (k) { return E.porProduto[k].avaliacoes; });
       var totBaixas = 0, totAval = 0;
