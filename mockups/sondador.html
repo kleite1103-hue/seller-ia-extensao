@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Sondador de Busca</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.55}
+.wrap{max-width:760px;margin:0 auto;padding:28px 16px 70px}
+h1{font-family:'Bebas Neue';font-size:clamp(30px,6vw,44px);text-align:center;letter-spacing:.02em;line-height:1}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);text-align:center;font-size:14.5px;max-width:600px;margin:10px auto 22px}
+.step{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.step .n{font-family:'Bebas Neue';font-size:20px;color:var(--orange);letter-spacing:.03em;margin-bottom:8px}
+.step p{font-size:14px;color:var(--text2)}
+.step b{color:var(--text)}
+.code{position:relative;background:#0a0b0e;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+.code pre{padding:14px;overflow-x:auto;font-family:'Space Mono';font-size:11px;color:#9fd8b0;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.copy{position:absolute;top:8px;right:8px;background:var(--orange);border:none;color:#fff;font-family:'Space Mono';font-size:10px;padding:6px 12px;border-radius:6px;cursor:pointer}
+.warn{background:rgba(245,176,65,.08);border-left:3px solid var(--warn);border-radius:0 8px 8px 0;padding:10px 13px;font-size:12.5px;color:var(--text2);margin-top:10px}
+.what{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.what div{background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--text2)}
+.what b{color:var(--orange);font-family:'Space Mono';font-size:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SONDADOR DE <em>BUSCA</em></h1>
+  <p class="sub">Roda na busca da Shopee como comprador e revela quem apareceu, em que posição, anúncio ou orgânico, e o que separa você dos concorrentes do topo.</p>
+
+  <div class="step">
+    <div class="n">PASSO 1 · ABRA A BUSCA</div>
+    <p>No navegador, abra <b>shopee.com.br</b> e pesquise o termo que você quer investigar (ex: "vaso decorativo preto"). Deixe a página de resultados carregar até o fim (role um pouco pra baixo pra carregar mais produtos).</p>
+  </div>
+
+  <div class="step">
+    <div class="n">PASSO 2 · ABRA O CONSOLE</div>
+    <p>Aperte <b>F12</b> (ou botão direito → Inspecionar) e clique na aba <b>Console</b>. É uma área de texto onde dá pra colar comandos.</p>
+    <div class="warn">No celular não tem console — este passo é no computador. A versão da extensão (que roda no clique, sem console) vem depois; este script é pra você já ver o poder da ideia hoje.</div>
+  </div>
+
+  <div class="step">
+    <div class="n">PASSO 3 · COLE O SONDADOR</div>
+    <p>Cole o código abaixo no console e aperte Enter. Ele lê os resultados, monta uma tabela e marca em <b style="color:var(--ok)">verde</b> os seus produtos (você troca o nome da sua loja na primeira linha).</p>
+    <div class="code">
+      <button class="copy" onclick="cp(this)">copiar</button>
+      <pre id="script">/* ===== SELLER.IA · SONDADOR DE BUSCA ===== */
+(async () => {
+  const MINHA_LOJA = "colorindo_shop"; // ← troque pelo nome da SUA loja
+
+  // pega o termo e parametros da URL atual
+  const url = new URL(location.href);
+  const kw = url.searchParams.get("keyword") || "";
+  if (!kw) { console.log("%cAbra uma página de RESULTADOS de busca primeiro.","color:#f5b041;font-size:14px"); return; }
+
+  // chama a API interna de busca da Shopee (mesma que a página usa)
+  const api = `/api/v4/search/search_items?by=relevancy&keyword=${encodeURIComponent(kw)}&limit=60&newest=0&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2`;
+  const r = await fetch(api, { headers: { "af-ac-enc-dat": "", "x-api-source": "pc" }, credentials: "include" });
+  const j = await r.json();
+  const items = (j.items || []).map((it, i) => {
+    const b = it.item_basic || it;
+    return {
+      pos: i + 1,
+      nome: (b.name||"").slice(0,42),
+      loja_id: b.shopid,
+      preco: (b.price/100000).toFixed(2),
+      vendidos: b.historical_sold ?? b.sold ?? 0,
+      estrelas: b.item_rating ? (b.item_rating.rating_star||0).toFixed(2) : "-",
+      avaliacoes: b.item_rating ? (b.item_rating.rating_count?.[0]||0) : 0,
+      anuncio: b.is_adult===undefined && (b.adsid || it.ads_keyword_id || b.is_ads) ? "ADS" : "org",
+      local: b.shop_location || "-",
+      frete_gratis: b.show_free_shipping ? "sim" : "-",
+    };
+  });
+
+  console.log(`%cSELLER.IA · "${kw}" — ${items.length} resultados`,"color:#ff4d1c;font-size:16px;font-weight:bold");
+  console.table(items);
+
+  // meus produtos
+  const meus = items.filter(x => String(x.loja_id) && (j.items.find(o => (o.item_basic||o).shopid===x.loja_id && (o.item_basic||o).shop_name?.includes?.(MINHA_LOJA))));
+  console.log("%c▼ Resumo","color:#7B2FFF;font-size:14px");
+  const ads = items.filter(x=>x.anuncio==="ADS").length;
+  console.log(`Anúncios no topo: ${ads} de ${items.length} · Orgânicos: ${items.length-ads}`);
+  const precoMed = (items.reduce((s,x)=>s+parseFloat(x.preco),0)/items.length).toFixed(2);
+  console.log(`Preço médio da 1ª página: R$ ${precoMed}`);
+  const top5 = items.slice(0,5);
+  console.log(`Vendidos médios do TOP 5: ${Math.round(top5.reduce((s,x)=>s+(+x.vendidos||0),0)/5)}`);
+  console.log("%cTroque MINHA_LOJA no topo pra destacar seus produtos.","color:#7d8290");
+})();</pre>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">O QUE ELE REVELA</div>
+    <div class="what">
+      <div><b>POSIÇÃO</b> a ordem real de cada produto na busca</div>
+      <div><b>ADS vs ORG</b> quem pagou pra estar ali e quem é orgânico</div>
+      <div><b>PREÇO</b> de cada um + o preço médio da 1ª página</div>
+      <div><b>VENDIDOS</b> quanto cada concorrente já vendeu</div>
+      <div><b>ESTRELAS</b> avaliação e nº de reviews</div>
+      <div><b>VENDIDOS DO TOP 5</b> a barreira de entrada pro topo</div>
+    </div>
+    <div class="warn">Este é o protótipo da ideia. Quando virar parte da extensão, roda no clique (sem console), destaca seus produtos automático e cruza com o método: "pra entrar no top 5 dessa busca, o padrão é X vendidos e preço até R$Y — seu produto está em Z".</div>
+  </div>
+
+  <p class="sub" style="margin-top:20px">Testa e me conta o que apareceu. Se a Shopee mudou a estrutura da resposta, me manda o erro do console que eu ajusto o sondador.</p>
+</div>
+<script>
+function cp(btn){navigator.clipboard.writeText(document.getElementById('script').textContent);btn.textContent='copiado!';setTimeout(()=>btn.textContent='copiar',1500);}
+</script>
+</body>
+</html>
