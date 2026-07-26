@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.17.0';
+  var VERSAO = '0.17.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1189,9 +1189,8 @@
   var varreduraAgendada = null;
   function varrerTudo() {
     varreduraAgendada = null;
-    try { varrerLente(); } catch (e) { /* noop */ }
-    try { varrerCampanhasNaTela(); } catch (e) { /* noop */ }
-    try { varrerLinhasDeProduto(); } catch (e) { /* noop */ }
+    // v0.17.1: selos na tela DESLIGADOS — a analise vive no painel proprio (gaveta).
+    // Isso deixa a pagina da Shopee leve e nao corta mais os numeros dela.
     try { lerPaginaPublica(); } catch (e) { /* noop */ }
   }
   function agendarVarredura() {
@@ -1199,19 +1198,21 @@
     varreduraAgendada = setTimeout(varrerTudo, 350); // logo apos a Shopee redesenhar
   }
   try {
-    var observador = new MutationObserver(function (muts) {
-      for (var i = 0; i < muts.length; i++) {
-        var alvo = muts[i].target;
-        // ignora mutacoes causadas por nos elementos
-        if (alvo && alvo.getAttribute && (alvo.getAttribute('data-sia-lente-card') || alvo.id === 'seller-ia-host')) continue;
-        agendarVarredura();
-        return;
-      }
+    // v0.17.1: sem selos na tela, o observer so precisa reagir a troca de PAGINA
+    // (mudanca de URL), nao a cada micro-redesenho. Muito mais leve.
+    var ultimaUrl = location.href;
+    var observador = new MutationObserver(function () {
+      if (location.href !== ultimaUrl) { ultimaUrl = location.href; agendarVarredura(); }
     });
     observador.observe(document.documentElement, { childList: true, subtree: true });
   } catch (e) { /* noop */ }
+  // v0.17.1: remove qualquer selo grudado por versoes anteriores (limpa a tela)
+  try {
+    var lixo = document.querySelectorAll('[data-sia-selo],[data-sia-barra-camp],[data-sia-lente]');
+    for (var lx = 0; lx < lixo.length; lx++) { if (lixo[lx].parentNode) lixo[lx].parentNode.removeChild(lixo[lx]); }
+  } catch (e) { /* noop */ }
   setTimeout(varrerTudo, 800);
-  setInterval(varrerTudo, 5000); // rede de seguranca
+  setInterval(varrerTudo, 8000); // rede de seguranca leve (so leitura publica)
 
   /* auto-coleta: ao entrar no Seller Centre, coleta e analisa sozinha (no maximo 1x a cada 12h) */
   var AUTO_INTERVALO_MS = 12 * 3600 * 1000;
