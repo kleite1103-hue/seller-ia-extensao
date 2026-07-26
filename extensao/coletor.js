@@ -1890,10 +1890,9 @@
         // bloco META ROAS
         hd += '<div class="bloco-d"><div class="td">META DE ROAS (SHOPEE)</div>';
         if (R.metaRoas) {
-          hd += '<div class="ld">Sugerido: <b>' + (R.metaRoas.exato != null ? R.metaRoas.exato.toFixed(1) + 'x' : '?') + '</b>';
-          if (R.metaRoas.conservador != null) hd += ' · faixa ' + R.metaRoas.conservador.toFixed(1) + 'x a ' + (R.metaRoas.agressivo != null ? R.metaRoas.agressivo.toFixed(1) + 'x' : '?');
-          hd += '</div>';
-          if (R.projecao) hd += '<div class="ld">Projecao: +' + (R.projecao.gmvUpliftPct != null ? R.projecao.gmvUpliftPct.toFixed(0) : '?') + '% GMV, +' + (R.projecao.orderUpliftPct != null ? R.projecao.orderUpliftPct.toFixed(0) : '?') + '% pedidos</div>';
+          hd += '<div class="ld">A Shopee recomenda <b>' + (R.metaRoas.exato != null ? R.metaRoas.exato.toFixed(1) + 'x' : '?') + '</b> para este produto</div>';
+          if (R.metaRoas.conservador != null) hd += '<div class="ld" style="color:#7d8290;font-size:11px">(ela entrega bem de ' + R.metaRoas.conservador.toFixed(1) + 'x ate ' + (R.metaRoas.agressivo != null ? R.metaRoas.agressivo.toFixed(1) + 'x' : '?') + ' — quanto mais alto o ROAS, menos ela entrega)</div>';
+          if (R.projecao) hd += '<div class="ld">Nesse ritmo ela projeta <b>+' + (R.projecao.gmvUpliftPct != null ? R.projecao.gmvUpliftPct.toFixed(0) : '?') + '% em vendas</b></div>';
         } else hd += '<div class="ld vazio-d">abra "criar campanha" no Ads para capturar</div>';
         hd += '</div>';
 
