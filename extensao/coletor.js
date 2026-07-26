@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.1';
+  var VERSAO = '0.23.2';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1283,12 +1283,18 @@
           return Math.floor((ts - BRT) / 86400) * 86400 + BRT;
         }
         var agora = Math.floor(Date.now() / 1000);
-        // periodo padrao: ultimos 30 dias, alinhados ao dia
-        var fim = inicioDoDiaBRT(agora) + 86400 - 1;       // fim de hoje (23:59:59 BRT)
-        var ini = inicioDoDiaBRT(agora - 29 * 86400);       // 00:00 BRT de 30 dias atras
+        // A Shopee usa start/end em 00:00 BRT de dias redondos (nao 23:59).
+        // Padrao: do primeiro dia do MES ate 00:00 de hoje.
+        var hoje0 = inicioDoDiaBRT(agora);
+        var dNow = new Date(hoje0 * 1000);
+        // primeiro dia do mes atual, 00:00 BRT
+        var primeiroMes = new Date(Date.UTC(dNow.getUTCFullYear(), dNow.getUTCMonth(), 1, 3, 0, 0));
+        var ini = Math.floor(primeiroMes.getTime() / 1000);
+        var fim = hoje0; // 00:00 BRT de hoje (dia redondo, como a Shopee faz)
+        // se estiver na tela de Ads com janela selecionada, espelha (alinhado ao dia)
         var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
         var mTo = location.search.match(/[?&]to=(\d{9,11})/);
-        if (mFrom && mTo) { ini = inicioDoDiaBRT(parseInt(mFrom[1], 10)); fim = inicioDoDiaBRT(parseInt(mTo[1], 10)) + 86400 - 1; }
+        if (mFrom && mTo) { ini = inicioDoDiaBRT(parseInt(mFrom[1], 10)); fim = inicioDoDiaBRT(parseInt(mTo[1], 10)); }
         var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
         var totalChamadas = 0;
 
