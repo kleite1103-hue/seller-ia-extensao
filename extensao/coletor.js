@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.3';
+  var VERSAO = '0.23.4';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -457,6 +457,16 @@
     if (!pacote || !pacote.url) return;
     var mSpc = pacote.url.match(/SPC_CDS=([a-f0-9-]{20,})/i);
     if (mSpc) { estado.spc = mSpc[1]; try { window.SIA_ULTIMO_CDS = mSpc[1]; } catch (e) { } }
+    // captura o start/end REAL das chamadas mydata (Central de Dados) que a
+    // Shopee ja validou. Reusamos no coletor pra nunca errar o formato de data.
+    if (/mydata\/.*\/(key-metrics|performance|traffic|order-performance)/.test(pacote.url)) {
+      var mSt = pacote.url.match(/start_time=(\d{9,11})/);
+      var mEt = pacote.url.match(/end_time=(\d{9,11})/);
+      var mPer = pacote.url.match(/period=(\w+)/);
+      if (mSt && mEt && mPer && mPer[1] === 'month') {
+        estado.periodoMydata = { inicio: parseInt(mSt[1], 10), fim: parseInt(mEt[1], 10) };
+      }
+    }
     var tag = classificar(pacote.url);
     var tamanho = 0;
     try { tamanho = JSON.stringify(pacote.dados).length; } catch (e) { /* noop */ }
@@ -1278,19 +1288,25 @@
         // (00:00 BRT = 03:00 UTC) e fim do dia (23:59 BRT).
         // BRT = UTC-3, entao o offset e 3*3600 = 10800s.
         var BRT = 3 * 3600;
+        var agora = Math.floor(Date.now() / 1000);
         function inicioDoDiaBRT(ts) {
           // 00:00 BRT = 03:00 UTC. Vai pro dia UTC deslocado, arredonda, volta.
           return Math.floor((ts - BRT) / 86400) * 86400 + BRT;
         }
-        var agora = Math.floor(Date.now() / 1000);
-        // A Shopee usa start/end em 00:00 BRT de dias redondos (nao 23:59).
-        // Padrao: do primeiro dia do MES ate 00:00 de hoje.
-        var hoje0 = inicioDoDiaBRT(agora);
-        var dNow = new Date(hoje0 * 1000);
-        // primeiro dia do mes atual, 00:00 BRT
-        var primeiroMes = new Date(Date.UTC(dNow.getUTCFullYear(), dNow.getUTCMonth(), 1, 3, 0, 0));
-        var ini = Math.floor(primeiroMes.getTime() / 1000);
-        var fim = hoje0 - 86400; // ONTEM 00:00 BRT — a Shopee nao inclui o dia corrente
+        var ini, fim;
+        // PREFERIDO: reusa o periodo REAL que a Shopee ja validou (capturado
+        // quando voce navegou pela Central de Dados). Nunca erra o formato.
+        if (estado.periodoMydata && estado.periodoMydata.inicio && estado.periodoMydata.fim) {
+          ini = estado.periodoMydata.inicio;
+          fim = estado.periodoMydata.fim;
+        } else {
+          // FALLBACK: calcula (inicio do mes ate ontem 00:00 BRT)
+          var hoje0 = inicioDoDiaBRT(agora);
+          var dNow = new Date(hoje0 * 1000);
+          var primeiroMes = new Date(Date.UTC(dNow.getUTCFullYear(), dNow.getUTCMonth(), 1, 3, 0, 0));
+          ini = Math.floor(primeiroMes.getTime() / 1000);
+          fim = hoje0 - 86400;
+        }
         // se estiver na tela de Ads com janela selecionada, espelha (alinhado ao dia)
         var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
         var mTo = location.search.match(/[?&]to=(\d{9,11})/);
@@ -1352,16 +1368,24 @@
           await pausa(450);
         }
 
-        // D2) Fontes de trafego (cruzamento ads/afiliado/organico) — alimenta Afiliados e Visao
+        // D2) Funil de vendas (overview) — a origem do dinheiro (card/ads/afiliado)
+        prog('Lendo o funil de vendas...');
+        var urlFo = '/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid';
+        var rfo = await buscar(urlFo, 'GET', null);
+        totalChamadas++;
+        if (rfo.ok && rfo.dados) processarPacote({ url: urlFo, metodo: 'GET', corpo: null, dados: rfo.dados, ts: Date.now() });
+        await pausa(150);
+
+        // D3) Fontes de trafego (traffic-sources) — precisa de order_type=paid
         prog('Cruzando fontes de trafego...');
-        var urlF = '/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month';
+        var urlF = '/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid';
         var rf = await buscar(urlF, 'GET', null);
         totalChamadas++;
         if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now() });
 
-        // E) Indicadores gerais da loja
+        // E) Indicadores gerais da loja — key-metrics precisa de fetag=fetag
         prog('Lendo os indicadores gerais...');
-        var urlK = '/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=';
+        var urlK = '/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag';
         var rk = await buscar(urlK, 'GET', null);
         totalChamadas++;
         if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now() });
