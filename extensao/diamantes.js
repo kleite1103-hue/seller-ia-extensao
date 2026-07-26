@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.4.1';
+  var VERSAO = '1.4.2';
 
   // ---- helpers ----
   function n(v) {
@@ -96,9 +96,10 @@
   // VARIACAO (pct_diff): no funil vem em decimal (0.186 = +18,6%; -0.122 = -12,2%).
   // Diferente de taxa: variacao pode ser negativa e representar de -100% a +qualquer.
   // Heuristica segura: se |x| <= 3 assume decimal (x100); senao ja e % (ex 199.6).
+  // FILTRA sentinela -1000000 e valores absurdos (sem dado / lixo).
   function variacaoPct(v) {
     var x = n(v);
-    if (x === null || x === -1000000) return null;
+    if (x === null || x <= -1000 || x >= 100000) return null; // sem dado ou lixo
     var r = (Math.abs(x) <= 3) ? x * 100 : x;
     return Math.round(r * 10) / 10;
   }
@@ -110,7 +111,9 @@
     var val = (o.value != null) ? n(o.value) : null;
     // chain_ratio JA E a variacao em decimal: 0.186 = +18,6% ; -0.277 = -27,7%.
     // (pode vir negativo, prova de que nao e razao de valores)
-    var vr = (o.chain_ratio != null) ? n(o.chain_ratio) * 100 : null;
+    // FILTRA o sentinela -1000000 (= "sem dado") pra nao virar -100 milhoes %.
+    var cr = n(o.chain_ratio);
+    var vr = (cr != null && cr > -1000 && cr < 1000) ? cr * 100 : null;
     return { valor: val, variacao: vr != null ? Math.round(vr * 10) / 10 : null };
   }
   // reduz uma serie de points[] a um resumo leve (nao guardamos ponto a ponto)
@@ -724,7 +727,7 @@
         gmv: n(rd.dis_total_actual_amount),           // ja em reais (dis_ = display)
         comissaoPaga: n(rd.dis_total_seller_commission),
         roi: n(rd.dis_total_roi),
-        roiVariacao: rd.roi_diff != null ? Math.round(n(rd.roi_diff) * 10) / 10 : null,
+        roiVariacao: (rd.roi_diff != null && n(rd.roi_diff) > -1000 && n(rd.roi_diff) < 100000) ? Math.round(n(rd.roi_diff) * 10) / 10 : null,
         itensVendidos: n(rd.total_gross_item_sold)
       };
       logar('afiliados', 'ROI ' + (a.resumo.roi ? a.resumo.roi.toFixed(1) : '?') + 'x · ' + a.resumo.pedidos + ' pedidos', url);
