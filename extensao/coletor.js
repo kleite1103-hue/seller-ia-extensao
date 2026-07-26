@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.17.6';
+  var VERSAO = '0.18.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1424,8 +1424,9 @@
     '</div>';
 
   var $ = function (id) { return raiz.getElementById(id); };
-  var abaAtiva = 'visao';
+  var abaAtiva = 'semaforo';
   var ABAS = [
+    { id: 'semaforo', rotulo: '\u25cf Semaforo' },
     { id: 'diagnostico', rotulo: 'Diagnostico' },
     { id: 'visao', rotulo: 'Visao da Conta' },
     { id: 'campanhas', rotulo: 'Campanhas' },
@@ -1620,6 +1621,71 @@
     return h + '</table>';
   }
 
+  // ==========================================================
+  // SEMAFORO (Camada 2, metade LOCAL) — a triagem na tela
+  // ==========================================================
+  var CORES_SEM = {
+    vermelho: { bg: '#2a0f0f', bd: '#5a1f1f', dot: '#e74c3c', nome: 'Sangrando' },
+    amarelo: { bg: '#2a230f', bd: '#5a4a1f', dot: '#f5b041', nome: 'Sufocada' },
+    verde: { bg: '#0f2a17', bd: '#1f5a30', dot: '#2ecc71', nome: 'Escalando' },
+    cinza: { bg: '#15171d', bd: '#2a2f3a', dot: '#5a5f6a', nome: 'Aprendendo' }
+  };
+
+  function renderSemaforo() {
+    var cofre = null;
+    try { if (window.SIA_Diamantes) cofre = window.SIA_Diamantes.estado(); } catch (e) { }
+    if (!cofre || !window.SIA_Triagem) {
+      return '<div class="nota" style="padding:20px">Motor de triagem carregando… recarregue a pagina se persistir.</div>';
+    }
+    var nCamp = Object.keys(cofre.porCampanha || {}).length;
+    if (nCamp === 0) {
+      return '<div style="padding:24px;text-align:center">' +
+        '<div style="font-size:34px;margin-bottom:10px">\u25cf</div>' +
+        '<div style="font-size:14px;color:#f2f2f4;font-weight:600;margin-bottom:6px">Nenhuma campanha lida ainda</div>' +
+        '<div class="nota" style="max-width:340px;margin:0 auto">Abra a pagina de <b>Anuncios</b> no Seller Central e navegue pelas campanhas. Conforme a Shopee carrega os dados, o semaforo se enche sozinho.</div></div>';
+    }
+
+    var R = window.SIA_Triagem.triar(cofre, { margemPct: 0.25 });
+
+    // cabecalho com contagem
+    var h = '<div style="padding:4px 2px 14px">';
+    h += '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">' +
+      '<div style="font-size:15px;font-weight:700;color:#f2f2f4">Semaforo de campanhas</div>' +
+      '<div class="nota" style="margin:0">' + R.total + ' lidas · R$ ' + R.gastoTotal.toFixed(2).replace('.', ',') + ' no periodo</div></div>';
+    h += '<div class="nota" style="margin:0 0 12px">Margem assumida: 25% (piso ROAS 4x). Com o Cofre de Custos, vira seu numero real.</div>';
+
+    // 4 cartoes de contagem
+    h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:16px">';
+    ['vermelho', 'amarelo', 'verde', 'cinza'].forEach(function (nv) {
+      var c = CORES_SEM[nv];
+      h += '<div style="background:' + c.bg + ';border:1px solid ' + c.bd + ';border-radius:10px;padding:11px 8px;text-align:center">' +
+        '<div style="font-size:24px;font-weight:800;color:' + c.dot + ';line-height:1">' + R.contagem[nv] + '</div>' +
+        '<div style="font-size:10px;color:#b8bcc6;margin-top:3px;font-weight:600">' + c.nome + '</div></div>';
+    });
+    h += '</div>';
+
+    // fila de acao
+    if (R.fila.length === 0) {
+      h += '<div style="background:#0f2a17;border:1px solid #1f5a30;border-radius:10px;padding:16px;text-align:center;color:#2ecc71;font-size:13px">Tudo sob controle. Nenhuma campanha pedindo acao agora.</div>';
+    } else {
+      h += '<div style="font-size:11px;color:#ff4d1c;font-family:monospace;letter-spacing:.06em;margin-bottom:9px">FILA DE ACAO (' + R.fila.length + ') — ordenada por impacto</div>';
+      R.fila.forEach(function (c) {
+        var co = CORES_SEM[c.nivel];
+        h += '<div style="background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:9px;padding:10px 12px;margin-bottom:8px">';
+        h += '<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">' +
+          '<span style="width:8px;height:8px;border-radius:50%;background:' + co.dot + ';display:inline-block;flex:0 0 auto"></span>' +
+          '<span style="font-size:12.5px;font-weight:700;color:#f2f2f4">' + esc(c.titulo) + '</span>' +
+          '<span style="margin-left:auto;font-size:11px;color:#7d8290;font-variant-numeric:tabular-nums">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
+        if (c.campanha) h += '<div style="font-size:11px;color:#9aa0ac;margin-bottom:3px">' + esc(c.campanha) + (c.roas ? ' · ROAS ' + c.roas.toFixed(1) + 'x' : '') + (c.posicao ? ' · pos ' + c.posicao : '') + '</div>';
+        h += '<div style="font-size:11.5px;color:#c8ccd4;line-height:1.5">' + esc(c.texto) + '</div>';
+        h += '</div>';
+      });
+      h += '<div class="nota" style="margin-top:10px">As <b>' + R.contagem.cinza + '</b> campanhas em aprendizado ficam fora da fila de proposito: mexer nelas antes de 7 dias atrapalha o algoritmo.</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
   function render() {
     if (!$('sia-painel').classList.contains('aberto')) return;
     renderAbas();
@@ -1627,6 +1693,11 @@
     var nC = Object.keys(estado.campanhas).length;
     var nP = Object.keys(estado.produtos).length;
     $('sia-info').textContent = nC + ' campanhas · ' + nP + ' produtos · ' + estado.chamadas.length + ' chamadas';
+
+    if (abaAtiva === 'semaforo') {
+      corpo.innerHTML = renderSemaforo();
+      return;
+    }
 
     if (abaAtiva === 'diagnostico') {
       var dg = estado.diagnostico;
