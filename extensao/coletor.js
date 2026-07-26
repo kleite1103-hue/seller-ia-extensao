@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.13';
+  var VERSAO = '0.23.14';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1798,6 +1798,7 @@
   // liga o botao "Coletar conta agora" (coletor em lote)
   var coletaEmAndamento = false;
   var coletaJaTentada = false;
+  var coletouNestaSessao = false;
   function ligarBotaoColeta() {
     var btn = $('sia-btn-coletar');
     if (!btn) return;
@@ -1817,17 +1818,19 @@
       var temResto = D && D.funil && D.afiliados;
       completo = temPeriodo && temResto;
     } catch (e) { }
-    if (completo) {
-      if (status) { status.textContent = 'conta ja lida. Toque no botao pra atualizar.'; status.style.color = '#2ecc71'; }
+    if (completo && coletouNestaSessao) {
+      if (status) { status.textContent = 'conta lida agora. Toque pra atualizar.'; status.style.color = '#2ecc71'; }
       if (btn) btn.textContent = 'Coletar de novo';
       return;
     }
-    // nao esta completo: dispara. Se a chave existe, ja; senao espera aparecer.
-    if (coletaJaTentada) {
-      // ja tentou nesta sessao e nao completou — deixa o botao pronto pra retry
+    // se tem cache (completo) mas nao coletou nesta sessao, ainda dispara
+    // pra trazer o Ads/semaforo/campanhas (que o cache pode nao ter).
+    // nao esta completo OU cache velho: dispara. Se a chave existe, ja; senao espera aparecer.
+    if (coletaJaTentada && !completo) {
       if (status) { status.textContent = 'toque em Coletar pra tentar de novo.'; status.style.color = '#f5b041'; }
       return;
     }
+    if (coletaJaTentada) return;
     if (estado.spc) {
       coletaJaTentada = true;
       if (status) { status.textContent = 'iniciando coleta…'; status.style.color = '#7d8290'; }
@@ -1882,6 +1885,7 @@
       }
       if (barra) barra.style.width = '100%';
       if (status) { status.style.color = '#2ecc71'; status.textContent = 'pronto! conta lida.'; }
+      coletouNestaSessao = true;
       // persiste e re-renderiza pra mostrar os blocos cheios
       try { if (window.SIA_Diamantes && window.SIA_Diamantes.persistir) window.SIA_Diamantes.persistir(); } catch (e) { }
       setTimeout(function () { if (abaAtiva === 'conta360') render(); }, 700);
@@ -2304,10 +2308,8 @@
       var mapa = estado.produtos;
       var ids = Object.keys(mapa).filter(function (id) { return mapa[id].metricas.gasto !== undefined || mapa[id].metricas.roas !== undefined; });
       if (!ids.length) {
-        // sem metricas de ads por item (a Shopee nem sempre entrega): mostra o funil como visao util
-        var idsF = Object.keys(mapa).filter(function (id) { return mapa[id].metricas.vendas_pagas !== undefined; });
-        if (idsF.length) { abaAtiva = 'performance'; render(); abaAtiva = 'produtos'; return; }
-        corpo.innerHTML = '<div class="vazio">A Shopee ainda nao entregou metricas de ads por produto nesta coleta (ela so as expoe em algumas telas). Use a aba <b>Performance</b> — e a leitura por item entra na busca ativa da proxima versao.</div>';
+        // sem metricas de ads por item: mostra mensagem clara, sem pular de aba
+        corpo.innerHTML = '<div class="vazio">Sem metricas de Ads por produto ainda.<br>Rode a coleta na aba <b>Conta 360</b> (o Ads entra junto) ou veja a aba <b>Performance</b> para o funil de vendas dos produtos.</div>';
         return;
       }
       ids.sort(function (a, b) { return (mapa[b].metricas.gasto || 0) - (mapa[a].metricas.gasto || 0); });
