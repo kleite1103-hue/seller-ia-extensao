@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.16.1';
+  var VERSAO = '0.17.0';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -466,6 +466,9 @@
 
     estado.brutos.unshift({ ts: pacote.ts, url: pacote.url, metodo: pacote.metodo, corpo: pacote.corpo, dados: pacote.dados });
     if (estado.brutos.length > LIMITE_BRUTOS) estado.brutos.length = LIMITE_BRUTOS;
+
+    // ---- CAMADA 1: extracao dos diamantes (nao invasivo, nunca derruba a coleta) ----
+    try { if (window.SIA_Diamantes) window.SIA_Diamantes.processar(pacote.url, pacote.dados); } catch (e) { /* silencioso */ }
 
     if (tag === 'publico') { absorverPublico(pacote.dados); }
     else if (tag === 'cadastro' && pacote.url.indexOf('get_product_info') >= 0) { absorverCadastro(pacote.dados); }
@@ -1397,6 +1400,11 @@
     '.selo.ok{border-color:#2ecc71;color:#2ecc71}' +
     '.selo.off{border-color:#e74c3c;color:#e74c3c}' +
     '.nota{font-size:11px;color:#7d8290;margin:10px 0;line-height:1.5}' +
+    '.bloco-d{background:#12151b;border:1px solid #1d212a;border-radius:9px;padding:10px 12px;margin-bottom:9px}' +
+    '.bloco-d .td{font-family:monospace;font-size:9px;letter-spacing:.06em;color:#ff4d1c;margin-bottom:7px}' +
+    '.bloco-d .ld{font-size:12px;color:#b8bcc6;line-height:1.6;padding:1px 0}' +
+    '.bloco-d .ld b{color:#f2f2f4}' +
+    '.bloco-d .vazio-d{color:#5a5f6a;font-style:italic;font-size:11px}' +
     '.tag-ads{color:#ff4d1c}.tag-conta{color:#7B2FFF}.tag-cadastro{color:#2ecc71}.tag-marketing{color:#f5b041}.tag-outra{color:#7d8290}.tag-afiliados{color:#e91e8c}.tag-performance{color:#3ab7f5}' +
     '</style>' +
     '<button class="botao" id="sia-abrir" title="Seller.IA">' + LOGO + '</button>' +
@@ -1424,6 +1432,7 @@
     { id: 'performance', rotulo: 'Performance' },
     { id: 'afiliados', rotulo: 'Afiliados' },
     { id: 'cadastro', rotulo: 'Anuncio' },
+    { id: 'diamantes', rotulo: '\u2666 Diamantes' },
     { id: 'debug', rotulo: 'Debug' }
   ];
 
@@ -1870,6 +1879,76 @@
       }
       corpo.innerHTML = h3;
 
+    } else if (abaAtiva === 'diamantes') {
+      // CAMADA 1: painel de conferencia do ouro capturado
+      var D = (window.SIA_Diamantes && window.SIA_Diamantes.estado()) || null;
+      if (!D) { corpo.innerHTML = '<div class="vazio">Modulo de diamantes nao carregou. Recarregue a extensao.</div>'; }
+      else {
+        var R = window.SIA_Diamantes.resumo();
+        var hd = '<div class="nota">Ouro capturado nesta sessao. Navegue pelo Seller Centre (Ads, Produtos, criar campanha) e veja encher. <b style="color:#f2f2f4">' + R.capturas + '</b> capturas.</div>';
+
+        // bloco META ROAS
+        hd += '<div class="bloco-d"><div class="td">META DE ROAS (SHOPEE)</div>';
+        if (R.metaRoas) {
+          hd += '<div class="ld">Sugerido: <b>' + (R.metaRoas.exato != null ? R.metaRoas.exato.toFixed(1) + 'x' : '?') + '</b>';
+          if (R.metaRoas.conservador != null) hd += ' · faixa ' + R.metaRoas.conservador.toFixed(1) + 'x a ' + (R.metaRoas.agressivo != null ? R.metaRoas.agressivo.toFixed(1) + 'x' : '?');
+          hd += '</div>';
+          if (R.projecao) hd += '<div class="ld">Projecao: +' + (R.projecao.gmvUpliftPct != null ? R.projecao.gmvUpliftPct.toFixed(0) : '?') + '% GMV, +' + (R.projecao.orderUpliftPct != null ? R.projecao.orderUpliftPct.toFixed(0) : '?') + '% pedidos</div>';
+        } else hd += '<div class="ld vazio-d">abra "criar campanha" no Ads para capturar</div>';
+        hd += '</div>';
+
+        // bloco CONTA
+        hd += '<div class="bloco-d"><div class="td">SAUDE DA CONTA</div>';
+        var c = D.conta;
+        if (c && (c.penalidade != null || c.percentilCategoria != null || c.fontes)) {
+          if (c.penalidade != null) hd += '<div class="ld">Penalidade: <b>' + c.penalidade + '</b> ponto(s)</div>';
+          if (c.notaPerformance) hd += '<div class="ld">Performance: <b>' + esc(c.notaPerformance) + '</b></div>';
+          if (c.percentilCategoria != null) hd += '<div class="ld">Percentil categoria: <b>' + c.percentilCategoria + '</b></div>';
+          if (c.fontes) hd += '<div class="ld">Fontes: ads ' + c.fontes.adsPct + '% · afiliado ' + c.fontes.afiliadoPct + '% · card ' + c.fontes.cardPct + '%</div>';
+        } else hd += '<div class="ld vazio-d">navegue pela Central de Marketing para capturar</div>';
+        hd += '</div>';
+
+        // bloco PRODUTOS (diamantes por item)
+        var prods = Object.keys(D.porProduto);
+        hd += '<div class="bloco-d"><div class="td">PRODUTOS COM OURO (' + prods.length + ')</div>';
+        if (prods.length) {
+          for (var pi = 0; pi < Math.min(prods.length, 12); pi++) {
+            var pid = prods[pi], pp = D.porProduto[pid];
+            var partes = [];
+            if (pp.status) partes.push(pp.status === 'deboost' ? '<span style="color:#e74c3c">LIMITADO</span>' : 'normal');
+            if (pp.posicaoLeilao != null) partes.push('leilao ' + pp.posicaoLeilao);
+            if (pp.competitividade != null) partes.push('comp ' + pp.competitividade);
+            if (pp.emAprendizado) partes.push('aprendizado');
+            if (pp.janelaNovoDias != null) partes.push('novo ' + pp.janelaNovoDias + 'd');
+            hd += '<div class="ld"><span style="color:#7d8290">' + pid + '</span> ' + partes.join(' · ') + '</div>';
+          }
+        } else hd += '<div class="ld vazio-d">abra a lista de Produtos no Ads para capturar</div>';
+        hd += '</div>';
+
+        // bloco CAMPANHAS diagnosticadas
+        var camps = Object.keys(D.porCampanha);
+        hd += '<div class="bloco-d"><div class="td">DIAGNOSTICO SHOPEE (' + camps.length + ' campanhas)</div>';
+        if (camps.length) {
+          var contaNota = { good: 0, fair: 0, poor: 0 };
+          camps.forEach(function (ci) { var nt = D.porCampanha[ci].nota; if (contaNota[nt] != null) contaNota[nt]++; });
+          hd += '<div class="ld">Boas: <b style="color:#2ecc71">' + contaNota.good + '</b> · Medianas: <b style="color:#f5b041">' + contaNota.fair + '</b> · Ruins: <b style="color:#e74c3c">' + contaNota.poor + '</b></div>';
+        } else hd += '<div class="ld vazio-d">navegue pelo Ads para capturar os vereditos</div>';
+        hd += '</div>';
+
+        // bloco BUSCA
+        var buscas = Object.keys(D.busca);
+        hd += '<div class="bloco-d"><div class="td">ESPIAO DE BUSCA (' + buscas.length + ')</div>';
+        if (buscas.length) {
+          buscas.slice(0, 5).forEach(function (kw) {
+            var b = D.busca[kw];
+            hd += '<div class="ld">"' + esc(kw) + '": ' + b.total + ' resultados capturados</div>';
+          });
+        } else hd += '<div class="ld vazio-d">pesquise na busca da Shopee (shopee.com.br) para capturar</div>';
+        hd += '</div>';
+
+        hd += '<div class="nota" style="margin-top:8px">Isto e a Camada 1: so a coleta. Quando os diamantes que voce navegou aparecerem aqui, esta funcionando — e ai construo a Camada 2 (o cerebro que usa tudo isso).</div>';
+        corpo.innerHTML = hd;
+      }
     } else if (abaAtiva === 'debug') {
       var okInterceptor = !!estado.interceptorVersao;
       var pj = estado.periodoAds ? (estado.periodoAds.dias + ' dia(s)') : 'nao capturado';
