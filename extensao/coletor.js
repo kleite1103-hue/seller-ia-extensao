@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.19.0';
+  var VERSAO = '0.19.1';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1427,6 +1427,7 @@
   var abaAtiva = 'semaforo';
   var ABAS = [
     { id: 'semaforo', rotulo: '\u25cf Semaforo' },
+    { id: 'conta360', rotulo: '\u25c9 Conta 360' },
     { id: 'diagnostico', rotulo: 'Diagnostico' },
     { id: 'visao', rotulo: 'Visao da Conta' },
     { id: 'campanhas', rotulo: 'Campanhas' },
@@ -1686,6 +1687,143 @@
     return h;
   }
 
+  // ==========================================================
+  // CONTA 360 — as 6 inteligencias do cerebro geral (visual)
+  // So MOSTRA o que a coleta capturou. A analise vem depois.
+  // ==========================================================
+  function renderConta360() {
+    var D = null;
+    try { if (window.SIA_Diamantes) D = window.SIA_Diamantes.resumo(); } catch (e) { }
+    if (!D) return '<div class="nota" style="padding:20px">Cofre carregando…</div>';
+
+    // helpers visuais locais
+    function fmtR(v) { return v == null ? '—' : 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fmtN(v) { return v == null ? '—' : Number(v).toLocaleString('pt-BR'); }
+    // seta de variacao: sobe verde, desce vermelho (mas reembolso/cancelamento e o contrario)
+    function varia(v, inverso) {
+      if (v == null) return '';
+      var bom = inverso ? v < 0 : v > 0;
+      var cor = v === 0 ? '#7d8290' : (bom ? '#2ecc71' : '#e74c3c');
+      var seta = v > 0 ? '\u25b2' : (v < 0 ? '\u25bc' : '');
+      return ' <span style="color:' + cor + ';font-size:10px">' + seta + ' ' + Math.abs(v).toFixed(0) + '%</span>';
+    }
+    function tend(t) {
+      if (!t) return '';
+      var m = { subindo: ['#2ecc71', 'subindo'], caindo: ['#e74c3c', 'caindo'], estavel: ['#7d8290', 'estavel'] }[t.direcao] || ['#7d8290', t.direcao];
+      return '<span style="color:' + m[0] + ';font-size:10px"> · ' + m[1] + '</span>';
+    }
+    function bloco(titulo, conteudo, vazio) {
+      return '<div class="bloco-d"><div class="td">' + titulo + '</div>' + (conteudo || ('<div class="ld vazio-d">' + vazio + '</div>')) + '</div>';
+    }
+
+    var h = '<div style="padding:2px">';
+    h += '<div class="nota" style="margin:0 0 12px">Retrato da conta lido direto da Shopee. Navegue pela Central de Dados, Produtos e Afiliados para preencher.</div>';
+
+    // ---- 1) GERENCIAIS ----
+    var g = D.gerenciais, cg = '';
+    if (g && (g.gmvPago || g.pv)) {
+      if (g.gmvPago) cg += '<div class="ld">GMV pago: <b>' + fmtR(g.gmvPago.valor) + '</b>' + varia(g.gmvPago.variacao) + '</div>';
+      if (g.pedidosPagos) cg += '<div class="ld">Pedidos: <b>' + fmtN(g.pedidosPagos.valor) + '</b>' + varia(g.pedidosPagos.variacao) + (g.ticketMedio ? ' · ticket <b>' + fmtR(g.ticketMedio) + '</b>' : '') + '</div>';
+      if (g.visitantes) cg += '<div class="ld">Visitantes: <b>' + fmtN(g.visitantes.valor) + '</b>' + varia(g.visitantes.variacao) + (g.conversaoLoja != null ? ' · conversao <b>' + g.conversaoLoja + '%</b>' : '') + '</div>';
+      if (g.pv && g.uv) cg += '<div class="ld" style="color:#7d8290;font-size:11px">PV ' + fmtN(g.pv.valor) + ' · UV ' + fmtN(g.uv.valor) + '</div>';
+    }
+    h += bloco('1 · VISAO GERENCIAL', cg, 'abra a Central de Dados (Painel) para capturar');
+
+    // ---- saude (cancelamentos/reembolsos) ----
+    if (g && g.saude) {
+      var s = g.saude, cs = '';
+      if (s.reembolsos) cs += '<div class="ld">Reembolsos: <b>' + fmtR(s.reembolsos.valor) + '</b>' + varia(s.reembolsos.variacao, true) + '</div>';
+      if (s.vendasCanceladas) cs += '<div class="ld">Cancelamentos: <b>' + fmtR(s.vendasCanceladas.valor) + '</b>' + varia(s.vendasCanceladas.variacao, true) + '</div>';
+      if (s.pedidosDevolvidos) cs += '<div class="ld" style="color:#7d8290;font-size:11px">' + fmtN(s.pedidosDevolvidos.valor) + ' devolucoes · ' + fmtN(s.pedidosCancelados ? s.pedidosCancelados.valor : 0) + ' cancelados</div>';
+      if (cs) h += bloco('SAUDE DAS VENDAS', cs, '');
+    }
+
+    // ---- 2) FUNIL ----
+    var f = D.funil, cf = '';
+    if (f && f.canais) {
+      var ordem = ['card', 'ads', 'afiliado', 'live', 'video'];
+      var nomes = { card: 'Vitrine (card)', ads: 'Anuncios', afiliado: 'Afiliados', live: 'Live', video: 'Video' };
+      ordem.forEach(function (k) {
+        var ca = f.canais[k];
+        if (ca && ca.valor > 0) cf += '<div class="ld">' + nomes[k] + ': <b>' + (ca.ratio != null ? ca.ratio.toFixed(1) + '%' : '—') + '</b> <span style="color:#7d8290;font-size:11px">(' + fmtR(ca.valor) + ')</span>' + varia(ca.variacao) + '</div>';
+      });
+      if (f.naoUsa && f.naoUsa.length) cf += '<div class="ld" style="color:#f5b041;font-size:11px">Nao usa: ' + f.naoUsa.join(', ') + ' — canais parados</div>';
+    }
+    h += bloco('2 · FUNIL / ORIGEM DO DINHEIRO', cf, 'abra Fluxo de Visitantes na Central de Dados');
+
+    // ---- 3) PERFORMANCE DE PRODUTO (top por venda) ----
+    var prods = D.produtos ? null : null;
+    var E = null; try { E = window.SIA_Diamantes.estado(); } catch (e) { }
+    var cp = '';
+    if (E && E.porProduto) {
+      var comPerf = Object.keys(E.porProduto).filter(function (k) { return E.porProduto[k].perf && E.porProduto[k].perf.ctr != null; });
+      comPerf.sort(function (a, b) {
+        var va = (E.porProduto[a].perf.vendaPaga || E.porProduto[a].perf.venda || 0);
+        var vb = (E.porProduto[b].perf.vendaPaga || E.porProduto[b].perf.venda || 0);
+        return vb - va;
+      });
+      comPerf.slice(0, 6).forEach(function (k) {
+        var p = E.porProduto[k], P = p.perf;
+        var nome = (p.nome || k).slice(0, 26);
+        var alerta = '';
+        // sinal visual: CTR bom + conversao baixa = pagina nao converte
+        if (P.ctr >= 2 && P.convPago != null && P.convPago < 1) alerta = ' <span style="color:#f5b041;font-size:10px">pagina segura</span>';
+        else if (P.rejeicao != null && P.rejeicao > 45) alerta = ' <span style="color:#e74c3c;font-size:10px">rejeicao alta</span>';
+        cp += '<div class="ld" style="border-bottom:1px solid #15171d;padding-bottom:5px;margin-bottom:5px">' +
+          '<b>' + esc(nome) + '</b>' + alerta + '<br>' +
+          '<span style="color:#9aa0ac;font-size:11px">CTR ' + (P.ctr != null ? P.ctr.toFixed(1) : '—') + '% · conv ' + (P.convPago != null ? P.convPago.toFixed(1) : '—') + '% · rejeicao ' + (P.rejeicao != null ? P.rejeicao.toFixed(0) : '—') + '% · ' + fmtR(P.vendaPaga || P.venda) + (P.fatiaVendas != null ? ' · ' + P.fatiaVendas.toFixed(0) + '% da loja' : '') + '</span></div>';
+      });
+    }
+    h += bloco('3 · PERFORMANCE DE PRODUTO', cp, 'abra Produtos na Central de Dados');
+
+    // ---- 4) SAUDE / AVALIACOES ----
+    var ca4 = '';
+    if (E && E.porProduto) {
+      var comAval = Object.keys(E.porProduto).filter(function (k) { return E.porProduto[k].avaliacoes; });
+      var totBaixas = 0, totAval = 0;
+      comAval.forEach(function (k) { totBaixas += E.porProduto[k].avaliacoes.baixas || 0; totAval += E.porProduto[k].avaliacoes.total || 0; });
+      if (comAval.length) ca4 += '<div class="ld">' + comAval.length + ' produtos avaliados · <b>' + totAval + '</b> avaliacoes' + (totBaixas > 0 ? ' · <span style="color:#e74c3c">' + totBaixas + ' baixas (1-2\u2605)</span>' : ' · <span style="color:#2ecc71">nenhuma baixa</span>') + '</div>';
+    }
+    if (g && g.travasDetectadas && Object.keys(g.travasDetectadas).length) {
+      var travasSet = {};
+      Object.keys(g.travasDetectadas).forEach(function (l) { (g.travasDetectadas[l] || []).forEach(function (t) { travasSet[t] = 1; }); });
+      var listaT = Object.keys(travasSet);
+      if (listaT.length) ca4 += '<div class="ld" style="color:#f5b041;font-size:11px">Travas de edicao detectadas: ' + listaT.slice(0, 4).join(', ') + '</div>';
+    }
+    h += bloco('4 · SAUDE / AVALIACOES', ca4, 'abra Avaliacoes ou um Produto para capturar');
+
+    // ---- 5) AFILIADOS ----
+    var af = D.afiliados, caf = '';
+    if (af && af.resumo && af.resumo.pedidos != null) {
+      var r5 = af.resumo;
+      caf += '<div class="ld">ROI do canal: <b>' + (r5.roi != null ? r5.roi.toFixed(1) + 'x' : '—') + '</b>' + varia(r5.roiVariacao) + '</div>';
+      caf += '<div class="ld">GMV afiliados: <b>' + fmtR(r5.gmv) + '</b> · <b>' + fmtN(r5.pedidos) + '</b> pedidos · comissao ' + fmtR(r5.comissaoPaga) + '</div>';
+    }
+    if (af && af.top && af.top.length) {
+      caf += '<div class="ld" style="color:#7d8290;font-size:11px;margin-top:4px">Top afiliados:</div>';
+      af.top.slice(0, 3).forEach(function (t) {
+        caf += '<div class="ld" style="font-size:11px">• ' + esc((t.nome || '').slice(0, 22)) + ' — ' + (t.roi != null ? t.roi.toFixed(1) + 'x' : '—') + ' · ' + fmtR(t.gmv) + (t.seguidores ? ' · ' + fmtN(t.seguidores) + ' seg' : '') + '</div>';
+      });
+    }
+    if (af && af.creatorsDisponiveis) caf += '<div class="ld" style="color:#7d8290;font-size:11px;margin-top:3px">' + af.creatorsDisponiveis + ' creators disponiveis para recrutar</div>';
+    h += bloco('5 · AFILIADOS', caf, 'abra o painel de Afiliados no Seller Central');
+
+    // ---- 6) FINANCEIRO ----
+    var fin = D.financeiro, cfin = '';
+    if (fin && fin.componentes) {
+      var comp = fin.componentes;
+      cfin += '<div class="ld" style="color:#7d8290;font-size:11px">Taxas reais da Shopee (' + fin.amostras + ' pedido' + (fin.amostras > 1 ? 's' : '') + ' lido' + (fin.amostras > 1 ? 's' : '') + '):</div>';
+      if (comp.COMMISSION_FEE != null) cfin += '<div class="ld">Comissao: <b>' + fmtR(Math.abs(comp.COMMISSION_FEE)) + '</b></div>';
+      if (comp.SERVICE_FEE != null) cfin += '<div class="ld">Taxa de servico: <b>' + fmtR(Math.abs(comp.SERVICE_FEE)) + '</b></div>';
+      if (comp.ESCROW_AMOUNT != null) cfin += '<div class="ld">Liquido recebido: <b style="color:#2ecc71">' + fmtR(comp.ESCROW_AMOUNT) + '</b></div>';
+      cfin += '<div class="ld" style="color:#7d8290;font-size:11px;margin-top:3px">A Shopee ja entrega comissao e taxas. Falta so o custo do produto (Cofre de Custos).</div>';
+    }
+    h += bloco('6 · FINANCEIRO (margem real)', cfin, 'abra um pedido em Financeiro > Minha Renda');
+
+    h += '</div>';
+    return h;
+  }
+
   function render() {
     if (!$('sia-painel').classList.contains('aberto')) return;
     renderAbas();
@@ -1696,6 +1834,11 @@
 
     if (abaAtiva === 'semaforo') {
       corpo.innerHTML = renderSemaforo();
+      return;
+    }
+
+    if (abaAtiva === 'conta360') {
+      corpo.innerHTML = renderConta360();
       return;
     }
 
