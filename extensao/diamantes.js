@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.3.0';
+  var VERSAO = '1.3.1';
 
   // ---- helpers ----
   function n(v) { return (typeof v === 'number') ? v : (v ? parseFloat(v) : null); }
@@ -77,15 +77,26 @@
   // 1) LEILAO + META ROAS (criacao de campanha, recomendacoes)
   function exLeilaoRoas(url, d) {
     // CPM real + posicao no leilao (get_time_graph = retrato do leilao no tempo)
-    var cpm = achar(d, 'cpm');
+    // O campo "cpm" da API vem inflado (~igual ao cost). Calculamos o CPM certo
+    // pelo agregado: custo total / impressoes totais * 1000.
     var avgRank = achar(d, 'avg_rank');
-    if ((cpm != null || avgRank != null) && /time_graph|report/.test(url)) {
+    var dObj = (d && d.data) ? d.data : {};
+    var agg = dObj.report_aggregate || null;
+    if (agg && /time_graph|report/.test(url)) {
       COFRE.ads.leilao = COFRE.ads.leilao || {};
-      if (cpm != null) COFRE.ads.leilao.cpmReal = real(cpm);   // R$ por mil impressoes
-      if (avgRank != null) COFRE.ads.leilao.posicaoMedia = n(avgRank);
-      var cpc = achar(d, 'cpc');
-      if (cpc != null) COFRE.ads.leilao.cpc = real(cpc);
+      var gastoTot = agg.cost != null ? real(agg.cost) : null;
+      var imprTot = agg.impression != null ? n(agg.impression) : null;
+      if (gastoTot != null && imprTot) {
+        COFRE.ads.leilao.cpmReal = Math.round((gastoTot / imprTot * 1000) * 100) / 100; // R$ por mil impressoes
+      }
+      if (agg.avg_rank != null) COFRE.ads.leilao.posicaoMedia = n(agg.avg_rank);
+      else if (avgRank != null) COFRE.ads.leilao.posicaoMedia = n(avgRank);
+      var cpcAgg = agg.cost != null && agg.click ? real(agg.cost) / n(agg.click) : null;
+      if (cpcAgg != null) COFRE.ads.leilao.cpc = Math.round(cpcAgg * 100) / 100;
       logar('leilao_cpm', 'CPM R$' + (COFRE.ads.leilao.cpmReal || '?') + ' pos ' + (COFRE.ads.leilao.posicaoMedia || '?'), url);
+    } else if (avgRank != null && /time_graph|report/.test(url)) {
+      COFRE.ads.leilao = COFRE.ads.leilao || {};
+      COFRE.ads.leilao.posicaoMedia = n(avgRank);
     }
     // permissao de lance por preco (prova do oCPM: se false, lance manual acabou)
     var permBid = achar(d, 'has_price_bidding_permission');
@@ -286,13 +297,18 @@
     reports.forEach(function (r) {
       var pc = COFRE.porCampanha[r.camp] || {};
       var rep = r.rep;
+      // CPM real = custo / impressoes * 1000. O campo "cpm" da API vem inflado
+      // (quase igual ao cost), entao calculamos do jeito classico e correto.
+      var gastoReais = rep.cost != null ? real(rep.cost) : null;
+      var impr = rep.impression != null ? n(rep.impression) : null;
+      var cpmReal = (gastoReais != null && impr) ? (gastoReais / impr * 1000) : (pc.leilao && pc.leilao.cpm);
       pc.leilao = {
         posicao: rep.avg_rank != null ? n(rep.avg_rank) : (pc.leilao && pc.leilao.posicao),
-        cpm: rep.cpm != null ? real(rep.cpm) : (pc.leilao && pc.leilao.cpm),
+        cpm: cpmReal != null ? Math.round(cpmReal * 100) / 100 : null, // R$ por mil impressoes, 2 casas
         cpc: rep.cpc != null ? real(rep.cpc) : null,
         custoPosicao: rep.location_in_ads != null ? real(rep.location_in_ads) : null, // custo da posicao no anuncio
         sov: rep.sov != null ? n(rep.sov) : null, // share of voice
-        gasto: rep.cost != null ? real(rep.cost) : null
+        gasto: gastoReais
       };
       pc.funil = {
         impressoes: rep.impression != null ? n(rep.impression) : null,
