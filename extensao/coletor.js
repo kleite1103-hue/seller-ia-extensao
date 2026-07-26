@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.2';
+  var VERSAO = '0.23.3';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1290,7 +1290,7 @@
         // primeiro dia do mes atual, 00:00 BRT
         var primeiroMes = new Date(Date.UTC(dNow.getUTCFullYear(), dNow.getUTCMonth(), 1, 3, 0, 0));
         var ini = Math.floor(primeiroMes.getTime() / 1000);
-        var fim = hoje0; // 00:00 BRT de hoje (dia redondo, como a Shopee faz)
+        var fim = hoje0 - 86400; // ONTEM 00:00 BRT — a Shopee nao inclui o dia corrente
         // se estiver na tela de Ads com janela selecionada, espelha (alinhado ao dia)
         var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
         var mTo = location.search.match(/[?&]to=(\d{9,11})/);
