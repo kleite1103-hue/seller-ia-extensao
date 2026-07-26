@@ -19,8 +19,28 @@
   'use strict';
   if (window.SIA_Lote) return;
 
-  var VERSAO = '1.0.0';
+  var VERSAO = '1.1.0';
   var BASE = 'https://seller.shopee.com.br';
+  var RESPIRO_MS = 220;   // pausa entre chamadas pra nao sufocar a thread
+
+  // ---- BLINDAGEM 1: espera um tempinho (deixa a tela respirar) ----
+  function respirar(ms) {
+    return new Promise(function (r) { setTimeout(r, ms || RESPIRO_MS); });
+  }
+
+  // ---- BLINDAGEM 2: processa no tempo ocioso do navegador ----
+  // requestIdleCallback roda o processamento so quando a tela nao esta ocupada,
+  // entao nunca compete com rolagem/clique do usuario. Fallback pra setTimeout.
+  function noTempoOcioso(fn) {
+    return new Promise(function (resolve) {
+      var run = function () { try { fn(); } catch (e) { } resolve(); };
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(run, { timeout: 1500 });
+      } else {
+        setTimeout(run, 1);
+      }
+    });
+  }
 
   // ---- descobrir o SPC_CDS (cracha da sessao) de chamadas ja vistas ----
   // o coletor.js guarda as urls brutas; pegamos o SPC_CDS de qualquer uma.
@@ -59,7 +79,7 @@
       { nome: 'Visao gerencial', url: '/api/mydata/v3/dashboard/key-metrics/?' + qData + '&fetag=fetag' },
       { nome: 'Vendas e cancelamentos', url: '/api/mydata/dashboard/order-performance/?' + qData },
       { nome: 'Funil de visitantes', url: '/api/mydata/v1/product/traffic/overview/?' + qData + '&order_type=paid' },
-      { nome: 'Performance de produtos', url: '/api/mydata/v4/product/performance/?' + qData + '&category_type=shopee&category_id=-1&page_size=20&page_num=1&order_type=paid&order_by=paid_sales.desc' },
+      { nome: 'Performance de produtos', url: '/api/mydata/v4/product/performance/?' + qData + '&category_type=shopee&category_id=-1&page_size=15&page_num=1&order_type=paid&order_by=paid_sales.desc' },
       { nome: 'Afiliados (resumo)', url: '/api/v3/affiliateplatform/dashboard/seller_daily?start_time=' + p.start + '&end_time=' + (p.end - 1) + '&is_real_time=0&order_type=2&channel=0' },
       { nome: 'Afiliados (top 5)', url: '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + p.start + '&end_time=' + (p.end - 1) + '&order_type=2&channel=0&has_meta_feature=1' }
     ];
@@ -74,9 +94,12 @@
     }).then(function (r) {
       return r.json();
     }).then(function (dados) {
-      // entrega ao cerebro exatamente como se tivesse passado na tela
-      try { if (window.SIA_Diamantes) window.SIA_Diamantes.processar(BASE + item.url, dados); } catch (e) { }
-      return { ok: true, nome: item.nome, dados: dados };
+      // BLINDAGEM 2: processa o dado no tempo ocioso, sem travar a tela
+      return noTempoOcioso(function () {
+        try { if (window.SIA_Diamantes) window.SIA_Diamantes.processar(BASE + item.url, dados); } catch (e) { }
+      }).then(function () {
+        return { ok: true, nome: item.nome, dados: dados };
+      });
     }).catch(function (e) {
       return { ok: false, nome: item.nome, erro: String(e) };
     });
@@ -95,7 +118,7 @@
         if (ids.length) {
           chamadas.push({
             nome: 'Performance 30 dias', tipo: 'perf30',
-            url: '/api/v3/opt/mpsku/list/v2/get_product_performance_info?' + qBase + '&product_ids=' + ids.slice(0, 50).join(',')
+            url: '/api/v3/opt/mpsku/list/v2/get_product_performance_info?' + qBase + '&product_ids=' + ids.slice(0, 30).join(',')
           });
         }
         // avaliacoes dos 5 top produtos
@@ -125,29 +148,37 @@
     var onda1 = montarOnda1(cds);
     var total = onda1.length; // onda 2 soma depois
     var feito = 0;
+    var resultados = [];
 
     function passo(nome) { feito++; if (onProgress) onProgress(feito, total, nome); }
 
-    // dispara Onda 1 em paralelo (rapido), mas reporta uma a uma
-    var promessas1 = onda1.map(function (item) {
-      return disparar(item).then(function (res) { passo(item.nome); return res; });
-    });
+    // BLINDAGEM 1: dispara UMA de cada vez, com um respiro entre elas.
+    // Demora um pouco mais, mas a thread nunca congela — cada resposta e
+    // processada isolada, com a tela livre entre uma e outra.
+    function emSerie(lista, aoFim) {
+      var idx = 0;
+      function proxima() {
+        if (idx >= lista.length) { aoFim(); return; }
+        var item = lista[idx++];
+        disparar(item).then(function (res) {
+          resultados.push(res);
+          passo(item.nome);
+          // respiro de 120ms entre chamadas: da folego pra tela e pro servidor
+          setTimeout(proxima, 120);
+        });
+      }
+      proxima();
+    }
 
-    Promise.all(promessas1).then(function (res1) {
-      // monta Onda 2 com o que a Onda 1 trouxe
+    emSerie(onda1, function () {
       var onda2 = montarOnda2(cds);
       total += onda2.length;
       if (onProgress) onProgress(feito, total, 'preparando detalhes…');
-      var promessas2 = onda2.map(function (item) {
-        return disparar(item).then(function (res) { passo(item.nome); return res; });
-      });
-      return Promise.all(promessas2).then(function (res2) {
-        // persiste o cofre atualizado
+      emSerie(onda2, function () {
         try { if (window.SIA_Diamantes && window.SIA_Diamantes.persistir) window.SIA_Diamantes.persistir(); } catch (e) { }
-        var todos = res1.concat(res2);
-        var ok = todos.filter(function (r) { return r.ok; }).length;
-        var falhas = todos.filter(function (r) { return !r.ok; });
-        if (onDone) onDone({ ok: true, total: todos.length, sucesso: ok, falhas: falhas });
+        var ok = resultados.filter(function (r) { return r.ok; }).length;
+        var falhas = resultados.filter(function (r) { return !r.ok; });
+        if (onDone) onDone({ ok: true, total: resultados.length, sucesso: ok, falhas: falhas });
       });
     });
   }
