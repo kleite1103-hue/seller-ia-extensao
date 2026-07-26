@@ -24,9 +24,9 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
 .topbar .st::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ok)}
 
 /* barra de navegacao deslizavel */
-.nav{display:flex;gap:4px;padding:9px 10px;background:var(--bg3);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.nav{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:9px 10px;background:var(--bg3);border-bottom:1px solid var(--line)}
 .nav::-webkit-scrollbar{display:none}
-.nav button{font-family:'Space Mono';font-size:10px;letter-spacing:.03em;color:var(--text3);padding:7px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;border:1px solid transparent;background:transparent}
+.nav button{font-family:'Space Mono';font-size:9.5px;letter-spacing:.02em;color:var(--text3);padding:8px 6px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--bg2);text-align:center}
 .nav button.on{color:#fff;background:var(--bg2);border-color:var(--line)}
 .screen{padding:15px;max-height:520px;overflow-y:auto}
 .ml{font-family:'Space Mono';font-size:9px;color:var(--text3);letter-spacing:.06em}
@@ -116,10 +116,10 @@ body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-w
     </div>
     <div class="nav">
       <button class="on" onclick="go(this,'inicio')">Início</button>
-      <button onclick="go(this,'produto')">Card do Produto</button>
+      <button onclick="go(this,'produto')">Produto</button>
       <button onclick="go(this,'produtos')">Produtos</button>
       <button onclick="go(this,'espec')">Especialista</button>
-      <button onclick="go(this,'busca')">Espião de Busca</button>
+      <button onclick="go(this,'busca')">Espião</button>
       <button onclick="go(this,'ferr')">Ferramentas</button>
     </div>
     <div class="screen">
