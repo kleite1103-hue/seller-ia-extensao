@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.4.3';
+  var VERSAO = '1.4.4';
 
   // ---- helpers ----
   function n(v) {
@@ -520,33 +520,41 @@
   // [1] GERENCIAIS — o Snapshot Executivo (key-metrics + order-performance)
   function exGerenciais(url, d) {
     var r = raiz(d);
-    if (/dashboard\/key-metrics|homepage\/key-metrics/.test(url)) {
-      // a Shopee manda key-metrics de varios periodos (mes/7d/hoje).
-      // guardamos SEMPRE o de maior GMV pago (o periodo mais completo),
-      // pra "hoje" (as vezes zero) nao apagar o retrato do mes.
+    // FORMATO A: homepage/key-metrics (nomes curtos: sales, uv, orders + _pct_diff)
+    if (/homepage\/key-metrics/.test(url) && r.sales != null) {
+      var gmvNovoA = n(r.sales) || 0;
+      var gmvAtualA = (COFRE.gerenciais.gmvPago && COFRE.gerenciais.gmvPago.valor) || 0;
+      if (gmvNovoA >= gmvAtualA) {
+        var gA = COFRE.gerenciais;
+        gA.gmvPago = { valor: n(r.sales), variacao: variacaoPct(r.sales_pct_diff) };
+        gA.pedidosPagos = { valor: n(r.orders), variacao: variacaoPct(r.orders_pct_diff) };
+        gA.pv = { valor: n(r.pv), variacao: variacaoPct(r.pv_pct_diff) };
+        gA.uv = { valor: n(r.uv), variacao: variacaoPct(r.uv_pct_diff) };
+        gA.visitantes = { valor: n(r.hybrid_uv), variacao: variacaoPct(r.hybrid_uv_pct_diff) };
+        gA.cliquesProduto = { valor: n(r.product_clicks), variacao: variacaoPct(r.product_clicks_pct_diff) };
+        if (r.conversion_rate != null) gA.conversaoLoja = Math.round(n(r.conversion_rate) * 10000) / 100;
+        if (gA.gmvPago.valor && gA.pedidosPagos.valor) gA.ticketMedio = Math.round((gA.gmvPago.valor / gA.pedidosPagos.valor) * 100) / 100;
+        logar('gerenciais', 'GMV R$' + gA.gmvPago.valor + ' · ' + gA.pedidosPagos.valor + ' pedidos (home)', url);
+      }
+      return;
+    }
+    // FORMATO B: dashboard/key-metrics (nomes longos: paid_gmv, shop_pv + chain_ratio)
+    if (/dashboard\/key-metrics/.test(url)) {
       var gmvNovo = (r.paid_gmv && r.paid_gmv.value != null) ? n(r.paid_gmv.value) : 0;
-      if (!r.paid_gmv && !r.shop_pv) return; // resposta vazia (homepage costuma vir sem dados)
+      if (!r.paid_gmv && !r.shop_pv) return;
       var gmvAtual = (COFRE.gerenciais.gmvPago && COFRE.gerenciais.gmvPago.valor) || 0;
-      if (gmvNovo < gmvAtual) return; // ja temos um periodo mais rico
+      if (gmvNovo < gmvAtual) return;
       var g = COFRE.gerenciais;
-      // topo do funil da loja
       if (r.shop_pv) g.pv = metrica(r.shop_pv);
       if (r.shop_uv) g.uv = metrica(r.shop_uv);
       if (r.product_clicks) g.cliquesProduto = metrica(r.product_clicks);
       if (r.hybrid_uv) g.visitantes = metrica(r.hybrid_uv);
-      // dinheiro
       if (r.paid_gmv) g.gmvPago = metrica(r.paid_gmv);
       if (r.place_gmv) g.gmvColocado = metrica(r.place_gmv);
       if (r.paid_orders) g.pedidosPagos = metrica(r.paid_orders);
       if (r.place_orders) g.pedidosColocados = metrica(r.place_orders);
-      // conversao da loja inteira (pedidos pagos / visitantes)
-      if (g.pedidosPagos && g.visitantes && g.visitantes.valor) {
-        g.conversaoLoja = Math.round((g.pedidosPagos.valor / g.visitantes.valor) * 10000) / 100;
-      }
-      // ticket medio
-      if (g.gmvPago && g.pedidosPagos && g.pedidosPagos.valor) {
-        g.ticketMedio = Math.round((g.gmvPago.valor / g.pedidosPagos.valor) * 100) / 100;
-      }
+      if (g.pedidosPagos && g.visitantes && g.visitantes.valor) g.conversaoLoja = Math.round((g.pedidosPagos.valor / g.visitantes.valor) * 10000) / 100;
+      if (g.gmvPago && g.pedidosPagos && g.pedidosPagos.valor) g.ticketMedio = Math.round((g.gmvPago.valor / g.pedidosPagos.valor) * 100) / 100;
       logar('gerenciais', 'GMV pago R$' + (g.gmvPago ? g.gmvPago.valor : '?') + ' · ' + (g.pedidosPagos ? g.pedidosPagos.valor : '?') + ' pedidos', url);
     }
     if (/dashboard\/order-performance/.test(url)) {
@@ -596,6 +604,25 @@
   // [3] PERFORMANCE DE PRODUTO — o funil de cada item (product/performance + rankings)
   function exPerformanceProduto(url, d) {
     var r = raiz(d);
+    // FORMATO EXTRA: get_product_performance_info traz l30d por item_id (mapa)
+    if (/get_product_performance_info/.test(url)) {
+      var perf = r.performance;
+      if (perf && typeof perf === 'object') {
+        var c = 0;
+        Object.keys(perf).forEach(function (id) {
+          var pp = perf[id];
+          var p = COFRE.porProduto[String(id)] || {};
+          p.perf = p.perf || {};
+          if (pp.l30d_sales != null) p.perf.vendas30d = n(pp.l30d_sales);
+          if (pp.l30d_impression != null) p.perf.impressoes30d = n(pp.l30d_impression);
+          if (pp.l30d_conversion != null) p.perf.conversao30d = pctReal(pp.l30d_conversion);
+          COFRE.porProduto[String(id)] = p;
+          c++;
+        });
+        if (c) logar('perf_30d', c + ' produtos com dados de 30 dias', url);
+      }
+      return;
+    }
     var itens = r.items || r.item || null;
     if (!Array.isArray(itens)) return;
     if (!/product\/performance|product-rankings|traffic-sources\/product-contribution|traffic\/item-list/.test(url)) return;
@@ -833,7 +860,7 @@
       // ---- CEREBRO GERAL (6 inteligencias) ----
       if (/dashboard\/key-metrics|homepage\/key-metrics|dashboard\/order-performance/.test(url)) exGerenciais(url, dados);
       if (/traffic\/overview|dashboard\/traffic-sources/.test(url)) exFunil(url, dados);
-      if (/product\/performance|product-rankings|traffic-sources\/product-contribution|traffic\/item-list/.test(url)) exPerformanceProduto(url, dados);
+      if (/product\/performance|product-rankings|traffic-sources\/product-contribution|traffic\/item-list|get_product_performance_info/.test(url)) exPerformanceProduto(url, dados);
       if (/product\/overview\/metric-trends|product\/overview\/|product\/traffic\/overview/.test(url)) exTendenciaProduto(url, dados);
       if (/get_product_lock_info|item\/get_ratings/.test(url)) exSaudeProduto(url, dados);
       if (/accounthealth\/v1\/sc\/shops\/overview/.test(url)) exSaudeConta(url, dados);
