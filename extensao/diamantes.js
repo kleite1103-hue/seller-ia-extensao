@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.4.0';
+  var VERSAO = '1.4.1';
 
   // ---- helpers ----
   function n(v) {
@@ -88,10 +88,19 @@
     if (!d || typeof d !== 'object') return {};
     return d.result || d.data || d;
   }
-  function pctReal(v) { // 0.0407 -> 4.07 ; se ja vier >1 assume que ja e %
+  function pctReal(v) { // TAXA: 0.0407 -> 4.07 ; se ja vier >1 assume que ja e %
     var x = n(v);
     if (x === null || x === -1000000) return null;
     return x <= 1 ? x * 100 : x;
+  }
+  // VARIACAO (pct_diff): no funil vem em decimal (0.186 = +18,6%; -0.122 = -12,2%).
+  // Diferente de taxa: variacao pode ser negativa e representar de -100% a +qualquer.
+  // Heuristica segura: se |x| <= 3 assume decimal (x100); senao ja e % (ex 199.6).
+  function variacaoPct(v) {
+    var x = n(v);
+    if (x === null || x === -1000000) return null;
+    var r = (Math.abs(x) <= 3) ? x * 100 : x;
+    return Math.round(r * 10) / 10;
   }
   // extrai { valor, variacao } de um campo tipo { value, chain_ratio }
   function metrica(o) {
@@ -99,8 +108,9 @@
     if (typeof o === 'number') return { valor: o, variacao: null };
     if (typeof o !== 'object') return null;
     var val = (o.value != null) ? n(o.value) : null;
-    // chain_ratio 1.08 = +8%; 0.51 = -49%. guardamos como % de variacao.
-    var vr = (o.chain_ratio != null) ? (n(o.chain_ratio) - 1) * 100 : null;
+    // chain_ratio JA E a variacao em decimal: 0.186 = +18,6% ; -0.277 = -27,7%.
+    // (pode vir negativo, prova de que nao e razao de valores)
+    var vr = (o.chain_ratio != null) ? n(o.chain_ratio) * 100 : null;
     return { valor: val, variacao: vr != null ? Math.round(vr * 10) / 10 : null };
   }
   // reduz uma serie de points[] a um resumo leve (nao guardamos ponto a ponto)
@@ -558,9 +568,9 @@
       var f = COFRE.funil;
       f.totalVendas = n(ov.total_sales);
       f.canais = {
-        card: { valor: n(ov.product_card), ratio: pctReal(ov.product_card_ratio), variacao: pctReal(ov.product_card_pct_diff) },
-        ads: { valor: n(ov.paid_ads), ratio: pctReal(ov.paid_ads_ratio), variacao: pctReal(ov.paid_ads_pct_diff) },
-        afiliado: { valor: n(ov.affiliate), ratio: pctReal(ov.affiliate_ratio), variacao: pctReal(ov.affiliate_pct_diff) },
+        card: { valor: n(ov.product_card), ratio: pctReal(ov.product_card_ratio), variacao: variacaoPct(ov.product_card_pct_diff) },
+        ads: { valor: n(ov.paid_ads), ratio: pctReal(ov.paid_ads_ratio), variacao: variacaoPct(ov.paid_ads_pct_diff) },
+        afiliado: { valor: n(ov.affiliate), ratio: pctReal(ov.affiliate_ratio), variacao: variacaoPct(ov.affiliate_pct_diff) },
         live: { valor: n(ov.live), ratio: pctReal(ov.live_ratio) },
         video: { valor: n(ov.video), ratio: pctReal(ov.video_ratio) }
       };
