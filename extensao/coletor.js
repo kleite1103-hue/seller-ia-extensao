@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.8';
+  var VERSAO = '0.23.9';
   var MICRO = 100000;
 
   /* =============================== ESTADO =============================== */
@@ -1779,31 +1779,46 @@
     var btn = $('sia-btn-coletar');
     if (!btn) return;
     var status = $('sia-lote-status');
-    btn.addEventListener('click', function () { dispararColeta(); });
-    // AUTOMATICO: dispara se ainda nao temos os dados do PERIODO (mes).
-    if (coletaJaTentada) return;
-    var precisaBuscar = true;
+    btn.addEventListener('click', function () { coletaJaTentada = true; dispararColeta(); });
+
+    // se ja esta coletando, mostra isso
+    if (coletaEmAndamento || estado.coletaProgresso) {
+      if (status) { status.textContent = estado.coletaProgresso || 'coletando…'; status.style.color = '#7d8290'; }
+      return;
+    }
+    // ja temos tudo do periodo? avisa que esta pronto (com opcao de recoletar)
+    var completo = false;
     try {
       var D = window.SIA_Diamantes ? window.SIA_Diamantes.resumo() : null;
       var temPeriodo = D && D.gerenciais && D.gerenciais.fonte === 'periodo';
       var temResto = D && D.funil && D.afiliados;
-      if (temPeriodo && temResto) precisaBuscar = false;
+      completo = temPeriodo && temResto;
     } catch (e) { }
-    if (!precisaBuscar) return;
-    // se a chave ja existe, dispara. Senao, ESPERA ela aparecer (ate ~30s)
-    // e dispara sozinho — sem exigir que a usuaria navegue telas.
+    if (completo) {
+      if (status) { status.textContent = 'conta ja lida. Toque no botao pra atualizar.'; status.style.color = '#2ecc71'; }
+      if (btn) btn.textContent = 'Coletar de novo';
+      return;
+    }
+    // nao esta completo: dispara. Se a chave existe, ja; senao espera aparecer.
+    if (coletaJaTentada) {
+      // ja tentou nesta sessao e nao completou — deixa o botao pronto pra retry
+      if (status) { status.textContent = 'toque em Coletar pra tentar de novo.'; status.style.color = '#f5b041'; }
+      return;
+    }
     if (estado.spc) {
       coletaJaTentada = true;
-      setTimeout(dispararColeta, 500);
+      if (status) { status.textContent = 'iniciando coleta…'; status.style.color = '#7d8290'; }
+      setTimeout(dispararColeta, 400);
     } else {
-      if (status) { status.textContent = 'preparando… (aguardando a conta carregar)'; status.style.color = '#7d8290'; }
+      if (status) { status.textContent = 'preparando… (abra o Seller Central e aguarde)'; status.style.color = '#7d8290'; }
       var espera = 0;
       var vigia = setInterval(function () {
         espera++;
-        if (coletaJaTentada || espera > 30) { clearInterval(vigia); return; }
+        if (coletaJaTentada || espera > 30) { clearInterval(vigia); if (!coletaJaTentada && status) { status.textContent = 'toque em Coletar pra buscar agora.'; status.style.color = '#f5b041'; } return; }
         if (estado.spc) {
           clearInterval(vigia);
           coletaJaTentada = true;
+          if (status) { status.textContent = 'iniciando coleta…'; status.style.color = '#7d8290'; }
           dispararColeta();
         }
       }, 1000);
@@ -1969,6 +1984,10 @@
     h += '<div id="sia-lote-status" style="font-size:11px;color:#7d8290;flex:1">Clique para a extensao buscar tudo sozinha</div>';
     h += '</div>';
     h += '<div id="sia-lote-barra-bg" style="display:none;height:6px;background:#1d212a;border-radius:3px;margin-top:10px;overflow:hidden"><div id="sia-lote-barra" style="height:100%;width:0%;background:linear-gradient(90deg,#ff4d1c,#7B2FFF);transition:width .3s"></div></div>';
+    // diagnostico: mostra se a sessao (chave) foi capturada
+    var temChave = !!estado.spc;
+    h += '<div style="font-size:10px;margin-top:8px;color:' + (temChave ? '#2ecc71' : '#f5b041') + '">' +
+      (temChave ? '\u25cf sessao capturada — pronto pra coletar' : '\u25cb sessao ainda nao capturada — abra/recarregue o Seller Central') + '</div>';
     h += '</div>';
     h += '<div class="nota" style="margin:0 0 12px">Retrato da conta lido direto da Shopee. Use o botao acima ou navegue pelas telas.</div>';
 
