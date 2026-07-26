@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — O Baú Completo</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.55}
+.wrap{max-width:780px;margin:0 auto;padding:28px 16px 70px}
+h1{font-family:'Bebas Neue';font-size:clamp(30px,6vw,44px);text-align:center;letter-spacing:.02em;line-height:1}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);text-align:center;font-size:14.5px;max-width:600px;margin:10px auto 6px}
+.note{font-family:'Space Mono';font-size:10.5px;color:var(--text3);text-align:center;margin-bottom:24px}
+.cat{font-family:'Bebas Neue';font-size:24px;letter-spacing:.03em;margin:32px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}
+.cat .n{width:26px;height:26px;border-radius:8px;background:linear-gradient(120deg,var(--orange),var(--purple));display:flex;align-items:center;justify-content:center;font-size:14px;font-family:'Space Mono';font-weight:700;color:#fff}
+.item{background:var(--bg2);border:1px solid var(--line);border-radius:13px;padding:15px 17px;margin-bottom:12px}
+.item .h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.item .nome{font-size:15.5px;font-weight:600;color:var(--text)}
+.item .val{font-family:'Space Mono';font-size:12px;color:var(--orange);background:rgba(255,77,28,.09);border:1px solid rgba(255,77,28,.25);border-radius:6px;padding:2px 9px}
+.item .oq{font-size:13.5px;color:var(--text2);margin-bottom:8px}
+.item .fz{font-size:13.5px;color:var(--text);background:var(--bg3);border-left:3px solid var(--ok);border-radius:0 8px 8px 0;padding:9px 12px}
+.item .fz b{color:var(--ok)}
+.priority{display:inline-block;font-family:'Space Mono';font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:2px 8px;margin-left:auto}
+.pr-alta{background:rgba(255,77,28,.14);color:var(--orange);border:1px solid var(--orange)}
+.pr-media{background:rgba(123,47,255,.14);color:#c88bff;border:1px solid var(--purple)}
+.foot{margin-top:34px;padding:18px;border:1px dashed var(--purple);border-radius:12px;font-size:14px;color:var(--text2);text-align:center}
+.foot b{color:var(--orange)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>O BAÚ <em>COMPLETO</em></h1>
+  <p class="sub">Tudo que a Shopee esconde e a gente decodificou — com o valor real que veio da SUA conta (colorindo_shop). O que é cada coisa e o que a Seller.IA faz com ela.</p>
+  <p class="note">158 CAMPOS-OURO MAPEADOS · AQUI OS QUE VIRAM AÇÃO</p>
+
+  <!-- LEILAO -->
+  <div class="cat"><span class="n">1</span> LEILÃO E ALGORITMO <span class="priority pr-alta">prioridade alta</span></div>
+
+  <div class="item"><div class="h"><span class="nome">Posição no leilão</span><span class="val">avg_rank = 61</span></div>
+    <div class="oq">A posição média real do seu anúncio no leilão, calculada pela Shopee. 1 = topo; 60+ = fundo de vitrine.</div>
+    <div class="fz"><b>Faz:</b> o card mostra "posição 61 — fundo de vitrine" e cruza com CTR pra dizer se o problema é o card (foto/título) ou o funil (preço/conversão). Substitui o palpite pela posição oficial.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Competitividade de preço</span><span class="val">competitiveness = 50 · uplift = 18000</span></div>
+    <div class="oq">Nota de 0 a 100 de quão competitivo é seu preço vs a categoria. 50 = na média. O "uplift" mostra quanto você ganharia de competitividade ajustando.</div>
+    <div class="fz"><b>Faz:</b> "seu preço está na média (50/100); baixando X%, sobe pra faixa competitiva e destrava mais entrega" — sem você abrir concorrente nenhum. É a alavanca nova do oCPM que substituiu o lance por palavra-chave.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">CPM real</span><span class="val">cpm = 22997 (R$0,23)</span></div>
+    <div class="oq">O custo por mil impressões efetivo da sua campanha.</div>
+    <div class="fz"><b>Faz:</b> valida a fórmula do Leilão Reverso na tela — compara o CPM real com o que o método calcula (Ticket×Conv×CTR÷ROAS). Prova o conceito com o número da própria Shopee.</div></div>
+
+  <!-- ADS / ROAS -->
+  <div class="cat"><span class="n">2</span> ADS E META DE ROAS <span class="priority pr-alta">prioridade alta</span></div>
+
+  <div class="item"><div class="h"><span class="nome">Meta de ROAS que a Shopee sugere</span><span class="val">suggested_roi_two_target = 11,0×</span></div>
+    <div class="oq">A meta de ROAS que a Shopee recomenda pra campanha (o valor 1100000 ÷ 100000 = 11×). Também vem a recommended_roas_target = 3,9×.</div>
+    <div class="fz"><b>Faz:</b> resolve exatamente o que você falou — a Shopee dá o número sem o porquê. O card mostra a sugestão da Shopee (11×) LADO A LADO com o seu ROAS de equilíbrio real (100÷margem) e diz qual seguir e por quê. Fim do chute.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Estratégia de lance ativa</span><span class="val">roi_two (Meta de ROAS)</span></div>
+    <div class="oq">Confirma se a campanha está em Automático (auto) ou Meta de ROAS (roi_two), sem depender de ler a tela.</div>
+    <div class="fz"><b>Faz:</b> a regra de migração de lance do método fica 100% confiável — o card sabe se já está em Meta de ROAS ou se precisa migrar.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Diagnóstico oficial por campanha</span><span class="val">good / fair / poor + motivo</span></div>
+    <div class="oq">A Shopee dá nota interna a cada campanha em 4 eixos (lance, orçamento, continuar, competitividade), com o motivo: low_traffic (pouco tráfego), no_conversion (não converte), room_more_traffic (dá pra escalar).</div>
+    <div class="fz"><b>Faz:</b> "a Shopee marcou esta campanha como no_conversion — concorda com o método: o problema é a página, não o lance." Autoridade dobrada. Quando divergem, o método prevalece com explicação.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Créditos grátis de Ads disponíveis</span><span class="val">ads_listing_result</span></div>
+    <div class="oq">A Shopee oferece créditos grátis de ads por concluir tarefas — e avisa quantas faltam.</div>
+    <div class="fz"><b>Faz:</b> o painel alerta "você tem R$X em créditos grátis esperando — complete X tarefas". Dinheiro na mesa que o seller ignora.</div></div>
+
+  <!-- PRODUTO / LIMITACAO -->
+  <div class="cat"><span class="n">3</span> SAÚDE DO PRODUTO <span class="priority pr-alta">prioridade alta</span></div>
+
+  <div class="item"><div class="h"><span class="nome">Produto limitado (deboost)</span><span class="val">boosting_status = deboost</span></div>
+    <div class="oq">A marcação mais importante e mais escondida: a Shopee está LIMITANDO a entrega deste produto. Tem dois níveis: moderado e grave.</div>
+    <div class="fz"><b>Faz:</b> alerta VERMELHO — "este produto está limitado pela Shopee (deboost). Nenhum lance resolve enquanto a causa existir — resolva isso primeiro." Explica o mistério do "gasto e não aparece". Ninguém no mercado mostra.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Fase de aprendizado (cold start)</span><span class="val">cold_start_duration = 14 dias</span></div>
+    <div class="oq">Quantos dias o produto ainda está no período em que o algoritmo aprende sobre ele.</div>
+    <div class="fz"><b>Faz:</b> a regra "não mexa por 7 dias" vira precisa: "produto em aprendizado, faltam X dias — mudar agora reinicia a contagem." Impede o erro nº1 do seller ansioso.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Janela de produto novo</span><span class="val">new_product_period = 90 dias</span></div>
+    <div class="oq">A Shopee dá um empurrão de entrega pra produtos com menos de 90 dias. A data de publicação vem junto (first_publish_time).</div>
+    <div class="fz"><b>Faz:</b> "este produto tem X dias — aproveite a janela de novo (faltam Y dias de boost) pra escalar agora." Timing de escala que o método sempre defendeu, agora com data exata.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Qualidade do anúncio (listing)</span><span class="val">listing_quality · has improvement area</span></div>
+    <div class="oq">A Shopee avalia se o conteúdo do anúncio (foto, descrição, ficha) está bom e aponta onde pode melhorar.</div>
+    <div class="fz"><b>Faz:</b> "conteúdo abaixo do qualificado — a Shopee limita a entrega por isso. Melhore: [pontos]." Ação concreta antes de gastar em ads.</div></div>
+
+  <!-- CONTA -->
+  <div class="cat"><span class="n">4</span> SAÚDE DA CONTA <span class="priority pr-media">prioridade média</span></div>
+
+  <div class="item"><div class="h"><span class="nome">Penalidade e status de saúde</span><span class="val">penalty · status (excelente→crítico)</span></div>
+    <div class="oq">Pontos de penalidade e o status de saúde da conta (excelente, boa, precisa melhorar, em risco, crítico). Penalidade afeta a entrega de TODOS os produtos e reduz recompensas/exposição.</div>
+    <div class="fz"><b>Faz:</b> selo de saúde no topo do painel. Penalidade sobe = alerta imediato, porque derruba a conta inteira. E mostra como isso reduz seu boost grátis.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Nota e estrelas da loja</span><span class="val">performance_rating = good · 5★</span></div>
+    <div class="oq">A avaliação de performance e as estrelas da loja/produto.</div>
+    <div class="fz"><b>Faz:</b> compõe o placar de saúde da conta e entra no relatório do especialista.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Percentil na categoria</span><span class="val">percentile = 50</span></div>
+    <div class="oq">Onde sua loja está vs a categoria, em percentil. 50 = melhor que metade.</div>
+    <div class="fz"><b>Faz:</b> "sua loja está no percentil 50 da categoria" — benchmark de mercado sem precisar de dados externos. A Shopee já te posiciona.</div></div>
+
+  <!-- ESCALA ORGANICA -->
+  <div class="cat"><span class="n">5</span> ESCALA ORGÂNICA (grátis) <span class="priority pr-alta">prioridade alta</span></div>
+
+  <div class="item"><div class="h"><span class="nome">Nível de tráfego + boost por nível</span><span class="val">traffic_level · Lv.{n} Boost</span></div>
+    <div class="oq">A Shopee dá exposição GRÁTIS conforme o nível da sua loja no sistema de missões — e mostra quanto você ganhou de exposição no mês e o que fazer pra subir de nível.</div>
+    <div class="fz"><b>Faz:</b> "você ganhou X exposições grátis este mês; complete Y tarefas pra subir de nível e ganhar mais." Tráfego grátis que o seller nem sabe que existe — alavanca de escala orgânica pura.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Fontes de venda em proporção</span><span class="val">ads 76% · afiliado 2% · card 98%</span></div>
+    <div class="oq">A divisão exata de onde vêm suas vendas, já em porcentagem, calculada pela Shopee.</div>
+    <div class="fz"><b>Faz:</b> alimenta o card de dependência (o seu 76% de ads) e a análise de canais — o cruzamento ads/afiliado/orgânico que você pediu, pronto.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Product Opportunities</span><span class="val">Upload High-Demand Products</span></div>
+    <div class="oq">A Shopee sugere produtos de alta demanda que você poderia adicionar pra crescer.</div>
+    <div class="fz"><b>Faz:</b> vira aba de oportunidades — "a Shopee aponta demanda alta em X; você tem produto pra isso?" Ponte pro Garimpo/sourcing.</div></div>
+
+  <div class="item"><div class="h"><span class="nome">Cliques de busca</span><span class="val">search_clicks = 3.482</span></div>
+    <div class="oq">Quantos cliques vieram da busca interna da Shopee — a maior fonte de tráfego orgânico.</div>
+    <div class="fz"><b>Faz:</b> mostra o peso da busca no seu tráfego e reforça a importância do título (onde nasce a correspondência no oCPM).</div></div>
+
+  <div class="foot">
+    <b>Como usar este baú:</b> tudo aqui veio da SUA conta, é real. Você não precisa decorar — é uma vitrine do que dá pra fazer. Quando formos construir, você me diz <b>por quais começar</b> (minha sugestão: deboost, meta de ROAS explicada e boost por nível — os 3 mais "mágicos" pro Club). O resto entra em ondas. O baú fica salvo aqui pra consulta.
+  </div>
+</div>
+</body>
+</html>
