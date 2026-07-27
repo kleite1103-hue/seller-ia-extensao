@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.30.0';
+  var VERSAO = '0.30.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2555,7 +2555,7 @@
       nome = (pp && pp.nome) || (estado.produtos[a.id] && estado.produtos[a.id].nome) || ('Produto ' + a.id);
       if (pp && pp.campaignId) { idCamp = pp.campaignId; pc = (C.porCampanha || {})[pp.campaignId] || null; }
     }
-    return { pc: pc, pp: pp, nome: nome, idProduto: idProduto, idCamp: idCamp, C: C, autoNome: autoNome };
+    return { tipo: a.tipo || 'produto', pc: pc, pp: pp, nome: nome, idProduto: idProduto, idCamp: idCamp, C: C, autoNome: autoNome };
   }
 
   function chip(rot, val, sub, cor) {
@@ -2573,10 +2573,10 @@
     h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
       '<button data-voltar="1" style="background:#12151b;border:1px solid #2a2f3a;color:#b8bcc6;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">‹ voltar</button>' +
       '<div style="flex:1"><div style="font-size:14px;font-weight:600;line-height:1.25">' + esc(String(R.nome).slice(0, 62)) + '</div>' +
-      '<div style="font-family:monospace;font-size:9.5px;color:#7d8290">' + (R.idProduto ? 'ID ' + esc(R.idProduto) : 'campanha ' + esc(R.idCamp || '—')) + '</div></div></div>';
+      '<div style="font-family:monospace;font-size:9.5px;color:#7d8290">' + (R.tipo === 'produto' ? 'produto · ID ' + esc(R.idProduto || '—') : 'campanha · ' + esc(R.idCamp || '—')) + '</div></div></div>';
 
     if (!pc && !pp) {
-      return h + '<div class="vazio">Ainda nao tenho dados desta campanha. Rode a coleta completa na aba Inicio.</div>';
+      return h + '<div class="vazio">Ainda nao tenho dados ' + (R.tipo === 'produto' ? 'deste produto' : 'desta campanha') + '. Rode a coleta completa na aba Inicio.</div>';
     }
 
     /* ---- 1. ALERTA DE APRENDIZADO (so quando existe) ---- */
@@ -2656,8 +2656,13 @@
     var teto = margemPct ? 100 / margemPct : null;
     var temCusto = !!custoProd;
     var equil = temCusto ? teto : null;
+    var temAds = !!(pc && (pc.resultado || pc.leilao));
+    if (!temAds) {
+      h += '<div style="background:#12151b;border-left:3px solid #7B2FFF;border-radius:0 9px 9px 0;padding:10px 12px;margin-bottom:11px;font-size:13px;color:#b8bcc6;line-height:1.5">' +
+        'Este produto nao tem anuncio ativo nesta coleta, entao nao ha ROAS para explicar. O julgamento acima vem do funil organico da pagina.</div>';
+    } else {
     h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
-      '<div style="font-family:monospace;font-size:8.5px;color:#c88bff;letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
+      '<div style="font-family:Space Mono,monospace;font-size:12px;color:#c88bff;letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;text-align:center">' +
       '<div><div style="font-size:18px;color:#f5b041">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:"Space Mono";font-size:10px;color:#7d8290">VOCE PEDE</div></div>' +
       '<div><div style="font-size:18px;color:#2ecc71">' + (meta.sugerida != null ? fmt(meta.sugerida, 1) + 'x' : '—') + '</div><div style="font-family:"Space Mono";font-size:10px;color:#7d8290">SHOPEE SUGERE</div></div>' +
@@ -2689,6 +2694,7 @@
       h += linhaRoas('<b style="color:#f5b041">Nao use o ' + fmt(teto, 1) + 'x como meta.</b> Ele ignora o custo do produto. Seu limite real e mais alto, e so o Cofre de Custos vai dizer quanto.', '#f5b041');
     }
     h += '</div></div>';
+    }
 
     /* ---- 4. CONSULTOR ---- */
     var diag = null;
@@ -2700,9 +2706,12 @@
         }
       }
     } catch (e) { /* noop */ }
+    var dp = (R.tipo === 'produto' && R.idProduto && estado.produtos[R.idProduto]) ? diagProduto(R.idProduto) : null;
+    var fraseCard = (dp && dp.titulo) || (diag && (diag.titulo || diag.frase)) || cardFraseLocal(pc, pp);
     h += '<div style="background:#12151b;border:1px solid #1d212a;border-radius:12px;padding:13px;margin-bottom:11px">' +
-      '<div style="font-size:17px;color:#ff4d1c;line-height:1.25;margin-bottom:8px">' + esc((diag && (diag.titulo || diag.frase)) || cardFraseLocal(pc, pp)) + '</div>';
-    var passos = (diag && diag.acoes) || null;
+      '<div style="font-size:19px;color:#ff4d1c;line-height:1.25;margin-bottom:6px">' + esc(fraseCard) + '</div>';
+    if (dp && dp.texto) h += '<div style="font-size:13px;color:#c8ccd4;line-height:1.5;margin-bottom:8px">' + esc(dp.texto) + '</div>';
+    var passos = (diag && diag.acoes) || (dp && dp.acao ? [dp.acao] : null);
     if (passos && passos.length) {
       h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:6px">FACA NESTA ORDEM</div>';
       for (var s = 0; s < passos.length; s++) {
@@ -2745,13 +2754,26 @@
 
     /* ---- 6. FUNIL ---- */
     var f = (pc && pc.funil) || {};
-    var etapas = [
-      { r: 'IMPRESSOES', v: f.impressoes },
-      { r: 'CLIQUES', v: f.cliques },
-      { r: 'CARRINHO', v: f.atc != null ? f.atc : (f.checkout != null ? f.checkout : null) },
-      { r: 'VENDAS', v: (pc && pc.resultado && pc.resultado.pedidos) || f.checkout }
-    ];
-    h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:7px">O CAMINHO ATE A VENDA</div>' +
+    var perfP = (pp && pp.perf) || {};
+    var mProd = (R.idProduto && estado.produtos[R.idProduto] && estado.produtos[R.idProduto].metricas) || {};
+    var etapas, tituloFunil = 'O CAMINHO ATE A VENDA';
+    if (R.tipo === 'produto' && !f.impressoes) {
+      tituloFunil = 'O CAMINHO ATE A VENDA (PAGINA DO PRODUTO)';
+      etapas = [
+        { r: 'VISITANTES', v: mProd.visitantes !== undefined ? mProd.visitantes : perfP.uv },
+        { r: 'VISUALIZACOES', v: perfP.pv },
+        { r: 'CARRINHO', v: perfP.carrinhoCompradores != null ? perfP.carrinhoCompradores : perfP.carrinhoUnid },
+        { r: 'PEDIDOS', v: mProd.pedidos_pagos !== undefined ? mProd.pedidos_pagos : perfP.pedidosPagos }
+      ];
+    } else {
+      etapas = [
+        { r: 'IMPRESSOES', v: f.impressoes },
+        { r: 'CLIQUES', v: f.cliques },
+        { r: 'CARRINHO', v: f.atc != null ? f.atc : (f.checkout != null ? f.checkout : null) },
+        { r: 'VENDAS', v: (pc && pc.resultado && pc.resultado.pedidos) || f.checkout }
+      ];
+    }
+    h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:7px">' + tituloFunil + '</div>' +
       '<div style="display:flex;align-items:center;gap:4px;background:#12151b;border:1px solid #1d212a;border-radius:12px;padding:12px 8px">';
     for (var i = 0; i < etapas.length; i++) {
       if (i > 0) {
