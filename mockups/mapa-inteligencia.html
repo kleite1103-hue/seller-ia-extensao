@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Mapa da Inteligência</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#8a909c;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:860px;margin:0 auto;padding:34px 16px 70px}
+h1{font-family:'Bebas Neue';font-size:clamp(34px,8vw,52px);letter-spacing:.02em;line-height:.95}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);font-size:15px;margin-top:8px;max-width:60ch}
+.legenda{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 30px}
+.lg{font-family:'Space Mono';font-size:10.5px;padding:5px 11px;border-radius:99px;border:1px solid}
+.st-usado{color:var(--ok);border-color:rgba(46,204,113,.4);background:rgba(46,204,113,.08)}
+.st-parcial{color:var(--warn);border-color:rgba(245,176,65,.4);background:rgba(245,176,65,.08)}
+.st-parado{color:var(--bad);border-color:rgba(231,76,60,.4);background:rgba(231,76,60,.08)}
+.st-falta{color:#c88bff;border-color:rgba(123,47,255,.4);background:rgba(123,47,255,.09)}
+.grp{font-family:'Bebas Neue';font-size:26px;letter-spacing:.03em;margin:34px 0 4px;display:flex;align-items:baseline;gap:10px}
+.grp .n{font-family:'Space Mono';font-size:11px;color:var(--orange);letter-spacing:.06em}
+.grp-sub{color:var(--text3);font-size:13px;margin-bottom:14px;max-width:70ch}
+.item{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin-bottom:9px}
+.item .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:5px}
+.item .campo{font-family:'Space Mono';font-size:12.5px;color:var(--text)}
+.item .oq{font-size:13.5px;color:var(--text2);margin-bottom:6px}
+.item .onde{font-size:13px;color:var(--text3)}
+.item .onde b{color:var(--orange);font-weight:500}
+.item .onde.ok b{color:var(--ok)}
+.aviso{background:var(--bg3);border-left:3px solid var(--orange);border-radius:0 11px 11px 0;padding:15px 17px;margin:16px 0;font-size:14px;color:var(--text2)}
+.aviso b{color:var(--text);font-weight:600}
+.aviso.roxo{border-left-color:var(--purple)}
+.total{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:26px 0}
+.tc{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:14px;text-align:center}
+.tc .v{font-family:'Bebas Neue';font-size:38px;line-height:1}
+.tc .l{font-family:'Space Mono';font-size:9.5px;color:var(--text3);letter-spacing:.05em;margin-top:3px}
+footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);font-family:'Space Mono';font-size:10.5px;color:var(--text3);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>MAPA DA <em>INTELIGÊNCIA</em></h1>
+<p class="sub">Tudo que a Seller.IA já arranca da API da Shopee, campo por campo — e onde cada coisa vira decisão. Levantado varrendo <span style="font-family:'Space Mono';font-size:13px">diamantes.js</span> e <span style="font-family:'Space Mono';font-size:13px">coletor.js</span>, não de memória.</p>
+
+<div class="legenda">
+  <span class="lg st-usado">USADO · já decide algo</span>
+  <span class="lg st-parcial">PARCIAL · coletado, usado pela metade</span>
+  <span class="lg st-parado">PARADO · coletado e invisível</span>
+  <span class="lg st-falta">FALTA COLETAR</span>
+</div>
+
+<div class="total">
+  <div class="tc"><div class="v" style="color:var(--ok)">31</div><div class="l">USADOS</div></div>
+  <div class="tc"><div class="v" style="color:var(--warn)">12</div><div class="l">PARCIAIS</div></div>
+  <div class="tc"><div class="v" style="color:var(--bad)">47</div><div class="l">PARADOS</div></div>
+  <div class="tc"><div class="v" style="color:#c88bff">2</div><div class="l">FALTA COLETAR</div></div>
+</div>
+
+<div class="aviso"><b>A leitura de tudo isto numa frase:</b> a extensão já arranca da Shopee muito mais do que ela usa. O gargalo deixou de ser coleta e passou a ser julgamento. Quase metade do ouro está no cofre sem virar decisão em tela nenhuma.</div>
+
+<!-- ============ A ============ -->
+<div class="grp"><span class="n">A</span> O LEILÃO — por campanha</div>
+<p class="grp-sub">Vem de <span style="font-family:'Space Mono';font-size:12px">homepage/query</span> e <span style="font-family:'Space Mono';font-size:12px">report/get</span>. É o retrato de como a campanha está disputando espaço.</p>
+
+<div class="item"><div class="top"><span class="campo">posicao (avg_rank)</span><span class="lg st-usado">USADO</span></div>
+<div class="oq">Posição média no leilão. Até 10 é vitrine nobre; acima de 30, fundo.</div>
+<div class="onde ok">Card, parte 5 · <b>chip "posição no leilão"</b></div></div>
+
+<div class="item"><div class="top"><span class="campo">cpm (real)</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Custo por mil impressões, recalculado por nós. O campo que a Shopee entrega vem inflado, quase igual ao custo total — nós corrigimos com gasto ÷ impressões × 1000.</div>
+<div class="onde">Deveria: <b>card parte 5</b>, comparado com o CPM que a fórmula prevê</div></div>
+
+<div class="item"><div class="top"><span class="campo">cpc · custoPosicao · sov</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Custo por clique, custo de manter a posição e share of voice — quanto da vitrine daquele termo é seu.</div>
+<div class="onde">Deveria: <b>Espião</b>, cruzando com a posição orgânica</div></div>
+
+<div class="item"><div class="top"><span class="campo">gasto · gastoHoje · mediaSeteDias</span><span class="lg st-parcial">PARCIAL</span></div>
+<div class="oq">Investimento da campanha. A média de 7 dias detecta mudança de patamar.</div>
+<div class="onde">Hoje: card parte 2 (ads por pedido). Falta: <b>alerta de salto de gasto</b></div></div>
+
+<div class="item"><div class="top"><span class="campo">funil: impressoes · cliques · ctr · atc · atcRate · checkout · checkoutRate · cr · pageViews</span><span class="lg st-parcial">PARCIAL</span></div>
+<div class="oq">O funil completo do anúncio, com as taxas de cada degrau já calculadas pela Shopee.</div>
+<div class="onde">Hoje o card mostra 4 dos 9. As <b>taxas de degrau</b> (atcRate, checkoutRate) ficam de fora e são elas que dizem onde vaza</div></div>
+
+<div class="item"><div class="top"><span class="campo">roiAmplo · roiDireto · gmvAmplo · pedidos · cir · roiTargetAtual</span><span class="lg st-parcial">PARCIAL</span></div>
+<div class="oq">ROAS amplo x direto é a diferença entre o que o anúncio gerou no total e o que gerou naquele produto. CIR é o inverso do ROAS.</div>
+<div class="onde">Hoje só o roiAmplo. O <b>par amplo vs direto</b> revela canibalização e está parado</div></div>
+
+<!-- ============ B ============ -->
+<div class="grp"><span class="n">B</span> A META ROAS QUE A SHOPEE SUGERE</div>
+<p class="grp-sub">A Shopee calcula o ROAS ideal por campanha e projeta o ganho. Só aparece quando a tela de Ads é aberta.</p>
+
+<div class="item"><div class="top"><span class="campo">metaShopee.atual · sugerida · ganhoGmvPct · ganhoPedidosPct</span><span class="lg st-usado">USADO</span></div>
+<div class="oq">Sua meta hoje, a que ela recomenda, e quanto projeta ganhar se você trocar.</div>
+<div class="onde ok">Card, parte 3 · <b>"a Shopee sugere X e projeta +Y%"</b></div></div>
+
+<div class="item"><div class="top"><span class="campo">percentis: p50 · p80 · p20 · teto</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">A faixa inteira: conservador, ideal, agressivo e o teto. Isto é a distribuição do leilão da categoria — o mapa de onde dá pra jogar.</div>
+<div class="onde">Deveria: <b>card parte 3</b>, virando a barra de faixa do card aprovado</div></div>
+
+<div class="item"><div class="top"><span class="campo">orcamentoRecomendado</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Quanto de orçamento diário a Shopee acha que a campanha comporta.</div>
+<div class="onde">Deveria: <b>consultor</b>, no passo de escalar</div></div>
+
+<!-- ============ C ============ -->
+<div class="grp"><span class="n">C</span> O DIAGNÓSTICO OFICIAL DA SHOPEE</div>
+<div class="item"><div class="top"><span class="campo">problema</span><span class="lg st-usado">USADO</span></div>
+<div class="oq">O código que ela mesma atribui: no_conversion, low_traffic, room_more_traffic, na...</div>
+<div class="onde ok">Card, parte 5 · <b>traduzido para português</b></div></div>
+
+<div class="item"><div class="top"><span class="campo">nota (good/fair/poor) · eixos</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">A nota da campanha e os eixos que a compõem. É a opinião da Shopee sobre o seu anúncio, por escrito.</div>
+<div class="onde">Deveria: <b>ordenar a fila do semáforo</b> e entrar no Especialista</div></div>
+
+<!-- ============ D ============ -->
+<div class="grp"><span class="n">D</span> AS REGRAS DO oCPM — o motor por dentro</div>
+<p class="grp-sub">Vem de <span style="font-family:'Space Mono';font-size:12px">config/get</span>. É o regulamento do jogo, entregue pela própria Shopee. <b style="color:var(--bad)">Nada disto julga nada hoje.</b></p>
+
+<div class="item"><div class="top"><span class="campo">lancePorPrecoLiberado</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Se vier <span style="font-family:'Space Mono'">false</span>, lance manual acabou naquela conta. É a prova do oCPM em campo.</div>
+<div class="onde">Deveria: <b>trocar o discurso inteiro do consultor</b> — não adianta mandar mexer em lance onde lance não existe mais</div></div>
+
+<div class="item"><div class="top"><span class="campo">aprendizadoDias</span><span class="lg st-parcial">PARCIAL</span></div>
+<div class="oq">Quantos dias dura o cold start naquela conta. Não é sempre 7.</div>
+<div class="onde">Hoje o alerta usa o valor do produto. A <b>regra da conta</b> fica de fora</div></div>
+
+<div class="item"><div class="top"><span class="campo">mudancaMaxPct · mudancasPorDia · bloqueioDias</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Quanto a meta pode mudar por vez, quantas vezes por dia, e quantos dias a campanha fica bloqueada depois. <b>É o limite físico do que dá pra fazer hoje.</b></div>
+<div class="onde">Deveria: o consultor <b>nunca sugerir uma mudança que a Shopee vai recusar</b>. Hoje ele pode sugerir</div></div>
+
+<div class="item"><div class="top"><span class="campo">lanceMinimo (busca produto · busca loja · passo)</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">O piso real de lance e o incremento aceito.</div>
+<div class="onde">Deveria: <b>validar a sugestão de lance</b> antes de mostrar</div></div>
+
+<div class="item"><div class="top"><span class="campo">tetoMultiplicador · notaMinimaAuto · elegibilidade + motivo</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Teto do multiplicador, nota mínima pra usar lance automático, e o motivo quando a conta é barrada.</div>
+<div class="onde">Deveria: <b>card, aviso de trava</b> — hoje a usuária tenta e descobre sozinha</div></div>
+
+<!-- ============ E ============ -->
+<div class="grp"><span class="n">E</span> O PRODUTO NO LEILÃO</div>
+<div class="item"><div class="top"><span class="campo">emAprendizado · aprendizadoDias</span><span class="lg st-usado">USADO</span></div>
+<div class="oq">Cold start: os dias que faltam antes de poder mexer.</div>
+<div class="onde ok">Card, parte 1 · <b>alerta de aprendizado</b></div></div>
+
+<div class="item"><div class="top"><span class="campo">competitividade (0–100)</span><span class="lg st-usado">USADO</span></div>
+<div class="oq">Quão competitivo seu preço é dentro da categoria, na régua da Shopee.</div>
+<div class="onde ok">Card, parte 5 · <b>chip de competitividade</b></div></div>
+
+<div class="item"><div class="top"><span class="campo">status (boosting_status / deboost)</span><span class="lg st-usado">USADO</span></div>
+<div class="oq">Se o produto está com o alcance limitado pela plataforma.</div>
+<div class="onde ok">Card, parte 5 · <b>chip de status</b></div></div>
+
+<div class="item"><div class="top"><span class="campo">janelaNovoDias · publicadoEm</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">A janela de impulso de produto novo — o empurrão grátis que a Shopee dá e que expira.</div>
+<div class="onde">Deveria: <b>alerta de urgência</b> — "restam X dias de vitrine grátis neste produto"</div></div>
+
+<!-- ============ F ============ -->
+<div class="grp"><span class="n">F</span> O FUNIL DE CADA PRODUTO</div>
+<p class="grp-sub">Esta é a única família 100% ligada — foi o que fizemos na v0.30.0.</p>
+<div class="item"><div class="top"><span class="campo">ctr · convPago · convClique · convColocado · uv · pv · rejeicao · carrinhoUnid · carrinhoCompradores · cliquesBusca · likes · ticket · fatiaVendas · vendaPaga · pedidos</span><span class="lg st-usado">USADO</span></div>
+<div class="oq">O funil orgânico de cada item, do card até o pedido pago.</div>
+<div class="onde ok">Performance de Produto · <b>vereditos</b> · e card parte 4 e 6</div></div>
+
+<div class="item"><div class="top"><span class="campo">tendencias (série dia a dia)</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">A série temporal de cada métrica, dia a dia.</div>
+<div class="onde">Deveria: dizer <b>"caindo há 5 dias"</b> em vez de só o número de hoje. É a diferença entre foto e filme</div></div>
+
+<!-- ============ G ============ -->
+<div class="grp"><span class="n">G</span> A SAÚDE DA CONTA E DA LOJA</div>
+<div class="item"><div class="top"><span class="campo">pontosPenalidade · ratingPerformance · metricasFalhando · recursos</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Pontos de punição, nota de performance, quais métricas estão falhando e os recursos em aberto.</div>
+<div class="onde">Deveria: <b>o primeiro alerta do Início</b>. Conta punida não escala — otimizar anúncio antes de resolver isso é jogar dinheiro fora</div></div>
+
+<div class="item"><div class="top"><span class="campo">percentilCategoria</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Onde a loja está na categoria, em percentil.</div>
+<div class="onde">Deveria: <b>Conta 360</b>, como régua externa</div></div>
+
+<div class="item"><div class="top"><span class="campo">rating · avaliacoes · seguidores · tag · taxaRespostaChat</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Reputação pública e velocidade de resposta no chat.</div>
+<div class="onde">Deveria: <b>Espião</b> — é exatamente o que o comprador compara entre você e o concorrente</div></div>
+
+<div class="item"><div class="top"><span class="campo">travasDetectadas · avaliacoes do produto</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Travas de moderação no cadastro e as avaliações item a item.</div>
+<div class="onde">Deveria: <b>card do produto</b>, antes de qualquer conselho de tráfego</div></div>
+
+<!-- ============ H ============ -->
+<div class="grp"><span class="n">H</span> DE ONDE VEM O DINHEIRO</div>
+<div class="item"><div class="top"><span class="campo">adsPct · afiliadoPct · cardPct · live · video</span><span class="lg st-parcial">PARCIAL</span></div>
+<div class="oq">A proporção entre tráfego pago, afiliado e orgânico.</div>
+<div class="onde">Hoje aparece em Conta 360. Falta o <b>alerta de dependência</b> — loja que vive de ads quebra quando o ads para</div></div>
+
+<div class="item"><div class="top"><span class="campo">afiliados: gmv · comissaoPaga · roi · roiVariacao · top · creatorsDisponiveis · nichos</span><span class="lg st-parcial">PARCIAL</span></div>
+<div class="oq">O canal de afiliados inteiro, incluindo <b>creators disponíveis para recrutar</b> por nicho.</div>
+<div class="onde">A lista de creators é oportunidade de receita e <b>não aparece em tela nenhuma</b></div></div>
+
+<!-- ============ I ============ -->
+<div class="grp"><span class="n">I</span> DINHEIRO GRÁTIS</div>
+<div class="item"><div class="top"><span class="campo">creditos.total · vencendo30d · statusSaldo</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Crédito de anúncio disponível e <b>quanto vence nos próximos 30 dias</b>.</div>
+<div class="onde">Deveria: <b>alerta no Início</b>. Crédito que vence é dinheiro que a Shopee já te deu e você devolve por não usar</div></div>
+
+<div class="item"><div class="top"><span class="campo">gasteParaGanhar · recompensa · jaGastou · surge (uplift)</span><span class="lg st-parado">PARADO</span></div>
+<div class="oq">Metas de gasto que liberam bônus, o quanto já foi cumprido, e as janelas de surge com o uplift projetado.</div>
+<div class="onde">Deveria: <b>"faltam R$X para destravar R$Y"</b> — decisão de caixa, não de anúncio</div></div>
+
+<!-- ============ J ============ -->
+<div class="grp"><span class="n">J</span> O ESPIÃO — vitrine pública</div>
+<div class="item"><div class="top"><span class="campo">pos · preco · desconto · cupom · vendidoMes · vendidoTotal · faturamentoMesEstimado · curtidas · anuncio</span><span class="lg st-usado">USADO</span></div>
+<div class="oq">Cada concorrente da busca com faturamento estimado dos últimos 30 dias.</div>
+<div class="onde ok">Espião · <b>Radar, Sonda e a barreira do TOP 5</b></div></div>
+
+<!-- ============ K ============ -->
+<div class="grp"><span class="n">K</span> O QUE AINDA NÃO COLETAMOS</div>
+<div class="item"><div class="top"><span class="campo">financeiro.componentes (income_components)</span><span class="lg st-falta">FALTA COLETAR</span></div>
+<div class="oq">Comissão, taxas e frete <b>reais</b> por pedido — não a tabela, o que foi cobrado de fato.</div>
+<div class="onde">Depende de abrir um pedido. É a única inteligência que ainda não roda sozinha — e é ela que substituiria a estimativa do Cofre por número exato</div></div>
+
+<div class="item"><div class="top"><span class="campo">keywords com volume de busca</span><span class="lg st-falta">FALTA COLETAR</span></div>
+<div class="oq">Termos recomendados com volume, só disponíveis em Anúncio de Busca de Loja.</div>
+<div class="onde">Deveria: alimentar o <b>diff de palavras do Espião</b></div></div>
+
+<!-- ============ FORMULAS ============ -->
+<div class="grp"><span class="n">L</span> AS FÓRMULAS — descobertas e fora do código</div>
+<div class="aviso roxo"><b>Este é o buraco maior de todos.</b> A extensão coleta as evidências que comprovam o Leilão Reverso e decide sem usar o Leilão Reverso. Nenhuma das fórmulas abaixo existe em linha de código nenhuma — elas vivem no estudo, na apostila e no manual, não no produto.</div>
+
+<div class="item"><div class="top"><span class="campo">CPM = (Ticket × Conversão × CTR × 1000) ÷ ROAS</span><span class="lg st-parado">FORA DO CÓDIGO</span></div>
+<div class="oq">A identidade. Prevê o CPM que aquele produto deveria ter.</div>
+<div class="onde">Comparada com o <b>CPM real que já coletamos</b>, revela se você paga caro pela posição. Diagnóstico que nenhuma ferramenta do mercado faz</div></div>
+
+<div class="item"><div class="top"><span class="campo">Lance = Ticket × Conv ÷ ROAS</span><span class="lg st-parado">FORA DO CÓDIGO</span></div>
+<div class="oq">Quanto colocar de lance. Temos os três números coletados.</div>
+<div class="onde">Card parte 3 · <b>transforma o card de leitura em execução</b>. Maior ganho por menos trabalho</div></div>
+
+<div class="item"><div class="top"><span class="campo">Efeito quadrático da conversão</span><span class="lg st-parado">FORA DO CÓDIGO</span></div>
+<div class="oq">A conversão entra duas vezes no algoritmo. Mexer nela vale ao quadrado do que parece.</div>
+<div class="onde">Deveria <b>ordenar a fila de ação</b> — conversão antes de preço, sempre</div></div>
+
+<div class="item"><div class="top"><span class="campo">Paradoxo do Lance Baixo</span><span class="lg st-parado">FORA DO CÓDIGO</span></div>
+<div class="oq">Campanha de lance baixo parece barata e está sangrando devagar.</div>
+<div class="onde">Deveria: <b>semáforo</b>. Hoje elas passam batido porque gastam pouco</div></div>
+
+<div class="item"><div class="top"><span class="campo">Lei da Âncora do ROAS</span><span class="lg st-parado">FORA DO CÓDIGO</span></div>
+<div class="oq">Meta ROAS se mantém estável na turbulência; Lance Automático caiu 32%.</div>
+<div class="onde">Deveria: <b>recomendação de estratégia</b> por fase da campanha</div></div>
+
+<div class="item"><div class="top"><span class="campo">ROAS mínimo = 100 ÷ margem%</span><span class="lg st-usado">USADO</span></div>
+<div class="oq">O piso abaixo do qual você paga para vender.</div>
+<div class="onde ok">calculadora.js · Cofre · <b>card parte 3</b></div></div>
+
+<footer>
+SELLER.IA · EFEITO VENDAS<br>
+Levantado direto do código em 27/07/2026 — diamantes.js, coletor.js, triagem.js, calculadora.js<br>
+Documento vivo: atualizar a cada vez que um campo sair de PARADO para USADO
+</footer>
+
+</div>
+</body>
+</html>
