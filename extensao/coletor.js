@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.25.2';
+  var VERSAO = '0.25.3';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2528,16 +2528,36 @@
     h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
       '<div style="font-family:monospace;font-size:8.5px;color:#c88bff;letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;text-align:center">' +
-      '<div><div style="font-size:18px;color:#f5b041">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SUA META HOJE</div></div>' +
+      '<div><div style="font-size:18px;color:#f5b041">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">VOCE PEDE</div></div>' +
       '<div><div style="font-size:18px;color:#2ecc71">' + (meta.sugerida != null ? fmt(meta.sugerida, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SHOPEE SUGERE</div></div>' +
       '<div><div style="font-size:18px;color:' + (equil != null ? '#ff4d1c' : '#7d8290') + '">' + (equil != null ? fmt(equil, 1) + 'x' : (teto != null ? fmt(teto, 1) + 'x' : '—')) + '</div><div style="font-family:monospace;font-size:8px;color:' + (equil != null ? '#7d8290' : '#f5b041') + '">' + (equil != null ? 'SEU EQUILIBRIO' : 'TETO · SEM CUSTO') + '</div></div></div>';
-    h += '<div style="font-size:11.5px;color:#b8bcc6;margin-top:10px;line-height:1.5">';
-    if (roasReal != null) h += 'Voce entrega <b style="color:#f2f2f4">' + fmt(roasReal, 2) + 'x</b> hoje. ';
-    if (meta.sugerida != null && meta.ganhoGmvPct != null) h += 'A Shopee projeta <b style="color:#2ecc71">+' + fmt(meta.ganhoGmvPct, 0) + '%</b> de vendas se voce descer a meta pra ' + fmt(meta.sugerida, 1) + 'x. ';
-    if (meta.sugerida == null) h += '<b style="color:#f5b041">A meta e a sugestao da Shopee ainda nao foram lidas nesta conta</b> — abra a tela de Shopee Ads uma vez e elas entram sozinhas. '; 
-    if (equil != null) h += 'Abaixo de ' + fmt(equil, 1) + 'x voce paga pra vender. ';
-    else if (teto != null) h += '<b style="color:#f5b041">Cuidado com o terceiro numero:</b> ' + fmt(teto, 1) + 'x e o TETO, calculado como se o produto fosse de graca. Seu equilibrio real e mais alto que isso — quanto, so o Cofre de Custos dira. Nao use esse numero como meta. '; 
-    h += 'Meta alta protege margem e perde entrega; meta baixa entrega e come margem. O ponto fica entre o equilibrio e a sugestao.</div></div>';
+    // Uma ideia por linha. Nada de paragrafo com tres assuntos misturados,
+    // nada de frase de efeito. Cada linha responde uma pergunta so.
+    function linhaRoas(txt, cor) {
+      return '<div style="display:flex;gap:8px;font-size:12px;color:#b8bcc6;padding:6px 0;border-top:1px solid #1d212a;line-height:1.45">' +
+        '<span style="color:' + (cor || '#7d8290') + ';flex:none">•</span><span>' + txt + '</span></div>';
+    }
+    h += '<div style="margin-top:10px">';
+    if (meta.atual != null && roasReal != null) {
+      var folga = meta.atual - roasReal;
+      h += linhaRoas('Voce pede <b style="color:#f2f2f4">' + fmt(meta.atual, 1) + 'x</b> e a campanha entrega <b style="color:#f2f2f4">' + fmt(roasReal, 2) + 'x</b>.' +
+        (folga > 1 ? ' A meta esta acima do que ela consegue.' : ' A meta esta no tamanho da entrega.'),
+        folga > 1 ? '#f5b041' : '#2ecc71');
+    } else if (roasReal != null) {
+      h += linhaRoas('A campanha entrega <b style="color:#f2f2f4">' + fmt(roasReal, 2) + 'x</b> hoje.');
+    }
+    if (meta.sugerida != null) {
+      h += linhaRoas('A Shopee sugere baixar a meta pra <b style="color:#2ecc71">' + fmt(meta.sugerida, 1) + 'x</b>' +
+        (meta.ganhoGmvPct != null ? ' e projeta <b style="color:#2ecc71">+' + fmt(meta.ganhoGmvPct, 0) + '%</b> de vendas.' : '.'), '#2ecc71');
+    } else {
+      h += linhaRoas('A sugestao da Shopee ainda nao foi lida. Abra a tela de Shopee Ads uma vez.', '#f5b041');
+    }
+    if (equil != null) {
+      h += linhaRoas('Abaixo de <b style="color:#ff4d1c">' + fmt(equil, 1) + 'x</b> voce paga pra vender.', '#ff4d1c');
+    } else if (teto != null) {
+      h += linhaRoas('<b style="color:#f5b041">Nao use o ' + fmt(teto, 1) + 'x como meta.</b> Ele ignora o custo do produto. Seu limite real e mais alto, e so o Cofre de Custos vai dizer quanto.', '#f5b041');
+    }
+    h += '</div></div>';
 
     /* ---- 4. CONSULTOR ---- */
     var diag = null;
