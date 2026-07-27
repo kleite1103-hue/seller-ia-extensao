@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.25.0';
+  var VERSAO = '0.25.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2481,9 +2481,13 @@
     }
 
     /* ---- 2. A CONTA DESTE PEDIDO ---- */
-    var preco = (pp && pp.perf && pp.perf.ticket) || null;
-    var pedidos = (pc && pc.resultado && pc.resultado.pedidos) || (pp && pp.perf && pp.perf.pedidos) || null;
-    var gasto = (pc && pc.leilao && pc.leilao.gasto) || null;
+    var mCamp = (estado.campanhas[R.idCamp] && estado.campanhas[R.idCamp].metricas) || {};
+    var pedidos = (pc && pc.resultado && pc.resultado.pedidos) || (pp && pp.perf && pp.perf.pedidos) || mCamp.pedidos || null;
+    var gasto = (pc && pc.leilao && pc.leilao.gasto) || mCamp.gasto || null;
+    var gmvCamp = (pc && pc.resultado && pc.resultado.gmvAmplo) || mCamp.gmv || null;
+    // ticket: usa o do produto se existir; senao deriva do proprio GMV da campanha
+    var preco = (pp && pp.perf && pp.perf.ticket) || ((gmvCamp && pedidos) ? gmvCamp / pedidos : null);
+    var precoDerivado = !(pp && pp.perf && pp.perf.ticket);
     var adsPedido = (gasto && pedidos) ? gasto / pedidos : null;
     var comissao = null;
     var faixaTxt = '';
@@ -2502,7 +2506,7 @@
     function linhaR(l, v, forte) {
       return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:' + (forte ? '#f2f2f4' : '#b8bcc6') + '"><span>' + l + '</span><span style="font-family:monospace">' + v + '</span></div>';
     }
-    h += linhaR('Ticket medio', preco != null ? reais(preco) : '—', true);
+    h += linhaR('Ticket medio' + (precoDerivado && preco != null ? ' (GMV ÷ pedidos)' : ''), preco != null ? reais(preco) : '—', true);
     h += linhaR('− Comissao Shopee' + (faixaTxt ? ' (' + faixaTxt + ')' : ''), comissao != null ? '− ' + reais(comissao) : '—');
     h += linhaR('− Ads por pedido', adsPedido != null ? '− ' + reais(adsPedido) : '—');
     h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #1d212a;margin-top:6px;padding-top:7px">' +
@@ -2520,10 +2524,11 @@
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;text-align:center">' +
       '<div><div style="font-size:18px;color:#f5b041">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SUA META HOJE</div></div>' +
       '<div><div style="font-size:18px;color:#2ecc71">' + (meta.sugerida != null ? fmt(meta.sugerida, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SHOPEE SUGERE</div></div>' +
-      '<div><div style="font-size:18px;color:#ff4d1c">' + (equil != null ? fmt(equil, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SEU EQUILIBRIO</div></div></div>';
+      '<div><div style="font-size:18px;color:#ff4d1c">' + (equil != null ? fmt(equil, 1) + 'x' : 'falta custo') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SEU EQUILIBRIO</div></div></div>';
     h += '<div style="font-size:11.5px;color:#b8bcc6;margin-top:10px;line-height:1.5">';
     if (roasReal != null) h += 'Voce entrega <b style="color:#f2f2f4">' + fmt(roasReal, 2) + 'x</b> hoje. ';
     if (meta.sugerida != null && meta.ganhoGmvPct != null) h += 'A Shopee projeta <b style="color:#2ecc71">+' + fmt(meta.ganhoGmvPct, 0) + '%</b> de vendas se voce descer a meta pra ' + fmt(meta.sugerida, 1) + 'x. ';
+    if (meta.sugerida == null) h += '<b style="color:#f5b041">A meta e a sugestao da Shopee ainda nao foram lidas nesta conta</b> — abra a tela de Shopee Ads uma vez e elas entram sozinhas. '; 
     if (equil != null) h += 'Abaixo de ' + fmt(equil, 1) + 'x voce paga pra vender. ';
     h += 'Meta alta protege margem e perde entrega; meta baixa entrega e come margem. O ponto fica entre o equilibrio e a sugestao.</div></div>';
 
@@ -2569,14 +2574,16 @@
     var etapas = [
       { r: 'IMPRESSOES', v: f.impressoes },
       { r: 'CLIQUES', v: f.cliques },
-      { r: 'CARRINHO', v: f.atc },
+      { r: 'CARRINHO', v: f.atc != null ? f.atc : (f.checkout != null ? f.checkout : null) },
       { r: 'VENDAS', v: (pc && pc.resultado && pc.resultado.pedidos) || f.checkout }
     ];
     h += '<div style="font-family:monospace;font-size:8.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:7px">O CAMINHO ATE A VENDA</div>' +
       '<div style="display:flex;align-items:center;gap:4px;background:#12151b;border:1px solid #1d212a;border-radius:12px;padding:12px 8px">';
     for (var i = 0; i < etapas.length; i++) {
       if (i > 0) {
-        var ant = etapas[i - 1].v, at = etapas[i].v;
+        var ant = null;
+        for (var z = i - 1; z >= 0; z--) { if (etapas[z].v != null) { ant = etapas[z].v; break; } }
+        var at = etapas[i].v;
         var queda = (ant && at != null) ? Math.round((1 - at / ant) * 100) : null;
         h += '<div style="flex:none;text-align:center;color:#7d8290;font-family:monospace;font-size:8px">›<br>' + (queda != null ? '−' + queda + '%' : '') + '</div>';
       }
@@ -2590,9 +2597,13 @@
   function cardFraseLocal(pc, pp) {
     var f = (pc && pc.funil) || {};
     var roas = (pc && pc.resultado && pc.resultado.roiAmplo) || null;
+    // CTR sempre derivado: o campo cru da API vem em escalas diferentes por rota
+    var ctr = (f.impressoes && f.cliques != null) ? (f.cliques / f.impressoes) * 100 : null;
+    var conv = (f.cliques && pc && pc.resultado && pc.resultado.pedidos != null) ? (pc.resultado.pedidos / f.cliques) * 100 : null;
     if (pp && pp.emAprendizado) return 'Esta campanha ainda esta aprendendo. Deixe rodar.';
-    if (f.ctr != null && f.cr != null && f.ctr >= 1.8 && f.cr < 1) return 'Clica bem, mas a pagina nao fecha.';
-    if (f.ctr != null && f.ctr < 1) return 'Poucos clicam. O problema comeca na foto e no preco do card.';
+    if (roas != null && roas < 1) return 'Esta campanha devolve menos do que custa.';
+    if (ctr != null && ctr >= 1.8 && conv != null && conv < 1) return 'Clica bem, mas a pagina nao fecha.';
+    if (ctr != null && ctr < 1) return 'Poucos clicam. O problema comeca na foto e no preco do card.';
     if (roas != null && roas < 2) return 'Esta campanha esta gastando mais do que devolve.';
     if (roas != null && roas > 8) return 'Sobra margem aqui. Da pra buscar mais entrega.';
     return 'Leitura desta campanha.';
