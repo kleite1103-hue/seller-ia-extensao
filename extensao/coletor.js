@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.29.0';
+  var VERSAO = '0.30.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2891,6 +2891,154 @@
   }
 
   var TELAS_VALIDAS = ['semaforo','conta360','calc','cofre','espiao','card','diagnostico','visao','campanhas','produtos','performance','afiliados','cadastro','diamantes','debug'];
+  /* ============ INTELIGENCIA DE PRODUTO (Performance) ============
+     Le o funil de cada produto e devolve um veredito, nao uma linha de
+     tabela. A ordem das perguntas segue o metodo: primeiro o dinheiro
+     em jogo, depois onde o funil vaza. Cada produto sai daqui com uma
+     frase que uma pessoa entende e um proximo passo. */
+  function pctNorm(v) {
+    if (v === undefined || v === null) return null;
+    return v <= 1 ? v * 100 : v;
+  }
+  function diagProduto(id) {
+    var p = estado.produtos[id] || {};
+    var m = p.metricas || {};
+    var C = cofreD();
+    var d = (C.porProduto || {})[id] || {};
+    var perf = d.perf || {};
+
+    var venda = m.vendas_pagas !== undefined ? m.vendas_pagas : perf.vendaPaga;
+    var pedidos = m.pedidos_pagos !== undefined ? m.pedidos_pagos : perf.pedidosPagos;
+    var ticket = m.ticket_pedido !== undefined ? m.ticket_pedido : perf.ticket;
+    var visitas = m.visitantes !== undefined ? m.visitantes : perf.uv;
+    var ctr = pctNorm(m.ctr_card !== undefined ? m.ctr_card : perf.ctr);
+    var conv = pctNorm(m.conversao_pago !== undefined ? m.conversao_pago : perf.convPago);
+    var rej = pctNorm(m.rejeicao !== undefined ? m.rejeicao : perf.rejeicao);
+    var fatia = pctNorm(m.fatia_vendas !== undefined ? m.fatia_vendas : perf.fatiaVendas);
+    if (!ticket && venda && pedidos) ticket = venda / pedidos;
+
+    var r = {
+      id: id, nome: p.nome || d.nome || ('Produto ' + id),
+      venda: venda || 0, pedidos: pedidos, ticket: ticket, visitas: visitas,
+      ctr: ctr, conv: conv, rej: rej, fatia: fatia,
+      nivel: 'cinza', titulo: '', texto: '', acao: ''
+    };
+
+    // sem volume nao se le nada. Dizer isso e melhor que inventar veredito.
+    if (!visitas || visitas < 100) {
+      r.nivel = 'cinza';
+      r.titulo = 'Sem volume para leitura';
+      r.texto = (visitas ? fmt(visitas, 0) + ' visitantes' : 'quase sem visita') + ' — abaixo disso qualquer taxa e ruido.';
+      r.acao = 'Traga tráfego antes de julgar este produto.';
+      return r;
+    }
+
+    // 1) o card nao chama: o problema nasce antes da pagina
+    if (ctr != null && ctr < 1.8) {
+      r.nivel = 'vermelho';
+      r.titulo = 'O card nao chama o clique';
+      r.texto = 'CTR de ' + fmt(ctr, 2) + '% — abaixo de 1,8%. Quem passa pela vitrine nao para aqui.';
+      r.acao = 'Foto principal e inicio do titulo. O preco do card entra depois.';
+      return r;
+    }
+    // 2) clica e nao compra: a pagina e o gargalo
+    if (conv != null && conv < 1 && ctr != null && ctr >= 1.8) {
+      r.nivel = 'vermelho';
+      r.titulo = 'Clica bem, mas a pagina nao fecha';
+      r.texto = 'CTR de ' + fmt(ctr, 2) + '% e conversao de ' + fmt(conv, 2) + '%. De 100 que entram, menos de 1 compra.';
+      r.acao = 'Pagina no celular: preco vs concorrencia, variacao com estoque, avaliacoes respondidas.';
+      return r;
+    }
+    // 3) entra e sai na hora
+    if (rej != null && rej >= 70) {
+      r.nivel = 'amarelo';
+      r.titulo = 'Entra e sai sem olhar';
+      r.texto = fmt(rej, 0) + '% saem sem interagir. A promessa do card nao bate com a pagina.';
+      r.acao = 'Alinhe a primeira foto e o titulo com o que a pagina entrega.';
+      return r;
+    }
+    // 4) concentracao de risco
+    if (fatia != null && fatia >= 30) {
+      r.nivel = 'amarelo';
+      r.titulo = 'A loja depende demais dele';
+      r.texto = fmt(fatia, 0) + '% do faturamento sai deste produto. Se ele cair, a loja cai junto.';
+      r.acao = 'Proteja este e suba o segundo colocado — nao mexa neste sem necessidade.';
+      return r;
+    }
+    // 5) ticket abaixo do degrau de comissao
+    if (ticket != null && ticket > 0 && ticket < 80) {
+      r.nivel = 'amarelo';
+      r.titulo = 'Ticket abaixo do degrau dos R$80';
+      r.texto = 'Ticket de ' + reais(ticket) + '. Ate R$79,99 a comissao e 20% + R$4; a partir de R$80 cai pra 14% + R$16.';
+      r.acao = 'Kit ou combo que passe de R$80 sobe a margem sem trazer visita nova.';
+      return r;
+    }
+    // 6) converte bem e ninguem esta empurrando
+    if (conv != null && conv >= 2) {
+      r.nivel = 'verde';
+      r.titulo = 'Converte bem — da pra empurrar';
+      r.texto = 'Conversao de ' + fmt(conv, 2) + '%' + (ctr != null ? ' com CTR de ' + fmt(ctr, 2) + '%' : '') + '. A pagina faz o trabalho dela.';
+      r.acao = (d.campaignId || perf.temAds) ? 'Suba o orcamento em 20% e reavalie em 7 dias.' : 'Este produto converte e nao tem anuncio. Comece por ele.';
+      return r;
+    }
+    r.nivel = 'verde';
+    r.titulo = 'Dentro do esperado';
+    r.texto = (conv != null ? 'Conversao de ' + fmt(conv, 2) + '%' : 'Funil sem alerta') + (ctr != null ? ' e CTR de ' + fmt(ctr, 2) + '%' : '') + '.';
+    r.acao = 'Nada urgente aqui.';
+    return r;
+  }
+
+  function renderPerformanceIA() {
+    var ids = Object.keys(estado.produtos).filter(function (id) {
+      var mm = estado.produtos[id].metricas || {};
+      return mm.visitantes !== undefined || mm.vendas_pagas !== undefined;
+    });
+    if (!ids.length) {
+      return '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
+    }
+    var lidos = [];
+    for (var i = 0; i < ids.length; i++) lidos.push(diagProduto(ids[i]));
+    // ordem = dinheiro em jogo, nao gravidade. Problema em produto que vende
+    // R$8 mil vale mais atencao que problema em produto que vende R$80.
+    var peso = { vermelho: 3, amarelo: 2, verde: 1, cinza: 0 };
+    lidos.sort(function (a, b) {
+      if (peso[a.nivel] !== peso[b.nivel]) return peso[b.nivel] - peso[a.nivel];
+      return (b.venda || 0) - (a.venda || 0);
+    });
+    var cont = { vermelho: 0, amarelo: 0, verde: 0, cinza: 0 };
+    for (i = 0; i < lidos.length; i++) cont[lidos[i].nivel]++;
+
+    var CORES = {
+      vermelho: { dot: '#e74c3c', bg: 'rgba(231,76,60,.07)', bd: 'rgba(231,76,60,.25)' },
+      amarelo: { dot: '#f5b041', bg: 'rgba(245,176,65,.07)', bd: 'rgba(245,176,65,.25)' },
+      verde: { dot: '#2ecc71', bg: 'rgba(46,204,113,.07)', bd: 'rgba(46,204,113,.25)' },
+      cinza: { dot: '#5a5f6a', bg: 'transparent', bd: '#1d212a' }
+    };
+    var h = '<div class="kpis">' +
+      '<div class="kpi"><div class="v" style="color:#e74c3c">' + cont.vermelho + '</div><div class="l">Travados</div></div>' +
+      '<div class="kpi"><div class="v" style="color:#f5b041">' + cont.amarelo + '</div><div class="l">Com folga</div></div>' +
+      '<div class="kpi"><div class="v" style="color:#2ecc71">' + cont.verde + '</div><div class="l">Saudaveis</div></div>' +
+      '<div class="kpi"><div class="v" style="color:#7d8290">' + cont.cinza + '</div><div class="l">Sem volume</div></div></div>';
+
+    h += '<div style="font-family:Space Mono,monospace;font-size:11px;color:#8a909c;letter-spacing:.06em;margin-bottom:9px">ORDENADO POR IMPACTO — CLIQUE PARA ABRIR O CARD</div>';
+
+    for (i = 0; i < lidos.length; i++) {
+      var L = lidos[i], co = CORES[L.nivel];
+      h += '<div data-card="produto:' + esc(L.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:9px;padding:11px 13px;margin-bottom:8px">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+        '<span style="width:8px;height:8px;border-radius:50%;background:' + co.dot + ';flex:none"></span>' +
+        '<span style="flex:1;font-size:13.5px;font-weight:600;color:#f2f2f4;line-height:1.3">' + esc(L.titulo) + '</span>' +
+        (L.venda ? '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:#8a909c">' + reais(L.venda) + '</span>' : '') +
+        '</div>' +
+        '<div style="font-size:12.5px;color:#9aa0ac;margin-bottom:5px">' + esc(String(L.nome).slice(0, 54)) + '</div>' +
+        '<div style="font-size:13px;color:#c8ccd4;line-height:1.5">' + esc(L.texto) + '</div>' +
+        '<div style="font-size:13px;color:' + co.dot + ';line-height:1.5;margin-top:5px">→ ' + esc(L.acao) + '</div>' +
+        '</div>';
+    }
+    h += '<div class="nota">A leitura usa o funil que a Shopee entrega por produto. Produtos com menos de 100 visitantes ficam de fora do julgamento de proposito — abaixo disso, taxa e ruido.</div>';
+    return h;
+  }
+
   function render() {
     if (!$('sia-painel').classList.contains('aberto')) return;
     // se por algum caminho a aba ativa virar um id de GRUPO (gprod, ferramentas)
@@ -3116,28 +3264,7 @@
       corpo.innerHTML = renderSubAbas('gprod') + h2b;
 
     } else if (abaAtiva === 'performance') {
-      var idsP = Object.keys(estado.produtos).filter(function (id) {
-        var mm = estado.produtos[id].metricas;
-        return mm.visitantes !== undefined || mm.vendas_pagas !== undefined;
-      });
-      if (!idsP.length) {
-        corpo.innerHTML = renderSubAbas('gprod') + '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
-        return;
-      }
-      idsP.sort(function (a, b) { return (estado.produtos[b].metricas.vendas_pagas || 0) - (estado.produtos[a].metricas.vendas_pagas || 0); });
-      var h5 = '<table><tr><th>Produto</th><th>ID</th><th class="num">Vendas</th><th class="num">Pedidos</th><th class="num">Ticket</th><th class="num">Visitantes</th><th class="num">CTR card</th><th class="num">Conversao</th><th class="num">Rejeicao</th><th class="num">Fatia loja</th></tr>';
-      for (var q = 0; q < idsP.length; q++) {
-        var pp = estado.produtos[idsP[q]];
-        var m5 = pp.metricas;
-        function pct5(v) { return v === undefined || v === null ? '—' : fmt((v <= 1 ? v * 100 : v), 2) + '%'; }
-        h5 += '<tr><td class="nome">' + esc(pp.nome || '(sem nome)') + '</td><td>' + esc(pp.id) + '</td>' +
-          '<td class="num">' + reais(m5.vendas_pagas) + '</td><td class="num">' + fmt(m5.pedidos_pagos) + '</td>' +
-          '<td class="num">' + reais(m5.ticket_pedido) + '</td><td class="num">' + fmt(m5.visitantes) + '</td>' +
-          '<td class="num">' + pct5(m5.ctr_card) + '</td><td class="num">' + pct5(m5.conversao_pago) + '</td>' +
-          '<td class="num">' + pct5(m5.rejeicao) + '</td><td class="num">' + pct5(m5.fatia_vendas) + '</td></tr>';
-      }
-      h5 += '</table><div class="nota">Funil por produto (pagamento confirmado). A coleta acompanha o que a tela carregar — role a lista da Shopee para cobrir mais produtos.</div>';
-      corpo.innerHTML = renderSubAbas('gprod') + h5;
+      corpo.innerHTML = renderSubAbas('gprod') + renderPerformanceIA();
 
     } else if (abaAtiva === 'afiliados') {
       var brutosAf = estado.afiliados.campos || {};
