@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.28.0';
+  var VERSAO = '0.28.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1568,11 +1568,11 @@
   var ABAS = [
     { id: 'semaforo', rotulo: 'Inicio' },
     { id: 'conta360', rotulo: 'Conta 360' },
-    { id: 'campanhas', rotulo: 'Produtos' },
+    { id: 'gprod', rotulo: 'Produtos' },
     { id: 'espiao', rotulo: 'Espiao' },
     { id: 'ferramentas', rotulo: 'Ferramentas' },
     { id: 'diagnostico', rotulo: 'Especialista' },
-    { id: 'mais', rotulo: 'Mais' }
+    { id: 'debug', rotulo: 'Debug' }
   ];
   // grupos: uma aba de cima abre varias telas por dentro
   var SUB = {
@@ -1580,14 +1580,14 @@
       { id: 'calc', rotulo: 'Margem' },
       { id: 'cofre', rotulo: 'Cofre de Custos' }
     ],
-    mais: [
-      { id: 'produtos', rotulo: 'Produtos (Ads)' },
-      { id: 'performance', rotulo: 'Performance' },
-      { id: 'cadastro', rotulo: 'Anuncio' },
-      { id: 'debug', rotulo: 'Debug' }
+    gprod: [
+      { id: 'campanhas', rotulo: 'Campanhas' },
+      { id: 'performance', rotulo: 'Performance de Produto' },
+      { id: 'produtos', rotulo: 'Produtos nos Ads' },
+      { id: 'cadastro', rotulo: 'Anuncio' }
     ]
   };
-  var subAtiva = { ferramentas: 'calc', mais: 'produtos' };
+  var subAtiva = { ferramentas: 'calc', gprod: 'campanhas' };
   function grupoDe(id) {
     for (var g in SUB) for (var i = 0; i < SUB[g].length; i++) if (SUB[g][i].id === id) return g;
     return null;
@@ -1667,7 +1667,7 @@
     var h = '';
     for (var i = 0; i < ABAS.length; i++) {
       var a = ABAS[i];
-      var ativo = (a.id === abaAtiva) || (SUB[a.id] && grupoDe(abaAtiva) === a.id) || (a.id === 'campanhas' && abaAtiva === 'card');
+      var ativo = (a.id === abaAtiva) || (SUB[a.id] && grupoDe(abaAtiva) === a.id) || (a.id === 'gprod' && abaAtiva === 'card');
       h += '<button class="aba' + (ativo ? ' ativa' : '') + '" data-aba="' + a.id + '">' + a.rotulo + '</button>';
     }
     $('sia-abas').innerHTML = h;
@@ -3045,7 +3045,7 @@
     } else if (abaAtiva === 'campanhas') {
       var idsC = Object.keys(estado.campanhas);
       if (!idsC.length) {
-        corpo.innerHTML = '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>.</div>';
+        corpo.innerHTML = renderSubAbas('gprod') + '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>.</div>';
         return;
       }
       idsC.sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); });
@@ -3069,6 +3069,7 @@
           '<td class="num">' + fmt(m.pedidos) + '</td>' +
           '<td class="num">' + (m.posicao === undefined ? '—' : fmt(m.posicao, 0)) + '</td></tr>';
       }
+      h2 = renderSubAbas('gprod') + h2;
       h2 += '</table><div class="nota">CPC derivado (gasto ÷ cliques) — os campos cpc/cpm da API interna nao batem com a tela e foram descartados. ROAS = broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
 
@@ -3081,7 +3082,7 @@
         return m.gasto !== undefined || m.gmv !== undefined || m.roas !== undefined;
       });
       if (!idsC.length) {
-        corpo.innerHTML = renderSubAbas('mais') + '<div class="vazio">Sem campanhas de Ads ainda.<br>Rode a coleta na aba <b>Conta 360</b> (o bot\u00e3o "Coletar conta") \u2014 o Ads entra junto.</div>';
+        corpo.innerHTML = renderSubAbas('gprod') + '<div class="vazio">Sem campanhas de Ads ainda.<br>Rode a coleta na aba <b>Conta 360</b> (o bot\u00e3o "Coletar conta") \u2014 o Ads entra junto.</div>';
         return;
       }
       idsC.sort(function (a, b) { return (camps[b].metricas.gasto || 0) - (camps[a].metricas.gasto || 0); });
@@ -3102,7 +3103,7 @@
           '<td class="num">' + nz(mc.pedidos) + '</td></tr>';
       }
       h2b += '</table><div class="nota">Campanhas do Shopee Ads, ordenadas por gasto.</div>';
-      corpo.innerHTML = renderSubAbas('mais') + h2b;
+      corpo.innerHTML = renderSubAbas('gprod') + h2b;
 
     } else if (abaAtiva === 'performance') {
       var idsP = Object.keys(estado.produtos).filter(function (id) {
@@ -3110,7 +3111,7 @@
         return mm.visitantes !== undefined || mm.vendas_pagas !== undefined;
       });
       if (!idsP.length) {
-        corpo.innerHTML = renderSubAbas('mais') + '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
+        corpo.innerHTML = renderSubAbas('gprod') + '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
         return;
       }
       idsP.sort(function (a, b) { return (estado.produtos[b].metricas.vendas_pagas || 0) - (estado.produtos[a].metricas.vendas_pagas || 0); });
@@ -3126,7 +3127,7 @@
           '<td class="num">' + pct5(m5.rejeicao) + '</td><td class="num">' + pct5(m5.fatia_vendas) + '</td></tr>';
       }
       h5 += '</table><div class="nota">Funil por produto (pagamento confirmado). A coleta acompanha o que a tela carregar — role a lista da Shopee para cobrir mais produtos.</div>';
-      corpo.innerHTML = renderSubAbas('mais') + h5;
+      corpo.innerHTML = renderSubAbas('gprod') + h5;
 
     } else if (abaAtiva === 'afiliados') {
       var brutosAf = estado.afiliados.campos || {};
@@ -3162,7 +3163,7 @@
         } else {
           h3 = '<div class="vazio">Pagina publica detectada' + (estado.paginaProduto ? ' (ID ' + esc(estado.paginaProduto) + ')' : '') + '.<br>Status da leitura: <b>' + esc(estado.debugPublico || 'tentando...') + '</b><br>Se falhar, me mande esse status.</div>';
         }
-        corpo.innerHTML = renderSubAbas('mais') + h3;
+        corpo.innerHTML = renderSubAbas('gprod') + h3;
         return;
       }
       if (estado.paginaProduto) {
@@ -3332,7 +3333,7 @@
         }
         h4 += '</table><div class="nota">"Exportar coleta" gera o JSON completo para calibragem — mande no chat com um print quando algo nao bater.</div>';
       }
-      corpo.innerHTML = renderSubAbas('mais') + h4;
+      corpo.innerHTML = h4;
     }
   }
 
