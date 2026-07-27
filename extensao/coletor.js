@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.26.0';
+  var VERSAO = '0.26.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1578,6 +1578,11 @@
     var el = ev.target;
     while (el && el !== this) {
       if (el.getAttribute) {
+        if (el.id === 'sia-vinc-ok') {
+          var sel = $('sia-vinc');
+          if (sel) { salvarVinculo(el.getAttribute('data-camp'), sel.value); render(); }
+          return;
+        }
         if (el.getAttribute('data-voltar')) { abaAtiva = estado.cardVoltaPara || 'campanhas'; render(); return; }
         var d = el.getAttribute('data-card');
         if (d) { var p = d.split(':'); estado.cardVoltaPara = abaAtiva; abrirCard(p[0], p.slice(1).join(':')); return; }
@@ -2429,6 +2434,53 @@
      5 ouro da Shopee (espiao) · 6 funil. */
   function cofreD() { try { return (window.SIA_Diamantes && window.SIA_Diamantes.estado()) || {}; } catch (e) { return {}; } }
 
+  /* --- VINCULO CAMPANHA -> PRODUTO ---
+     A Shopee so entrega item_id junto da campanha em algumas rotas. Com 298
+     campanhas e 14 produtos identificados, a maioria dos cards abria sem
+     produto — e sem produto nao ha custo, logo nao ha lucro. Aqui resolvemos
+     em tres degraus: vinculo salvo pela usuaria > item_id da API > nome. */
+  function normNome(s) {
+    s = String(s || '').toLowerCase();
+    s = s.normalize ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : s;
+    return s.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function listaProdutos() {
+    var C = cofreD(), out = [], id;
+    for (id in estado.produtos) out.push({ id: id, nome: estado.produtos[id].nome || ('Produto ' + id) });
+    for (id in (C.porProduto || {})) {
+      if (estado.produtos[id]) continue;
+      out.push({ id: id, nome: (C.porProduto[id].nome) || ('Produto ' + id) });
+    }
+    return out;
+  }
+  function acharProdutoPorNome(titulo) {
+    var alvo = normNome(titulo);
+    if (!alvo) return null;
+    var tk = alvo.split(' ').filter(function (x) { return x.length > 2; });
+    if (!tk.length) return null;
+    var lista = listaProdutos(), melhor = null, melhorNota = 0;
+    for (var i = 0; i < lista.length; i++) {
+      var n = normNome(lista[i].nome);
+      if (!n) continue;
+      var achou = 0;
+      for (var k = 0; k < tk.length; k++) if (n.indexOf(tk[k]) >= 0) achou++;
+      var nota = achou / tk.length;
+      if (nota > melhorNota) { melhorNota = nota; melhor = lista[i]; }
+    }
+    return melhorNota >= 0.5 ? melhor : null;
+  }
+  function vinculoDe(idCamp) {
+    var v = estado.cofre && estado.cofre.vinculos ? estado.cofre.vinculos[String(idCamp)] : null;
+    return v || null;
+  }
+  function salvarVinculo(idCamp, idProd) {
+    if (!estado.cofre) estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
+    estado.cofre.vinculos = estado.cofre.vinculos || {};
+    if (idProd) estado.cofre.vinculos[String(idCamp)] = String(idProd);
+    else delete estado.cofre.vinculos[String(idCamp)];
+    salvarCofre();
+  }
+
   function abrirCard(tipo, id) {
     estado.card = { tipo: tipo, id: String(id) };
     abaAtiva = 'card';
@@ -2437,14 +2489,25 @@
 
   function cardResolver() {
     var C = cofreD(), a = estado.card || {};
-    var pc = null, pp = null, nome = '', idProduto = null, idCamp = null;
+    var pc = null, pp = null, nome = '', idProduto = null, idCamp = null, autoNome = false;
     if (a.tipo === 'campanha') {
       idCamp = a.id;
       pc = (C.porCampanha || {})[a.id] || null;
       var camp = estado.campanhas[a.id];
       nome = (pc && pc.titulo) || (camp && camp.nome) || ('Campanha ' + a.id);
-      for (var k in (C.porProduto || {})) {
-        if (C.porProduto[k].campaignId === String(a.id)) { pp = C.porProduto[k]; idProduto = k; break; }
+      // 1) vinculo salvo pela usuaria manda em tudo
+      var vin = vinculoDe(a.id);
+      if (vin) { idProduto = vin; pp = (C.porProduto || {})[vin] || null; }
+      // 2) item_id que a propria API entregou
+      if (!idProduto) {
+        for (var k in (C.porProduto || {})) {
+          if (C.porProduto[k].campaignId === String(a.id)) { pp = C.porProduto[k]; idProduto = k; break; }
+        }
+      }
+      // 3) nome da campanha x nome do produto
+      if (!idProduto) {
+        var achado = acharProdutoPorNome(nome);
+        if (achado) { idProduto = achado.id; pp = (C.porProduto || {})[achado.id] || null; autoNome = true; }
       }
     } else {
       idProduto = a.id;
@@ -2452,7 +2515,7 @@
       nome = (pp && pp.nome) || (estado.produtos[a.id] && estado.produtos[a.id].nome) || ('Produto ' + a.id);
       if (pp && pp.campaignId) { idCamp = pp.campaignId; pc = (C.porCampanha || {})[pp.campaignId] || null; }
     }
-    return { pc: pc, pp: pp, nome: nome, idProduto: idProduto, idCamp: idCamp, C: C };
+    return { pc: pc, pp: pp, nome: nome, idProduto: idProduto, idCamp: idCamp, C: C, autoNome: autoNome };
   }
 
   function chip(rot, val, sub, cor) {
@@ -2523,9 +2586,21 @@
     h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #1d212a;margin-top:6px;padding-top:7px">' +
       '<span style="font-size:12.5px;font-weight:600">' + (custoProd ? 'Lucro por pedido' : 'Sobra antes do custo') + '</span>' +
       '<span style="font-size:26px;color:' + (liquido > 0 ? '#2ecc71' : '#e74c3c') + '">' + (liquido != null ? reais(liquido) : '—') + '</span></div>';
+    if (!custoProd) {
+      var lp = listaProdutos();
+      if (lp.length) {
+        h += '<div style="background:#12151b;border:1px solid #1d212a;border-radius:9px;padding:9px 11px;margin-top:9px">' +
+          '<div style="font-family:monospace;font-size:8px;color:#7d8290;margin-bottom:6px">QUAL PRODUTO E ESTA CAMPANHA?</div>' +
+          '<div style="display:flex;gap:6px"><select id="sia-vinc" style="flex:1;background:#0c0e12;border:1px solid #1d212a;border-radius:7px;padding:7px;color:#f2f2f4;font-size:11.5px"><option value="">escolha o produto...</option>';
+        for (var vp = 0; vp < lp.length; vp++) {
+          h += '<option value="' + esc(lp[vp].id) + '"' + (String(lp[vp].id) === String(R.idProduto) ? ' selected' : '') + '>' + esc(String(lp[vp].nome).slice(0, 40)) + (custoDe(lp[vp].id) ? ' · custo ok' : ' · sem custo') + '</option>';
+        }
+        h += '</select><button id="sia-vinc-ok" data-camp="' + esc(R.idCamp || '') + '" style="background:#ff4d1c;border:none;color:#fff;font-size:11.5px;font-weight:600;padding:0 13px;border-radius:7px;cursor:pointer">Vincular</button></div></div>';
+      }
+    }
     if (custoProd) {
       h += '<div style="background:#12151b;border-left:3px solid #2ecc71;border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:#b8bcc6">' +
-        'Margem real de <b style="color:#2ecc71">' + (margemPct != null ? fmt(margemPct, 1) + '%' : '—') + '</b> — custo, embalagem e imposto ja descontados.</div></div>';
+        'Margem real de <b style="color:#2ecc71">' + (margemPct != null ? fmt(margemPct, 1) + '%' : '—') + '</b> — custo, embalagem e imposto ja descontados.' + (R.autoNome ? ' <span style="color:#f5b041">Produto identificado pelo nome — confira se e este mesmo.</span>' : '') + '</div></div>';
     } else {
       h += '<div style="background:#12151b;border-left:3px solid #7B2FFF;border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:#b8bcc6">' +
         'Falta o custo deste produto. Cadastre na aba <b style="color:#f2f2f4">Cofre</b> e esta sobra vira lucro de verdade.</div></div>';
