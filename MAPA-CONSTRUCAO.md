@@ -29,7 +29,17 @@
 - [ ] **Ler a página pública do produto** (os 2 formatos de URL)
 - [ ] Cruzar o ID da página com os dados já coletados no banco
 - [ ] Mostrar o CARD do produto ali, com margem + veredito + funil
-- [ ] Sondador de busca (espião de concorrência) integrado
+
+## PARTE B2 — ESPIÃO DE BUSCA (tela do sistema, estava fora do mapa)
+Layout aprovado: `mockups/espiao.html`. Motor de dados: `diamantes.js → exBusca()`.
+- [x] Motor lê `monthly_sold_count` + `historical_sold_count` + preço → **faturamentoMesEstimado**
+- [x] Layout das 3 telas: Radar (automático) · Sonda (manual) · Duelo (comparativo)
+- [ ] **Disparo ativo da busca pelo `bg.js`** (service worker, host_permissions já cobre shopee.com.br — resolve o CORS entre seller.* e shopee.com.br)
+- [ ] Radar automático: extrair termo principal do título de `COFRE.porProduto` → 1 busca por produto top
+- [ ] Cálculo da BARREIRA = média do TOP 5 (preço, vendas/mês, faturamento) — líder entra só como referência
+- [ ] Diff de palavras: termos do título do TOP 5 que não estão no título dela
+- [ ] **APOSENTAR `mockups/sondador.html`** — versão v3 de console, não extrai sold_count, ficou obsoleta
+- [ ] Consultor do Duelo com texto do cérebro treinado (não inventado)
 
 ## PARTE C — CÉREBRO (ocpm-2.0)
 - [x] Regras base: campanha, funil, conta, leilão (ocpm-1.3)

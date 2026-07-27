@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Espião de Busca</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#7d8290;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:460px;margin:0 auto;padding:22px 12px 46px}
+.title{text-align:center;margin-bottom:16px}
+.title h1{font-family:'Bebas Neue';font-size:32px;letter-spacing:.02em;line-height:1}
+.title h1 em{font-style:normal;color:var(--orange)}
+.title p{color:var(--text2);font-size:12.5px;margin-top:5px}
+
+.frame{background:var(--bg2);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.6)}
+.topbar{display:flex;align-items:center;gap:9px;padding:12px 15px;border-bottom:1px solid var(--line);background:var(--bg3)}
+.topbar svg{width:22px;height:22px;flex:none}
+.topbar .nm{font-family:'Bebas Neue';font-size:17px;letter-spacing:.04em;flex:1;line-height:1}
+.topbar .st{font-family:'Space Mono';font-size:8px;color:var(--ok);display:flex;align-items:center;gap:4px}
+.topbar .st::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ok)}
+
+.nav{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:9px 10px;background:var(--bg3);border-bottom:1px solid var(--line)}
+.nav button{font-family:'Space Mono';font-size:9.5px;letter-spacing:.03em;color:var(--text3);padding:8px 6px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--bg2);text-align:center}
+.nav button.on{color:#fff;border-color:var(--orange);background:rgba(255,77,28,.1)}
+.nav button:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.screen{padding:15px;max-height:560px;overflow-y:auto}
+.ml{font-family:'Space Mono';font-size:9px;color:var(--text3);letter-spacing:.06em}
+.tip{background:var(--bg3);border-left:3px solid var(--purple);border-radius:0 9px 9px 0;padding:10px 12px;font-size:11.5px;color:var(--text2);margin-bottom:10px;line-height:1.45}
+.tip b{color:var(--text);font-weight:600}
+.tip.o{border-left-color:var(--orange)}
+.tip.w{border-left-color:var(--warn)}
+
+/* RADAR */
+.hero-btn{width:100%;background:linear-gradient(120deg,var(--orange),var(--purple));border:none;color:#fff;font-weight:700;font-size:13.5px;padding:12px;border-radius:11px;cursor:pointer;font-family:'Outfit'}
+.last{text-align:center;font-family:'Space Mono';font-size:9.5px;color:var(--text3);margin:9px 0 14px}
+.rprod{width:100%;text-align:left;background:var(--bg3);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px;cursor:pointer;color:inherit;font-family:inherit;display:block}
+.rprod:hover{border-color:#2a2f3a}
+.rprod:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.rprod .l1{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+.rprod .nm{flex:1;font-size:12.5px;font-weight:500;color:var(--text)}
+.rprod .kwtag{font-family:'Space Mono';font-size:9px;color:var(--text3);display:block;margin-bottom:8px}
+.rprod .kwtag b{color:var(--purple);font-weight:400}
+.pill{font-family:'Space Mono';font-size:7.5px;letter-spacing:.05em;padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--text3);flex:none}
+.pill.ads{color:var(--orange);border-color:rgba(255,77,28,.4);background:rgba(255,77,28,.08)}
+.pill.org{color:var(--ok);border-color:rgba(46,204,113,.35);background:rgba(46,204,113,.08)}
+.posbig{font-family:'Bebas Neue';font-size:19px;line-height:1;color:var(--text3);flex:none;width:26px}
+.posbig.good{color:var(--ok)}.posbig.mid{color:var(--warn)}.posbig.bad{color:var(--bad)}
+.gap{display:flex;align-items:center;gap:8px;font-family:'Space Mono';font-size:9.5px}
+.gap .me{color:var(--text2)}
+.gap .arrow{color:var(--text3)}
+.gap .bar5{color:var(--ok)}
+.gap .x{margin-left:auto;padding:2px 7px;border-radius:5px;font-size:8.5px;border:1px solid}
+.x.far{color:var(--bad);border-color:rgba(231,76,60,.4);background:rgba(231,76,60,.09)}
+.x.near{color:var(--warn);border-color:rgba(245,176,65,.4);background:rgba(245,176,65,.09)}
+.x.over{color:var(--ok);border-color:rgba(46,204,113,.4);background:rgba(46,204,113,.09)}
+
+/* SONDA */
+.search-row{display:flex;gap:6px;margin-bottom:11px}
+.search-row input{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:10px 11px;color:var(--text);font-family:'Outfit';font-size:12.5px}
+.search-row input:focus{outline:none;border-color:var(--orange)}
+.search-row button{background:var(--orange);border:none;color:#fff;border-radius:8px;padding:0 15px;font-size:12px;cursor:pointer;font-family:'Outfit';font-weight:600}
+.resumo{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:11px}
+.rc{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:9px 8px;text-align:center}
+.rc .k{font-family:'Space Mono';font-size:7.5px;color:var(--text3);letter-spacing:.04em}
+.rc .v{font-family:'Bebas Neue';font-size:21px;line-height:1.1;margin-top:2px}
+.rc .v.orange{color:var(--orange)}.rc .v.ok{color:var(--ok)}
+.srow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:11px}
+.srow .pos{font-family:'Bebas Neue';font-size:16px;width:22px;color:var(--text3);flex:none}
+.srow.eu{background:rgba(46,204,113,.05);margin:0 -6px;padding-left:6px;padding-right:6px;border-radius:6px}
+.srow.eu .pos{color:var(--ok)}
+.srow .nm{flex:1;color:var(--text2);min-width:0}
+.srow.eu .nm{color:var(--ok);font-weight:600}
+.srow .scol{text-align:right;flex:none}
+.srow .pr{font-family:'Space Mono';font-size:10.5px;display:block}
+.fat-est{font-family:'Space Mono';font-size:8.5px;color:var(--ok);display:block;margin-top:1px}
+
+/* A BARREIRA — elemento assinatura */
+.barreira{background:var(--bg3);border:1px solid var(--line);border-radius:13px;padding:13px 13px 11px;margin-bottom:12px}
+.barreira .cap{font-family:'Space Mono';font-size:8.5px;color:var(--text3);letter-spacing:.07em;margin-bottom:2px}
+.barreira .big{font-family:'Bebas Neue';font-size:34px;line-height:1;color:var(--orange)}
+.barreira .big small{font-family:'Space Mono';font-size:10px;color:var(--text3);letter-spacing:0;margin-left:4px}
+.brows{margin-top:13px;position:relative}
+.brow{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.brow .lb{font-family:'Space Mono';font-size:8.5px;color:var(--text3);width:44px;flex:none;text-align:right}
+.brow .track{flex:1;height:15px;background:#191c22;border-radius:4px;overflow:hidden}
+.brow .fill{display:block;height:100%;background:#2b3140;border-radius:4px}
+.brow .vl{font-family:'Space Mono';font-size:8.5px;color:var(--text2);width:44px;flex:none}
+.brow.eu .lb{color:var(--orange)}
+.brow.eu .fill{background:linear-gradient(90deg,var(--orange),#ff7a4d)}
+.brow.eu .vl{color:var(--orange)}
+.brow.lider .fill{background:#3a4152}
+.threshold{display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:9px;border-top:1px dashed #2a3040}
+.threshold .lb{font-family:'Space Mono';font-size:8.5px;color:var(--ok);width:44px;text-align:right;flex:none}
+.threshold .tx{font-size:11px;color:var(--text2)}
+.threshold .tx b{color:var(--ok);font-family:'Space Mono';font-size:10.5px}
+
+/* DUELO */
+.duelhead{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.duelhead .nm{flex:1;font-size:13px;font-weight:600;line-height:1.25}
+.duelhead .kwtag{font-family:'Space Mono';font-size:9px;color:var(--purple)}
+.cmp{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:11px}
+.cmp table{width:100%;border-collapse:collapse}
+.cmp th{font-family:'Space Mono';font-size:8px;letter-spacing:.04em;padding:8px 5px;background:var(--bg3);border-bottom:1px solid var(--line);font-weight:400;color:var(--text3)}
+.cmp th.eu{color:var(--orange)}
+.cmp th.b5{color:var(--ok)}
+.cmp td{font-size:11px;padding:7px 5px;text-align:center;border-bottom:1px solid var(--line);color:var(--text2)}
+.cmp tr:last-child td{border-bottom:none}
+.cmp td.k{text-align:left;padding-left:10px;font-family:'Space Mono';font-size:9px;color:var(--text3)}
+.cmp td.eu{font-family:'Space Mono';font-size:11px;color:var(--text);font-weight:700;background:rgba(255,77,28,.05)}
+.cmp td b{color:var(--text);font-weight:600}
+.dot{color:var(--bad)}.dot.g{color:var(--ok)}
+.kws{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.kw{font-family:'Space Mono';font-size:10.5px;color:#c88bff;background:rgba(123,47,255,.1);border:1px solid rgba(123,47,255,.3);border-radius:99px;padding:4px 11px}
+.ordem{background:var(--bg3);border:1px solid var(--line);border-radius:12px;padding:13px}
+.ordem .h{font-family:'Bebas Neue';font-size:19px;letter-spacing:.03em;color:var(--orange);margin-bottom:9px;line-height:1}
+.step{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--text2);line-height:1.45}
+.step:last-child{border-bottom:none}
+.step .n{font-family:'Space Mono';font-size:10px;color:var(--orange);flex:none;width:14px}
+.step b{color:var(--text);font-weight:600}
+.foot{font-family:'Space Mono';font-size:9px;color:var(--text3);text-align:center;margin-top:14px;line-height:1.6}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">
+    <h1>ESPIÃO DE <em>BUSCA</em></h1>
+    <p>Quem está ganhando essa busca, quanto fatura por mês, e o que separa você deles.</p>
+  </div>
+
+  <div class="frame">
+    <div class="topbar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#ff4d1c" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/><circle cx="11" cy="11" r="2.4" fill="#ff4d1c" stroke="none"/></svg>
+      <span class="nm">ESPIÃO DE BUSCA</span>
+      <span class="st">colorindo_shop</span>
+    </div>
+
+    <div class="nav">
+      <button class="on" data-go="radar">RADAR</button>
+      <button data-go="sonda">SONDA</button>
+      <button data-go="duelo">DUELO</button>
+    </div>
+
+    <div class="screen">
+
+      <!-- ================= RADAR ================= -->
+      <section data-s="radar">
+        <div class="tip o"><b>O Radar roda sozinho.</b> Ele pega o termo principal do título dos seus produtos que mais vendem, pesquisa cada um na Shopee como comprador e te mostra onde você cai e quanto o topo fatura. Você não digita nada.</div>
+        <button class="hero-btn">Atualizar radar</button>
+        <div class="last">última varredura hoje, 09:14 · 6 produtos · 6 buscas</div>
+
+        <div class="ml" style="margin-bottom:8px">SEUS PRODUTOS NAS BUSCAS DELES</div>
+
+        <button class="rprod" data-go="duelo">
+          <div class="l1"><span class="posbig mid">5</span><span class="nm">Descanso de Copo Resinado Kit 6</span><span class="pill ads">ADS</span></div>
+          <span class="kwtag">busca <b>descanso de copo</b> · 60 resultados · 22 anúncios</span>
+          <div class="gap"><span class="me">você ~R$3,3k/mês</span><span class="arrow">→</span><span class="bar5">TOP 5 ~R$8,6k</span><span class="x far">2,6× abaixo</span></div>
+        </button>
+
+        <button class="rprod" data-go="duelo">
+          <div class="l1"><span class="posbig good">2</span><span class="nm">Porta Copos Antiderrapante Preto</span><span class="pill org">orgânico</span></div>
+          <span class="kwtag">busca <b>porta copos</b> · 60 resultados · 19 anúncios</span>
+          <div class="gap"><span class="me">você ~R$9,1k/mês</span><span class="arrow">→</span><span class="bar5">TOP 5 ~R$7,4k</span><span class="x over">acima da barreira</span></div>
+        </button>
+
+        <button class="rprod" data-go="duelo">
+          <div class="l1"><span class="posbig mid">9</span><span class="nm">Jogo Americano Impermeável 4un</span><span class="pill ads">ADS</span></div>
+          <span class="kwtag">busca <b>jogo americano</b> · 60 resultados · 31 anúncios</span>
+          <div class="gap"><span class="me">você ~R$4,8k/mês</span><span class="arrow">→</span><span class="bar5">TOP 5 ~R$6,2k</span><span class="x near">perto, falta 1,3k</span></div>
+        </button>
+
+        <button class="rprod" data-go="duelo">
+          <div class="l1"><span class="posbig bad">38</span><span class="nm">Suporte de Copo para Sofá</span><span class="pill org">orgânico</span></div>
+          <span class="kwtag">busca <b>suporte de copo sofá</b> · 47 resultados · 8 anúncios</span>
+          <div class="gap"><span class="me">você ~R$610/mês</span><span class="arrow">→</span><span class="bar5">TOP 5 ~R$5,1k</span><span class="x far">8,4× abaixo</span></div>
+        </button>
+
+        <button class="rprod" data-go="duelo">
+          <div class="l1"><span class="posbig bad">—</span><span class="nm">Bandeja Organizadora Mesa</span><span class="pill">fora do top 60</span></div>
+          <span class="kwtag">busca <b>bandeja organizadora</b> · 60 resultados · 27 anúncios</span>
+          <div class="gap"><span class="me">você não aparece</span><span class="arrow">→</span><span class="bar5">TOP 5 ~R$12,4k</span><span class="x far">invisível nessa busca</span></div>
+        </button>
+
+        <div class="tip w" style="margin-top:12px"><b>Leitura do radar:</b> das 6 buscas, você está acima da barreira em 1, perto em 1 e muito abaixo em 3. A Bandeja não aparece no top 60 da própria busca dela, e essa é a maior busca do grupo. É o único caso aqui em que o problema quase nunca é preço, e sim o título não conter o termo que o comprador digita.</div>
+      </section>
+
+      <!-- ================= SONDA ================= -->
+      <section data-s="sonda" hidden>
+        <div class="ml" style="margin-bottom:8px">PESQUISE QUALQUER TERMO</div>
+        <div class="search-row"><input value="descanso de copo" readonly aria-label="termo de busca"><button>Espiar</button></div>
+
+        <div class="resumo">
+          <div class="rc"><div class="k">ANÚNCIOS</div><div class="v orange">22<span style="font-size:12px;color:var(--text3)">/60</span></div></div>
+          <div class="rc"><div class="k">PREÇO MÉDIO TOP 5</div><div class="v">R$24</div></div>
+          <div class="rc"><div class="k">FATURAM./MÊS TOP 5</div><div class="v ok">43k</div></div>
+        </div>
+
+        <div class="tip"><b>Como o faturamento é calculado:</b> a própria Shopee mostra no card de cada produto quantas unidades ele vendeu nos últimos 30 dias. Multiplicamos por o preço exibido. É estimativa de vitrine, não o extrato do concorrente, mas é a melhor régua pública que existe.</div>
+
+        <div class="srow"><span class="pos">1</span><span class="nm">Descanso de Copo Resina Mármore 6un</span><span class="scol"><span class="pr">R$24,90</span><span class="fat-est">480/mês · ~R$11,9k</span></span></div>
+        <div class="srow"><span class="pos">2</span><span class="nm">Porta Copo Absorvente Kit 6 Cortiça</span><span class="scol"><span class="pr">R$19,90</span><span class="fat-est">390/mês · ~R$7,8k</span></span></div>
+        <div class="srow"><span class="pos">3</span><span class="nm">Descanso Copo Antiderrapante Luxo</span><span class="scol"><span class="pr">R$29,90</span><span class="fat-est">260/mês · ~R$7,8k</span></span></div>
+        <div class="srow"><span class="pos">4</span><span class="nm">Kit 6 Porta Copos Resinado Mesa</span><span class="scol"><span class="pr">R$22,50</span><span class="fat-est">310/mês · ~R$7,0k</span></span></div>
+        <div class="srow eu"><span class="pos">5</span><span class="nm">Descanso de Copo Resinado Kit 6 (você)</span><span class="scol"><span class="pr">R$34,90</span><span class="fat-est">95/mês · ~R$3,3k</span></span></div>
+        <div class="srow"><span class="pos">6</span><span class="nm">Porta Copos Silicone Colorido</span><span class="scol"><span class="pr">R$17,90</span><span class="fat-est">210/mês · ~R$3,8k</span></span></div>
+        <div class="srow"><span class="pos">7</span><span class="nm">Descanso de Copo Madeira Natural</span><span class="scol"><span class="pr">R$27,00</span><span class="fat-est">140/mês · ~R$3,8k</span></span></div>
+        <div class="srow"><span class="pos">8</span><span class="nm">Kit Porta Copo Acrílico Transparente</span><span class="scol"><span class="pr">R$21,90</span><span class="fat-est">120/mês · ~R$2,6k</span></span></div>
+        <div class="last" style="margin-top:12px">mostrando 8 de 60 · role para ver o resto</div>
+      </section>
+
+      <!-- ================= DUELO ================= -->
+      <section data-s="duelo" hidden>
+        <div class="duelhead">
+          <span class="posbig mid">5</span>
+          <div><div class="nm">Descanso de Copo Resinado Kit 6</div><span class="kwtag">na busca "descanso de copo" · anúncio</span></div>
+        </div>
+
+        <!-- assinatura: A BARREIRA -->
+        <div class="barreira">
+          <div class="cap">A BARREIRA DESTA BUSCA</div>
+          <div class="big">R$ 8,6 MIL<small>/mês · média do TOP 5</small></div>
+          <div class="brows">
+            <div class="brow lider"><span class="lb">1º</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="vl">11,9k</span></div>
+            <div class="brow"><span class="lb">2º</span><span class="track"><span class="fill" style="width:66%"></span></span><span class="vl">7,8k</span></div>
+            <div class="brow"><span class="lb">3º</span><span class="track"><span class="fill" style="width:66%"></span></span><span class="vl">7,8k</span></div>
+            <div class="brow"><span class="lb">4º</span><span class="track"><span class="fill" style="width:59%"></span></span><span class="vl">7,0k</span></div>
+            <div class="brow eu"><span class="lb">VOCÊ</span><span class="track"><span class="fill" style="width:28%"></span></span><span class="vl">3,3k</span></div>
+          </div>
+          <div class="threshold"><span class="lb">FALTA</span><span class="tx">subir <b>+R$5,3 mil/mês</b> para encostar no padrão do topo. Em unidades: de 95 para cerca de <b>150/mês</b>.</span></div>
+        </div>
+
+        <div class="ml" style="margin-bottom:7px">VOCÊ · PADRÃO DO TOP 5 · LÍDER</div>
+        <div class="cmp">
+          <table>
+            <tr><th style="text-align:left;padding-left:10px"></th><th class="eu">VOCÊ</th><th class="b5">PADRÃO TOP 5</th><th>LÍDER</th></tr>
+            <tr><td class="k">Preço</td><td class="eu">R$34,90</td><td><b>R$24,30</b></td><td>R$24,90</td></tr>
+            <tr><td class="k">Vendas/mês</td><td class="eu">95</td><td><b>360</b></td><td>480</td></tr>
+            <tr><td class="k">Faturam./mês</td><td class="eu">~R$3,3k</td><td><b>~R$8,6k</b></td><td>~R$11,9k</td></tr>
+            <tr><td class="k">Avaliações</td><td class="eu">86</td><td><b>1,4 mil</b></td><td>2,1 mil</td></tr>
+            <tr><td class="k">Nota</td><td class="eu">4,7</td><td><b>4,8</b></td><td>4,9</td></tr>
+            <tr><td class="k">Cupom</td><td class="eu"><span class="dot">não</span></td><td><b>3 de 4 têm</b></td><td><span class="dot g">sim</span></td></tr>
+            <tr><td class="k">Frete grátis</td><td class="eu"><span class="dot g">sim</span></td><td><b>4 de 4 têm</b></td><td><span class="dot g">sim</span></td></tr>
+            <tr><td class="k">Anúncio</td><td class="eu">pago</td><td><b>2 de 4 pagos</b></td><td>orgânico</td></tr>
+          </table>
+        </div>
+
+        <div class="tip o"><b>O que separa vocês:</b> você está 44% mais caro que o padrão do topo e é o único dos cinco sem cupom. Mas o buraco maior não é o preço, é a prova social: 86 avaliações contra 1,4 mil do padrão. Quem chega na sua página vê um produto mais caro e menos testado ao mesmo tempo. E o líder está em orgânico enquanto você paga anúncio para ficar atrás dele.</div>
+
+        <div class="ml" style="margin-bottom:7px">PALAVRAS QUE O TOP 5 USA E VOCÊ NÃO</div>
+        <div class="kws"><span class="kw">absorvente</span><span class="kw">antiderrapante</span><span class="kw">mármore</span><span class="kw">cortiça</span><span class="kw">mesa</span></div>
+        <div class="tip"><b>Por que isso pesa:</b> a Shopee cruza o título com o que a pessoa digita. Cada termo relevante que falta no seu título é uma busca inteira onde você nem entra na disputa, paga ou orgânica.</div>
+
+        <div class="ordem">
+          <div class="h">FAÇA NESTA ORDEM</div>
+          <div class="step"><span class="n">1</span><span><b>Abra a calculadora antes de tocar no preço.</b> A R$34,90 você está na faixa de 20% + R$4 de comissão. Saiba o líquido de hoje antes de decidir qualquer coisa.</span></div>
+          <div class="step"><span class="n">2</span><span><b>Ative um cupom de R$3.</b> Custa menos que cortar R$5 do preço e vira selo visível na busca. É o único item da tabela em que você está sozinho.</span></div>
+          <div class="step"><span class="n">3</span><span><b>Puxe avaliação nos pedidos já entregues.</b> 86 contra 1,4 mil é o que mais trava a conversão. Sem isso, qualquer ganho de posição escorre.</span></div>
+          <div class="step"><span class="n">4</span><span><b>Reescreva o título com os termos que faltam</b>, só os que descrevem o produto de verdade.</span></div>
+          <div class="step"><span class="n">5</span><span><b>Preço é o último passo</b>, e só se a margem aguentar. R$29,90 te coloca dentro da faixa do topo sem virar o mais barato da página.</span></div>
+          <div class="step"><span class="n">6</span><span><b>Reavalie em 7 dias.</b> Uma mudança por vez, senão você não sabe qual funcionou.</span></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <p class="foot">Dados de vitrine pública da Shopee · faturamento estimado = vendas dos últimos 30 dias × preço exibido<br>Seller.IA · Efeito Vendas</p>
+</div>
+
+<script>
+var secs = document.querySelectorAll('[data-s]');
+var btns = document.querySelectorAll('.nav button');
+function ir(alvo){
+  secs.forEach(function(s){ s.hidden = s.dataset.s !== alvo; });
+  btns.forEach(function(b){ b.classList.toggle('on', b.dataset.go === alvo); });
+  document.querySelector('.screen').scrollTop = 0;
+}
+document.querySelectorAll('[data-go]').forEach(function(el){
+  el.addEventListener('click', function(){ ir(el.dataset.go); });
+});
+</script>
+</body>
+</html>
