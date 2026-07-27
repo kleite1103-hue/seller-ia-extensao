@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.28.2';
+  var VERSAO = '0.29.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1582,9 +1582,7 @@
     ],
     gprod: [
       { id: 'campanhas', rotulo: 'Campanhas' },
-      { id: 'performance', rotulo: 'Performance de Produto' },
-      { id: 'produtos', rotulo: 'Produtos nos Ads' },
-      { id: 'cadastro', rotulo: 'Anuncio' }
+      { id: 'performance', rotulo: 'Performance de Produto' }
     ]
   };
   var subAtiva = { ferramentas: 'calc', gprod: 'campanhas' };
@@ -1592,10 +1590,17 @@
     for (var g in SUB) for (var i = 0; i < SUB[g].length; i++) if (SUB[g][i].id === id) return g;
     return null;
   }
+  function subsDe(grupo) {
+    var lista = SUB[grupo].slice();
+    // Anuncio so faz sentido (e so tem dado) dentro da pagina publica do produto
+    if (grupo === 'gprod' && estado.modoPagina === 'publico') lista.push({ id: 'cadastro', rotulo: 'Anuncio' });
+    return lista;
+  }
   function renderSubAbas(grupo) {
+    var subs = subsDe(grupo);
     var h = '<div class="subabas">';
-    for (var i = 0; i < SUB[grupo].length; i++) {
-      var s = SUB[grupo][i];
+    for (var i = 0; i < subs.length; i++) {
+      var s = subs[i];
       h += '<button class="subaba' + (s.id === subAtiva[grupo] ? ' ativa' : '') + '" data-sub="' + grupo + ':' + s.id + '">' + s.rotulo + '</button>';
     }
     return h + '</div>';
@@ -2555,9 +2560,9 @@
 
   function chip(rot, val, sub, cor) {
     return '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:9px 10px">' +
-      '<div style="font-family:monospace;font-size:9.5px;color:#7d8290;letter-spacing:.05em">' + rot + '</div>' +
-      '<div style="font-size:19px;line-height:1.15;margin-top:2px;color:' + (cor || '#f2f2f4') + '">' + val + '</div>' +
-      '<div style="font-size:10px;color:#7d8290;margin-top:1px">' + sub + '</div></div>';
+      '<div style="font-family:Space Mono,monospace;font-size:11.5px;color:#8a909c;letter-spacing:.05em">' + rot + '</div>' +
+      '<div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1.1;margin-top:3px;color:' + (cor || '#f2f2f4') + '">' + val + '</div>' +
+      '<div style="font-size:12px;color:#8a909c;margin-top:2px">' + sub + '</div></div>';
   }
 
   function renderCard6() {
@@ -2608,7 +2613,7 @@
     var margemPct = (liquido != null && preco) ? (liquido / preco) * 100 : null;
 
     h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
-      '<div style="font-family:"Space Mono";font-size:10.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:8px">A CONTA DESTE PEDIDO</div>';
+      '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:8px">A CONTA DESTE PEDIDO</div>';
     function linhaR(l, v, forte) {
       return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;color:' + (forte ? '#f2f2f4' : '#b8bcc6') + '"><span>' + l + '</span><span style="font-family:monospace">' + v + '</span></div>';
     }
@@ -2699,7 +2704,7 @@
       '<div style="font-size:17px;color:#ff4d1c;line-height:1.25;margin-bottom:8px">' + esc((diag && (diag.titulo || diag.frase)) || cardFraseLocal(pc, pp)) + '</div>';
     var passos = (diag && diag.acoes) || null;
     if (passos && passos.length) {
-      h += '<div style="font-family:"Space Mono";font-size:10.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:6px">FACA NESTA ORDEM</div>';
+      h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:6px">FACA NESTA ORDEM</div>';
       for (var s = 0; s < passos.length; s++) {
         h += '<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid #1d212a;font-size:11.5px;color:#b8bcc6">' +
           '<span style="font-family:monospace;color:#ff4d1c">' + (s + 1) + '</span><span>' + esc(passos[s]) + '</span></div>';
@@ -2730,7 +2735,7 @@
     var diagRot = dg ? dg[0] : (probl ? esc(String(probl).slice(0, 16)) : '—');
     var diagSub = dg ? dg[1] : (probl ? 'apontado pela propria Shopee' : 'sem apontamento');
     var diagCor = !probl ? '#7d8290' : (String(probl).toLowerCase() === 'na' || String(probl).toLowerCase() === 'good' ? '#2ecc71' : (String(probl).toLowerCase() === 'room_more_traffic' ? '#2ecc71' : '#f5b041'));
-    h += '<div style="font-family:"Space Mono";font-size:10.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:7px">O QUE A SHOPEE SABE E NAO MOSTRA</div>' +
+    h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:7px">O QUE A SHOPEE SABE E NAO MOSTRA</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:11px">' +
       chip('POSICAO NO LEILAO', posLeilao != null ? fmt(posLeilao, 0) : '—', posLeilao == null ? 'sem dado' : (posLeilao <= 10 ? 'topo da vitrine' : (posLeilao <= 30 ? 'meio da vitrine' : 'fundo da vitrine')), posLeilao != null && posLeilao <= 10 ? '#2ecc71' : (posLeilao > 30 ? '#e74c3c' : '#f5b041')) +
       chip('COMPETITIVIDADE PRECO', comp != null ? fmt(comp, 0) + '<span style="font-size:11px;color:#7d8290">/100</span>' : '—', comp == null ? 'abra a campanha uma vez' : (comp >= 70 ? 'acima da categoria' : (comp >= 40 ? 'na media' : 'caro pra categoria')), comp != null && comp >= 70 ? '#2ecc71' : (comp != null && comp < 40 ? '#e74c3c' : '#f5b041')) +
@@ -2746,7 +2751,7 @@
       { r: 'CARRINHO', v: f.atc != null ? f.atc : (f.checkout != null ? f.checkout : null) },
       { r: 'VENDAS', v: (pc && pc.resultado && pc.resultado.pedidos) || f.checkout }
     ];
-    h += '<div style="font-family:"Space Mono";font-size:10.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:7px">O CAMINHO ATE A VENDA</div>' +
+    h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:7px">O CAMINHO ATE A VENDA</div>' +
       '<div style="display:flex;align-items:center;gap:4px;background:#12151b;border:1px solid #1d212a;border-radius:12px;padding:12px 8px">';
     for (var i = 0; i < etapas.length; i++) {
       if (i > 0) {
@@ -2843,7 +2848,7 @@
       '<input id="sia-cf-imp" value="' + (cf.imposto ? String(cf.imposto).replace('.', ',') : '') + '" placeholder="0" style="width:100%;background:#0c0e12;border:1px solid #1d212a;border-radius:7px;padding:7px 9px;color:#f2f2f4;font-family:monospace;font-size:13px;margin-top:5px"></div></div>';
 
     h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">' +
-      '<span style="font-family:"Space Mono";font-size:10.5px;color:#7d8290;letter-spacing:.06em;flex:1">CUSTO POR PRODUTO — ' + preenchidos + ' de ' + lista.length + ' cadastrados</span>' +
+      '<span style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;flex:1">CUSTO POR PRODUTO — ' + preenchidos + ' de ' + lista.length + ' cadastrados</span>' +
       '<button id="sia-cf-salvar" style="background:#ff4d1c;border:none;color:#fff;font-weight:700;font-size:12px;padding:8px 16px;border-radius:8px;cursor:pointer">Salvar</button></div>';
 
     if (!lista.length) return h + '<div class="vazio">Nenhum produto lido ainda. Rode a coleta na aba Inicio.</div>';
