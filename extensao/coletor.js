@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.25.1';
+  var VERSAO = '0.25.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2518,18 +2518,25 @@
     /* ---- 3. POR QUE ESTE ROAS (a Shopee explica) ---- */
     var roasReal = (pc && pc.resultado && pc.resultado.roiAmplo) || null;
     var meta = (pc && pc.metaShopee) || {};
-    var equil = margemPct ? 100 / margemPct : null;
+    // ATENCAO: sem o custo do produto isso NAO e o equilibrio real, e o TETO
+    // (o melhor cenario possivel, com custo zero). Mostrar 2,1x como equilibrio
+    // faria a usuaria baixar a meta e perder dinheiro. Enquanto o Cofre de
+    // Custos nao existe, o card diz o que o numero e de verdade.
+    var teto = margemPct ? 100 / margemPct : null;
+    var temCusto = false;
+    var equil = temCusto ? teto : null;
     h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
       '<div style="font-family:monospace;font-size:8.5px;color:#c88bff;letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;text-align:center">' +
       '<div><div style="font-size:18px;color:#f5b041">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SUA META HOJE</div></div>' +
       '<div><div style="font-size:18px;color:#2ecc71">' + (meta.sugerida != null ? fmt(meta.sugerida, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SHOPEE SUGERE</div></div>' +
-      '<div><div style="font-size:18px;color:#ff4d1c">' + (equil != null ? fmt(equil, 1) + 'x' : 'falta custo') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SEU EQUILIBRIO</div></div></div>';
+      '<div><div style="font-size:18px;color:' + (equil != null ? '#ff4d1c' : '#7d8290') + '">' + (equil != null ? fmt(equil, 1) + 'x' : (teto != null ? fmt(teto, 1) + 'x' : '—')) + '</div><div style="font-family:monospace;font-size:8px;color:' + (equil != null ? '#7d8290' : '#f5b041') + '">' + (equil != null ? 'SEU EQUILIBRIO' : 'TETO · SEM CUSTO') + '</div></div></div>';
     h += '<div style="font-size:11.5px;color:#b8bcc6;margin-top:10px;line-height:1.5">';
     if (roasReal != null) h += 'Voce entrega <b style="color:#f2f2f4">' + fmt(roasReal, 2) + 'x</b> hoje. ';
     if (meta.sugerida != null && meta.ganhoGmvPct != null) h += 'A Shopee projeta <b style="color:#2ecc71">+' + fmt(meta.ganhoGmvPct, 0) + '%</b> de vendas se voce descer a meta pra ' + fmt(meta.sugerida, 1) + 'x. ';
     if (meta.sugerida == null) h += '<b style="color:#f5b041">A meta e a sugestao da Shopee ainda nao foram lidas nesta conta</b> — abra a tela de Shopee Ads uma vez e elas entram sozinhas. '; 
     if (equil != null) h += 'Abaixo de ' + fmt(equil, 1) + 'x voce paga pra vender. ';
+    else if (teto != null) h += '<b style="color:#f5b041">Cuidado com o terceiro numero:</b> ' + fmt(teto, 1) + 'x e o TETO, calculado como se o produto fosse de graca. Seu equilibrio real e mais alto que isso — quanto, so o Cofre de Custos dira. Nao use esse numero como meta. '; 
     h += 'Meta alta protege margem e perde entrega; meta baixa entrega e come margem. O ponto fica entre o equilibrio e a sugestao.</div></div>';
 
     /* ---- 4. CONSULTOR ---- */
@@ -2561,12 +2568,28 @@
     var comp = pp && pp.competitividade != null ? pp.competitividade : null;
     var st = (pp && pp.status) || null;
     var probl = (pc && pc.problema) || (meta.problema) || null;
+    var DIAG = {
+      'na': ['sem apontamento', 'a Shopee nao ve problema aqui'],
+      'no_conversion': ['nao converte', 'chega gente e nao compra'],
+      'low_conversion': ['converte pouco', 'a pagina segura pouco'],
+      'low_traffic': ['pouco trafego', 'falta gente vendo'],
+      'low_impression': ['pouca exibicao', 'o anuncio aparece pouco'],
+      'room_more_traffic': ['cabe mais', 'da pra crescer sem quebrar'],
+      'low_roi': ['ROAS baixo', 'devolve pouco pelo que gasta'],
+      'good': ['saudavel', 'a Shopee aprova'],
+      'fair': ['mediana', 'nem boa nem ruim'],
+      'poor': ['fraca', 'a Shopee sinaliza problema']
+    };
+    var dg = DIAG[String(probl || '').toLowerCase()] || null;
+    var diagRot = dg ? dg[0] : (probl ? esc(String(probl).slice(0, 16)) : '—');
+    var diagSub = dg ? dg[1] : (probl ? 'apontado pela propria Shopee' : 'sem apontamento');
+    var diagCor = !probl ? '#7d8290' : (String(probl).toLowerCase() === 'na' || String(probl).toLowerCase() === 'good' ? '#2ecc71' : (String(probl).toLowerCase() === 'room_more_traffic' ? '#2ecc71' : '#f5b041'));
     h += '<div style="font-family:monospace;font-size:8.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:7px">O QUE A SHOPEE SABE E NAO MOSTRA</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:11px">' +
       chip('POSICAO NO LEILAO', posLeilao != null ? fmt(posLeilao, 0) : '—', posLeilao == null ? 'sem dado' : (posLeilao <= 10 ? 'topo da vitrine' : (posLeilao <= 30 ? 'meio da vitrine' : 'fundo da vitrine')), posLeilao != null && posLeilao <= 10 ? '#2ecc71' : (posLeilao > 30 ? '#e74c3c' : '#f5b041')) +
-      chip('COMPETITIVIDADE PRECO', comp != null ? fmt(comp, 0) + '<span style="font-size:11px;color:#7d8290">/100</span>' : '—', comp == null ? 'sem dado' : (comp >= 70 ? 'acima da categoria' : (comp >= 40 ? 'na media' : 'caro pra categoria')), comp != null && comp >= 70 ? '#2ecc71' : (comp != null && comp < 40 ? '#e74c3c' : '#f5b041')) +
-      chip('STATUS SHOPEE', st ? esc(st === 'normal' ? 'Normal' : st) : '—', st === 'normal' ? 'sem limitacao' : (st ? 'produto limitado' : 'sem dado'), st && st !== 'normal' ? '#e74c3c' : '#2ecc71') +
-      chip('DIAGNOSTICO SHOPEE', probl ? esc(String(probl).slice(0, 14)) : '—', probl ? 'apontado pela propria Shopee' : 'sem apontamento', probl ? '#f5b041' : '#7d8290') +
+      chip('COMPETITIVIDADE PRECO', comp != null ? fmt(comp, 0) + '<span style="font-size:11px;color:#7d8290">/100</span>' : '—', comp == null ? 'abra a campanha uma vez' : (comp >= 70 ? 'acima da categoria' : (comp >= 40 ? 'na media' : 'caro pra categoria')), comp != null && comp >= 70 ? '#2ecc71' : (comp != null && comp < 40 ? '#e74c3c' : '#f5b041')) +
+      chip('STATUS SHOPEE', st ? esc(st === 'normal' ? 'Normal' : st) : '—', st === 'normal' ? 'sem limitacao' : (st ? 'produto limitado' : 'abra a campanha uma vez'), st && st !== 'normal' ? '#e74c3c' : '#2ecc71') +
+      chip('DIAGNOSTICO SHOPEE', diagRot, diagSub, diagCor) +
       '</div>';
 
     /* ---- 6. FUNIL ---- */
