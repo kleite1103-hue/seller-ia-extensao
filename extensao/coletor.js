@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.24.2';
+  var VERSAO = '0.25.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1572,6 +1572,17 @@
   ];
 
   $('sia-abrir').addEventListener('click', function () { $('sia-painel').classList.toggle('aberto'); render(); });
+  $('sia-corpo').addEventListener('click', function (ev) {
+    var el = ev.target;
+    while (el && el !== this) {
+      if (el.getAttribute) {
+        if (el.getAttribute('data-voltar')) { abaAtiva = estado.cardVoltaPara || 'campanhas'; render(); return; }
+        var d = el.getAttribute('data-card');
+        if (d) { var p = d.split(':'); estado.cardVoltaPara = abaAtiva; abrirCard(p[0], p.slice(1).join(':')); return; }
+      }
+      el = el.parentNode;
+    }
+  });
   $('sia-fechar').addEventListener('click', function () { $('sia-painel').classList.remove('aberto'); });
   $('sia-limpar').addEventListener('click', function () {
     estado.campanhas = {}; estado.produtos = {};
@@ -1801,10 +1812,10 @@
     if (R.fila.length === 0) {
       h += '<div style="background:#0f2a17;border:1px solid #1f5a30;border-radius:10px;padding:16px;text-align:center;color:#2ecc71;font-size:13px">Tudo sob controle. Nenhuma campanha pedindo acao agora.</div>';
     } else {
-      h += '<div style="font-size:11px;color:#ff4d1c;font-family:monospace;letter-spacing:.06em;margin-bottom:9px">FILA DE ACAO (' + R.fila.length + ') — ordenada por impacto</div>';
+      h += '<div style="font-size:11px;color:#ff4d1c;font-family:monospace;letter-spacing:.06em;margin-bottom:9px">FILA DE ACAO (' + R.fila.length + ') — clique para abrir o card</div>';
       R.fila.forEach(function (c) {
         var co = CORES_SEM[c.nivel];
-        h += '<div style="background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:9px;padding:10px 12px;margin-bottom:8px">';
+        h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:9px;padding:10px 12px;margin-bottom:8px">';
         h += '<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">' +
           '<span style="width:8px;height:8px;border-radius:50%;background:' + co.dot + ';display:inline-block;flex:0 0 auto"></span>' +
           '<span style="font-size:12.5px;font-weight:700;color:#f2f2f4">' + esc(c.titulo) + '</span>' +
@@ -2409,6 +2420,184 @@
     if (br) br.addEventListener('click', function () { espRodarRadar(); });
   }
 
+  /* ===================== CARD DE 6 PARTES =====================
+     O modelo aprovado em card-final-base.html, agora alimentado pelo
+     que a extensao ja coleta. Ordem fixa, nunca reduzir a 3 blocos:
+     1 aprendizado · 2 dinheiro · 3 ROAS explicado · 4 consultor
+     5 ouro da Shopee (espiao) · 6 funil. */
+  function cofreD() { try { return (window.SIA_Diamantes && window.SIA_Diamantes.estado()) || {}; } catch (e) { return {}; } }
+
+  function abrirCard(tipo, id) {
+    estado.card = { tipo: tipo, id: String(id) };
+    abaAtiva = 'card';
+    render();
+  }
+
+  function cardResolver() {
+    var C = cofreD(), a = estado.card || {};
+    var pc = null, pp = null, nome = '', idProduto = null, idCamp = null;
+    if (a.tipo === 'campanha') {
+      idCamp = a.id;
+      pc = (C.porCampanha || {})[a.id] || null;
+      var camp = estado.campanhas[a.id];
+      nome = (pc && pc.titulo) || (camp && camp.nome) || ('Campanha ' + a.id);
+      for (var k in (C.porProduto || {})) {
+        if (C.porProduto[k].campaignId === String(a.id)) { pp = C.porProduto[k]; idProduto = k; break; }
+      }
+    } else {
+      idProduto = a.id;
+      pp = (C.porProduto || {})[a.id] || null;
+      nome = (pp && pp.nome) || (estado.produtos[a.id] && estado.produtos[a.id].nome) || ('Produto ' + a.id);
+      if (pp && pp.campaignId) { idCamp = pp.campaignId; pc = (C.porCampanha || {})[pp.campaignId] || null; }
+    }
+    return { pc: pc, pp: pp, nome: nome, idProduto: idProduto, idCamp: idCamp, C: C };
+  }
+
+  function chip(rot, val, sub, cor) {
+    return '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:9px 10px">' +
+      '<div style="font-family:monospace;font-size:7.5px;color:#7d8290;letter-spacing:.05em">' + rot + '</div>' +
+      '<div style="font-size:19px;line-height:1.15;margin-top:2px;color:' + (cor || '#f2f2f4') + '">' + val + '</div>' +
+      '<div style="font-size:10px;color:#7d8290;margin-top:1px">' + sub + '</div></div>';
+  }
+
+  function renderCard6() {
+    var R = cardResolver();
+    var pc = R.pc, pp = R.pp;
+    var h = '';
+
+    h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
+      '<button data-voltar="1" style="background:#12151b;border:1px solid #2a2f3a;color:#b8bcc6;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">‹ voltar</button>' +
+      '<div style="flex:1"><div style="font-size:14px;font-weight:600;line-height:1.25">' + esc(String(R.nome).slice(0, 62)) + '</div>' +
+      '<div style="font-family:monospace;font-size:9.5px;color:#7d8290">' + (R.idProduto ? 'ID ' + esc(R.idProduto) : 'campanha ' + esc(R.idCamp || '—')) + '</div></div></div>';
+
+    if (!pc && !pp) {
+      return h + '<div class="vazio">Ainda nao tenho dados desta campanha. Rode a coleta completa na aba Inicio.</div>';
+    }
+
+    /* ---- 1. ALERTA DE APRENDIZADO (so quando existe) ---- */
+    if (pp && pp.emAprendizado && pp.aprendizadoDias) {
+      h += '<div style="display:flex;gap:8px;background:rgba(245,176,65,.1);border:1px solid rgba(245,176,65,.28);border-radius:10px;padding:10px 12px;margin-bottom:11px;font-size:12px;color:#ffd89e;line-height:1.45">' +
+        '<b>Em aprendizado:</b> faltam ' + fmt(pp.aprendizadoDias, 0) + ' dias. Nao altere preco nem lance agora — reinicia a contagem do algoritmo.</div>';
+    }
+
+    /* ---- 2. A CONTA DESTE PEDIDO ---- */
+    var preco = (pp && pp.perf && pp.perf.ticket) || null;
+    var pedidos = (pc && pc.resultado && pc.resultado.pedidos) || (pp && pp.perf && pp.perf.pedidos) || null;
+    var gasto = (pc && pc.leilao && pc.leilao.gasto) || null;
+    var adsPedido = (gasto && pedidos) ? gasto / pedidos : null;
+    var comissao = null;
+    var faixaTxt = '';
+    try {
+      if (preco && window.SIA_Calc) {
+        var tx = window.SIA_Calc.taxaShopee(preco);
+        comissao = (preco * tx.comissao / 100) + tx.fixa;
+        faixaTxt = tx.comissao + '% + ' + reais(tx.fixa);
+      }
+    } catch (e) { /* noop */ }
+    var liquido = (preco != null && comissao != null) ? preco - comissao - (adsPedido || 0) : null;
+    var margemPct = (liquido != null && preco) ? (liquido / preco) * 100 : null;
+
+    h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
+      '<div style="font-family:monospace;font-size:8.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:8px">A CONTA DESTE PEDIDO</div>';
+    function linhaR(l, v, forte) {
+      return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:' + (forte ? '#f2f2f4' : '#b8bcc6') + '"><span>' + l + '</span><span style="font-family:monospace">' + v + '</span></div>';
+    }
+    h += linhaR('Ticket medio', preco != null ? reais(preco) : '—', true);
+    h += linhaR('− Comissao Shopee' + (faixaTxt ? ' (' + faixaTxt + ')' : ''), comissao != null ? '− ' + reais(comissao) : '—');
+    h += linhaR('− Ads por pedido', adsPedido != null ? '− ' + reais(adsPedido) : '—');
+    h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #1d212a;margin-top:6px;padding-top:7px">' +
+      '<span style="font-size:12.5px;font-weight:600">Sobra antes do custo</span>' +
+      '<span style="font-size:26px;color:' + (liquido > 0 ? '#2ecc71' : '#e74c3c') + '">' + (liquido != null ? reais(liquido) : '—') + '</span></div>';
+    h += '<div style="background:#12151b;border-left:3px solid #7B2FFF;border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:#b8bcc6">' +
+      'Falta o custo do produto e a embalagem. Cadastre no Cofre de Custos e esta conta vira margem real — hoje ela e teto, nao lucro.</div></div>';
+
+    /* ---- 3. POR QUE ESTE ROAS (a Shopee explica) ---- */
+    var roasReal = (pc && pc.resultado && pc.resultado.roiAmplo) || null;
+    var meta = (pc && pc.metaShopee) || {};
+    var equil = margemPct ? 100 / margemPct : null;
+    h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
+      '<div style="font-family:monospace;font-size:8.5px;color:#c88bff;letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;text-align:center">' +
+      '<div><div style="font-size:18px;color:#f5b041">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SUA META HOJE</div></div>' +
+      '<div><div style="font-size:18px;color:#2ecc71">' + (meta.sugerida != null ? fmt(meta.sugerida, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SHOPEE SUGERE</div></div>' +
+      '<div><div style="font-size:18px;color:#ff4d1c">' + (equil != null ? fmt(equil, 1) + 'x' : '—') + '</div><div style="font-family:monospace;font-size:8px;color:#7d8290">SEU EQUILIBRIO</div></div></div>';
+    h += '<div style="font-size:11.5px;color:#b8bcc6;margin-top:10px;line-height:1.5">';
+    if (roasReal != null) h += 'Voce entrega <b style="color:#f2f2f4">' + fmt(roasReal, 2) + 'x</b> hoje. ';
+    if (meta.sugerida != null && meta.ganhoGmvPct != null) h += 'A Shopee projeta <b style="color:#2ecc71">+' + fmt(meta.ganhoGmvPct, 0) + '%</b> de vendas se voce descer a meta pra ' + fmt(meta.sugerida, 1) + 'x. ';
+    if (equil != null) h += 'Abaixo de ' + fmt(equil, 1) + 'x voce paga pra vender. ';
+    h += 'Meta alta protege margem e perde entrega; meta baixa entrega e come margem. O ponto fica entre o equilibrio e a sugestao.</div></div>';
+
+    /* ---- 4. CONSULTOR ---- */
+    var diag = null;
+    try {
+      if (estado.diagnostico && estado.diagnostico.vereditos) {
+        for (var v = 0; v < estado.diagnostico.vereditos.length; v++) {
+          var vd = estado.diagnostico.vereditos[v];
+          if (String(vd.id) === String(R.idCamp) || String(vd.id) === String(R.idProduto)) { diag = vd; break; }
+        }
+      }
+    } catch (e) { /* noop */ }
+    h += '<div style="background:#12151b;border:1px solid #1d212a;border-radius:12px;padding:13px;margin-bottom:11px">' +
+      '<div style="font-size:17px;color:#ff4d1c;line-height:1.25;margin-bottom:8px">' + esc((diag && (diag.titulo || diag.frase)) || cardFraseLocal(pc, pp)) + '</div>';
+    var passos = (diag && diag.acoes) || null;
+    if (passos && passos.length) {
+      h += '<div style="font-family:monospace;font-size:8.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:6px">FACA NESTA ORDEM</div>';
+      for (var s = 0; s < passos.length; s++) {
+        h += '<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid #1d212a;font-size:11.5px;color:#b8bcc6">' +
+          '<span style="font-family:monospace;color:#ff4d1c">' + (s + 1) + '</span><span>' + esc(passos[s]) + '</span></div>';
+      }
+    } else {
+      h += '<div style="font-size:11.5px;color:#7d8290">O passo a passo vem do cerebro treinado. Rode <b style="color:#b8bcc6">Analisar</b> na aba Diagnostico para trazer as acoes desta campanha.</div>';
+    }
+    h += '</div>';
+
+    /* ---- 5. OURO DA SHOPEE (o espiao) ---- */
+    var posLeilao = (pc && pc.leilao && pc.leilao.posicao) || (pp && pp.posicaoLeilao) || null;
+    var comp = pp && pp.competitividade != null ? pp.competitividade : null;
+    var st = (pp && pp.status) || null;
+    var probl = (pc && pc.problema) || (meta.problema) || null;
+    h += '<div style="font-family:monospace;font-size:8.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:7px">O QUE A SHOPEE SABE E NAO MOSTRA</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:11px">' +
+      chip('POSICAO NO LEILAO', posLeilao != null ? fmt(posLeilao, 0) : '—', posLeilao == null ? 'sem dado' : (posLeilao <= 10 ? 'topo da vitrine' : (posLeilao <= 30 ? 'meio da vitrine' : 'fundo da vitrine')), posLeilao != null && posLeilao <= 10 ? '#2ecc71' : (posLeilao > 30 ? '#e74c3c' : '#f5b041')) +
+      chip('COMPETITIVIDADE PRECO', comp != null ? fmt(comp, 0) + '<span style="font-size:11px;color:#7d8290">/100</span>' : '—', comp == null ? 'sem dado' : (comp >= 70 ? 'acima da categoria' : (comp >= 40 ? 'na media' : 'caro pra categoria')), comp != null && comp >= 70 ? '#2ecc71' : (comp != null && comp < 40 ? '#e74c3c' : '#f5b041')) +
+      chip('STATUS SHOPEE', st ? esc(st === 'normal' ? 'Normal' : st) : '—', st === 'normal' ? 'sem limitacao' : (st ? 'produto limitado' : 'sem dado'), st && st !== 'normal' ? '#e74c3c' : '#2ecc71') +
+      chip('DIAGNOSTICO SHOPEE', probl ? esc(String(probl).slice(0, 14)) : '—', probl ? 'apontado pela propria Shopee' : 'sem apontamento', probl ? '#f5b041' : '#7d8290') +
+      '</div>';
+
+    /* ---- 6. FUNIL ---- */
+    var f = (pc && pc.funil) || {};
+    var etapas = [
+      { r: 'IMPRESSOES', v: f.impressoes },
+      { r: 'CLIQUES', v: f.cliques },
+      { r: 'CARRINHO', v: f.atc },
+      { r: 'VENDAS', v: (pc && pc.resultado && pc.resultado.pedidos) || f.checkout }
+    ];
+    h += '<div style="font-family:monospace;font-size:8.5px;color:#7d8290;letter-spacing:.06em;margin-bottom:7px">O CAMINHO ATE A VENDA</div>' +
+      '<div style="display:flex;align-items:center;gap:4px;background:#12151b;border:1px solid #1d212a;border-radius:12px;padding:12px 8px">';
+    for (var i = 0; i < etapas.length; i++) {
+      if (i > 0) {
+        var ant = etapas[i - 1].v, at = etapas[i].v;
+        var queda = (ant && at != null) ? Math.round((1 - at / ant) * 100) : null;
+        h += '<div style="flex:none;text-align:center;color:#7d8290;font-family:monospace;font-size:8px">›<br>' + (queda != null ? '−' + queda + '%' : '') + '</div>';
+      }
+      h += '<div style="flex:1;text-align:center"><div style="font-size:17px;color:#f2f2f4">' + (etapas[i].v != null ? fmt(etapas[i].v, 0) : '—') + '</div>' +
+        '<div style="font-family:monospace;font-size:7.5px;color:#7d8290">' + etapas[i].r + '</div></div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function cardFraseLocal(pc, pp) {
+    var f = (pc && pc.funil) || {};
+    var roas = (pc && pc.resultado && pc.resultado.roiAmplo) || null;
+    if (pp && pp.emAprendizado) return 'Esta campanha ainda esta aprendendo. Deixe rodar.';
+    if (f.ctr != null && f.cr != null && f.ctr >= 1.8 && f.cr < 1) return 'Clica bem, mas a pagina nao fecha.';
+    if (f.ctr != null && f.ctr < 1) return 'Poucos clicam. O problema comeca na foto e no preco do card.';
+    if (roas != null && roas < 2) return 'Esta campanha esta gastando mais do que devolve.';
+    if (roas != null && roas > 8) return 'Sobra margem aqui. Da pra buscar mais entrega.';
+    return 'Leitura desta campanha.';
+  }
+
   function render() {
     if (!$('sia-painel').classList.contains('aberto')) return;
     renderAbas();
@@ -2431,6 +2620,11 @@
     if (abaAtiva === 'calc') {
       corpo.innerHTML = renderCalculadora();
       ligarCalculadora();
+      return;
+    }
+
+    if (abaAtiva === 'card') {
+      corpo.innerHTML = renderCard6();
       return;
     }
 
@@ -2571,7 +2765,7 @@
         var ctrC = m.ctr !== undefined ? (m.ctr <= 1 ? m.ctr * 100 : m.ctr) : (m.impressoes ? (m.cliques || 0) / m.impressoes * 100 : null);
         var cpcC = m.gasto && m.cliques ? m.gasto / m.cliques : null;
         var estadoTxt = c.estado === 'ongoing' ? 'Ativa' : (c.estado === 'paused' ? 'Pausada' : (c.estado || '—'));
-        h2 += '<tr><td class="nome">' + esc(c.nome || '(sem nome)') + '</td>' +
+        h2 += '<tr data-card="campanha:' + esc(idsC[j]) + '" style="cursor:pointer"><td class="nome">' + esc(c.nome || '(sem nome)') + ' <span style="color:#ff4d1c;font-family:monospace;font-size:9px">abrir ›</span></td>' +
           '<td>' + esc(estadoTxt) + '</td><td>' + esc(c.estrategia || '—') + '</td>' +
           '<td class="num">' + (m.orcamento_dia === 0 ? 'Sem limite' : reais(m.orcamento_dia)) + '</td>' +
           '<td class="num">' + reais(m.gasto) + '</td><td class="num">' + reais(m.gmv) + '</td>' +
