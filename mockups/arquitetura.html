@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Arquitetura da Inteligência</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#8a909c;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:34px 16px 80px}
+h1{font-family:'Bebas Neue';font-size:clamp(34px,8vw,54px);letter-spacing:.02em;line-height:.95}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);font-size:15.5px;margin-top:10px;max-width:64ch}
+h2{font-family:'Bebas Neue';font-size:30px;letter-spacing:.03em;margin:46px 0 6px;display:flex;align-items:baseline;gap:11px}
+h2 .n{font-family:'Space Mono';font-size:11px;color:var(--orange);letter-spacing:.06em}
+.lead{color:var(--text3);font-size:14px;margin-bottom:18px;max-width:70ch}
+p{font-size:14.5px;color:var(--text2);margin-bottom:13px;max-width:72ch}
+b{color:var(--text);font-weight:600}
+code{font-family:'Space Mono';font-size:13px;color:#c88bff;background:rgba(123,47,255,.09);padding:1px 6px;border-radius:5px}
+
+/* camadas */
+.camada{border:1px solid var(--line);border-radius:13px;padding:17px 19px;margin-bottom:11px;background:var(--bg2)}
+.camada .cab{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px}
+.camada .num{font-family:'Bebas Neue';font-size:32px;line-height:1;width:34px}
+.camada .nm{font-family:'Bebas Neue';font-size:24px;letter-spacing:.03em;flex:1;line-height:1}
+.tag{font-family:'Space Mono';font-size:10px;padding:4px 10px;border-radius:99px;border:1px solid}
+.t-pub{color:var(--ok);border-color:rgba(46,204,113,.4);background:rgba(46,204,113,.08)}
+.t-prod{color:var(--warn);border-color:rgba(245,176,65,.4);background:rgba(245,176,65,.08)}
+.t-seg{color:var(--bad);border-color:rgba(231,76,60,.4);background:rgba(231,76,60,.08)}
+.camada .oq{font-size:14px;color:var(--text2);margin-bottom:9px}
+.camada .onde{font-family:'Space Mono';font-size:11.5px;color:var(--text3)}
+
+/* duas colunas divulgar x motor */
+.duas{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:16px 0}
+@media(max-width:640px){.duas{grid-template-columns:1fr}}
+.col{border:1px solid var(--line);border-radius:13px;padding:16px;background:var(--bg2)}
+.col.pub{border-color:rgba(46,204,113,.28)}
+.col.seg{border-color:rgba(231,76,60,.28)}
+.col h3{font-family:'Bebas Neue';font-size:21px;letter-spacing:.03em;margin-bottom:3px}
+.col .cap{font-family:'Space Mono';font-size:10px;color:var(--text3);margin-bottom:12px;display:block}
+.col ul{list-style:none}
+.col li{font-size:13.5px;color:var(--text2);padding:7px 0;border-bottom:1px solid var(--line);line-height:1.45}
+.col li:last-child{border-bottom:none}
+.col li b{display:block;color:var(--text);font-weight:600;font-size:13.5px}
+.col li span{font-size:12.5px;color:var(--text3)}
+
+/* fluxo */
+.fluxo{background:var(--bg3);border:1px solid var(--line);border-radius:13px;padding:18px;margin:18px 0;font-family:'Space Mono';font-size:12.5px;color:var(--text2);line-height:2;overflow-x:auto}
+.fluxo .s{color:var(--orange)}
+.fluxo .g{color:var(--ok)}
+.fluxo .r{color:var(--bad)}
+.fluxo .c{color:var(--text3)}
+
+.aviso{background:var(--bg3);border-left:3px solid var(--orange);border-radius:0 12px 12px 0;padding:16px 18px;margin:18px 0;font-size:14.5px;color:var(--text2)}
+.aviso.roxo{border-left-color:var(--purple)}
+.aviso.verde{border-left-color:var(--ok)}
+
+.passo{display:flex;gap:13px;padding:13px 0;border-bottom:1px solid var(--line)}
+.passo:last-child{border-bottom:none}
+.passo .n{font-family:'Bebas Neue';font-size:26px;color:var(--orange);line-height:1;width:26px;flex:none}
+.passo .t{font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px}
+.passo .d{font-size:13.5px;color:var(--text3);line-height:1.5}
+footer{margin-top:50px;padding-top:20px;border-top:1px solid var(--line);font-family:'Space Mono';font-size:10.5px;color:var(--text3);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>ARQUITETURA DA <em>INTELIGÊNCIA</em></h1>
+<p class="sub">Como separar o que a Seller.IA mostra, o que ela ensina e o que ela nunca conta — e por que essa separação é técnica, não só comercial.</p>
+
+<h2><span class="n">01</span> O PROBLEMA REAL</h2>
+<p class="lead">Antes da solução, o diagnóstico honesto.</p>
+<p>A extensão hoje é <b>um coletor com opiniões espalhadas por dentro</b>. As regras de julgamento estão escritas em três lugares diferentes — <code>triagem.js</code>, o card, a Performance de Produto — cada um com seu próprio critério, e nenhum deles conversando. É por isso que a tela parece confusa: não é excesso de informação, é <b>falta de uma voz só</b>.</p>
+<p>E tem um problema mais sério embaixo desse. <b>A extensão é JavaScript rodando na máquina do usuário.</b> Qualquer pessoa abre o DevTools e lê cada linha. Hoje, se as fórmulas do Leilão Reverso entrassem no código da extensão, elas estariam públicas no mesmo dia.</p>
+<div class="aviso"><b>A pergunta que resolve as duas coisas:</b> onde cada tipo de conhecimento mora. Não é uma escolha de organização — é uma escolha de arquitetura, e ela decide o que dá pra proteger.</div>
+
+<h2><span class="n">02</span> AS TRÊS CAMADAS</h2>
+<p class="lead">Todo conhecimento da Seller.IA cai em uma destas três. Se não cabe em nenhuma, não é conhecimento — é dado solto.</p>
+
+<div class="camada">
+  <div class="cab"><span class="num" style="color:var(--ok)">1</span><span class="nm">O ESPELHO</span><span class="tag t-pub">PÚBLICO · pode divulgar</span></div>
+  <div class="oq">O que a Shopee já mostra, só que legível. Posição no leilão, CPM real, funil, competitividade, diagnóstico oficial, penalidades da conta. <b>Não é nossa propriedade — é dela.</b> Nosso mérito é arrancar, corrigir e traduzir.</div>
+  <div class="onde">MORA NA EXTENSÃO · pode ser lido por qualquer um · é MARKETING</div>
+</div>
+
+<div class="camada">
+  <div class="cab"><span class="num" style="color:var(--warn)">2</span><span class="nm">A LEITURA</span><span class="tag t-prod">PRODUTO · o que o cliente vê</span></div>
+  <div class="oq">O veredito em português e o próximo passo. <i>"Clica bem, mas a página não fecha"</i> seguido de <i>"faça nesta ordem"</i>. É o produto que ela paga pra ter. <b>O resultado se divulga; o caminho até ele, não.</b></div>
+  <div class="onde">VEM PRONTA DO SERVIDOR · texto e nível, sem os números que a geraram</div>
+</div>
+
+<div class="camada">
+  <div class="cab"><span class="num" style="color:var(--bad)">3</span><span class="nm">O MOTOR</span><span class="tag t-seg">PROPRIETÁRIO · nunca sai</span></div>
+  <div class="oq">As fórmulas do Leilão Reverso, os pesos, os cortes, o que o banco coletivo aprendeu. <b>Isto nunca desce pro navegador.</b> Nem minificado, nem ofuscado, nem escondido — simplesmente não está lá.</div>
+  <div class="onde">MORA NA EDGE FUNCTION · Supabase · inacessível pelo DevTools</div>
+</div>
+
+<h2><span class="n">03</span> O QUE DIVULGAR E O QUE GUARDAR</h2>
+<p class="lead">Você já ensina método para milhares de alunos. A linha não é entre "ensinar" e "esconder" — é entre <b>o que gera autoridade quando compartilhado</b> e <b>o que perde valor quando copiado</b>.</p>
+
+<div class="duas">
+  <div class="col pub">
+    <h3>DIVULGAR</h3>
+    <span class="cap">VIRA AUTORIDADE QUANDO COMPARTILHADO</span>
+    <ul>
+      <li><b>ROAS mínimo = 100 ÷ margem</b><span>Já é sua marca registrada. Quanto mais gente usa, mais te procura.</span></li>
+      <li><b>Curva A/B/C/Pausar</b><span>Método de gestão. O valor está na execução, não no conceito.</span></li>
+      <li><b>CTR acima de 1,8%</b><span>Régua de mercado. Ensinar cria demanda por quem sabe consertar.</span></li>
+      <li><b>O degrau dos R$80</b><span>Tabela pública da Shopee. Ninguém aplica sozinho.</span></li>
+      <li><b>A ordem de análise</b><span>Preço → Funil → Cadastro → Ferramentas → Afiliados → Ads.</span></li>
+      <li><b>As 7 Regras de Ouro</b><span>São o seu produto de ensino. Já estão fora.</span></li>
+      <li><b>Que existe um Leilão Reverso</b><span>O nome e o conceito vendem. A fórmula, não.</span></li>
+    </ul>
+  </div>
+  <div class="col seg">
+    <h3>O MOTOR</h3>
+    <span class="cap">PERDE TODO O VALOR SE VAZAR</span>
+    <ul>
+      <li><b>CPM = (Ticket × Conv × CTR × 1000) ÷ ROAS</b><span>A identidade. É a descoberta em si.</span></li>
+      <li><b>Lance = Ticket × Conv ÷ ROAS</b><span>Vira produto concorrente em uma tarde.</span></li>
+      <li><b>O efeito quadrático da conversão</b><span>Explica POR QUE a ordem do método funciona.</span></li>
+      <li><b>O Paradoxo do Lance Baixo</b><span>Contraintuitivo. Ninguém chega nisso sozinho.</span></li>
+      <li><b>A Lei da Âncora do ROAS</b><span>Validada em 10.263 observações. O dado é a barreira.</span></li>
+      <li><b>Os cortes do semáforo</b><span>Onde exatamente vermelho vira amarelo.</span></li>
+      <li><b>Tudo que o banco coletivo aprender</b><span>Percentis reais por categoria no Brasil.</span></li>
+    </ul>
+  </div>
+</div>
+
+<div class="aviso verde"><b>A regra prática:</b> se alguém pode aplicar sozinho depois de ouvir, divulgue — isso gera cliente. Se alguém pode <b>construir um concorrente</b> depois de ouvir, o lugar é o servidor.</div>
+
+<h2><span class="n">04</span> COMO ISSO VIRA CÓDIGO</h2>
+<p class="lead">A separação só é real se a arquitetura obrigar. Confiar na disciplina não funciona: um dia alguém escreve a fórmula no lugar errado por pressa.</p>
+
+<div class="fluxo">
+<span class="c">// A EXTENSÃO É BURRA DE PROPÓSITO</span><br>
+<span class="s">EXTENSÃO</span> → coleta fatos crus → <span class="c">nenhum julgamento</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;↓ manda FATOS<br>
+<span class="r">CÉREBRO (Edge Function)</span> → aplica Leilão Reverso → <span class="c">fórmulas vivem aqui</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;↓ devolve VEREDITOS<br>
+<span class="s">EXTENSÃO</span> → só desenha na tela → <span class="c">não sabe por que</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;↓ e guarda uma cópia anônima<br>
+<span class="g">BANCO COLETIVO</span> → aprende com todas as contas → <span class="c">a barreira real</span>
+</div>
+
+<p><b>O contrato entre os dois é a chave.</b> A extensão manda números; o cérebro devolve frases prontas. Nunca o contrário.</p>
+
+<div class="fluxo">
+<span class="c">// SOBE (fatos, sem opinião)</span><br>
+{ ticket: 34.9, conv: 0.61, ctr: 3.42, roas: 6.14, posicao: 45,<br>
+&nbsp;&nbsp;cpm: 12.30, impressoes: 7368, custo: 118.40, categoria: "casa" }<br><br>
+<span class="c">// DESCE (veredito, sem fórmula)</span><br>
+{ nivel: <span class="r">"vermelho"</span>,<br>
+&nbsp;&nbsp;titulo: <span class="g">"Você está pagando caro pela posição"</span>,<br>
+&nbsp;&nbsp;texto: <span class="g">"O CPM que você paga está 40% acima do que esta"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="g">"conversão sustenta."</span>,<br>
+&nbsp;&nbsp;passos: [ <span class="g">"..."</span>, <span class="g">"..."</span> ],<br>
+&nbsp;&nbsp;lanceSugerido: 0.42 }
+</div>
+
+<div class="aviso roxo"><b>Repare no que NÃO desce:</b> os 40% aparecem como resultado, nunca a conta que chegou neles. A usuária recebe <i>"está caro"</i> e <i>"coloque 0,42"</i>. Quem abrir o DevTools vê a mesma coisa que ela vê — e nada mais.</div>
+
+<h2><span class="n">05</span> A VANTAGEM QUE NINGUÉM COPIA</h2>
+<p>Fórmula, alguém eventualmente deduz. <b>O banco coletivo, não.</b></p>
+<p>Cada conta que instala a extensão contribui com CPM real, posição, conversão e categoria — anonimizados. Com centenas de contas, a Seller.IA passa a saber <b>qual é o CPM normal de "casa e decoração" no Brasil em julho</b>. A Shopee sabe isso. Nenhuma ferramenta brasileira sabe.</p>
+<p>Aí o veredito deixa de ser <i>"seu CPM está alto"</i> e vira <i>"seu CPM está 40% acima das outras lojas da sua categoria, neste mês"</i>. <b>Isso não se copia lendo código — só se constrói com tempo e volume.</b></p>
+
+<h2><span class="n">06</span> O QUE EU DESENVOLVERIA, NESTA ORDEM</h2>
+<p class="lead">Se eu tocasse isso como engenharia, esta seria a fila. Cada passo destrava o seguinte.</p>
+
+<div class="passo"><span class="n">1</span><div><div class="t">Unificar o julgamento em um lugar só</div><div class="d">Hoje há três julgadores discordando: triagem.js, o card e a Performance. Vira um contrato único de veredito — <code>{nivel, titulo, texto, passos}</code> — e toda tela consome o mesmo. É o que acaba com a confusão que você sente, e é pré-requisito de tudo.</div></div></div>
+
+<div class="passo"><span class="n">2</span><div><div class="t">Mover o julgamento pro cérebro</div><div class="d">A extensão manda fatos e recebe vereditos. Nesse momento as fórmulas passam a ter onde morar em segurança — e só nesse momento faz sentido escrevê-las.</div></div></div>
+
+<div class="passo"><span class="n">3</span><div><div class="t">Escrever o Leilão Reverso no cérebro</div><div class="d">Identidade do CPM, fórmula do lance, efeito quadrático, paradoxo do lance baixo. Aqui o produto muda de categoria: sai de "mostra dados" e entra em "diz o número".</div></div></div>
+
+<div class="passo"><span class="n">4</span><div><div class="t">Ligar as travas do algoritmo</div><div class="d">mudancaMaxPct, bloqueioDias, lanceMinimo, lancePorPrecoLiberado. O consultor para de sugerir o que a Shopee vai recusar. Sem isso, o passo 3 gera conselho impossível.</div></div></div>
+
+<div class="passo"><span class="n">5</span><div><div class="t">Alertas de conta antes de qualquer conselho de anúncio</div><div class="d">Penalidade, créditos vencendo, janela de produto novo. Conta punida não escala — otimizar anúncio antes disso é queimar dinheiro.</div></div></div>
+
+<div class="passo"><span class="n">6</span><div><div class="t">Banco coletivo com percentis por categoria</div><div class="d">Cada veredito ganha régua externa. É a vantagem que ninguém alcança lendo o código.</div></div></div>
+
+<div class="aviso"><b>Por que unificar vem antes de tudo:</b> se eu escrever as fórmulas agora, elas entram na terceira voz discordante e a extensão fica <i>mais</i> confusa, não menos. A ordem não é preferência — é dependência.</div>
+
+<footer>
+SELLER.IA · EFEITO VENDAS<br>
+Documento de arquitetura · 27/07/2026<br>
+Cérebro: Supabase Edge Function "cerebro" · mkfreezlizdbfpjjpxoo
+</footer>
+
+</div>
+</body>
+</html>
