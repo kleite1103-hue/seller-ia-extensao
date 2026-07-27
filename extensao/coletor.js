@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.26.1';
+  var VERSAO = '0.27.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1516,7 +1516,10 @@
     '.cab .acoes{margin-left:auto;display:flex;gap:8px}' +
     '.cab button{background:#12151b;border:1px solid #1d212a;color:#b8bcc6;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer}' +
     '.cab button:hover{border-color:#ff4d1c;color:#fff}' +
-    '.abas{display:flex;gap:2px;background:#07080a;padding:0 10px;border-bottom:1px solid #1d212a;overflow-x:auto}' +
+    '.abas{display:flex;flex-wrap:wrap;gap:2px;background:#07080a;padding:0 10px;border-bottom:1px solid #1d212a}' +
+    '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
+    '.subaba{background:#12151b;border:1px solid #1d212a;color:#7d8290;font-size:11.5px;font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer}' +
+    '.subaba.ativa{color:#fff;border-color:#ff4d1c;background:rgba(255,77,28,.1)}' +
     '.aba{background:none;border:none;color:#7d8290;font-size:12px;font-weight:600;padding:10px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
     '.aba.ativa{color:#fff;border-bottom-color:#ff4d1c}' +
     '.corpo{flex:1;overflow:auto;padding:14px 16px}' +
@@ -1560,24 +1563,48 @@
   var $ = function (id) { return raiz.getElementById(id); };
   var abaAtiva = 'semaforo';
   var ABAS = [
-    { id: 'semaforo', rotulo: '\u25cf Semaforo' },
-    { id: 'conta360', rotulo: '\u25c9 Conta 360' },
-    { id: 'calc', rotulo: '\u2696 Margem' },
-    { id: 'espiao', rotulo: '\u25c8 Espiao' },
-    { id: 'cofre', rotulo: '\u25a3 Cofre' },
-    { id: 'diagnostico', rotulo: 'Diagnostico' },
-    { id: 'campanhas', rotulo: 'Campanhas' },
-    { id: 'produtos', rotulo: 'Produtos (Ads)' },
-    { id: 'performance', rotulo: 'Performance' },
-    { id: 'cadastro', rotulo: 'Anuncio' },
-    { id: 'debug', rotulo: 'Debug' }
+    { id: 'semaforo', rotulo: 'Inicio' },
+    { id: 'conta360', rotulo: 'Conta 360' },
+    { id: 'campanhas', rotulo: 'Produtos' },
+    { id: 'espiao', rotulo: 'Espiao' },
+    { id: 'ferramentas', rotulo: 'Ferramentas' },
+    { id: 'diagnostico', rotulo: 'Especialista' },
+    { id: 'mais', rotulo: 'Mais' }
   ];
+  // grupos: uma aba de cima abre varias telas por dentro
+  var SUB = {
+    ferramentas: [
+      { id: 'calc', rotulo: 'Margem' },
+      { id: 'cofre', rotulo: 'Cofre de Custos' }
+    ],
+    mais: [
+      { id: 'produtos', rotulo: 'Produtos (Ads)' },
+      { id: 'performance', rotulo: 'Performance' },
+      { id: 'cadastro', rotulo: 'Anuncio' },
+      { id: 'debug', rotulo: 'Debug' }
+    ]
+  };
+  var subAtiva = { ferramentas: 'calc', mais: 'produtos' };
+  function grupoDe(id) {
+    for (var g in SUB) for (var i = 0; i < SUB[g].length; i++) if (SUB[g][i].id === id) return g;
+    return null;
+  }
+  function renderSubAbas(grupo) {
+    var h = '<div class="subabas">';
+    for (var i = 0; i < SUB[grupo].length; i++) {
+      var s = SUB[grupo][i];
+      h += '<button class="subaba' + (s.id === subAtiva[grupo] ? ' ativa' : '') + '" data-sub="' + grupo + ':' + s.id + '">' + s.rotulo + '</button>';
+    }
+    return h + '</div>';
+  }
 
   $('sia-abrir').addEventListener('click', function () { $('sia-painel').classList.toggle('aberto'); render(); });
   $('sia-corpo').addEventListener('click', function (ev) {
     var el = ev.target;
     while (el && el !== this) {
       if (el.getAttribute) {
+        var sb = el.getAttribute && el.getAttribute('data-sub');
+        if (sb) { var pr = sb.split(':'); subAtiva[pr[0]] = pr[1]; abaAtiva = pr[1]; render(); return; }
         if (el.id === 'sia-vinc-ok') {
           var sel = $('sia-vinc');
           if (sel) { salvarVinculo(el.getAttribute('data-camp'), sel.value); render(); }
@@ -1637,12 +1664,17 @@
     var h = '';
     for (var i = 0; i < ABAS.length; i++) {
       var a = ABAS[i];
-      h += '<button class="aba' + (a.id === abaAtiva ? ' ativa' : '') + '" data-aba="' + a.id + '">' + a.rotulo + '</button>';
+      var ativo = (a.id === abaAtiva) || (SUB[a.id] && grupoDe(abaAtiva) === a.id) || (a.id === 'campanhas' && abaAtiva === 'card');
+      h += '<button class="aba' + (ativo ? ' ativa' : '') + '" data-aba="' + a.id + '">' + a.rotulo + '</button>';
     }
     $('sia-abas').innerHTML = h;
     var botoes = $('sia-abas').querySelectorAll('.aba');
     for (var b = 0; b < botoes.length; b++) {
-      botoes[b].addEventListener('click', function () { abaAtiva = this.getAttribute('data-aba'); render(); });
+      botoes[b].addEventListener('click', function () {
+        var alvo = this.getAttribute('data-aba');
+        abaAtiva = SUB[alvo] ? subAtiva[alvo] : alvo;
+        render();
+      });
     }
   }
 
@@ -2870,13 +2902,13 @@
     }
 
     if (abaAtiva === 'calc') {
-      corpo.innerHTML = renderCalculadora();
+      corpo.innerHTML = renderSubAbas('ferramentas') + renderCalculadora();
       ligarCalculadora();
       return;
     }
 
     if (abaAtiva === 'cofre') {
-      corpo.innerHTML = renderCofre();
+      corpo.innerHTML = renderSubAbas('ferramentas') + renderCofre();
       ligarCofre();
       return;
     }
@@ -3045,7 +3077,7 @@
         return m.gasto !== undefined || m.gmv !== undefined || m.roas !== undefined;
       });
       if (!idsC.length) {
-        corpo.innerHTML = '<div class="vazio">Sem campanhas de Ads ainda.<br>Rode a coleta na aba <b>Conta 360</b> (o bot\u00e3o "Coletar conta") \u2014 o Ads entra junto.</div>';
+        corpo.innerHTML = renderSubAbas('mais') + '<div class="vazio">Sem campanhas de Ads ainda.<br>Rode a coleta na aba <b>Conta 360</b> (o bot\u00e3o "Coletar conta") \u2014 o Ads entra junto.</div>';
         return;
       }
       idsC.sort(function (a, b) { return (camps[b].metricas.gasto || 0) - (camps[a].metricas.gasto || 0); });
@@ -3066,7 +3098,7 @@
           '<td class="num">' + nz(mc.pedidos) + '</td></tr>';
       }
       h2b += '</table><div class="nota">Campanhas do Shopee Ads, ordenadas por gasto.</div>';
-      corpo.innerHTML = h2b;
+      corpo.innerHTML = renderSubAbas('mais') + h2b;
 
     } else if (abaAtiva === 'performance') {
       var idsP = Object.keys(estado.produtos).filter(function (id) {
@@ -3074,7 +3106,7 @@
         return mm.visitantes !== undefined || mm.vendas_pagas !== undefined;
       });
       if (!idsP.length) {
-        corpo.innerHTML = '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
+        corpo.innerHTML = renderSubAbas('mais') + '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
         return;
       }
       idsP.sort(function (a, b) { return (estado.produtos[b].metricas.vendas_pagas || 0) - (estado.produtos[a].metricas.vendas_pagas || 0); });
@@ -3090,7 +3122,7 @@
           '<td class="num">' + pct5(m5.rejeicao) + '</td><td class="num">' + pct5(m5.fatia_vendas) + '</td></tr>';
       }
       h5 += '</table><div class="nota">Funil por produto (pagamento confirmado). A coleta acompanha o que a tela carregar — role a lista da Shopee para cobrir mais produtos.</div>';
-      corpo.innerHTML = h5;
+      corpo.innerHTML = renderSubAbas('mais') + h5;
 
     } else if (abaAtiva === 'afiliados') {
       var brutosAf = estado.afiliados.campos || {};
@@ -3126,7 +3158,7 @@
         } else {
           h3 = '<div class="vazio">Pagina publica detectada' + (estado.paginaProduto ? ' (ID ' + esc(estado.paginaProduto) + ')' : '') + '.<br>Status da leitura: <b>' + esc(estado.debugPublico || 'tentando...') + '</b><br>Se falhar, me mande esse status.</div>';
         }
-        corpo.innerHTML = h3;
+        corpo.innerHTML = renderSubAbas('mais') + h3;
         return;
       }
       if (estado.paginaProduto) {
@@ -3296,7 +3328,7 @@
         }
         h4 += '</table><div class="nota">"Exportar coleta" gera o JSON completo para calibragem — mande no chat com um print quando algo nao bater.</div>';
       }
-      corpo.innerHTML = h4;
+      corpo.innerHTML = renderSubAbas('mais') + h4;
     }
   }
 
