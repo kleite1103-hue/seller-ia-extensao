@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.25.3';
+  var VERSAO = '0.26.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -48,6 +48,7 @@
     series: {},              // series temporais por campanha (get_time_graph)
     loja: null,              // shop_id + nome (selleraccount/shop_info)
     espiao: { termo: '', buscando: false, erro: null, res: null, radar: null },  // Espiao de Busca
+    cofre: { custos: {}, embalagem: 0, imposto: 0 },  // Cofre de Custos (por loja)
     spc: null,               // chave de sessao SPC_CDS (colhida das chamadas)
     coletaProgresso: null,   // texto de progresso da coleta completa
     periodoAds: null,        // janela selecionada na tela do Ads (start/end)
@@ -1563,6 +1564,7 @@
     { id: 'conta360', rotulo: '\u25c9 Conta 360' },
     { id: 'calc', rotulo: '\u2696 Margem' },
     { id: 'espiao', rotulo: '\u25c8 Espiao' },
+    { id: 'cofre', rotulo: '\u25a3 Cofre' },
     { id: 'diagnostico', rotulo: 'Diagnostico' },
     { id: 'campanhas', rotulo: 'Campanhas' },
     { id: 'produtos', rotulo: 'Produtos (Ads)' },
@@ -2490,6 +2492,9 @@
     var precoDerivado = !(pp && pp.perf && pp.perf.ticket);
     var adsPedido = (gasto && pedidos) ? gasto / pedidos : null;
     var comissao = null;
+    var custoProd = R.idProduto ? custoDe(R.idProduto) : null;
+    var emb = (estado.cofre && estado.cofre.embalagem) || 0;
+    var impPct = (estado.cofre && estado.cofre.imposto) || 0;
     var faixaTxt = '';
     try {
       if (preco && window.SIA_Calc) {
@@ -2498,7 +2503,10 @@
         faixaTxt = tx.comissao + '% + ' + reais(tx.fixa);
       }
     } catch (e) { /* noop */ }
-    var liquido = (preco != null && comissao != null) ? preco - comissao - (adsPedido || 0) : null;
+    var imposto = (preco != null && impPct) ? preco * impPct / 100 : 0;
+    var liquido = (preco != null && comissao != null)
+      ? preco - comissao - (adsPedido || 0) - (custoProd || 0) - emb - imposto
+      : null;
     var margemPct = (liquido != null && preco) ? (liquido / preco) * 100 : null;
 
     h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
@@ -2509,11 +2517,19 @@
     h += linhaR('Ticket medio' + (precoDerivado && preco != null ? ' (GMV ÷ pedidos)' : ''), preco != null ? reais(preco) : '—', true);
     h += linhaR('− Comissao Shopee' + (faixaTxt ? ' (' + faixaTxt + ')' : ''), comissao != null ? '− ' + reais(comissao) : '—');
     h += linhaR('− Ads por pedido', adsPedido != null ? '− ' + reais(adsPedido) : '—');
+    if (custoProd) h += linhaR('− Custo do produto', '− ' + reais(custoProd));
+    if (emb) h += linhaR('− Embalagem', '− ' + reais(emb));
+    if (imposto) h += linhaR('− Imposto (' + fmt(impPct, 1) + '%)', '− ' + reais(imposto));
     h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #1d212a;margin-top:6px;padding-top:7px">' +
-      '<span style="font-size:12.5px;font-weight:600">Sobra antes do custo</span>' +
+      '<span style="font-size:12.5px;font-weight:600">' + (custoProd ? 'Lucro por pedido' : 'Sobra antes do custo') + '</span>' +
       '<span style="font-size:26px;color:' + (liquido > 0 ? '#2ecc71' : '#e74c3c') + '">' + (liquido != null ? reais(liquido) : '—') + '</span></div>';
-    h += '<div style="background:#12151b;border-left:3px solid #7B2FFF;border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:#b8bcc6">' +
-      'Falta o custo do produto e a embalagem. Cadastre no Cofre de Custos e esta conta vira margem real — hoje ela e teto, nao lucro.</div></div>';
+    if (custoProd) {
+      h += '<div style="background:#12151b;border-left:3px solid #2ecc71;border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:#b8bcc6">' +
+        'Margem real de <b style="color:#2ecc71">' + (margemPct != null ? fmt(margemPct, 1) + '%' : '—') + '</b> — custo, embalagem e imposto ja descontados.</div></div>';
+    } else {
+      h += '<div style="background:#12151b;border-left:3px solid #7B2FFF;border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:#b8bcc6">' +
+        'Falta o custo deste produto. Cadastre na aba <b style="color:#f2f2f4">Cofre</b> e esta sobra vira lucro de verdade.</div></div>';
+    }
 
     /* ---- 3. POR QUE ESTE ROAS (a Shopee explica) ---- */
     var roasReal = (pc && pc.resultado && pc.resultado.roiAmplo) || null;
@@ -2523,7 +2539,7 @@
     // faria a usuaria baixar a meta e perder dinheiro. Enquanto o Cofre de
     // Custos nao existe, o card diz o que o numero e de verdade.
     var teto = margemPct ? 100 / margemPct : null;
-    var temCusto = false;
+    var temCusto = !!custoProd;
     var equil = temCusto ? teto : null;
     h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
       '<div style="font-family:monospace;font-size:8.5px;color:#c88bff;letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
@@ -2652,6 +2668,113 @@
     return 'Leitura desta campanha.';
   }
 
+  /* ===================== COFRE DE CUSTOS =====================
+     Regra de velocidade: 1 campo por produto (o custo), e mais nada.
+     Embalagem e imposto sao da LOJA, cadastrados uma vez so e valendo
+     pra todos. Cadastrar 3 campos em 150 produtos ninguem faz; 1 campo
+     em 10 produtos que respondem por 80% do GMV, faz hoje. */
+  function cofreChave() { return estado.loja ? estado.loja.shop_id : 'sem_loja'; }
+
+  function carregarCofre() {
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:cofre-carregar', loja: cofreChave() }, function (r) {
+        void chrome.runtime.lastError;
+        if (r && r.cofre) { estado.cofre = r.cofre; estado.sujo = true; }
+      });
+    } catch (e) { /* noop */ }
+  }
+  function salvarCofre() {
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:cofre-salvar', loja: cofreChave(), cofre: estado.cofre }, function () { void chrome.runtime.lastError; });
+    } catch (e) { /* noop */ }
+  }
+  function custoDe(itemid) {
+    var c = estado.cofre && estado.cofre.custos ? estado.cofre.custos[String(itemid)] : null;
+    return (typeof c === 'number' && isFinite(c) && c > 0) ? c : null;
+  }
+  function numBR(v) {
+    if (v === null || v === undefined) return null;
+    var s = String(v).trim().replace(/\s/g, '').replace(/R\$/i, '');
+    if (!s) return null;
+    s = s.replace(/\./g, '').replace(',', '.');   // aceita 1.234,56 e 1234.56
+    var n = parseFloat(s);
+    return isFinite(n) ? n : null;
+  }
+
+  function renderCofre() {
+    if (!estado.cofre) estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
+    var cf = estado.cofre;
+    var C = cofreD();
+    var lista = [], id;
+    for (id in estado.produtos) {
+      var p = estado.produtos[id];
+      var m = p.metricas || {};
+      lista.push({ id: id, nome: p.nome || ('Produto ' + id), gmv: m.gmv || 0 });
+    }
+    for (id in (C.porProduto || {})) {
+      if (estado.produtos[id]) continue;
+      var pd = C.porProduto[id];
+      lista.push({ id: id, nome: pd.nome || ('Produto ' + id), gmv: (pd.perf && pd.perf.venda) || 0 });
+    }
+    lista.sort(function (a, b) { return b.gmv - a.gmv; });
+
+    var preenchidos = 0;
+    for (var k = 0; k < lista.length; k++) if (custoDe(lista[k].id)) preenchidos++;
+
+    var h = '';
+    h += '<div class="nota" style="margin-top:0">Cadastre o custo <b>uma vez</b> por produto. Embalagem e imposto sao da loja inteira — preenche aqui em cima e vale pra todos. Sem isso, o card mostra teto, nao lucro.</div>';
+
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0">' +
+      '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:10px">' +
+      '<div style="font-family:monospace;font-size:8px;color:#7d8290">EMBALAGEM POR PEDIDO (R$)</div>' +
+      '<input id="sia-cf-emb" value="' + (cf.embalagem ? String(cf.embalagem).replace('.', ',') : '') + '" placeholder="0,00" style="width:100%;background:#0c0e12;border:1px solid #1d212a;border-radius:7px;padding:7px 9px;color:#f2f2f4;font-family:monospace;font-size:13px;margin-top:5px"></div>' +
+      '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:10px">' +
+      '<div style="font-family:monospace;font-size:8px;color:#7d8290">IMPOSTO SOBRE A VENDA (%)</div>' +
+      '<input id="sia-cf-imp" value="' + (cf.imposto ? String(cf.imposto).replace('.', ',') : '') + '" placeholder="0" style="width:100%;background:#0c0e12;border:1px solid #1d212a;border-radius:7px;padding:7px 9px;color:#f2f2f4;font-family:monospace;font-size:13px;margin-top:5px"></div></div>';
+
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">' +
+      '<span style="font-family:monospace;font-size:9px;color:#7d8290;letter-spacing:.06em;flex:1">CUSTO POR PRODUTO — ' + preenchidos + ' de ' + lista.length + ' cadastrados</span>' +
+      '<button id="sia-cf-salvar" style="background:#ff4d1c;border:none;color:#fff;font-weight:700;font-size:12px;padding:8px 16px;border-radius:8px;cursor:pointer">Salvar</button></div>';
+
+    if (!lista.length) return h + '<div class="vazio">Nenhum produto lido ainda. Rode a coleta na aba Inicio.</div>';
+
+    for (var i = 0; i < lista.length; i++) {
+      var it = lista[i];
+      var cst = custoDe(it.id);
+      h += '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #1d212a">' +
+        '<span style="width:6px;height:6px;border-radius:50%;background:' + (cst ? '#2ecc71' : '#3a4152') + ';flex:none"></span>' +
+        '<span style="flex:1;font-size:12px;color:#b8bcc6;min-width:0">' + esc(String(it.nome).slice(0, 46)) + '</span>' +
+        (it.gmv ? '<span style="font-family:monospace;font-size:9px;color:#7d8290">' + reais(it.gmv) + '</span>' : '') +
+        '<input data-custo="' + esc(it.id) + '" value="' + (cst ? String(cst).replace('.', ',') : '') + '" placeholder="custo" ' +
+        'style="width:84px;background:#0c0e12;border:1px solid ' + (cst ? '#2a4a35' : '#1d212a') + ';border-radius:7px;padding:6px 8px;color:#f2f2f4;font-family:monospace;font-size:12px;text-align:right"></div>';
+    }
+    h += '<div class="nota">Comece pelos de cima — eles concentram o faturamento. Nao precisa cadastrar todos hoje.</div>';
+    return h;
+  }
+
+  function ligarCofre() {
+    function coletarCampos() {
+      if (!estado.cofre) estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
+      var e = $('sia-cf-emb'), im = $('sia-cf-imp');
+      estado.cofre.embalagem = numBR(e && e.value) || 0;
+      estado.cofre.imposto = numBR(im && im.value) || 0;
+      var campos = $('sia-corpo').querySelectorAll('[data-custo]');
+      estado.cofre.custos = estado.cofre.custos || {};
+      for (var i = 0; i < campos.length; i++) {
+        var id = campos[i].getAttribute('data-custo');
+        var v = numBR(campos[i].value);
+        if (v && v > 0) estado.cofre.custos[id] = v;
+        else delete estado.cofre.custos[id];
+      }
+    }
+    var bt = $('sia-cf-salvar');
+    if (bt) bt.addEventListener('click', function () {
+      coletarCampos(); salvarCofre();
+      bt.textContent = 'Salvo'; bt.style.background = '#2ecc71';
+      setTimeout(function () { render(); }, 800);
+    });
+  }
+
   function render() {
     if (!$('sia-painel').classList.contains('aberto')) return;
     renderAbas();
@@ -2674,6 +2797,12 @@
     if (abaAtiva === 'calc') {
       corpo.innerHTML = renderCalculadora();
       ligarCalculadora();
+      return;
+    }
+
+    if (abaAtiva === 'cofre') {
+      corpo.innerHTML = renderCofre();
+      ligarCofre();
       return;
     }
 
@@ -3095,6 +3224,9 @@
       corpo.innerHTML = h4;
     }
   }
+
+  carregarCofre();
+  setTimeout(carregarCofre, 4000); // a loja so e identificada apos as primeiras chamadas
 
   setInterval(function () {
     if (estado.sujo && $('sia-painel').classList.contains('aberto')) { estado.sujo = false; render(); }

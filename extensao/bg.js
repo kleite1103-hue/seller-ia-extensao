@@ -218,6 +218,19 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
     return true;
   }
 
+  // ---- COFRE DE CUSTOS (por loja) ----
+  if (msg.tipo === 'sia:cofre-salvar') {
+    var ch = 'sia_cofre_' + (msg.loja || 'sem_loja');
+    var o = {}; o[ch] = msg.cofre || {};
+    gravar(o).then(function () { responder({ ok: true }); });
+    return true;
+  }
+  if (msg.tipo === 'sia:cofre-carregar') {
+    var ch2 = 'sia_cofre_' + (msg.loja || 'sem_loja');
+    ler([ch2]).then(function (v) { responder({ ok: true, cofre: v[ch2] || null }); });
+    return true;
+  }
+
   if (msg.tipo === 'sia:analisar') {
     analisar(msg.payload).then(responder);
     return true;
