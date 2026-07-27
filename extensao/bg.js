@@ -31,80 +31,60 @@ async function analisar(payload) {
 }
 
 /* ===================== BUSCA PUBLICA (Espiao) =====================
-   POR QUE NAO DA PRA BUSCAR DIRETO DAQUI: o service worker nao tem
-   origem. A chamada sai sem Referer, sem Origin e com sec-fetch-site
-   cross-site — e o WAF da Shopee devolve 403. A vitrine so responde
-   pra quem parece estar navegando nela.
-   SOLUCAO: o bg acha (ou abre, em segundo plano) uma aba shopee.com.br
-   e pede pro content script de la fazer o fetch. Ali e same-origin,
-   com cookie e Referer certos — igual quando voce pesquisa na mao.
+   POR QUE O 403: a rota de busca da Shopee exige headers de antifraude
+   (af-ac-enc-dat, x-sap-ri, x-sap-sec) gerados pelo JS dela. Qualquer
+   chamada que a gente monte — do service worker ou de dentro da propria
+   pagina — cai no WAF. Nao era login e nao era origem.
+   COMO FICOU: nao chamamos nada. Abrimos a pagina de busca numa aba em
+   segundo plano, a Shopee faz a chamada assinada dela mesma, e o nosso
+   interceptor escuta a resposta. E o mesmo principio clean-room do resto
+   da extensao: nunca fabricamos requisicao, so lemos o que ja passou.
    A aba fica guardada e e reaproveitada pelas 6 buscas do Radar. */
 var SIA_ABA_BUSCA = null;
+var SIA_PEND = {};
 
-function urlBusca(kw) {
-  return 'https://shopee.com.br/api/v4/search/search_items' +
-    '?by=relevancy&keyword=' + encodeURIComponent(kw) +
-    '&limit=60&newest=0&order=desc&page_type=search' +
-    '&scenario=PAGE_GLOBAL_SEARCH&version=2';
-}
+function normKw(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+
 function abaViva(id) {
   return new Promise(function (r) {
     if (!id) return r(false);
-    chrome.tabs.get(id, function (t) { void chrome.runtime.lastError; r(!!(t && t.url && t.url.indexOf('shopee.com.br') >= 0)); });
+    chrome.tabs.get(id, function (t) { void chrome.runtime.lastError; r(!!t); });
   });
 }
-function acharAba() {
+function criarAba(url) {
   return new Promise(function (r) {
-    chrome.tabs.query({ url: 'https://shopee.com.br/*' }, function (tabs) {
-      void chrome.runtime.lastError;
-      r(tabs && tabs.length ? tabs[0] : null);
-    });
+    chrome.tabs.create({ url: url, active: false }, function (t) { void chrome.runtime.lastError; r(t || null); });
   });
 }
-function abrirAba(kw) {
-  return new Promise(function (r) {
-    chrome.tabs.create({ url: 'https://shopee.com.br/search?keyword=' + encodeURIComponent(kw), active: false }, function (t) {
-      void chrome.runtime.lastError;
-      if (!t) return r(null);
-      var pronto = false;
-      function ouvir(id, info) {
-        if (id !== t.id || info.status !== 'complete' || pronto) return;
-        pronto = true;
-        chrome.tabs.onUpdated.removeListener(ouvir);
-        setTimeout(function () { r(t); }, 1800); // deixa o content script subir
-      }
-      chrome.tabs.onUpdated.addListener(ouvir);
-      setTimeout(function () { if (!pronto) { pronto = true; chrome.tabs.onUpdated.removeListener(ouvir); r(t); } }, 15000);
-    });
-  });
-}
-function pedirNaAba(id, kw) {
-  return new Promise(function (r) {
-    var respondeu = false;
-    chrome.tabs.sendMessage(id, { tipo: 'sia:busca-no-site', termo: kw, url: urlBusca(kw) }, function (resp) {
-      void chrome.runtime.lastError;
-      if (!respondeu) { respondeu = true; r(resp || null); }
-    });
-    setTimeout(function () { if (!respondeu) { respondeu = true; r(null); } }, 20000);
-  });
-}
+
 async function buscaPublica(kw) {
   if (!kw) return { ok: false, erro: 'Digite um termo para espiar.' };
-  var aba = null;
-  if (await abaViva(SIA_ABA_BUSCA)) aba = { id: SIA_ABA_BUSCA };
-  if (!aba) aba = await acharAba();
-  if (!aba) aba = await abrirAba(kw);
-  if (!aba) return { ok: false, erro: 'Nao consegui abrir a vitrine da Shopee em segundo plano.' };
-  SIA_ABA_BUSCA = aba.id;
+  var chave = normKw(kw);
+  var alvo = 'https://shopee.com.br/search?keyword=' + encodeURIComponent(kw);
 
-  var resp = await pedirNaAba(aba.id, kw);
-  // Aba antiga sem o content script novo? Abre uma limpa e tenta de novo.
-  if (!resp) {
-    var nova = await abrirAba(kw);
-    if (nova) { SIA_ABA_BUSCA = nova.id; resp = await pedirNaAba(nova.id, kw); }
+  var espera = new Promise(function (res) {
+    var t = setTimeout(function () {
+      if (SIA_PEND[chave]) {
+        delete SIA_PEND[chave];
+        res({ ok: false, erro: 'A vitrine nao devolveu "' + kw + '" em 40s. Confira se voce esta logada em shopee.com.br.' });
+      }
+    }, 40000);
+    SIA_PEND[chave] = { res: res, t: t };
+  });
+
+  // So reaproveita a aba que NOS abrimos. Nunca sequestra aba da usuaria.
+  var viva = await abaViva(SIA_ABA_BUSCA);
+  if (viva) {
+    chrome.tabs.update(SIA_ABA_BUSCA, { url: alvo }, function () { void chrome.runtime.lastError; });
+  } else {
+    var nova = await criarAba(alvo);
+    if (!nova) {
+      if (SIA_PEND[chave]) { clearTimeout(SIA_PEND[chave].t); delete SIA_PEND[chave]; }
+      return { ok: false, erro: 'Nao consegui abrir a vitrine em segundo plano.' };
+    }
+    SIA_ABA_BUSCA = nova.id;
   }
-  if (!resp) return { ok: false, erro: 'A aba da vitrine nao respondeu. Deixe uma aba em shopee.com.br aberta e logada, e tente de novo.' };
-  return resp;
+  return espera;
 }
 
 chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
@@ -224,6 +204,17 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
   // ---- BUSCA PUBLICA (Espiao) ----
   if (msg.tipo === 'sia:busca-publica') {
     buscaPublica(String(msg.termo || '').trim()).then(responder);
+    return true;
+  }
+  // o interceptor viu a busca que a propria Shopee fez e mandou pra ca
+  if (msg.tipo === 'sia:busca-capturada') {
+    var ch = normKw(msg.termo);
+    var alvo = SIA_PEND[ch];
+    if (alvo) {
+      clearTimeout(alvo.t); delete SIA_PEND[ch];
+      alvo.res({ ok: true, termo: msg.termo, itens: msg.itens || [] });
+    }
+    responder({ ok: true });
     return true;
   }
 

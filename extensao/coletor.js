@@ -10,35 +10,27 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.24.1';
+  var VERSAO = '0.24.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
-     A Shopee devolve 403 quando a chamada nasce de fora do site dela: sem
-     Referer, sem Origin e com sec-fetch-site cross-site, o WAF corta.
-     A saida e fazer o fetch DE DENTRO de uma aba shopee.com.br, onde a
-     chamada e same-origin — exatamente como quando voce navega. O bg.js
-     acha (ou abre) essa aba e pede aqui. */
-  try {
-    chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
-      if (!msg || msg.tipo !== 'sia:busca-no-site') return;
-      fetch(msg.url, {
-        credentials: 'include',
-        headers: { 'x-api-source': 'pc' },
-        referrer: location.href
-      }).then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      }).then(function (j) {
-        var itens = (j && j.items) || [];
-        if (!itens.length) responder({ ok: false, erro: 'Busca sem resultados para "' + msg.termo + '".' });
-        else responder({ ok: true, termo: msg.termo, itens: itens });
-      }).catch(function (e) {
-        responder({ ok: false, erro: 'A vitrine respondeu: ' + (e && e.message ? e.message : 'falha') });
-      });
-      return true;
-    });
-  } catch (e) { /* noop */ }
+     A busca da Shopee NAO aceita chamada montada por nos: ela exige
+     headers de antifraude (af-ac-enc-dat, x-sap-ri, x-sap-sec) que o
+     proprio JS dela gera. Por isso o 403 — nao era login nem origem.
+     Solucao: nao chamamos nada. O bg abre a pagina de busca numa aba
+     em segundo plano, a Shopee faz a chamada assinada dela mesma, e o
+     interceptor captura a resposta. Clean-room: so escutamos. */
+  function repassarBusca(url, dados) {
+    try {
+      if (!/\/api\/v4\/search\/search_items/.test(url)) return;
+      var mk = url.match(/keyword=([^&]*)/);
+      if (!mk) return;
+      var kw = decodeURIComponent(String(mk[1]).replace(/\+/g, ' '));
+      var itens = (dados && dados.items) || [];
+      if (!kw || !itens.length) return;
+      chrome.runtime.sendMessage({ tipo: 'sia:busca-capturada', termo: kw, itens: itens }, function () { void chrome.runtime.lastError; });
+    } catch (e) { /* noop */ }
+  }
 
   /* =============================== ESTADO =============================== */
   var estado = {
@@ -514,6 +506,9 @@
 
     // ---- CAMADA 1: extracao dos diamantes (nao invasivo, nunca derruba a coleta) ----
     try { if (window.SIA_Diamantes) window.SIA_Diamantes.processar(pacote.url, pacote.dados); } catch (e) { /* silencioso */ }
+
+    // ---- ESPIAO: a busca da vitrine passou por aqui, repassa ao bg ----
+    repassarBusca(pacote.url, pacote.dados);
 
     if (tag === 'publico') { absorverPublico(pacote.dados); }
     else if (tag === 'cadastro' && pacote.url.indexOf('get_product_info') >= 0) { absorverCadastro(pacote.dados); }
@@ -2279,7 +2274,7 @@
           linha.meuAds = meu ? meu.ads : null;
         } else { linha.erro = (resp && resp.erro) || 'falhou'; }
         estado.espiao.radar.push(linha);
-        setTimeout(function () { proximo(i + 1); }, 900); // respeita a Shopee
+        setTimeout(function () { proximo(i + 1); }, 1200); // respeita a Shopee
       });
     })(0);
   }
@@ -2302,7 +2297,7 @@
       '<button id="sia-esp-radar" style="background:#12151b;border:1px solid #2a2f3a;color:#fff;font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
       (e.radarRodando ? 'Radar ' + e.radarRodando + '/' + e.radarTotal + '...' : 'Radar dos meus produtos') + '</button></div>';
 
-    h += '<div class="nota" style="margin-top:0">A busca roda numa aba da vitrine em segundo plano (e assim que a Shopee aceita a leitura). O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
+    h += '<div class="nota" style="margin-top:0">A busca abre a vitrine numa aba em segundo plano e le a resposta que a propria Shopee entrega — nao fabricamos chamada, so escutamos. Cada termo leva alguns segundos. O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
 
     if (e.erro) h += '<div class="nota" style="color:#e74c3c">' + esc(e.erro) + '</div>';
 
