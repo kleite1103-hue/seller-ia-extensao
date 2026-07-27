@@ -10,8 +10,35 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.23.15';
+  var VERSAO = '0.24.1';
   var MICRO = 100000;
+
+  /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
+     A Shopee devolve 403 quando a chamada nasce de fora do site dela: sem
+     Referer, sem Origin e com sec-fetch-site cross-site, o WAF corta.
+     A saida e fazer o fetch DE DENTRO de uma aba shopee.com.br, onde a
+     chamada e same-origin — exatamente como quando voce navega. O bg.js
+     acha (ou abre) essa aba e pede aqui. */
+  try {
+    chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
+      if (!msg || msg.tipo !== 'sia:busca-no-site') return;
+      fetch(msg.url, {
+        credentials: 'include',
+        headers: { 'x-api-source': 'pc' },
+        referrer: location.href
+      }).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function (j) {
+        var itens = (j && j.items) || [];
+        if (!itens.length) responder({ ok: false, erro: 'Busca sem resultados para "' + msg.termo + '".' });
+        else responder({ ok: true, termo: msg.termo, itens: itens });
+      }).catch(function (e) {
+        responder({ ok: false, erro: 'A vitrine respondeu: ' + (e && e.message ? e.message : 'falha') });
+      });
+      return true;
+    });
+  } catch (e) { /* noop */ }
 
   /* =============================== ESTADO =============================== */
   var estado = {
@@ -2275,7 +2302,7 @@
       '<button id="sia-esp-radar" style="background:#12151b;border:1px solid #2a2f3a;color:#fff;font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
       (e.radarRodando ? 'Radar ' + e.radarRodando + '/' + e.radarTotal + '...' : 'Radar dos meus produtos') + '</button></div>';
 
-    h += '<div class="nota" style="margin-top:0">O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
+    h += '<div class="nota" style="margin-top:0">A busca roda numa aba da vitrine em segundo plano (e assim que a Shopee aceita a leitura). O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
 
     if (e.erro) h += '<div class="nota" style="color:#e74c3c">' + esc(e.erro) + '</div>';
 

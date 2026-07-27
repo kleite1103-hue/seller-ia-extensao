@@ -30,6 +30,83 @@ async function analisar(payload) {
   }
 }
 
+/* ===================== BUSCA PUBLICA (Espiao) =====================
+   POR QUE NAO DA PRA BUSCAR DIRETO DAQUI: o service worker nao tem
+   origem. A chamada sai sem Referer, sem Origin e com sec-fetch-site
+   cross-site — e o WAF da Shopee devolve 403. A vitrine so responde
+   pra quem parece estar navegando nela.
+   SOLUCAO: o bg acha (ou abre, em segundo plano) uma aba shopee.com.br
+   e pede pro content script de la fazer o fetch. Ali e same-origin,
+   com cookie e Referer certos — igual quando voce pesquisa na mao.
+   A aba fica guardada e e reaproveitada pelas 6 buscas do Radar. */
+var SIA_ABA_BUSCA = null;
+
+function urlBusca(kw) {
+  return 'https://shopee.com.br/api/v4/search/search_items' +
+    '?by=relevancy&keyword=' + encodeURIComponent(kw) +
+    '&limit=60&newest=0&order=desc&page_type=search' +
+    '&scenario=PAGE_GLOBAL_SEARCH&version=2';
+}
+function abaViva(id) {
+  return new Promise(function (r) {
+    if (!id) return r(false);
+    chrome.tabs.get(id, function (t) { void chrome.runtime.lastError; r(!!(t && t.url && t.url.indexOf('shopee.com.br') >= 0)); });
+  });
+}
+function acharAba() {
+  return new Promise(function (r) {
+    chrome.tabs.query({ url: 'https://shopee.com.br/*' }, function (tabs) {
+      void chrome.runtime.lastError;
+      r(tabs && tabs.length ? tabs[0] : null);
+    });
+  });
+}
+function abrirAba(kw) {
+  return new Promise(function (r) {
+    chrome.tabs.create({ url: 'https://shopee.com.br/search?keyword=' + encodeURIComponent(kw), active: false }, function (t) {
+      void chrome.runtime.lastError;
+      if (!t) return r(null);
+      var pronto = false;
+      function ouvir(id, info) {
+        if (id !== t.id || info.status !== 'complete' || pronto) return;
+        pronto = true;
+        chrome.tabs.onUpdated.removeListener(ouvir);
+        setTimeout(function () { r(t); }, 1800); // deixa o content script subir
+      }
+      chrome.tabs.onUpdated.addListener(ouvir);
+      setTimeout(function () { if (!pronto) { pronto = true; chrome.tabs.onUpdated.removeListener(ouvir); r(t); } }, 15000);
+    });
+  });
+}
+function pedirNaAba(id, kw) {
+  return new Promise(function (r) {
+    var respondeu = false;
+    chrome.tabs.sendMessage(id, { tipo: 'sia:busca-no-site', termo: kw, url: urlBusca(kw) }, function (resp) {
+      void chrome.runtime.lastError;
+      if (!respondeu) { respondeu = true; r(resp || null); }
+    });
+    setTimeout(function () { if (!respondeu) { respondeu = true; r(null); } }, 20000);
+  });
+}
+async function buscaPublica(kw) {
+  if (!kw) return { ok: false, erro: 'Digite um termo para espiar.' };
+  var aba = null;
+  if (await abaViva(SIA_ABA_BUSCA)) aba = { id: SIA_ABA_BUSCA };
+  if (!aba) aba = await acharAba();
+  if (!aba) aba = await abrirAba(kw);
+  if (!aba) return { ok: false, erro: 'Nao consegui abrir a vitrine da Shopee em segundo plano.' };
+  SIA_ABA_BUSCA = aba.id;
+
+  var resp = await pedirNaAba(aba.id, kw);
+  // Aba antiga sem o content script novo? Abre uma limpa e tenta de novo.
+  if (!resp) {
+    var nova = await abrirAba(kw);
+    if (nova) { SIA_ABA_BUSCA = nova.id; resp = await pedirNaAba(nova.id, kw); }
+  }
+  if (!resp) return { ok: false, erro: 'A aba da vitrine nao respondeu. Deixe uma aba em shopee.com.br aberta e logada, e tente de novo.' };
+  return resp;
+}
+
 chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
   if (!msg || !msg.tipo) return;
 
@@ -145,37 +222,8 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
     return true;
   }
   // ---- BUSCA PUBLICA (Espiao) ----
-  // O fetch precisa sair do service worker: o content script roda em
-  // seller.shopee.com.br e a busca vive em shopee.com.br (origem diferente).
-  // O host_permissions do manifest cobre os dois, entao aqui passa com cookie.
   if (msg.tipo === 'sia:busca-publica') {
-    (async function () {
-      var kw = String(msg.termo || '').trim();
-      if (!kw) { responder({ ok: false, erro: 'Digite um termo para espiar.' }); return; }
-      var url = 'https://shopee.com.br/api/v4/search/search_items' +
-        '?by=relevancy&keyword=' + encodeURIComponent(kw) +
-        '&limit=60&newest=0&order=desc&page_type=search' +
-        '&scenario=PAGE_GLOBAL_SEARCH&version=2';
-      try {
-        var r = await fetch(url, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'x-api-source': 'pc',
-            'x-shopee-language': 'pt-BR',
-            'af-ac-enc-dat': ''
-          }
-        });
-        var j = null;
-        try { j = await r.json(); } catch (e) { /* noop */ }
-        if (!r.ok) { responder({ ok: false, erro: 'A Shopee respondeu HTTP ' + r.status + '. Abra shopee.com.br logado numa aba e tente de novo.' }); return; }
-        var itens = (j && j.items) || [];
-        if (!itens.length) { responder({ ok: false, erro: 'Busca sem resultados para "' + kw + '".' }); return; }
-        responder({ ok: true, termo: kw, itens: itens });
-      } catch (e) {
-        responder({ ok: false, erro: 'Nao consegui alcancar a busca da Shopee. Verifique a conexao.' });
-      }
-    })();
+    buscaPublica(String(msg.termo || '').trim()).then(responder);
     return true;
   }
 
