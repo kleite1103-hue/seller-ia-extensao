@@ -28,6 +28,7 @@
     cadastro: null,          // get_product_info: preco, estoque, categoria, fotos
     series: {},              // series temporais por campanha (get_time_graph)
     loja: null,              // shop_id + nome (selleraccount/shop_info)
+    espiao: { termo: '', buscando: false, erro: null, res: null, radar: null },  // Espiao de Busca
     spc: null,               // chave de sessao SPC_CDS (colhida das chamadas)
     coletaProgresso: null,   // texto de progresso da coleta completa
     periodoAds: null,        // janela selecionada na tela do Ads (start/end)
@@ -1539,6 +1540,7 @@
     { id: 'semaforo', rotulo: '\u25cf Semaforo' },
     { id: 'conta360', rotulo: '\u25c9 Conta 360' },
     { id: 'calc', rotulo: '\u2696 Margem' },
+    { id: 'espiao', rotulo: '\u25c8 Espiao' },
     { id: 'diagnostico', rotulo: 'Diagnostico' },
     { id: 'campanhas', rotulo: 'Campanhas' },
     { id: 'produtos', rotulo: 'Produtos (Ads)' },
@@ -2135,6 +2137,256 @@
     return h;
   }
 
+  /* ------------------------- ESPIAO DE BUSCA ------------------------- */
+  /* Le a vitrine publica da Shopee como comprador. O faturamento estimado
+     vem do "vendido/mes" que a propria Shopee exibe no card x preco. */
+  var ESP_STOP = { 'kit': 1, 'un': 1, 'unidades': 1, 'pcs': 1, 'pecas': 1, 'com': 1, 'de': 1, 'da': 1, 'do': 1, 'para': 1, 'e': 1, 'o': 1, 'a': 1, 'em': 1, 'no': 1, 'na': 1, 'pro': 1, 'novo': 1, 'promocao': 1, 'frete': 1, 'gratis': 1 };
+
+  function espTermo(nome) {
+    var s = String(nome || '').toLowerCase();
+    s = s.normalize ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : s;
+    s = s.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    var out = [], p = s.split(' ');
+    for (var i = 0; i < p.length && out.length < 3; i++) {
+      if (p[i].length < 3 || ESP_STOP[p[i]] || /^\d+$/.test(p[i])) continue;
+      out.push(p[i]);
+    }
+    return out.join(' ');
+  }
+
+  function espMapear(itens) {
+    var meu = estado.loja ? String(estado.loja.shop_id) : null;
+    var lista = [];
+    for (var i = 0; i < itens.length; i++) {
+      var it = itens[i] || {};
+      var d = it.item_data || {};
+      var asset = it.item_card_displayed_asset || {};
+      var dp = d.item_card_display_price || {};
+      var sc = d.item_card_display_sold_count || {};
+      var rt = d.item_rating || {};
+      var preco = dp.price != null ? Number(dp.price) / 100000 : null;
+      var mes = sc.monthly_sold_count != null ? Number(sc.monthly_sold_count) : null;
+      var voucher = d.recommended_shop_voucher_info || dp.recommended_shop_voucher_info || null;
+      lista.push({
+        pos: i + 1,
+        nome: asset.name || '',
+        shopid: d.shopid != null ? String(d.shopid) : null,
+        itemid: d.itemid != null ? String(d.itemid) : null,
+        preco: preco,
+        desconto: dp.discount != null ? Number(dp.discount) : null,
+        vendasMes: mes,
+        vendaTotal: sc.historical_sold_count != null ? Number(sc.historical_sold_count) : null,
+        faturamentoMes: (mes != null && preco != null) ? Math.round(mes * preco) : null,
+        nota: rt.rating_star != null ? Number(rt.rating_star) : null,
+        avaliacoes: rt.rating_count && rt.rating_count.length ? Number(rt.rating_count[0]) : null,
+        cupom: voucher ? (voucher.voucher_code || 'sim') : null,
+        ads: !!it.adsid,
+        eu: meu && String(d.shopid) === meu
+      });
+    }
+    return lista;
+  }
+
+  function espBarreira(lista) {
+    var conc = [], i;
+    for (i = 0; i < lista.length; i++) if (!lista[i].eu) conc.push(lista[i]);
+    var top = conc.slice(0, 5);
+    if (!top.length) return null;
+    function media(campo) {
+      var s = 0, n = 0;
+      for (var k = 0; k < top.length; k++) if (top[k][campo] != null) { s += top[k][campo]; n++; }
+      return n ? s / n : null;
+    }
+    var comCupom = 0;
+    for (i = 0; i < top.length; i++) if (top[i].cupom) comCupom++;
+    return {
+      n: top.length, lider: top[0], top: top,
+      preco: media('preco'), vendasMes: media('vendasMes'),
+      faturamentoMes: media('faturamentoMes'), nota: media('nota'),
+      avaliacoes: media('avaliacoes'), comCupom: comCupom
+    };
+  }
+
+  function espBuscar(termo, aoTerminar) {
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:busca-publica', termo: termo }, function (resp) {
+        void chrome.runtime.lastError;
+        aoTerminar(resp || { ok: false, erro: 'Sem resposta do Seller.IA.' });
+      });
+    } catch (e) { aoTerminar({ ok: false, erro: 'Extensao sem permissao para buscar.' }); }
+  }
+
+  function espMeusProdutos(limite) {
+    var arr = [], id;
+    for (id in estado.produtos) {
+      var p = estado.produtos[id];
+      if (!p || !p.nome) continue;
+      var m = p.metricas || {};
+      arr.push({ id: id, nome: p.nome, gmv: m.gmv || 0 });
+    }
+    arr.sort(function (a, b) { return b.gmv - a.gmv; });
+    return arr.slice(0, limite || 6);
+  }
+
+  function espRodarRadar() {
+    var alvos = espMeusProdutos(6);
+    if (!alvos.length) { estado.espiao.erro = 'Colete a conta primeiro — o radar usa os seus produtos que mais vendem.'; render(); return; }
+    estado.espiao.radar = []; estado.espiao.radarRodando = 0; estado.espiao.radarTotal = alvos.length; estado.espiao.erro = null;
+    render();
+    (function proximo(i) {
+      if (i >= alvos.length) { estado.espiao.radarRodando = null; render(); return; }
+      estado.espiao.radarRodando = i + 1; render();
+      var termo = espTermo(alvos[i].nome);
+      espBuscar(termo, function (resp) {
+        var linha = { produto: alvos[i].nome, termo: termo };
+        if (resp && resp.ok) {
+          var lista = espMapear(resp.itens);
+          var b = espBarreira(lista);
+          var meu = null;
+          for (var k = 0; k < lista.length; k++) if (lista[k].eu) { meu = lista[k]; break; }
+          linha.total = lista.length;
+          linha.ads = lista.filter(function (x) { return x.ads; }).length;
+          linha.barreira = b ? b.faturamentoMes : null;
+          linha.meuFat = meu ? meu.faturamentoMes : null;
+          linha.pos = meu ? meu.pos : null;
+          linha.meuAds = meu ? meu.ads : null;
+        } else { linha.erro = (resp && resp.erro) || 'falhou'; }
+        estado.espiao.radar.push(linha);
+        setTimeout(function () { proximo(i + 1); }, 900); // respeita a Shopee
+      });
+    })(0);
+  }
+
+  function espDinheiro(v) {
+    if (v == null) return '—';
+    if (v >= 1000) return 'R$ ' + fmt(v / 1000, 1) + ' mil';
+    return 'R$ ' + fmt(v, 0);
+  }
+
+  function renderEspiao() {
+    if (!estado.espiao) estado.espiao = { termo: '', res: null, radar: null };
+    var e = estado.espiao;
+    var h = '';
+
+    h += '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
+      '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="digite o termo que o comprador pesquisa" ' +
+      'style="flex:1;min-width:200px;background:#12151b;border:1px solid #1d212a;border-radius:8px;padding:10px 12px;color:#f2f2f4;font-size:13px">' +
+      '<button id="sia-esp-ir" style="background:#ff4d1c;border:none;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:pointer">' + (e.buscando ? 'Espiando...' : 'Espiar') + '</button>' +
+      '<button id="sia-esp-radar" style="background:#12151b;border:1px solid #2a2f3a;color:#fff;font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
+      (e.radarRodando ? 'Radar ' + e.radarRodando + '/' + e.radarTotal + '...' : 'Radar dos meus produtos') + '</button></div>';
+
+    h += '<div class="nota" style="margin-top:0">O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
+
+    if (e.erro) h += '<div class="nota" style="color:#e74c3c">' + esc(e.erro) + '</div>';
+
+    /* ---- RADAR ---- */
+    if (e.radar && e.radar.length) {
+      h += '<div style="font-family:monospace;font-size:10px;color:#7d8290;letter-spacing:.06em;margin:16px 0 8px">SEUS PRODUTOS NAS BUSCAS DELES</div>';
+      for (var r = 0; r < e.radar.length; r++) {
+        var L = e.radar[r];
+        var cor = '#7d8290', txt = '', posTxt = '—';
+        if (L.erro) { txt = esc(L.erro); }
+        else {
+          posTxt = L.pos ? String(L.pos) : '—';
+          if (L.meuFat == null) { txt = 'voce nao aparece no top ' + (L.total || 60) + ' dessa busca'; cor = '#e74c3c'; }
+          else if (L.barreira && L.meuFat >= L.barreira) { txt = 'acima da barreira do TOP 5'; cor = '#2ecc71'; }
+          else if (L.barreira) { txt = fmt(L.barreira / L.meuFat, 1) + 'x abaixo da barreira'; cor = L.barreira / L.meuFat > 2 ? '#e74c3c' : '#f5b041'; }
+        }
+        h += '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:10px 12px;margin-bottom:7px">' +
+          '<div style="display:flex;gap:8px;align-items:center">' +
+          '<span style="font-family:monospace;font-size:15px;color:' + cor + ';width:26px">' + posTxt + '</span>' +
+          '<span style="flex:1;font-size:12.5px">' + esc(String(L.produto).slice(0, 52)) + '</span>' +
+          (L.meuAds ? '<span style="font-family:monospace;font-size:8px;color:#ff4d1c;border:1px solid rgba(255,77,28,.4);border-radius:99px;padding:2px 7px">ADS</span>' : '') +
+          '</div>' +
+          '<div style="font-family:monospace;font-size:10px;color:#7d8290;margin-top:4px">busca "' + esc(L.termo) + '"' + (L.total ? ' · ' + L.total + ' resultados · ' + L.ads + ' anuncios' : '') + '</div>' +
+          '<div style="font-family:monospace;font-size:10.5px;margin-top:5px">' +
+          '<span style="color:#b8bcc6">voce ' + espDinheiro(L.meuFat) + '/mes</span> ' +
+          '<span style="color:#7d8290">→</span> ' +
+          '<span style="color:#2ecc71">TOP 5 ' + espDinheiro(L.barreira) + '</span> ' +
+          '<span style="color:' + cor + '">· ' + txt + '</span></div></div>';
+      }
+    }
+
+    /* ---- SONDA + DUELO ---- */
+    if (e.res) {
+      var lista = e.res.lista, b = e.res.barreira;
+      var nAds = 0, i;
+      for (i = 0; i < lista.length; i++) if (lista[i].ads) nAds++;
+
+      h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 10px">' +
+        '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:9px;text-align:center"><div style="font-family:monospace;font-size:8px;color:#7d8290">ANUNCIOS</div><div style="font-size:20px;color:#ff4d1c">' + nAds + '<span style="font-size:12px;color:#7d8290">/' + lista.length + '</span></div></div>' +
+        '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:9px;text-align:center"><div style="font-family:monospace;font-size:8px;color:#7d8290">PRECO TOP 5</div><div style="font-size:20px">' + (b && b.preco != null ? 'R$' + fmt(b.preco, 0) : '—') + '</div></div>' +
+        '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:9px;text-align:center"><div style="font-family:monospace;font-size:8px;color:#7d8290">BARREIRA/MES</div><div style="font-size:20px;color:#2ecc71">' + (b ? espDinheiro(b.faturamentoMes) : '—') + '</div></div></div>';
+
+      for (i = 0; i < lista.length; i++) {
+        var x = lista[i];
+        h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:1px solid #1d212a;font-size:11.5px' + (x.eu ? ';background:rgba(46,204,113,.06);border-radius:6px' : '') + '">' +
+          '<span style="font-family:monospace;font-size:13px;width:22px;color:' + (x.eu ? '#2ecc71' : '#7d8290') + '">' + x.pos + '</span>' +
+          '<span style="flex:1;color:' + (x.eu ? '#2ecc71' : '#b8bcc6') + (x.eu ? ';font-weight:600' : '') + '">' + esc(x.nome.slice(0, 44)) + (x.eu ? ' (voce)' : '') + '</span>' +
+          (x.ads ? '<span style="font-family:monospace;font-size:8px;color:#ff4d1c">ADS</span>' : '') +
+          '<span style="text-align:right"><span style="font-family:monospace;font-size:10.5px;display:block">' + (x.preco != null ? 'R$' + fmt(x.preco, 2) : '—') + '</span>' +
+          '<span style="font-family:monospace;font-size:8.5px;color:#2ecc71">' + (x.vendasMes != null ? x.vendasMes + '/mes · ' + espDinheiro(x.faturamentoMes) : 'sem dado') + '</span></span></div>';
+      }
+
+      var meus = lista.filter(function (z) { return z.eu; });
+      if (meus.length && b) {
+        var m = meus[0], lid = b.lider;
+        h += '<div style="font-family:monospace;font-size:10px;color:#7d8290;letter-spacing:.06em;margin:18px 0 8px">VOCE · PADRAO TOP 5 · LIDER</div>';
+        h += '<table style="width:100%;border-collapse:collapse;font-size:11.5px">' +
+          '<tr><th></th><th style="font-family:monospace;font-size:9px;color:#ff4d1c;padding:6px">VOCE</th><th style="font-family:monospace;font-size:9px;color:#2ecc71;padding:6px">PADRAO TOP 5</th><th style="font-family:monospace;font-size:9px;color:#7d8290;padding:6px">LIDER</th></tr>';
+        function linha(rot, a, c, d) {
+          return '<tr><td style="font-family:monospace;font-size:9px;color:#7d8290;padding:6px 4px">' + rot + '</td>' +
+            '<td style="text-align:center;padding:6px;font-family:monospace;background:rgba(255,77,28,.05)">' + a + '</td>' +
+            '<td style="text-align:center;padding:6px;color:#b8bcc6">' + c + '</td>' +
+            '<td style="text-align:center;padding:6px;color:#7d8290">' + d + '</td></tr>';
+        }
+        h += linha('Posicao', m.pos, '1 a 5', lid.pos);
+        h += linha('Preco', m.preco != null ? 'R$' + fmt(m.preco, 2) : '—', b.preco != null ? 'R$' + fmt(b.preco, 2) : '—', lid.preco != null ? 'R$' + fmt(lid.preco, 2) : '—');
+        h += linha('Vendas/mes', m.vendasMes != null ? m.vendasMes : '—', b.vendasMes != null ? fmt(b.vendasMes, 0) : '—', lid.vendasMes != null ? lid.vendasMes : '—');
+        h += linha('Faturam./mes', espDinheiro(m.faturamentoMes), espDinheiro(b.faturamentoMes), espDinheiro(lid.faturamentoMes));
+        h += linha('Avaliacoes', m.avaliacoes != null ? fmt(m.avaliacoes, 0) : '—', b.avaliacoes != null ? fmt(b.avaliacoes, 0) : '—', lid.avaliacoes != null ? fmt(lid.avaliacoes, 0) : '—');
+        h += linha('Nota', m.nota != null ? fmt(m.nota, 1) : '—', b.nota != null ? fmt(b.nota, 1) : '—', lid.nota != null ? fmt(lid.nota, 1) : '—');
+        h += linha('Cupom', m.cupom ? 'sim' : 'nao', b.comCupom + ' de ' + b.n + ' tem', lid.cupom ? 'sim' : 'nao');
+        h += '</table>';
+
+        var falta = (b.faturamentoMes != null && m.faturamentoMes != null) ? b.faturamentoMes - m.faturamentoMes : null;
+        var faltaUn = (b.vendasMes != null && m.vendasMes != null) ? Math.round(b.vendasMes - m.vendasMes) : null;
+        h += '<div style="background:#12151b;border-left:3px solid #ff4d1c;border-radius:0 9px 9px 0;padding:11px 13px;margin-top:12px;font-size:12px;color:#b8bcc6;line-height:1.5">';
+        if (falta != null && falta > 0) {
+          h += '<b style="color:#f2f2f4">A barreira:</b> faltam <b style="color:#ff4d1c">' + espDinheiro(falta) + '/mes</b> para encostar no padrao do topo' +
+            (faltaUn > 0 ? ' — em unidades, de ' + m.vendasMes + ' para cerca de ' + fmt(b.vendasMes, 0) + ' vendas/mes.' : '.');
+        } else { h += '<b style="color:#2ecc71">Voce esta acima da barreira do TOP 5 nesta busca.</b> Aqui a leitura muda: proteja a posicao, nao persiga preco.'; }
+        if (m.preco != null && b.preco != null && m.preco > b.preco * 1.15) h += ' Voce esta ' + fmt((m.preco / b.preco - 1) * 100, 0) + '% mais caro que o padrao do topo.';
+        if (!m.cupom && b.comCupom >= 2) h += ' E e o unico sem cupom entre os primeiros — cupom vira selo na busca e custa menos que cortar preco.';
+        h += '<br><br><b style="color:#f2f2f4">Antes de mexer no preco:</b> abra a Margem e veja seu liquido de hoje. Preco e o ultimo passo, e so se a margem aguentar.</div>';
+      } else if (b) {
+        h += '<div class="nota" style="color:#f5b041;margin-top:12px">Nenhum produto seu apareceu nesta busca. Quando o titulo nao carrega o termo que o comprador digita, voce nem entra na disputa — nem paga, nem organica.</div>';
+      }
+    }
+    return h;
+  }
+
+  function ligarEspiao() {
+    var inp = $('sia-esp-termo'), bt = $('sia-esp-ir'), br = $('sia-esp-radar');
+    function ir() {
+      var t = (inp && inp.value || '').trim();
+      if (!t) return;
+      estado.espiao.termo = t; estado.espiao.buscando = true; estado.espiao.erro = null; render();
+      espBuscar(t, function (resp) {
+        estado.espiao.buscando = false;
+        if (!resp || !resp.ok) { estado.espiao.erro = (resp && resp.erro) || 'Falhou.'; estado.espiao.res = null; }
+        else {
+          var lista = espMapear(resp.itens);
+          estado.espiao.res = { termo: resp.termo, lista: lista, barreira: espBarreira(lista) };
+        }
+        render();
+      });
+    }
+    if (bt) bt.addEventListener('click', ir);
+    if (inp) inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') ir(); });
+    if (br) br.addEventListener('click', function () { espRodarRadar(); });
+  }
+
   function render() {
     if (!$('sia-painel').classList.contains('aberto')) return;
     renderAbas();
@@ -2157,6 +2409,12 @@
     if (abaAtiva === 'calc') {
       corpo.innerHTML = renderCalculadora();
       ligarCalculadora();
+      return;
+    }
+
+    if (abaAtiva === 'espiao') {
+      corpo.innerHTML = renderEspiao();
+      ligarEspiao();
       return;
     }
 

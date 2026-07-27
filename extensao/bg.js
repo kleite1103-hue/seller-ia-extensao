@@ -144,6 +144,41 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
     ler(['sia_diamantes']).then(function (v) { responder({ ok: true, cofre: v.sia_diamantes || null }); });
     return true;
   }
+  // ---- BUSCA PUBLICA (Espiao) ----
+  // O fetch precisa sair do service worker: o content script roda em
+  // seller.shopee.com.br e a busca vive em shopee.com.br (origem diferente).
+  // O host_permissions do manifest cobre os dois, entao aqui passa com cookie.
+  if (msg.tipo === 'sia:busca-publica') {
+    (async function () {
+      var kw = String(msg.termo || '').trim();
+      if (!kw) { responder({ ok: false, erro: 'Digite um termo para espiar.' }); return; }
+      var url = 'https://shopee.com.br/api/v4/search/search_items' +
+        '?by=relevancy&keyword=' + encodeURIComponent(kw) +
+        '&limit=60&newest=0&order=desc&page_type=search' +
+        '&scenario=PAGE_GLOBAL_SEARCH&version=2';
+      try {
+        var r = await fetch(url, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'x-api-source': 'pc',
+            'x-shopee-language': 'pt-BR',
+            'af-ac-enc-dat': ''
+          }
+        });
+        var j = null;
+        try { j = await r.json(); } catch (e) { /* noop */ }
+        if (!r.ok) { responder({ ok: false, erro: 'A Shopee respondeu HTTP ' + r.status + '. Abra shopee.com.br logado numa aba e tente de novo.' }); return; }
+        var itens = (j && j.items) || [];
+        if (!itens.length) { responder({ ok: false, erro: 'Busca sem resultados para "' + kw + '".' }); return; }
+        responder({ ok: true, termo: kw, itens: itens });
+      } catch (e) {
+        responder({ ok: false, erro: 'Nao consegui alcancar a busca da Shopee. Verifique a conexao.' });
+      }
+    })();
+    return true;
+  }
+
   if (msg.tipo === 'sia:analisar') {
     analisar(msg.payload).then(responder);
     return true;

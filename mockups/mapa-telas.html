@@ -40,7 +40,7 @@ h1 em{font-style:normal;color:var(--orange)}
 <div class="wrap">
   <h1>TODAS AS TELAS DO <em>SELLER.IA</em></h1>
   <p class="sub">Mapa de engenharia: cada tela que o sistema vai exibir, o que mostra, o que a alimenta. Antes do design criar, você valida se está tudo aqui.</p>
-  <p class="note">18 TELAS · 6 GRUPOS · TUDO QUE A EXTENSÃO COLETA VIRA TELA</p>
+  <p class="note">21 TELAS · 7 GRUPOS · TUDO QUE A EXTENSÃO COLETA VIRA TELA</p>
   <div class="legenda">
     <span><i style="background:var(--ok)"></i> já existe (refinar)</span>
     <span><i style="background:var(--warn)"></i> parcial</span>
@@ -136,6 +136,27 @@ h1 em{font-style:normal;color:var(--orange)}
     <div class="comp"><b>Componentes:</b> botão de acesso, sugestão contextual no card.</div>
   </div>
 
+  <!-- GRUPO 4B: ESPIÃO DE BUSCA -->
+  <div class="grp"><span class="n">4B</span> ESPIÃO DE BUSCA (a vitrine pública)</div>
+
+  <div class="tela"><div class="h"><span class="num">4B.1</span><span class="nome">Radar — seus produtos nas buscas deles</span><span class="st st-parcial">parcial</span></div>
+    <div class="oq">Roda sozinho. Pega o termo principal do título dos seus produtos que mais vendem, pesquisa cada um na Shopee como comprador e mostra a posição de cada um + a barreira do TOP 5. Você não digita nada.</div>
+    <div class="comp"><b>Componentes:</b> botão atualizar, progresso N/6, linha por produto (posição, ADS/orgânico, seu faturamento vs barreira, distância).</div>
+    <div class="dados">Alimenta: <b>estado.produtos</b> (títulos) + <b>bg.js → sia:busca-publica</b></div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">4B.2</span><span class="nome">Sonda — pesquisar qualquer termo</span><span class="st st-parcial">parcial</span></div>
+    <div class="oq">Digita o termo, vê os 60 resultados com posição, preço, vendas/mês e faturamento estimado. Anúncio ou orgânico. Seus produtos destacados no meio dos concorrentes.</div>
+    <div class="comp"><b>Componentes:</b> campo de busca, 3 KPIs (anúncios/60, preço TOP 5, barreira/mês), lista de resultados.</div>
+    <div class="dados">Alimenta: <b>diamantes.js → exBusca()</b> (monthly_sold_count × preço)</div>
+  </div>
+
+  <div class="tela"><div class="h"><span class="num">4B.3</span><span class="nome">Duelo — você vs padrão TOP 5 vs líder</span><span class="st st-parcial">parcial</span></div>
+    <div class="oq">O comparativo linha a linha: posição, preço, vendas/mês, faturamento, avaliações, nota, cupom. A barreira traduzida em unidades ("de 95 para 150 vendas/mês"). Fecha com o que fazer, nesta ordem — e preço é sempre o último passo.</div>
+    <div class="comp"><b>Componentes:</b> barras de faturamento do TOP 5, tabela de 3 colunas, diff de palavras do título, FAÇA NESTA ORDEM.</div>
+    <div class="dados">Alimenta: barreira = média do TOP 5 concorrente · líder só como referência</div>
+  </div>
+
   <!-- GRUPO 5: ESPECIALISTA + EXPORTAR -->
   <div class="grp"><span class="n">5</span> ANÁLISE E EXPORTAÇÃO</div>
 
@@ -168,7 +189,7 @@ h1 em{font-style:normal;color:var(--orange)}
   </div>
 
   <div class="foot">
-    <b>Como funciona daqui:</b> essa é a lista completa — 18 telas. Você confirma se falta algo ou se alguma sobra. Aí o design cria tela por tela, todas no card-final.html como referência de estilo. Nada é recriado do zero: o que já existe (verde) a gente refina, o parcial (amarelo) completa, o novo (roxo) desenha. Bora.
+    <b>Como funciona daqui:</b> essa é a lista completa — 21 telas. Você confirma se falta algo ou se alguma sobra. Aí o design cria tela por tela, todas no card-final.html como referência de estilo. Nada é recriado do zero: o que já existe (verde) a gente refina, o parcial (amarelo) completa, o novo (roxo) desenha. Bora.
   </div>
 </div>
 </body>
