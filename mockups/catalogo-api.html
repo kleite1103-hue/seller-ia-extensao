@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — O que dá pra pegar da Shopee</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#8a909c;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:34px 16px 80px}
+h1{font-family:'Bebas Neue';font-size:clamp(32px,7.5vw,52px);letter-spacing:.02em;line-height:.95}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);font-size:15px;margin-top:9px;max-width:64ch}
+.legenda{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 6px}
+.lg{font-family:'Space Mono';font-size:10.5px;padding:5px 11px;border-radius:99px;border:1px solid}
+.s-ok{color:var(--ok);border-color:rgba(46,204,113,.4);background:rgba(46,204,113,.08)}
+.s-mid{color:var(--warn);border-color:rgba(245,176,65,.4);background:rgba(245,176,65,.08)}
+.s-no{color:var(--bad);border-color:rgba(231,76,60,.4);background:rgba(231,76,60,.08)}
+.s-new{color:#c88bff;border-color:rgba(123,47,255,.4);background:rgba(123,47,255,.09)}
+h2{font-family:'Bebas Neue';font-size:29px;letter-spacing:.03em;margin:42px 0 4px;display:flex;align-items:baseline;gap:11px}
+h2 .n{font-family:'Space Mono';font-size:11px;color:var(--orange);letter-spacing:.06em}
+.lead{color:var(--text3);font-size:13.5px;margin-bottom:16px;max-width:72ch}
+.rota{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin-bottom:9px}
+.rota .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px}
+.rota .ep{font-family:'Space Mono';font-size:12px;color:#c88bff;flex:1;min-width:0;word-break:break-all}
+.rota .oq{font-size:14px;color:var(--text2);margin-bottom:5px}
+.rota .campos{font-family:'Space Mono';font-size:11.5px;color:var(--text3);line-height:1.7}
+.rota .vale{font-size:13px;color:var(--orange);margin-top:6px}
+.rota .vale.ok{color:var(--ok)}
+.aviso{background:var(--bg3);border-left:3px solid var(--orange);border-radius:0 12px 12px 0;padding:15px 17px;margin:18px 0;font-size:14px;color:var(--text2)}
+.aviso b{color:var(--text);font-weight:600}
+.aviso.roxo{border-left-color:var(--purple)}
+.aviso.verm{border-left-color:var(--bad)}
+.total{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:9px;margin:24px 0}
+.tc{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:13px;text-align:center}
+.tc .v{font-family:'Bebas Neue';font-size:36px;line-height:1}
+.tc .l{font-family:'Space Mono';font-size:9px;color:var(--text3);letter-spacing:.05em;margin-top:3px}
+footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);font-family:'Space Mono';font-size:10.5px;color:var(--text3);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>O QUE DÁ PRA <em>PEGAR</em> DA SHOPEE</h1>
+<p class="sub">Catálogo de rotas da API, o que cada uma entrega e para que serve. Levantado do código da extensão — inclui o que já capturamos, o que conhecemos e ignoramos, e o que ainda não tocamos.</p>
+
+<div class="legenda">
+  <span class="lg s-ok">CAPTURA HOJE</span>
+  <span class="lg s-mid">CAPTURA, USA POUCO</span>
+  <span class="lg s-no">CONHECE E NÃO USA</span>
+  <span class="lg s-new">NÃO TOCAMOS AINDA</span>
+</div>
+
+<div class="total">
+  <div class="tc"><div class="v" style="color:var(--ok)">14</div><div class="l">CAPTURA</div></div>
+  <div class="tc"><div class="v" style="color:var(--warn)">6</div><div class="l">USA POUCO</div></div>
+  <div class="tc"><div class="v" style="color:var(--bad)">9</div><div class="l">IGNORA</div></div>
+  <div class="tc"><div class="v" style="color:#c88bff">7</div><div class="l">NÃO TOCADAS</div></div>
+</div>
+
+<div class="aviso"><b>Antes de validar, uma régua:</b> tudo aqui vem de rotas que a própria Shopee chama quando você navega no painel dela. Não inventamos requisição — lemos o que já passou. É o mesmo dado que está na tela, só que estruturado.</div>
+
+<!-- ===================== ADS ===================== -->
+<h2><span class="n">01</span> ADS E LEILÃO</h2>
+<p class="lead">Prefixo <span style="font-family:'Space Mono';font-size:12px">/api/pas/</span> — é onde mora o motor do anúncio.</p>
+
+<div class="rota"><div class="top"><span class="ep">pas/v1/homepage/query</span><span class="lg s-ok">CAPTURA</span></div>
+<div class="oq">A lista completa de campanhas, paginada. É a espinha dorsal da coleta.</div>
+<div class="campos">campanha · estado · orçamento · gasto · impressões · cliques · CTR · carrinho · pedidos · GMV amplo e direto · ROAS amplo e direto · CIR · meta atual · posição média no leilão</div>
+<div class="vale ok">Já alimenta: semáforo, card, Campanhas</div></div>
+
+<div class="rota"><div class="top"><span class="ep">pas/v1/report/get · report/get_time_graph</span><span class="lg s-mid">USA POUCO</span></div>
+<div class="oq">A mesma campanha, mas <b>dia a dia</b>. É a diferença entre foto e filme.</div>
+<div class="campos">série temporal de cada métrica · variação · comparativo de período</div>
+<div class="vale">Permitiria dizer "caindo há 5 dias" em vez de só o número de hoje</div></div>
+
+<div class="rota"><div class="top"><span class="ep">pas/v1/diagnosis/list_verdict · homepage_batch_list_verdict</span><span class="lg s-ok">CAPTURA</span></div>
+<div class="oq">O diagnóstico que a <b>própria Shopee</b> dá pra cada campanha, mais a meta ROAS que ela recomenda.</div>
+<div class="campos">nota (good/fair/poor) · problema (no_conversion, low_traffic, room_more_traffic) · eixos · meta sugerida · ganho de GMV projetado · ganho de pedidos projetado</div>
+<div class="vale ok">Alimenta o card parte 3 e 5. Os eixos e a nota estão parados</div></div>
+
+<div class="rota"><div class="top"><span class="ep">pas/v1/config/get</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq"><b>O regulamento do jogo.</b> A Shopee entrega as próprias regras do algoritmo.</div>
+<div class="campos">dias de aprendizado · mudança máxima permitida por vez · quantas mudanças por dia · dias de bloqueio após alterar · lance mínimo (busca produto, busca loja, passo) · teto do multiplicador · nota mínima para lance automático · lance por preço liberado ou não</div>
+<div class="vale">Impede o consultor de sugerir o que a Shopee vai recusar. Hoje ele pode sugerir</div></div>
+
+<div class="rota"><div class="top"><span class="ep">get_recommended_target_roi · recommended_roi_two_target</span><span class="lg s-mid">USA POUCO</span></div>
+<div class="oq">A <b>faixa inteira</b> de ROAS da categoria, em percentis.</div>
+<div class="campos">p20 conservador · p50 ideal · p80 agressivo · teto · uplift projetado por faixa</div>
+<div class="vale">É a barra de faixa do card aprovado. Hoje só usamos o p50</div></div>
+
+<div class="rota"><div class="top"><span class="ep">budget_data_for_creation · estimated_auto_ads_data</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq">Orçamento diário que a Shopee acha que a campanha comporta, e a estimativa de resultado do auto ads.</div>
+<div class="campos">orçamento recomendado · faixa · estimativa de impressões e cliques</div>
+<div class="vale">Entraria no passo de escalar do consultor</div></div>
+
+<div class="rota"><div class="top"><span class="ep">bidding_strategy_eligibility · price-bidding-product-permission</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq">Se a conta pode usar cada estratégia, e <b>o motivo quando não pode</b>.</div>
+<div class="campos">elegível sim/não · motivo do bloqueio · lance por preço liberado</div>
+<div class="vale">Se lance por preço estiver bloqueado, metade dos conselhos de lance é inútil naquela conta</div></div>
+
+<div class="rota"><div class="top"><span class="ep">meta/get_ads_data · incentive/query · adopter/list_incentive · smart_booster/get</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq"><b>Dinheiro grátis.</b> Créditos, metas de gasto que liberam bônus e janelas de surge.</div>
+<div class="campos">crédito total · quanto vence em 30 dias · status do saldo · gaste X ganhe Y · quanto já gastou · uplift do surge</div>
+<div class="vale">Crédito que vence é dinheiro que a Shopee já deu e você devolve por não usar</div></div>
+
+<div class="rota"><div class="top"><span class="ep">list_recommended_keyword</span><span class="lg s-new">NÃO TOCAMOS</span></div>
+<div class="oq">Termos recomendados <b>com volume de busca</b>. Só aparece em Anúncio de Busca de Loja.</div>
+<div class="campos">palavra-chave · volume · concorrência · lance sugerido por termo</div>
+<div class="vale">Alimentaria o diff de palavras do Espião com dado real, não com comparação de títulos</div></div>
+
+<!-- ===================== CENTRAL DE DADOS ===================== -->
+<h2><span class="n">02</span> CENTRAL DE DADOS</h2>
+<p class="lead">Prefixo <span style="font-family:'Space Mono';font-size:12px">/api/mydata/</span> — sempre D-1, nunca inclui hoje.</p>
+
+<div class="rota"><div class="top"><span class="ep">mydata/v3/dashboard/key-metrics</span><span class="lg s-ok">CAPTURA</span></div>
+<div class="oq">Os números gerenciais do período escolhido.</div>
+<div class="campos">vendas · pedidos · visitantes · taxa de conversão · ticket médio · itens por pedido · comparativo com período anterior</div>
+<div class="vale ok">Alimenta Conta 360</div></div>
+
+<div class="rota"><div class="top"><span class="ep">mydata/homepage/key-metrics</span><span class="lg s-ok">CAPTURA</span></div>
+<div class="oq">Os números <b>do dia</b>, acumulados, que mudam de hora em hora. Não aceita datas.</div>
+<div class="campos">vendas de hoje · pedidos de hoje · visitantes de hoje</div>
+<div class="vale ok">É o único dado que inclui o dia corrente</div></div>
+
+<div class="rota"><div class="top"><span class="ep">mydata/dashboard/order-performance</span><span class="lg s-mid">USA POUCO</span></div>
+<div class="oq">Vendas com o outro lado: o que voltou.</div>
+<div class="campos">pedidos pagos · cancelados · devolvidos · taxa de cancelamento · taxa de devolução · motivos</div>
+<div class="vale">Devolução alta em produto que vende muito é margem sangrando invisível</div></div>
+
+<div class="rota"><div class="top"><span class="ep">mydata/v1/product/traffic/overview</span><span class="lg s-ok">CAPTURA</span></div>
+<div class="oq">O funil da loja inteira.</div>
+<div class="campos">impressões · cliques · CTR · visitantes · visualizações · carrinho · pedidos · conversão em cada degrau</div>
+<div class="vale ok">Alimenta Conta 360 · inteligência 2</div></div>
+
+<div class="rota"><div class="top"><span class="ep">mydata/v1/dashboard/traffic-sources</span><span class="lg s-mid">USA POUCO</span></div>
+<div class="oq">De onde vem cada visita.</div>
+<div class="campos">busca orgânica · anúncio · afiliado · live · vídeo · externo · card · proporção de cada</div>
+<div class="vale">Falta o alerta de dependência: loja que vive de ads quebra quando o ads para</div></div>
+
+<div class="rota"><div class="top"><span class="ep">mydata/v4/product/performance</span><span class="lg s-ok">CAPTURA</span></div>
+<div class="oq">O funil <b>de cada produto</b>. É a rota mais rica que temos.</div>
+<div class="campos">CTR do card · conversão paga e colocada · visitantes únicos · visualizações · curtidas · rejeição · cliques vindos da busca · unidades no carrinho · compradores que carrinharam · venda paga e colocada · pedidos · ticket · fatia do faturamento</div>
+<div class="vale ok">Alimenta a Performance de Produto inteira e o card</div></div>
+
+<div class="rota"><div class="top"><span class="ep">mydata/v1/product/traffic/item-list</span><span class="lg s-ok">CAPTURA</span></div>
+<div class="oq">Quanto cada produto pesa no faturamento total.</div>
+<div class="campos">fatia de vendas por item · ranking</div>
+<div class="vale ok">Alimenta o alerta de concentração de risco</div></div>
+
+<div class="rota"><div class="top"><span class="ep">product/overview/metric-trends</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq">A série <b>dia a dia</b> de cada métrica de produto.</div>
+<div class="campos">tendência de CTR · conversão · visitas · vendas, ponto a ponto</div>
+<div class="vale">É o que separa "está ruim" de "está piorando". Coletamos e não usamos</div></div>
+
+<div class="rota"><div class="top"><span class="ep">product-rankings · traffic-sources/product-contribution</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq">Ranking de produtos e de onde vem o tráfego <b>de cada um</b>.</div>
+<div class="campos">posição no ranking interno · origem do tráfego por item</div>
+<div class="vale">Diria quais produtos vivem de ads e quais andam sozinhos</div></div>
+
+<!-- ===================== SAUDE ===================== -->
+<h2><span class="n">03</span> SAÚDE DA CONTA E DA LOJA</h2>
+
+<div class="rota"><div class="top"><span class="ep">accounthealth/v1/sc/shops/overview</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq"><b>A ficha corrida da conta.</b> Capturamos e não mostramos em tela nenhuma.</div>
+<div class="campos">pontos de penalidade · nota de performance · estrelas · percentil na categoria · quais métricas estão falhando · recursos em aberto</div>
+<div class="vale">Conta punida não escala. Deveria ser o primeiro alerta antes de qualquer conselho de anúncio</div></div>
+
+<div class="rota"><div class="top"><span class="ep">shop/get_preview_data</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq">A reputação pública — como o comprador te vê.</div>
+<div class="campos">nota da loja · total de avaliações · seguidores · selo/tag · taxa de resposta no chat · tempo de resposta</div>
+<div class="vale">É exatamente o que o comprador compara entre você e o concorrente. Peça do Espião</div></div>
+
+<!-- ===================== PRODUTO ===================== -->
+<h2><span class="n">04</span> PRODUTO E CADASTRO</h2>
+
+<div class="rota"><div class="top"><span class="ep">get_product_performance_info</span><span class="lg s-ok">CAPTURA</span></div>
+<div class="oq">Os diamantes do produto no leilão.</div>
+<div class="campos">competitividade de preço 0–100 · uplift se baixar o preço · status de deboost · posição média · CPM do item · fase de aprendizado e dias restantes · janela de produto novo</div>
+<div class="vale ok">Alimenta o card parte 1 e 5. Janela de produto novo está parada</div></div>
+
+<div class="rota"><div class="top"><span class="ep">get_product_lock_info</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq">Travas de moderação no cadastro.</div>
+<div class="campos">tipo de trava · motivo · o que precisa corrigir</div>
+<div class="vale">Produto travado não responde a tráfego. Deveria bloquear qualquer conselho de ads</div></div>
+
+<div class="rota"><div class="top"><span class="ep">v2/item/get_ratings</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq">As avaliações item a item, com o texto.</div>
+<div class="campos">nota · comentário · data · com foto ou não · resposta do vendedor</div>
+<div class="vale">Prova social é o que mais trava conversão. O texto revela a objeção real</div></div>
+
+<!-- ===================== AFILIADOS ===================== -->
+<h2><span class="n">05</span> AFILIADOS</h2>
+
+<div class="rota"><div class="top"><span class="ep">affiliateplatform/dashboard/seller_daily · affiliate_performance/top5</span><span class="lg s-mid">USA POUCO</span></div>
+<div class="oq">O canal de afiliados inteiro.</div>
+<div class="campos">GMV do canal · comissão paga · ROI · variação · pedidos · top 5 afiliados por resultado</div>
+<div class="vale">Aparece em Conta 360 sem julgamento</div></div>
+
+<div class="rota"><div class="top"><span class="ep">affiliateplatform/creator/list</span><span class="lg s-no">IGNORA</span></div>
+<div class="oq"><b>Creators disponíveis para recrutar</b>, por nicho.</div>
+<div class="campos">creator · nicho · alcance · performance histórica</div>
+<div class="vale">É receita parada. Não aparece em tela nenhuma</div></div>
+
+<!-- ===================== VITRINE ===================== -->
+<h2><span class="n">06</span> VITRINE PÚBLICA — o lado do comprador</h2>
+<p class="lead">Estas não exigem estar logada como vendedora. São o que qualquer comprador vê.</p>
+
+<div class="rota"><div class="top"><span class="ep">v4/search/search_items</span><span class="lg s-ok">CAPTURA</span></div>
+<div class="oq">A busca. Cada concorrente do termo, com o que ele vende.</div>
+<div class="campos">posição real · anúncio ou orgânico · preço · desconto · cupom do concorrente · vendidos nos últimos 30 dias · vendidos no total · curtidas · nota · nº de avaliações · localização · frete grátis</div>
+<div class="vale ok">Alimenta o Espião · faturamento estimado = vendidos/mês × preço</div></div>
+
+<div class="rota"><div class="top"><span class="ep">v4/pdp/get_pc · v4/item/get</span><span class="lg s-new">NÃO TOCAMOS</span></div>
+<div class="oq">A página do produto <b>do concorrente</b>, por dentro.</div>
+<div class="campos">título completo · descrição · todas as fotos · variações e estoque por variação · faixa de preço · vendedor · políticas · atributos</div>
+<div class="vale">Estoque por variação revela o giro real do concorrente. É o dado mais subestimado da lista</div></div>
+
+<!-- ===================== FINANCEIRO ===================== -->
+<h2><span class="n">07</span> FINANCEIRO</h2>
+
+<div class="rota"><div class="top"><span class="ep">get_order_income_components</span><span class="lg s-new">NÃO TOCAMOS</span></div>
+<div class="oq">O que <b>de fato</b> foi cobrado em cada pedido — não a tabela, o extrato.</div>
+<div class="campos">comissão real · taxa de serviço · taxa fixa · frete pago pelo vendedor · desconto de voucher · repasse líquido</div>
+<div class="vale">Substituiria a estimativa do Cofre por número exato. Depende de abrir um pedido</div></div>
+
+<!-- ===================== NAO EXPLORADO ===================== -->
+<h2><span class="n">08</span> O QUE NEM OLHAMOS AINDA</h2>
+<p class="lead">Existem no painel, logo existem em rota. Não confirmadas no código — precisam de uma sessão de captura pra mapear.</p>
+
+<div class="rota"><div class="top"><span class="ep">estoque e reposição</span><span class="lg s-new">NÃO TOCAMOS</span></div>
+<div class="oq">Nível de estoque, ruptura, dias de cobertura.</div>
+<div class="vale">Anúncio rodando com estoque acabando é dinheiro queimado. Nenhum alerta existe hoje</div></div>
+
+<div class="rota"><div class="top"><span class="ep">cupons e vouchers da loja</span><span class="lg s-new">NÃO TOCAMOS</span></div>
+<div class="oq">Cupons ativos, uso, custo real do desconto.</div>
+<div class="vale">O Espião já mostra que o concorrente tem cupom. Falta saber o efeito dos seus</div></div>
+
+<div class="rota"><div class="top"><span class="ep">campanhas da Shopee (flash sale, ofertas)</span><span class="lg s-new">NÃO TOCAMOS</span></div>
+<div class="oq">Participação em campanhas da plataforma e resultado de cada.</div>
+<div class="vale">É tráfego grátis com regra. Saber quais valeram muda o calendário</div></div>
+
+<div class="rota"><div class="top"><span class="ep">chat e atendimento</span><span class="lg s-new">NÃO TOCAMOS</span></div>
+<div class="oq">Tempo de resposta, conversas não respondidas.</div>
+<div class="vale">Entra na nota da conta e ninguém liga até virar penalidade</div></div>
+
+<div class="rota"><div class="top"><span class="ep">logística e frete</span><span class="lg s-new">NÃO TOCAMOS</span></div>
+<div class="oq">Prazo de envio, atrasos, canais.</div>
+<div class="vale">Atraso derruba a nota, a nota derruba o alcance, o alcance derruba a venda</div></div>
+
+<div class="aviso verm"><b>Para validar, sugiro olhar por esta ordem:</b> primeiro o que muda decisão de dinheiro (penalidade da conta, créditos vencendo, financeiro real, estoque). Depois o que aprofunda diagnóstico (tendência dia a dia, travas de cadastro, avaliações). Por último o que amplia o Espião (página do concorrente, keywords com volume).</div>
+
+<div class="aviso roxo"><b>Uma observação de engenharia:</b> capturar é barato — o interceptor já lê tudo que passa. O caro é <b>julgar</b>. Cada rota nova que ligarmos precisa de uma regra dizendo o que é bom e o que é ruim, senão vira mais número na tela. Por isso a lista acima é para você escolher, não para ligar tudo.</div>
+
+<footer>
+SELLER.IA · EFEITO VENDAS<br>
+Catálogo levantado do código em 27/07/2026 · diamantes.js, coletor.js, interceptor.js<br>
+Rotas marcadas NÃO TOCAMOS na seção 08 são hipóteses de painel, ainda não confirmadas em captura
+</footer>
+
+</div>
+</body>
+</html>
