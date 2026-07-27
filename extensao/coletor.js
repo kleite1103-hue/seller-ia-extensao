@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.27.0';
+  var VERSAO = '0.28.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1501,38 +1501,41 @@
 
   raiz.innerHTML =
     '<style>' +
+    '@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap");' +
     ':host{all:initial}' +
-    '*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif}' +
-    '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;border-radius:50%;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.45);transition:transform .15s;background:#07080a;border:none;padding:6px}' +
+    '*{box-sizing:border-box;margin:0;padding:0;font-family:"Outfit",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-weight:300}' +
+    '.botao{position:fixed;bottom:22px;right:22px;width:54px;height:54px;z-index:2147483001;border-radius:50%;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.45);transition:transform .15s;background:#07080a;border:none;padding:6px}' +
     '.botao:hover{transform:scale(1.08)}' +
     '.botao svg{width:100%;height:100%}' +
-    '.painel{position:fixed;bottom:86px;right:22px;width:min(820px,95vw);height:min(620px,82vh);background:#0c0e12;border:1px solid #1d212a;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.6);display:none;flex-direction:column;overflow:hidden;color:#f2f2f4}' +
-    '.painel.aberto{display:flex}' +
-    '.cab{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #1d212a;background:#07080a}' +
-    '.cab svg{width:26px;height:26px;flex:none}' +
-    '.cab .titulo{font-weight:700;font-size:14px;letter-spacing:.04em}' +
+    '.painel{position:fixed;top:0;right:0;height:100vh;width:min(440px,100vw);background:#0c0e12;border-left:1px solid #1d212a;box-shadow:-18px 0 50px rgba(0,0,0,.55);display:flex;flex-direction:column;overflow:hidden;color:#f2f2f4;transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
+    '.painel.aberto{transform:translateX(0)}' +
+    '@media(prefers-reduced-motion:reduce){.painel{transition:none}}' +
+    '.cab{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #1d212a;background:#07080a;flex-wrap:wrap}' +
+    '.cab svg{width:28px;height:28px;flex:none}' +
+    '.cab .titulo{font-family:"Bebas Neue";font-weight:400;font-size:21px;letter-spacing:.05em;line-height:1}' +
     '.cab .titulo em{font-style:normal;color:#ff4d1c}' +
-    '.cab .info{font-size:10px;color:#7d8290;margin-left:6px}' +
-    '.cab .acoes{margin-left:auto;display:flex;gap:8px}' +
-    '.cab button{background:#12151b;border:1px solid #1d212a;color:#b8bcc6;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer}' +
+    '.cab .info{font-family:"Space Mono";font-size:9px;color:#7d8290;width:100%;order:3;margin-top:2px}' +
+    '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
+    '.cab button{background:#12151b;border:1px solid #1d212a;color:#b8bcc6;font-family:"Space Mono";font-size:9.5px;padding:6px 9px;border-radius:7px;cursor:pointer}' +
     '.cab button:hover{border-color:#ff4d1c;color:#fff}' +
     '.abas{display:flex;flex-wrap:wrap;gap:2px;background:#07080a;padding:0 10px;border-bottom:1px solid #1d212a}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
-    '.subaba{background:#12151b;border:1px solid #1d212a;color:#7d8290;font-size:11.5px;font-weight:600;padding:7px 13px;border-radius:8px;cursor:pointer}' +
+    '.subaba{background:#12151b;border:1px solid #1d212a;color:#7d8290;font-family:"Space Mono";font-size:10px;padding:7px 12px;border-radius:8px;cursor:pointer}' +
     '.subaba.ativa{color:#fff;border-color:#ff4d1c;background:rgba(255,77,28,.1)}' +
-    '.aba{background:none;border:none;color:#7d8290;font-size:12px;font-weight:600;padding:10px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
+    '.aba{background:none;border:none;color:#7d8290;font-family:"Space Mono";font-size:10px;letter-spacing:.04em;padding:10px 9px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
     '.aba.ativa{color:#fff;border-bottom-color:#ff4d1c}' +
-    '.corpo{flex:1;overflow:auto;padding:14px 16px}' +
+    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 15px}' +
+    '.corpo table{display:block;overflow-x:auto;white-space:nowrap}' +
     'table{width:100%;border-collapse:collapse;font-size:12px}' +
     'th{text-align:left;color:#7d8290;font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid #ff4d1c;position:sticky;top:-14px;background:#0c0e12}' +
     'td{padding:7px 8px;border-bottom:1px solid #1d212a;color:#b8bcc6;white-space:nowrap}' +
     'td.nome{white-space:normal;min-width:160px;color:#f2f2f4}' +
     'tr:hover td{background:#12151b}' +
     '.num{text-align:right;font-variant-numeric:tabular-nums}' +
-    '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}' +
+    '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:16px}' +
     '.kpi{background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:12px}' +
-    '.kpi .v{font-size:20px;font-weight:700;color:#ff4d1c}' +
-    '.kpi .l{font-size:10px;color:#7d8290;margin-top:4px;text-transform:uppercase;letter-spacing:.06em}' +
+    '.kpi .v{font-family:"Bebas Neue";font-size:28px;line-height:1;color:#ff4d1c}' +
+    '.kpi .l{font-family:"Space Mono";font-size:8px;color:#7d8290;margin-top:5px;text-transform:uppercase;letter-spacing:.06em}' +
     '.vazio{color:#7d8290;font-size:13px;line-height:1.6;padding:30px 10px;text-align:center}' +
     '.selo{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid #1d212a;border-radius:99px;padding:2px 8px;color:#7d8290;margin-left:8px}' +
     '.selo.ok{border-color:#2ecc71;color:#2ecc71}' +
@@ -1548,12 +1551,12 @@
     '<button class="botao" id="sia-abrir" title="Seller.IA">' + LOGO + '</button>' +
     '<div class="painel" id="sia-painel">' +
     '  <div class="cab">' + LOGO +
-    '    <span class="titulo">SELLER<em>.IA</em> COLETOR</span>' +
+    '    <span class="titulo">SELLER<em>.IA</em></span>' +
     '    <span class="info" id="sia-info"></span>' +
     '    <div class="acoes">' +
-    '      <button id="sia-exportar">Exportar coleta</button>' +
-    '      <button id="sia-limpar">Limpar</button>' +
-    '      <button id="sia-fechar">Fechar</button>' +
+    '      <button id="sia-exportar" title="Exportar coleta">exportar</button>' +
+    '      <button id="sia-limpar" title="Limpar coleta">limpar</button>' +
+    '      <button id="sia-fechar" title="Fechar">\u2715</button>' +
     '    </div>' +
     '  </div>' +
     '  <div class="abas" id="sia-abas"></div>' +
@@ -2888,7 +2891,8 @@
     var corpo = $('sia-corpo');
     var nC = Object.keys(estado.campanhas).length;
     var nP = Object.keys(estado.produtos).length;
-    $('sia-info').textContent = nC + ' campanhas · ' + nP + ' produtos · ' + estado.chamadas.length + ' chamadas';
+    var lojaTxt = estado.loja ? (estado.loja.nome || ('loja ' + estado.loja.shop_id)) : 'identificando a loja...';
+    $('sia-info').textContent = lojaTxt + ' · ' + nC + ' campanhas · ' + nP + ' produtos';
 
     if (abaAtiva === 'semaforo') {
       corpo.innerHTML = renderSemaforo();
