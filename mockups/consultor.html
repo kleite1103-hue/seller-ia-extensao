@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Consultor de Conta</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* base neutra — quase preta, sem tingimento */
+  --b0:#0a0b0d; --b1:#101216; --b2:#161920; --b3:#1d212a;
+  --li:#232833; --li2:#2c323e;
+  /* texto em 3 pesos, nada mais */
+  --t0:#f4f4f5; --t1:#a8adb8; --t2:#6e7480;
+  /* COR = VEREDITO. nunca decoração */
+  --rd:#e5484d; --am:#f5a524; --vd:#30a46c; --az:#5b9dd9;
+  /* marca — só no logo e na ação principal */
+  --mk:#ff4d1c;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050608;color:var(--t0);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.55;-webkit-font-smoothing:antialiased}
+.page{max-width:1040px;margin:0 auto;padding:26px 14px 60px}
+.intro{text-align:center;margin-bottom:22px}
+.intro h1{font-family:'Bebas Neue';font-size:clamp(28px,6vw,42px);letter-spacing:.02em;line-height:1}
+.intro h1 em{font-style:normal;color:var(--mk)}
+.intro p{color:var(--t1);font-size:13.5px;margin-top:6px}
+
+/* ---------- GAVETA ---------- */
+.gaveta{max-width:520px;margin:0 auto;background:var(--b1);border:1px solid var(--li);border-radius:18px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.topo{display:flex;align-items:center;gap:10px;padding:13px 16px;background:var(--b0);border-bottom:1px solid var(--li)}
+.topo .mk{width:26px;height:26px;border-radius:8px;background:var(--mk);display:grid;place-items:center;font-family:'Bebas Neue';font-size:17px;color:#fff;flex:none}
+.topo .id{flex:1;min-width:0}
+.topo .id .n{font-family:'Bebas Neue';font-size:17px;letter-spacing:.04em;line-height:1.1}
+.topo .id .s{font-family:'Space Mono';font-size:10px;color:var(--t2)}
+.topo button{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:'Space Mono';font-size:10px;padding:6px 10px;border-radius:7px;cursor:pointer}
+
+.nav{display:flex;gap:2px;padding:0 10px;background:var(--b0);border-bottom:1px solid var(--li);overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav button{background:none;border:none;border-bottom:2px solid transparent;color:var(--t2);font-family:'Space Mono';font-size:11px;padding:11px 10px;cursor:pointer;white-space:nowrap}
+.nav button.on{color:var(--t0);border-bottom-color:var(--mk)}
+.nav button:focus-visible{outline:2px solid var(--mk);outline-offset:-2px}
+
+.tela{padding:16px;max-height:640px;overflow-y:auto}
+
+/* ---------- A LEITURA — o bloco que abre toda tela ---------- */
+.leitura{margin-bottom:16px}
+.leitura .rot{font-family:'Space Mono';font-size:9.5px;color:var(--t2);letter-spacing:.1em;margin-bottom:7px}
+.leitura .fr{font-size:19px;font-weight:500;line-height:1.35;color:var(--t0);letter-spacing:-.01em}
+.leitura .fr .d{color:var(--rd)} .leitura .fr .u{color:var(--vd)} .leitura .fr .w{color:var(--am)}
+.leitura .ex{font-size:13.5px;color:var(--t1);margin-top:8px;line-height:1.5}
+
+/* ---------- 3 números que sustentam ---------- */
+.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--li);border:1px solid var(--li);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.tres > div{background:var(--b2);padding:12px 10px;text-align:center}
+.tres .v{font-family:'Bebas Neue';font-size:27px;line-height:1;letter-spacing:.01em}
+.tres .l{font-family:'Space Mono';font-size:8.5px;color:var(--t2);letter-spacing:.05em;margin-top:4px}
+.tres .s{font-size:11px;color:var(--t1);margin-top:2px}
+
+/* ---------- fila / linhas julgadas ---------- */
+.secao{font-family:'Space Mono';font-size:9.5px;color:var(--t2);letter-spacing:.1em;margin:20px 0 9px;display:flex;align-items:center;gap:8px}
+.secao::after{content:'';flex:1;height:1px;background:var(--li)}
+.item{display:block;width:100%;text-align:left;background:var(--b2);border:1px solid var(--li);border-left:2px solid var(--li2);border-radius:10px;padding:12px 13px;margin-bottom:7px;cursor:pointer;color:inherit;font-family:inherit}
+.item:hover{border-color:var(--li2)}
+.item:focus-visible{outline:2px solid var(--mk);outline-offset:2px}
+.item.rd{border-left-color:var(--rd)} .item.am{border-left-color:var(--am)} .item.vd{border-left-color:var(--vd)}
+.item .l1{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+.item .t{flex:1;font-size:14.5px;font-weight:500;color:var(--t0);line-height:1.3}
+.item .m{font-family:'Space Mono';font-size:11px;color:var(--t2);flex:none}
+.item .sub{font-size:12px;color:var(--t2);margin-bottom:5px}
+.item .por{font-size:13px;color:var(--t1);line-height:1.45}
+.item .faz{font-size:13px;line-height:1.45;margin-top:4px}
+.item.rd .faz{color:var(--rd)} .item.am .faz{color:var(--am)} .item.vd .faz{color:var(--vd)}
+
+/* ---------- dado bruto recolhido ---------- */
+details{background:var(--b2);border:1px solid var(--li);border-radius:10px;margin-top:12px}
+summary{padding:11px 13px;cursor:pointer;font-family:'Space Mono';font-size:10.5px;color:var(--t2);list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'+ ';color:var(--mk)}
+details[open] summary::before{content:'− '}
+.tab{padding:0 13px 13px}
+.tab table{width:100%;border-collapse:collapse;font-size:12.5px}
+.tab th{text-align:left;font-family:'Space Mono';font-size:9px;color:var(--t2);padding:7px 5px;border-bottom:1px solid var(--li)}
+.tab td{padding:8px 5px;border-bottom:1px solid var(--li);color:var(--t1);font-family:'Space Mono';font-size:11.5px}
+.tab tr:last-child td{border-bottom:none}
+
+/* ---------- barra / faixa ---------- */
+.faixa{background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:14px;margin-bottom:14px}
+.faixa .tt{font-family:'Space Mono';font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:11px}
+.trilho{position:relative;height:34px;margin:0 4px}
+.trilho .bg{position:absolute;top:14px;left:0;right:0;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--vd) 0%,var(--vd) 26%,var(--am) 26%,var(--am) 62%,var(--rd) 62%)}
+.trilho .mc{position:absolute;top:6px;width:2px;height:21px;background:var(--t0)}
+.trilho .mc::after{content:attr(data-l);position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-family:'Space Mono';font-size:9px;color:var(--t0);white-space:nowrap}
+.trilho .pt{position:absolute;top:26px;font-family:'Space Mono';font-size:8.5px;color:var(--t2);transform:translateX(-50%);white-space:nowrap}
+.faixa .nota{font-size:13px;color:var(--t1);margin-top:16px;line-height:1.5}
+
+/* ---------- funil ---------- */
+.funil{display:flex;align-items:flex-end;gap:3px;background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:14px 10px}
+.funil .et{flex:1;text-align:center}
+.funil .et .v{font-family:'Bebas Neue';font-size:20px;line-height:1}
+.funil .et .l{font-family:'Space Mono';font-size:7.5px;color:var(--t2);margin-top:3px}
+.funil .qd{flex:none;font-family:'Space Mono';font-size:9px;color:var(--t2);padding-bottom:14px}
+.funil .qd.mal{color:var(--rd)}
+
+.aviso{background:var(--b2);border-left:2px solid var(--az);border-radius:0 10px 10px 0;padding:11px 13px;font-size:13px;color:var(--t1);line-height:1.5;margin:12px 0}
+.aviso.din{border-left-color:var(--vd)}
+.aviso.rel{border-left-color:var(--am)}
+.aviso b{color:var(--t0);font-weight:600}
+.voltar{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-size:12px;padding:6px 11px;border-radius:8px;cursor:pointer;margin-bottom:13px;font-family:'Outfit'}
+
+/* ---------- notas de design ao lado ---------- */
+.notas{max-width:760px;margin:44px auto 0}
+.notas h2{font-family:'Bebas Neue';font-size:26px;letter-spacing:.03em;margin:32px 0 6px}
+.notas h2 .n{font-family:'Space Mono';font-size:10px;color:var(--mk);margin-right:9px}
+.notas p{font-size:14.5px;color:var(--t1);margin-bottom:12px;max-width:72ch}
+.notas p b{color:var(--t0);font-weight:600}
+.notas ul{list-style:none;margin-bottom:14px}
+.notas li{font-size:14px;color:var(--t1);padding:8px 0 8px 18px;border-bottom:1px solid var(--li);position:relative}
+.notas li::before{content:'';position:absolute;left:0;top:16px;width:5px;height:5px;border-radius:50%;background:var(--mk)}
+.notas li b{color:var(--t0);font-weight:600}
+code{font-family:'Space Mono';font-size:12.5px;color:#c8a0ff;background:rgba(150,100,255,.09);padding:1px 6px;border-radius:5px}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="intro">
+  <h1>SELLER.IA · <em>CONSULTOR DE CONTA</em></h1>
+  <p>Protótipo navegável — clique nas abas e nas linhas</p>
+</div>
+
+<div class="gaveta">
+  <div class="topo">
+    <div class="mk">S</div>
+    <div class="id"><div class="n">SELLER.IA</div><div class="s">colorindo_shop · lido hoje 09:14</div></div>
+    <button>julho</button>
+  </div>
+
+  <div class="nav">
+    <button class="on" data-t="hoje">HOJE</button>
+    <button data-t="produtos">PRODUTOS</button>
+    <button data-t="ads">ADS</button>
+    <button data-t="gerencial">GERENCIAL</button>
+    <button data-t="afiliados">AFILIADOS</button>
+    <button data-t="espiao">ESPIÃO</button>
+  </div>
+
+  <div class="tela">
+
+  <!-- ============ HOJE ============ -->
+  <section data-s="hoje">
+    <div class="leitura">
+      <div class="rot">A LEITURA DE HOJE</div>
+      <div class="fr">Sua conta está <span class="d">deixando dinheiro na mesa em três frentes</span> — e a mais cara não é anúncio.</div>
+      <div class="ex">31 campanhas estão com a meta de ROAS acima do que a Shopee considera viável. Enquanto isso, R$ 891 em crédito e rebate estão parados, e 17 produtos foram marcados por ela como problemáticos.</div>
+    </div>
+
+    <div class="tres">
+      <div><div class="v" style="color:var(--rd)">31</div><div class="l">CAMPANHAS</div><div class="s">meta alta demais</div></div>
+      <div><div class="v" style="color:var(--am)">17</div><div class="l">PRODUTOS</div><div class="s">marcados pela Shopee</div></div>
+      <div><div class="v" style="color:var(--vd)">R$891</div><div class="l">PARADO</div><div class="s">crédito + rebate</div></div>
+    </div>
+
+    <div class="secao">FAÇA NESTA ORDEM</div>
+
+    <button class="item rd" data-t="ads">
+      <div class="l1"><span class="t">Baixe a meta das campanhas sufocadas</span><span class="m">R$ 4.140</span></div>
+      <div class="sub">31 campanhas · a Shopee projeta +30% de GMV</div>
+      <div class="por">Você pede 10,6x onde ela considera 3,0x viável. Meta alta te tira dos leilões: você economiza por impressão e perde volume.</div>
+      <div class="faz">→ Comece pelas 5 que mais gastam</div>
+    </button>
+
+    <button class="item am" data-t="produtos">
+      <div class="l1"><span class="t">Uma variação está derrubando o produto inteiro</span><span class="m">33%</span></div>
+      <div class="sub">Sutiã Tomara que Caia · modelo "Bege, GG-46"</div>
+      <div class="por">1 problema a cada 3 pedidos nessa variação. O produto tem 11% no total — a média esconde onde está a falha.</div>
+      <div class="faz">→ Corrija a variação, não pause o produto</div>
+    </button>
+
+    <button class="item vd">
+      <div class="l1"><span class="t">R$ 230 de crédito grátis sem uso</span><span class="m">R$ 891</span></div>
+      <div class="sub">R$ 484 de crédito + R$ 406 de rebate acumulado</div>
+      <div class="por">Crédito grátis é dinheiro que a Shopee já te deu. Ele expira.</div>
+      <div class="faz">→ Use nas campanhas do passo 1</div>
+    </button>
+
+    <div class="aviso rel"><b>Relógio correndo:</b> a Tigela Lenta para Gatos está na janela de 90 dias de produto novo. Faltam <b>69 dias</b> e uma tarefa: adicionar vídeo.</div>
+  </section>
+
+  <!-- ============ PRODUTOS ============ -->
+  <section data-s="produtos" hidden>
+    <div class="leitura">
+      <div class="rot">A LEITURA DOS SEUS PRODUTOS</div>
+      <div class="fr">O catálogo <span class="w">não tem problema de tráfego</span> — tem problema de página.</div>
+      <div class="ex">Os produtos que recebem visita convertem abaixo de 1%. Trazer mais gente para uma página que não fecha só aumenta o custo.</div>
+    </div>
+
+    <div class="tres">
+      <div><div class="v" style="color:var(--rd)">6</div><div class="l">TRAVADOS</div><div class="s">custam dinheiro</div></div>
+      <div><div class="v" style="color:var(--am)">9</div><div class="l">COM FOLGA</div><div class="s">dá pra melhorar</div></div>
+      <div><div class="v" style="color:var(--vd)">3</div><div class="l">SAUDÁVEIS</div><div class="s">proteja</div></div>
+    </div>
+
+    <div class="secao">ORDENADO POR DINHEIRO EM JOGO</div>
+
+    <button class="item rd" data-t="card">
+      <div class="l1"><span class="t">Clica bem, mas a página não fecha</span><span class="m">R$ 8.240</span></div>
+      <div class="sub">Vaso Decorativo Moderno Preto Espiralado</div>
+      <div class="por">CTR de 4,14% com conversão de 0,77%. De 100 que entram, menos de 1 compra.</div>
+      <div class="faz">→ Página no celular: preço, variação com estoque, avaliações</div>
+    </button>
+
+    <button class="item rd">
+      <div class="l1"><span class="t">A venda caiu 67% em uma semana</span><span class="m">R$ 201 → 67</span></div>
+      <div class="sub">Sutiã Tomara que Caia Reforçado Bandeau</div>
+      <div class="por">A Shopee marcou por queda acima de 50% em 7 dias. É o alerta mais urgente porque pega o problema acontecendo.</div>
+      <div class="faz">→ Verifique estoque, preço e se saiu de alguma campanha</div>
+    </button>
+
+    <button class="item am">
+      <div class="l1"><span class="t">Ticket abaixo do degrau dos R$80</span><span class="m">R$ 34,90</span></div>
+      <div class="sub">Organizador de Cabos Pequeno Portátil</div>
+      <div class="por">Até R$79,99 a comissão é 20% + R$4. A partir de R$80 cai para 14% + R$16.</div>
+      <div class="faz">→ Kit que passe de R$80 sobe a margem sem trazer visita nova</div>
+    </button>
+
+    <button class="item vd">
+      <div class="l1"><span class="t">Converte bem e não tem anúncio</span><span class="m">2,4%</span></div>
+      <div class="sub">Comedouro Lento Interativo para Gatos</div>
+      <div class="por">A página faz o trabalho dela sozinha. É o dinheiro mais barato da loja.</div>
+      <div class="faz">→ Comece o anúncio por ele</div>
+    </button>
+
+    <details><summary>ver os números de todos os 18</summary>
+      <div class="tab"><table>
+        <tr><th>PRODUTO</th><th>VISITAS</th><th>CTR</th><th>CONV</th><th>VENDA</th></tr>
+        <tr><td>Vaso Decorativo</td><td>2.764</td><td>4,14%</td><td>0,77%</td><td>8.240</td></tr>
+        <tr><td>Sutiã Bandeau</td><td>1.109</td><td>2,80%</td><td>1,10%</td><td>67</td></tr>
+        <tr><td>Organizador Cabos</td><td>892</td><td>3,10%</td><td>1,90%</td><td>1.240</td></tr>
+        <tr><td>Comedouro Gatos</td><td>640</td><td>3,60%</td><td>2,40%</td><td>2.180</td></tr>
+      </table></div>
+    </details>
+  </section>
+
+  <!-- ============ CARD DE PRODUTO ============ -->
+  <section data-s="card" hidden>
+    <button class="voltar" data-t="produtos">‹ voltar</button>
+    <div class="leitura">
+      <div class="rot">VASO DECORATIVO MODERNO PRETO</div>
+      <div class="fr">Clica bem, mas <span class="d">a página não fecha</span>.</div>
+      <div class="ex">CTR de 4,14% está acima da média. O problema começa depois do clique.</div>
+    </div>
+
+    <div class="secao">O CAMINHO ATÉ A VENDA</div>
+    <div class="funil">
+      <div class="et"><div class="v">66.150</div><div class="l">IMPRESSÕES</div></div>
+      <div class="qd">−96%</div>
+      <div class="et"><div class="v">2.740</div><div class="l">CLIQUES</div></div>
+      <div class="qd">−91%</div>
+      <div class="et"><div class="v">252</div><div class="l">CARRINHO</div></div>
+      <div class="qd mal">−92%</div>
+      <div class="et"><div class="v" style="color:var(--rd)">21</div><div class="l">PEDIDOS</div></div>
+    </div>
+    <div class="aviso"><b>Onde vaza:</b> 252 pessoas colocaram no carrinho e 21 compraram. A maior perda é entre o carrinho e o pedido — frete, prazo ou preço final na hora de fechar.</div>
+
+    <div class="secao">A CONTA DE UM PEDIDO</div>
+    <div class="tres">
+      <div><div class="v">R$48,18</div><div class="l">TICKET</div></div>
+      <div><div class="v" style="color:var(--am)">−R$16,03</div><div class="l">CUSTOS</div><div class="s">comissão + ads</div></div>
+      <div><div class="v" style="color:var(--vd)">R$32,15</div><div class="l">SOBRA</div></div>
+    </div>
+    <div class="aviso"><b>Falta o custo do produto.</b> Até cadastrar no Cofre, isso é teto, não lucro.</div>
+
+    <div class="secao">A META DE ROAS</div>
+    <div class="faixa">
+      <div class="tt">A FAIXA DA SUA CATEGORIA</div>
+      <div class="trilho">
+        <div class="bg"></div>
+        <div class="pt" style="left:0%">2,4x</div>
+        <div class="pt" style="left:35%">5,1x</div>
+        <div class="pt" style="left:100%">10x</div>
+        <div class="mc" style="left:78%" data-l="você: 8,4x"></div>
+      </div>
+      <div class="nota">Você pede <b style="color:var(--t0)">8,4x</b> e entrega <b style="color:var(--t0)">9,14x</b>. A Shopee sugere <b style="color:var(--vd)">5,1x</b> e projeta <b style="color:var(--vd)">+30%</b> de faturamento. Você está na faixa em que se protege margem e se perde volume.</div>
+    </div>
+
+    <div class="secao">O QUE A SHOPEE SABE E NÃO MOSTRA</div>
+    <div class="tres">
+      <div><div class="v" style="color:var(--rd)">109</div><div class="l">POSIÇÃO NO LEILÃO</div><div class="s">fundo da vitrine</div></div>
+      <div><div class="v" style="color:var(--am)">50</div><div class="l">COMPETITIVIDADE</div><div class="s">na média</div></div>
+      <div><div class="v" style="color:var(--vd)">ok</div><div class="l">STATUS</div><div class="s">sem limitação</div></div>
+    </div>
+
+    <div class="secao">FAÇA NESTA ORDEM</div>
+    <button class="item am"><div class="l1"><span class="t">1 · Abra a calculadora antes de mexer no preço</span></div><div class="por">Saiba o líquido de hoje antes de decidir qualquer coisa.</div></button>
+    <button class="item am"><div class="l1"><span class="t">2 · Ataque o carrinho, não o clique</span></div><div class="por">A maior queda está entre carrinho e pedido. Reveja frete e prazo.</div></button>
+    <button class="item am"><div class="l1"><span class="t">3 · Só então baixe a meta para 5,1x</span></div><div class="por">Trazer mais gente para uma página que não fecha aumenta o custo.</div></button>
+  </section>
+
+  <!-- ============ ADS ============ -->
+  <section data-s="ads" hidden>
+    <div class="leitura">
+      <div class="rot">A LEITURA DOS SEUS ANÚNCIOS</div>
+      <div class="fr">Você está <span class="d">pedindo mais do que o leilão aceita pagar</span>.</div>
+      <div class="ex">Em 31 das 37 campanhas diagnosticadas, a Shopee aponta meta alta demais e falta de tráfego como consequência.</div>
+    </div>
+
+    <div class="tres">
+      <div><div class="v">R$ 4.140</div><div class="l">GASTO NO MÊS</div></div>
+      <div><div class="v" style="color:var(--vd)">6,14x</div><div class="l">ROAS ENTREGUE</div></div>
+      <div><div class="v" style="color:var(--rd)">31</div><div class="l">SUFOCADAS</div></div>
+    </div>
+
+    <div class="secao">O QUE A SHOPEE RECOMENDA, CAMPANHA A CAMPANHA</div>
+
+    <button class="item rd">
+      <div class="l1"><span class="t">Meta 10,6x → recomendada 3,0x</span><span class="m">+30%</span></div>
+      <div class="sub">Comedouro Lento Interativo · problema: low_traffic</div>
+      <div class="por">Você pede 3,5 vezes mais do que ela considera viável. Projeção dela: +30% de GMV e +20% de pedidos.</div>
+      <div class="faz">→ Baixar para 3,0x</div>
+    </button>
+
+    <button class="item am">
+      <div class="l1"><span class="t">Meta 8,4x → recomendada 5,1x</span><span class="m">+18%</span></div>
+      <div class="sub">Vaso Decorativo Preto · problema: room_more_traffic</div>
+      <div class="por">Aqui ela diz que cabe mais tráfego sem quebrar a conta.</div>
+      <div class="faz">→ Baixar para 5,1x depois de resolver o carrinho</div>
+    </button>
+
+    <div class="aviso din"><b>Antes de mexer:</b> você tem R$ 484 de crédito e R$ 406 de rebate. Baixar meta aumenta gasto — use o dinheiro que já está lá.</div>
+
+    <details><summary>ver as 37 campanhas</summary>
+      <div class="tab"><table>
+        <tr><th>CAMPANHA</th><th>META</th><th>ENTREGA</th><th>POSIÇÃO</th><th>GASTO</th></tr>
+        <tr><td>Comedouro Lento</td><td>10,6x</td><td>2,09x</td><td>142</td><td>619</td></tr>
+        <tr><td>Vaso Decorativo</td><td>8,4x</td><td>9,14x</td><td>109</td><td>110</td></tr>
+        <tr><td>Organizador Cabos</td><td>6,0x</td><td>5,80x</td><td>44</td><td>147</td></tr>
+      </table></div>
+    </details>
+  </section>
+
+  <!-- ============ GERENCIAL ============ -->
+  <section data-s="gerencial" hidden>
+    <div class="leitura">
+      <div class="rot">A LEITURA DO NEGÓCIO</div>
+      <div class="fr">A loja <span class="w">depende demais do anúncio</span> para vender.</div>
+      <div class="ex">62% do faturamento vem de tráfego pago. Se o anúncio parar, a loja para junto — e o orgânico não está sendo construído.</div>
+    </div>
+
+    <div class="tres">
+      <div><div class="v">R$ 25.410</div><div class="l">FATURAMENTO</div><div class="s">no mês</div></div>
+      <div><div class="v" style="color:var(--am)">1,42%</div><div class="l">CONVERSÃO</div><div class="s">da loja</div></div>
+      <div><div class="v" style="color:var(--vd)">R$ 48</div><div class="l">TICKET MÉDIO</div></div>
+    </div>
+
+    <div class="secao">DE ONDE VEM O DINHEIRO</div>
+    <button class="item am">
+      <div class="l1"><span class="t">Anúncio</span><span class="m">62%</span></div>
+      <div class="por">Acima de 50% é dependência. O orgânico não sustenta a loja hoje.</div>
+      <div class="faz">→ Construa orgânico nos produtos que já convertem</div>
+    </button>
+    <button class="item vd">
+      <div class="l1"><span class="t">Busca orgânica</span><span class="m">24%</span></div>
+      <div class="por">É o que sobreviveria se você desligasse tudo amanhã.</div>
+    </button>
+    <button class="item">
+      <div class="l1"><span class="t">Afiliados</span><span class="m">14%</span></div>
+      <div class="por">Canal com margem própria, ainda pequeno.</div>
+    </button>
+
+    <div class="aviso"><b>Saúde da conta:</b> sem pontos de penalidade. Nota 4,8. Isso libera a lista branca automática de anúncios de loja, que exige 4,0.</div>
+  </section>
+
+  <!-- ============ AFILIADOS ============ -->
+  <section data-s="afiliados" hidden>
+    <div class="leitura">
+      <div class="rot">A LEITURA DO CANAL DE AFILIADOS</div>
+      <div class="fr">O canal <span class="u">paga melhor que o anúncio</span> e está subaproveitado.</div>
+      <div class="ex">Cada real de comissão devolve mais que cada real de anúncio — e ele representa só 14% do faturamento.</div>
+    </div>
+
+    <div class="tres">
+      <div><div class="v">R$ 3.560</div><div class="l">GMV NO CANAL</div></div>
+      <div><div class="v" style="color:var(--vd)">8,2x</div><div class="l">RETORNO</div><div class="s">vs 6,14x do ads</div></div>
+      <div><div class="v">R$ 434</div><div class="l">COMISSÃO PAGA</div></div>
+    </div>
+
+    <div class="secao">O QUE FAZER</div>
+    <button class="item vd">
+      <div class="l1"><span class="t">Recrute creators do seu nicho</span><span class="m">18</span></div>
+      <div class="sub">18 creators disponíveis em casa e decoração</div>
+      <div class="por">A Shopee lista quem está aberto a parceria por nicho. É receita que não custa mídia.</div>
+      <div class="faz">→ Comece pelos 5 com melhor histórico</div>
+    </button>
+    <button class="item">
+      <div class="l1"><span class="t">Seus 3 melhores afiliados</span><span class="m">61% do canal</span></div>
+      <div class="por">A concentração é alta. Se um sair, o canal cai um terço.</div>
+      <div class="faz">→ Amplie a base antes de aumentar comissão</div>
+    </button>
+  </section>
+
+  <!-- ============ ESPIÃO ============ -->
+  <section data-s="espiao" hidden>
+    <div class="leitura">
+      <div class="rot">A LEITURA DA CONCORRÊNCIA</div>
+      <div class="fr">Você está <span class="d">2,6× abaixo da barreira</span> da sua busca principal.</div>
+      <div class="ex">Na busca "descanso de copo", o padrão do TOP 5 fatura R$ 8,6 mil por mês. Você fatura R$ 3,3 mil.</div>
+    </div>
+
+    <div class="tres">
+      <div><div class="v">5º</div><div class="l">SUA POSIÇÃO</div><div class="s">pago</div></div>
+      <div><div class="v" style="color:var(--vd)">R$ 8,6k</div><div class="l">A BARREIRA</div><div class="s">média do TOP 5</div></div>
+      <div><div class="v" style="color:var(--rd)">R$ 3,3k</div><div class="l">VOCÊ</div></div>
+    </div>
+
+    <div class="secao">O QUE SEPARA VOCÊ DO TOPO</div>
+    <button class="item rd">
+      <div class="l1"><span class="t">Prova social</span><span class="m">86 vs 1.400</span></div>
+      <div class="por">O padrão do topo tem 16 vezes mais avaliações. É o que mais trava sua conversão — não o preço.</div>
+      <div class="faz">→ Puxe avaliação nos pedidos já entregues</div>
+    </button>
+    <button class="item am">
+      <div class="l1"><span class="t">Cupom</span><span class="m">3 de 4 têm</span></div>
+      <div class="por">Você é o único do topo sem cupom. Ele vira selo visível na busca e custa menos que cortar preço.</div>
+      <div class="faz">→ Ative um cupom de R$3</div>
+    </button>
+    <button class="item am">
+      <div class="l1"><span class="t">Preço</span><span class="m">+44%</span></div>
+      <div class="por">R$ 34,90 contra R$ 24,30 do padrão. Mas mexer no preço é o último passo, e só se a margem aguentar.</div>
+      <div class="faz">→ Só depois dos dois acima</div>
+    </button>
+
+    <div class="secao">PALAVRAS COM VOLUME QUE VOCÊ NÃO USA</div>
+    <details><summary>ver 5 termos e o volume de busca</summary>
+      <div class="tab"><table>
+        <tr><th>TERMO</th><th>BUSCAS/MÊS</th><th>LANCE SUGERIDO</th></tr>
+        <tr><td>vasos decorativos para sala</td><td>276.787</td><td>R$ 0,34</td></tr>
+        <tr><td>porta toalha banheiro</td><td>82.402</td><td>R$ 0,17</td></tr>
+        <tr><td>essência aromatizador</td><td>79.928</td><td>R$ 0,21</td></tr>
+      </table></div>
+    </details>
+  </section>
+
+  </div>
+</div>
+
+<!-- ================= NOTAS DE DESIGN ================= -->
+<div class="notas">
+
+<h2><span class="n">01</span> A DECISÃO QUE VEM ANTES DO LAYOUT</h2>
+<p>O problema central não é visual. É este: <b>a mesma tela precisa servir alguém que nunca abriu o Shopee Ads e um consultor que gerencia 150 contas.</b></p>
+<p>A saída fácil seria um botão "modo iniciante / modo avançado". Eu não faria isso. Dobra a manutenção, e o consultor acaba usando o modo iniciante porque é mais rápido.</p>
+<p><b>A saída que escolhi: profundidade em camadas, na mesma tela.</b></p>
+<ul>
+  <li><b>Camada 1 — a frase.</b> "Clica bem, mas a página não fecha." O iniciante lê isso e já sabe o que fazer.</li>
+  <li><b>Camada 2 — o número que sustenta.</b> "CTR 4,14%, conversão 0,77%." O consultor pula a frase e lê direto o número, porque ele já sabe interpretar.</li>
+  <li><b>Camada 3 — a tabela crua.</b> Fica atrás de um "ver os números". Só quem precisa abre.</li>
+</ul>
+<p>Os dois usam a mesma tela e cada um pega o que precisa. <b>Ninguém é obrigado a passar pelo nível do outro.</b></p>
+
+<h2><span class="n">02</span> COR É INFORMAÇÃO, NÃO DECORAÇÃO</h2>
+<p>Na versão atual, laranja aparece em título, borda, ícone e botão. Quando a cor está em tudo, ela para de significar algo.</p>
+<p><b>Na nova regra: a base é cinza-neutro, e cor só aparece quando existe veredito.</b> Vermelho é dinheiro saindo, âmbar é folga, verde é saudável. O laranja da marca fica reservado para o logo e para a ação principal — nada mais.</p>
+<p>O efeito prático é que <b>você bate o olho e a cor já te diz onde olhar</b>, sem ler nada. Numa tela com 18 produtos, isso é a diferença entre varrer e escanear.</p>
+
+<h2><span class="n">03</span> TODA TELA TEM A MESMA ESTRUTURA</h2>
+<p>Seis telas, uma gramática só. Isso não é economia de trabalho — é o que faz a ferramenta ser aprendida uma vez e usada em qualquer lugar.</p>
+<ul>
+  <li><b>A LEITURA</b> — uma frase que responde a pergunta da tela. Sempre no topo, sempre em português de gente.</li>
+  <li><b>TRÊS NÚMEROS</b> — só três. O que sustenta a frase. Não são KPIs decorativos: são a prova.</li>
+  <li><b>A FILA</b> — linhas julgadas, ordenadas por dinheiro em jogo, cada uma com o porquê e o próximo passo.</li>
+  <li><b>O DADO CRU</b> — recolhido atrás de um clique. Existe, mas não polui.</li>
+</ul>
+
+<h2><span class="n">04</span> UMA TELA, UMA PERGUNTA</h2>
+<ul>
+  <li><b>HOJE</b> — o que eu faço agora?</li>
+  <li><b>PRODUTOS</b> — qual produto está me custando dinheiro?</li>
+  <li><b>ADS</b> — estou pagando certo pelo tráfego?</li>
+  <li><b>GERENCIAL</b> — meu negócio está saudável?</li>
+  <li><b>AFILIADOS</b> — este canal vale mais atenção?</li>
+  <li><b>ESPIÃO</b> — como estou contra os outros?</li>
+</ul>
+<p><b>Se um conteúdo não responde a pergunta da tela, ele não entra.</b> É essa regra que evita a tela virar depósito — e é ela que estava faltando.</p>
+
+<h2><span class="n">05</span> O QUE FICA DE FORA DE PROPÓSITO</h2>
+<ul>
+  <li><b>Nada entra sem regra de julgamento.</b> Se não sei dizer se um número é bom ou ruim, ele fica no dado cru ou não aparece.</li>
+  <li><b>Nada de gráfico decorativo.</b> A única visualização é a faixa de ROAS e o funil, porque as duas mostram posição relativa — que texto não mostra bem.</li>
+  <li><b>Nada de número sem unidade de decisão.</b> "109 de posição" só entra porque vem com "fundo da vitrine".</li>
+  <li><b>Nada inventado.</b> Onde a Shopee não diz o alvo, a tela diz que não sabe — e não chuta.</li>
+</ul>
+
+<h2><span class="n">06</span> A POSTURA DO CONSULTOR</h2>
+<p>A diferença entre um painel e um consultor é que <b>o consultor tem opinião sobre a ordem das coisas.</b></p>
+<p>Repare na tela HOJE: ela não lista tudo que está errado. Ela diz <i>"a mais cara não é anúncio"</i> e coloca a variação com defeito acima do ajuste de meta — porque corrigir uma variação custa nada e economiza devolução, enquanto mexer em meta exige orçamento.</p>
+<p>E no card do produto, o passo 3 é <i>"só então baixe a meta"</i>. <b>Um painel mostraria as três opções. Um consultor diz qual vem primeiro e por quê.</b> É isso que estamos construindo.</p>
+
+</div>
+</div>
+
+<script>
+var secs=document.querySelectorAll('[data-s]'), btns=document.querySelectorAll('.nav button');
+function ir(t){
+  secs.forEach(function(s){s.hidden=s.dataset.s!==t});
+  btns.forEach(function(b){b.classList.toggle('on',b.dataset.t===t)});
+  document.querySelector('.tela').scrollTop=0;
+}
+document.querySelectorAll('[data-t]').forEach(function(e){e.addEventListener('click',function(){ir(e.dataset.t)})});
+</script>
+</body>
+</html>
