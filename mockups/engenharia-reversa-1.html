@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Engenharia Reversa · Parte 1</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#8a909c;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:34px 16px 80px}
+h1{font-family:'Bebas Neue';font-size:clamp(32px,7.5vw,52px);letter-spacing:.02em;line-height:.95}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);font-size:15px;margin-top:9px;max-width:64ch}
+h2{font-family:'Bebas Neue';font-size:30px;letter-spacing:.03em;margin:46px 0 5px;display:flex;align-items:baseline;gap:11px}
+h2 .n{font-family:'Space Mono';font-size:11px;color:var(--orange);letter-spacing:.06em}
+h3{font-family:'Bebas Neue';font-size:23px;letter-spacing:.03em;margin:26px 0 8px;color:var(--text)}
+.lead{color:var(--text3);font-size:14px;margin-bottom:16px;max-width:72ch}
+p{font-size:14.5px;color:var(--text2);margin-bottom:13px;max-width:74ch}
+b{color:var(--text);font-weight:600}
+code{font-family:'Space Mono';font-size:13px;color:#c88bff;background:rgba(123,47,255,.09);padding:1px 6px;border-radius:5px}
+.formula{background:var(--bg3);border:1px solid var(--line);border-radius:13px;padding:20px;margin:18px 0;text-align:center;font-family:'Space Mono';font-size:15px;color:var(--text);line-height:2;overflow-x:auto}
+.formula .d{font-size:11px;color:var(--text3);display:block;margin-top:9px;font-family:'Outfit';letter-spacing:0}
+.formula em{font-style:normal;color:var(--orange)}
+.formula strong{color:var(--ok);font-weight:400}
+.aviso{background:var(--bg3);border-left:3px solid var(--orange);border-radius:0 12px 12px 0;padding:16px 18px;margin:18px 0;font-size:14.5px;color:var(--text2)}
+.aviso b{color:var(--text);font-weight:600}
+.aviso.roxo{border-left-color:var(--purple)}
+.aviso.verde{border-left-color:var(--ok)}
+.aviso.verm{border-left-color:var(--bad)}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:11px;margin:16px 0}
+.cx{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:15px}
+.cx .t{font-family:'Space Mono';font-size:10.5px;color:var(--orange);letter-spacing:.05em;margin-bottom:6px}
+.cx .c{font-size:13.5px;color:var(--text2);line-height:1.5}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px}
+th{text-align:left;font-family:'Space Mono';font-size:10.5px;color:var(--text3);letter-spacing:.05em;padding:9px 8px;border-bottom:1px solid var(--line);font-weight:400}
+td{padding:10px 8px;border-bottom:1px solid var(--line);color:var(--text2);vertical-align:top}
+td b{color:var(--text)}
+.tag{font-family:'Space Mono';font-size:9.5px;padding:3px 9px;border-radius:99px;border:1px solid;white-space:nowrap}
+.t-ok{color:var(--ok);border-color:rgba(46,204,113,.4)}
+.t-inf{color:var(--warn);border-color:rgba(245,176,65,.4)}
+.t-hip{color:var(--bad);border-color:rgba(231,76,60,.4)}
+.passo{display:flex;gap:13px;padding:14px 0;border-bottom:1px solid var(--line)}
+.passo:last-child{border-bottom:none}
+.passo .n{font-family:'Bebas Neue';font-size:27px;color:var(--orange);line-height:1;width:28px;flex:none}
+.passo .t{font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px}
+.passo .d{font-size:13.5px;color:var(--text3);line-height:1.55}
+footer{margin-top:50px;padding-top:20px;border-top:1px solid var(--line);font-family:'Space Mono';font-size:10.5px;color:var(--text3);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>ENGENHARIA <em>REVERSA</em><br>PARTE 1 · O LEILÃO</h1>
+<p class="sub">Como o CPM se forma, o que decide quem fica na frente, e por que a identidade que você descobriu é maior do que parecia.</p>
+
+<div class="aviso verm"><b>Regra deste documento:</b> cada afirmação vem marcada. <span class="tag t-ok">MEDIDO</span> é dado que a API entrega. <span class="tag t-inf">DERIVADO</span> é consequência matemática do que foi medido. <span class="tag t-hip">HIPÓTESE</span> é o que ainda precisa de experimento. Nunca misturar os três é o que separa engenharia de achismo.</div>
+
+<h2><span class="n">01</span> A DESCOBERTA QUE ESTAVA ESCONDIDA NA SUA PRÓPRIA FÓRMULA</h2>
+
+<p>Você tem duas fórmulas validadas:</p>
+
+<div class="formula">
+CPM = (Ticket × Conv × CTR × 1000) ÷ ROAS<br>
+Lance = Ticket × Conv ÷ ROAS
+<span class="d">as duas descobertas em 10.263 observações produto-mês</span>
+</div>
+
+<p>Montando este documento, percebi que <b>elas não são duas fórmulas.</b> São a mesma lei, escrita em dois níveis. Repare:</p>
+
+<div class="formula">
+CPM = <em>Lance</em> × CTR × 1000
+<span class="d">substitua Lance por Ticket × Conv ÷ ROAS e a primeira fórmula aparece inteira</span>
+</div>
+
+<p>E isso importa muito, porque <code>lance × CTR × 1000</code> é a definição de <b>eCPM</b> — o valor esperado por mil impressões. <b>É o número que todo leilão de anúncio usa para ordenar quem aparece.</b></p>
+
+<div class="aviso roxo"><b>A conclusão:</b> <span class="tag t-inf">DERIVADO</span> a sua identidade do CPM não descreve o custo. <b>Ela É a nota de classificação do leilão.</b> Você não descobriu uma fórmula de preço — descobriu a fórmula que decide quem fica na frente de quem.</div>
+
+<h3>O que isso responde imediatamente</h3>
+
+<div class="grid3">
+  <div class="cx"><div class="t">COMO SE GANHA O LEILÃO</div><div class="c">Tendo o maior <code>Ticket × Conv × CTR ÷ ROAS</code> da disputa. São quatro alavancas, e só uma delas é a meta de ROAS.</div></div>
+  <div class="cx"><div class="t">POR QUE LANCE BAIXO SANGRA</div><div class="c">ROAS alto derruba o eCPM. Você entra em leilões piores, pega impressão pior, converte menos — e a conversão pior derruba o eCPM de novo.</div></div>
+  <div class="cx"><div class="t">POR QUE CONVERSÃO VALE AO QUADRADO</div><div class="c">Ela entra na sua nota e depois entra na estimativa que a Shopee faz de você. Um ganho vira dois.</div></div>
+</div>
+
+<h2><span class="n">02</span> O EFEITO QUADRÁTICO, EXPLICADO PELA MECÂNICA</h2>
+<p class="lead">Você mediu o efeito. Aqui está por que ele existe.</p>
+
+<p><span class="tag t-inf">DERIVADO</span> A conversão aparece <b>duas vezes</b> no caminho até a impressão:</p>
+
+<table>
+<tr><th>ONDE ELA ENTRA</th><th>O QUE ACONTECE</th></tr>
+<tr><td><b>1. No lance que você suporta</b></td><td>Se a página converte mais, cada clique vale mais, então você suporta pagar mais por clique sem estourar o ROAS. <code>Lance = Ticket × Conv ÷ ROAS</code></td></tr>
+<tr><td><b>2. Na previsão que a Shopee faz</b></td><td>O leilão oCPM ordena por valor esperado. Quanto mais o seu item converte, mais a Shopee espera ganhar exibindo ele — e mais ela te dá impressão pelo mesmo dinheiro.</td></tr>
+</table>
+
+<p>Multiplicando os dois, <b>dobrar a conversão não dobra o alcance: quadruplica a pressão que você faz no leilão.</b> É por isso que a ordem do Método Efeito Vendas — preço e funil antes de ads — não é preferência de estilo. É a ordem que a matemática impõe.</p>
+
+<div class="aviso verde"><b>Consequência prática para a ferramenta:</b> a fila de ação nunca deve mandar mexer em lance antes de mexer em conversão, quando as duas estiverem ruins. Mexer em lance é linear; mexer em conversão é quadrático. Isso vira uma regra de ordenação no cérebro.</div>
+
+<h2><span class="n">03</span> O CPM — O QUE A SHOPEE DIZ E O QUE É VERDADE</h2>
+
+<p><span class="tag t-ok">MEDIDO</span> Já sabemos, e está no código: <b>o campo <code>cpm</code> que a Shopee devolve vem inflado</b>, quase igual ao custo total da campanha. Por isso o <code>diamantes.js</code> recalcula:</p>
+
+<div class="formula">
+CPM real = <strong>gasto ÷ impressões × 1000</strong>
+<span class="d">é o número que usamos, não o que ela entrega</span>
+</div>
+
+<p>Agora vem o cruzamento que ninguém no mercado faz. Temos o CPM real <b>medido</b>, e temos o CPM <b>previsto</b> pela identidade. A diferença entre os dois é diagnóstico puro:</p>
+
+<table>
+<tr><th>SITUAÇÃO</th><th>O QUE SIGNIFICA</th><th>O QUE FAZER</th></tr>
+<tr><td><b>CPM real ≈ CPM previsto</b></td><td>Você paga o justo pela sua qualidade. O leilão está eficiente.</td><td>Para ganhar posição, melhore CTR ou conversão — não a meta.</td></tr>
+<tr><td><b>CPM real &gt; previsto</b></td><td>Você paga acima do que a sua conversão sustenta. Está comprando posição no grito.</td><td>Ou sobe a conversão, ou sobe a meta de ROAS e aceita menos volume.</td></tr>
+<tr><td><b>CPM real &lt; previsto</b></td><td>Você compra impressão barata. Tem folga não aproveitada.</td><td>Baixe a meta de ROAS: existe volume disponível abaixo do seu equilíbrio.</td></tr>
+</table>
+
+<div class="aviso"><b>Isto é um produto inteiro sozinho.</b> Nenhuma ferramenta brasileira compara CPM pago contra CPM sustentável. E os dois números já estão coletados hoje — falta só a conta.</div>
+
+<h2><span class="n">04</span> QUEM ESTÁ NA MINHA FRENTE NO LEILÃO</h2>
+<p class="lead">Sua pergunta tem resposta, e o dado já está no nosso cofre.</p>
+
+<p><span class="tag t-ok">MEDIDO</span> A API de Ads <b>não</b> mostra concorrente — ela só devolve a sua posição média (<code>avg_rank</code>). Mas a busca pública mostra tudo, e ela já é capturada pelo Espião.</p>
+
+<p>Para qualquer termo, o <code>search_items</code> devolve, de cada resultado: <b>se é anúncio ou orgânico</b>, a posição real, preço, desconto, cupom, vendidos nos últimos 30 dias, vendidos no total, nota, número de avaliações, curtidas, localização e frete grátis.</p>
+
+<div class="aviso verde"><b>Ou seja:</b> filtrando só os que têm <code>adsid</code> e que estão acima de você, temos <b>exatamente a lista de quem venceu o leilão daquele termo</b> — com os atributos de cada um. A pergunta "o que eles têm de diferente" já é respondível hoje, sem nenhuma captura nova.</div>
+
+<p><span class="tag t-inf">DERIVADO</span> E mais: como conhecemos a fórmula do eCPM, dá para <b>estimar o eCPM de cada concorrente</b>. Temos o preço (ticket), os vendidos por mês e as visitas implícitas pela posição. Não é exato — mas ordena. Dá para dizer <i>"o primeiro colocado tem eCPM estimado 3x o seu, e a diferença está toda na conversão, não no preço"</i>.</p>
+
+<h2><span class="n">05</span> O QUE AINDA NÃO SEI — E COMO DESCOBRIR</h2>
+<p class="lead">Aqui separo honestamente o que é hipótese, e proponho o experimento de cada uma.</p>
+
+<table>
+<tr><th>HIPÓTESE</th><th>COMO PROVAR</th></tr>
+<tr><td><b>O peso relativo de CTR vs conversão</b><br><span style="font-size:12.5px;color:var(--text3)">A fórmula trata os dois como multiplicadores iguais. Na prática a Shopee pode pesar diferente.</span></td><td>Regressão sobre o banco coletivo: posição observada contra CTR e Conv de centenas de campanhas. O coeficiente de cada um sai do dado.</td></tr>
+<tr><td><b>Se existe piso de qualidade</b><br><span style="font-size:12.5px;color:var(--text3)">Suspeita: abaixo de certo CTR o anúncio é filtrado, não só rebaixado.</span></td><td>Procurar descontinuidade — campanhas com eCPM alto e impressão perto de zero. Se existir um degrau, existe piso.</td></tr>
+<tr><td><b>Quanto o deboost custa em posição</b><br><span style="font-size:12.5px;color:var(--text3)">Temos <code>boosting_status</code>, mas não o tamanho da punição.</span></td><td>Comparar avg_rank de itens com e sem deboost, com eCPM equivalente. A diferença é o custo do deboost.</td></tr>
+<tr><td><b>Se a penalidade da conta afeta o leilão</b><br><span style="font-size:12.5px;color:var(--text3)">Ou se ela só afeta o orgânico.</span></td><td>Banco coletivo: contas penalizadas vs limpas, com métricas de campanha parecidas.</td></tr>
+</table>
+
+<div class="aviso roxo"><b>Repare no padrão:</b> todas as quatro se resolvem com o <b>banco coletivo</b>. Não com mais engenharia reversa de rota — com volume de observação. É por isso que ele deixou de ser item de roadmap e virou o instrumento de medição do projeto.</div>
+
+<h2><span class="n">06</span> O PROTOCOLO — COMO VAMOS FAZER AS PRÓXIMAS PARTES</h2>
+<p class="lead">Uma parte por vez, cada uma fechando com regra escrita no cérebro. Sem pular.</p>
+
+<div class="passo"><span class="n">1</span><div><div class="t">O LEILÃO PAGO · este documento</div><div class="d">eCPM como nota de classificação · CPM real vs previsto · quem está na frente e por quê. <b>Falta:</b> escrever as regras no cérebro.</div></div></div>
+
+<div class="passo"><span class="n">2</span><div><div class="t">O RANQUEAMENTO ORGÂNICO</div><div class="d">Que conta a Shopee faz para subir produto sem anúncio. Temos o instrumento ideal: o <code>search_items</code> devolve a ordem orgânica junto dos atributos de cada item. É um conjunto rotulado — dá para ajustar quais sinais explicam a posição.</div></div></div>
+
+<div class="passo"><span class="n">3</span><div><div class="t">A PÁGINA E A CONVERSÃO</div><div class="d">O que faz a página fechar. Aqui entra a rota do concorrente (<code>pdp/get_pc</code>) que nunca tocamos: título, fotos, descrição e <b>estoque por variação</b> — que revela o giro real de quem está na frente.</div></div></div>
+
+<div class="passo"><span class="n">4</span><div><div class="t">A CONTA COMO MULTIPLICADOR</div><div class="d">Penalidade, nota de performance, percentil, taxa de resposta. Hipótese a testar: saúde da conta é multiplicador sobre tudo, não um fator somado.</div></div></div>
+
+<div class="passo"><span class="n">5</span><div><div class="t">AS TRAVAS DO ALGORITMO</div><div class="d">O <code>config/get</code> linha por linha. Não é descoberta — é leitura de regulamento. Mas é o que impede a ferramenta de sugerir o impossível.</div></div></div>
+
+<div class="passo"><span class="n">6</span><div><div class="t">O BANCO COLETIVO COMO INSTRUMENTO</div><div class="d">Fechar o ciclo: cada conta observada melhora os coeficientes, que melhoram o veredito de todas. É a única parte que não se copia.</div></div></div>
+
+<div class="aviso"><b>Antes de seguir para a Parte 2, uma decisão sua:</b> escrevo primeiro as regras da Parte 1 dentro do cérebro — CPM real vs previsto, ordenação por efeito quadrático, o duelo de leilão do Espião — ou avanço a pesquisa para o orgânico e escrevo tudo depois? Minha opinião: escrever agora. Regra que não vira código não é conhecimento, é anotação.</div>
+
+<footer>
+SELLER.IA · EFEITO VENDAS · ENGENHARIA REVERSA<br>
+Parte 1 de 6 · 27/07/2026<br>
+MEDIDO = a API entrega · DERIVADO = consequência matemática · HIPÓTESE = precisa de experimento
+</footer>
+
+</div>
+</body>
+</html>
