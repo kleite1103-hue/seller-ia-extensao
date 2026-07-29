@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Manual do Algoritmo</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#8a909c;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:34px 16px 80px}
+h1{font-family:'Bebas Neue';font-size:clamp(32px,7.5vw,52px);letter-spacing:.02em;line-height:.95}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);font-size:15px;margin-top:9px;max-width:66ch}
+h2{font-family:'Bebas Neue';font-size:29px;letter-spacing:.03em;margin:46px 0 5px;display:flex;align-items:baseline;gap:11px}
+h2 .n{font-family:'Space Mono';font-size:11px;color:var(--orange);letter-spacing:.06em}
+.lead{color:var(--text3);font-size:13.5px;margin-bottom:16px;max-width:74ch}
+p{font-size:14.5px;color:var(--text2);margin-bottom:13px;max-width:74ch}
+b{color:var(--text);font-weight:600}
+code{font-family:'Space Mono';font-size:12.5px;color:#c88bff;background:rgba(123,47,255,.09);padding:1px 6px;border-radius:5px}
+.regra{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:15px 17px;margin-bottom:11px}
+.regra .cab{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+.regra .id{font-family:'Space Mono';font-size:11px;color:var(--orange);background:rgba(255,77,28,.09);border:1px solid rgba(255,77,28,.3);border-radius:6px;padding:2px 8px}
+.regra .nm{font-family:'Bebas Neue';font-size:21px;letter-spacing:.03em;flex:1;line-height:1.1}
+.regra .oq{font-size:14px;color:var(--text2);margin-bottom:8px}
+.regra .pr{background:var(--bg3);border-left:3px solid var(--ok);border-radius:0 8px 8px 0;padding:9px 12px;font-size:13.5px;color:var(--text2)}
+.regra .pr b{color:var(--ok);font-weight:600}
+.tag{font-family:'Space Mono';font-size:9.5px;padding:3px 9px;border-radius:99px;border:1px solid;white-space:nowrap}
+.t-ok{color:var(--ok);border-color:rgba(46,204,113,.4)}
+.t-inf{color:var(--warn);border-color:rgba(245,176,65,.4)}
+.conta{background:var(--bg3);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin:13px 0;font-family:'Space Mono';font-size:12.5px;color:var(--text2);line-height:1.9;overflow-x:auto}
+.conta .g{color:var(--ok)} .conta .r{color:var(--bad)} .conta .c{color:var(--text3)} .conta .o{color:var(--orange)}
+table{width:100%;border-collapse:collapse;margin:15px 0;font-size:13.5px}
+th{text-align:left;font-family:'Space Mono';font-size:10.5px;color:var(--text3);letter-spacing:.05em;padding:9px 8px;border-bottom:1px solid var(--line);font-weight:400}
+td{padding:9px 8px;border-bottom:1px solid var(--line);color:var(--text2);vertical-align:top}
+td b{color:var(--text)}
+.aviso{background:var(--bg3);border-left:3px solid var(--orange);border-radius:0 12px 12px 0;padding:15px 17px;margin:17px 0;font-size:14px;color:var(--text2)}
+.aviso.verde{border-left-color:var(--ok)}
+.aviso.roxo{border-left-color:var(--purple)}
+.aviso.verm{border-left-color:var(--bad)}
+.chk{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line)}
+.chk .st{font-family:'Space Mono';font-size:10px;padding:3px 9px;border-radius:6px;flex:none;width:64px;text-align:center}
+.chk .feito{color:var(--ok);background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.3)}
+.chk .falta{color:var(--bad);background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3)}
+.chk .tx{flex:1;font-size:14px;color:var(--text2)}
+.chk .tx b{display:block;color:var(--text)}
+footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);font-family:'Space Mono';font-size:10.5px;color:var(--text3);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>MANUAL DO <em>ALGORITMO</em></h1>
+<p class="sub">Cada regra que a Shopee entrega pela API, explicada em português e com o que fazer. Extraído de 16 coletas reais da colorindo_shop.</p>
+
+<div class="aviso verm"><b>Marcação de confiança:</b> <span class="tag t-ok">CONFIRMADO</span> o dado prova. <span class="tag t-inf">INFERIDO</span> o parâmetro é certo, o significado é a leitura mais provável — os nomes das métricas ficam no front da Shopee, não na API.</div>
+
+<h2><span class="n">01</span> AS 4 CAIXAS DO DIAGNÓSTICO DE ADS</h2>
+<p class="lead">Rota <code>pas/v1/diagnosis/list_verdict</code>. <span class="tag t-ok">CONFIRMADO</span> — toda campanha é avaliada nestes quatro eixos, e só nestes.</p>
+
+<div class="regra">
+  <div class="cab"><span class="id">bidding_v2</span><span class="nm">O LANCE / A META</span></div>
+  <div class="oq">Avalia se a sua meta de ROAS está compatível com o que a campanha consegue entregar. A variação mais comum é <code>bidding_v2__high_roi_two_target</code> — meta alta demais.</div>
+  <div class="pr"><b>Na prática:</b> meta alta te tira dos leilões. Você economiza por impressão e perde volume. É o eixo que mais aparece marcado como ruim.</div>
+</div>
+
+<div class="regra">
+  <div class="cab"><span class="id">budget_and_balance_v2</span><span class="nm">ORÇAMENTO E SALDO</span></div>
+  <div class="oq">Se o orçamento diário está limitando a campanha, ou se o saldo da conta está acabando.</div>
+  <div class="pr"><b>Na prática:</b> campanha boa com orçamento apertado para de rodar no meio do dia. A Shopee sabe disso e marca.</div>
+</div>
+
+<div class="regra">
+  <div class="cab"><span class="id">continuance_v2</span><span class="nm">CONTINUIDADE</span></div>
+  <div class="oq">Se a campanha está rodando de forma constante ou se está sendo ligada, desligada e alterada demais.</div>
+  <div class="pr"><b>Na prática:</b> é a punição ao dedo nervoso. Mexer toda hora reinicia aprendizado e derruba a nota deste eixo.</div>
+</div>
+
+<div class="regra">
+  <div class="cab"><span class="id">competitiveness_v2</span><span class="nm">COMPETITIVIDADE</span></div>
+  <div class="oq">Se o produto em si — preço, atratividade — compete na categoria dele.</div>
+  <div class="pr"><b>Na prática:</b> este eixo não se resolve no anúncio. Se ele está ruim, mexer em lance é jogar dinheiro fora.</div>
+</div>
+
+<h3 style="font-family:'Bebas Neue';font-size:22px;margin:28px 0 8px">UM CASO REAL DA SUA CONTA</h3>
+<div class="conta">
+<span class="c">// campanha 109343868</span><br>
+resultado ................ <span class="r">poor</span><br>
+eixo ..................... <span class="o">bidding_v2__high_roi_two_target</span><br>
+problema ................. <span class="r">low_traffic</span><br><br>
+meta atual ............... 1.060.000 = <span class="r">10,6x</span><br>
+meta sugerida ............ &nbsp;&nbsp;300.000 = <span class="g">3,0x</span><br><br>
+ganho projetado de GMV ... <span class="g">+30%</span><br>
+ganho projetado de pedidos <span class="g">+20%</span>
+</div>
+<p><b>A Shopee está dizendo, com número:</b> sua meta de 10,6x está sufocando esta campanha; baixe para 3,0x e ela projeta 30% mais faturamento e 20% mais pedidos. Isso está capturado e não aparece em tela nenhuma nossa.</p>
+
+<h2><span class="n">02</span> AS 8 REGRAS DE DIAGNÓSTICO DE PRODUTO</h2>
+<p class="lead">Rota <code>mydata/product/diagnosis/items_count</code> entrega os parâmetros; <code>diagnosis/items</code> entrega os produtos de cada regra. <span class="tag t-ok">CONFIRMADO</span> nos parâmetros, <span class="tag t-inf">INFERIDO</span> no significado.</p>
+
+<div class="aviso"><b>Como ler os campos:</b> <code>x_days</code> é a janela. <code>y_rate_micros</code> é o limite (dividir por 10.000 dá o percentual). <code>z_orders</code> é o mínimo de pedidos para a regra valer. E em cada produto: <code>d1</code> é a base, <code>d2</code> é a ocorrência, <code>d3</code> é a taxa ou a variação.</div>
+
+<table>
+<tr><th>REGRA</th><th>JANELA</th><th>LIMITE</th><th>MÍN.</th><th>SEUS PRODUTOS</th></tr>
+<tr><td><b>10000</b></td><td>7 dias</td><td>50%</td><td>—</td><td><b>2</b></td></tr>
+<tr><td><b>10002</b></td><td>7 dias</td><td>—</td><td>—</td><td><b>10</b></td></tr>
+<tr><td><b>10003</b></td><td>45 dias</td><td>10%</td><td>2 pedidos</td><td><b>17</b></td></tr>
+<tr><td><b>10004</b></td><td>15 dias</td><td>5%</td><td>10 pedidos</td><td><b>1</b></td></tr>
+<tr><td><b>10005</b></td><td>—</td><td>—</td><td>—</td><td>0</td></tr>
+<tr><td><b>10006</b></td><td>7 dias</td><td>—</td><td>—</td><td><b>10</b></td></tr>
+<tr><td><b>10007</b></td><td>7 dias</td><td>50%</td><td>—</td><td>0</td></tr>
+<tr><td><b>10008</b></td><td>7 dias</td><td>5%</td><td>2 pedidos</td><td>0</td></tr>
+</table>
+
+<div class="regra">
+  <div class="cab"><span class="id">10003</span><span class="nm">TAXA DE PROBLEMA POR PEDIDO</span><span class="tag t-inf">INFERIDO</span></div>
+  <div class="oq">45 dias, limite de 10%, mínimo 2 pedidos. <b>17 produtos seus estão nesta lista.</b></div>
+  <div class="conta">
+Conjunto de Academia Feminino ... d1=15 &nbsp;d2=2 &nbsp;<span class="r">13,33%</span><br>
+Kit 4 calcinhas calesson ....... d1=8 &nbsp;&nbsp;d2=1 &nbsp;<span class="r">12,50%</span><br>
+Sutiã Tomara que Caia .......... d1=18 &nbsp;d2=2 &nbsp;<span class="r">11,11%</span><br><br>
+<span class="c">// e por variação:</span><br>
+Sutiã · modelo "Bege, GG-46" ... d1=3 &nbsp;&nbsp;d2=1 &nbsp;<span class="r">33,33%</span>
+  </div>
+  <div class="pr"><b>Na prática:</b> de 15 pedidos, 2 deram problema — devolução ou cancelamento. E o nível de variação é onde mora o ouro: <b>uma variação específica com 1 problema a cada 3 pedidos</b>. Não é o produto que está ruim, é o "Bege GG-46". Isso é grade de tamanho errada, cor que não bate com a foto, ou estoque trocado. Corrigir uma variação é barato; despausar o produto inteiro é caro.</div>
+</div>
+
+<div class="regra">
+  <div class="cab"><span class="id">10000</span><span class="nm">QUEDA DE MAIS DE 50% NA SEMANA</span><span class="tag t-inf">INFERIDO</span></div>
+  <div class="oq">Aqui o <code>d3</code> não é taxa, é <b>variação</b>. 7 dias, limite de 50% de queda.</div>
+  <div class="conta">
+Sutiã Tomara que Caia .... antes 201,24 → agora 67,08 &nbsp;<span class="r">−66,67%</span><br>
+Sutiã em renda sensual ... antes 319,77 → agora 151,47 <span class="r">−52,63%</span>
+  </div>
+  <div class="pr"><b>Na prática:</b> os valores têm cara de dinheiro. São produtos cuja venda desabou na semana. <b>É o alerta mais urgente da lista</b>, porque pega o problema enquanto ele está acontecendo, não depois.</div>
+</div>
+
+<div class="regra">
+  <div class="cab"><span class="id">10004</span><span class="nm">LIMITE APERTADO, EXIGE VOLUME</span><span class="tag t-inf">INFERIDO</span></div>
+  <div class="oq">15 dias, limite de <b>5%</b>, mínimo de <b>10 pedidos</b>. Só 1 produto seu caiu aqui.</div>
+  <div class="pr"><b>Na prática:</b> exigir 10 pedidos e tolerar só 5% indica métrica séria — do tipo que vira penalidade. Produto que aparece aqui merece olhar antes dos outros 17.</div>
+</div>
+
+<div class="regra">
+  <div class="cab"><span class="id">10002 · 10006</span><span class="nm">SEM LIMITE NUMÉRICO</span><span class="tag t-inf">INFERIDO</span></div>
+  <div class="oq">Janela de 7 dias, sem limite e sem mínimo de pedidos. 10 produtos em cada.</div>
+  <div class="pr"><b>Na prática:</b> regra sem limite é <b>condição</b>, não taxa — algo é verdadeiro ou não. Sem estoque, sem tráfego, cadastro incompleto. O <code>10006</code> tem ainda <code>o_others=2</code>, um segundo parâmetro que as outras não têm.</div>
+</div>
+
+<div class="aviso verde"><b>O que isso vale:</b> a Shopee mantém 8 regras parametrizadas e nos entrega tanto os parâmetros quanto os produtos que caíram em cada uma. <b>Não precisamos inventar critério de diagnóstico de produto — ela nos dá o dela, com número e com a lista pronta.</b> 30 produtos seus estão marcados agora.</div>
+
+<h2><span class="n">03</span> O CHECKLIST DE QUALIDADE — COMO SE GANHA ORGÂNICO</h2>
+<p class="lead">Rota <code>get_smart_diagnosis_info</code>. <span class="tag t-ok">CONFIRMADO</span> — é a lista literal de tarefas que a Shopee pontua em cada anúncio, com o status de cada uma.</p>
+
+<p>No produto <b>Tigela Lenta para Gatos</b> ela devolveu <code>quality_level: 2</code> e este checklist:</p>
+
+<div class="chk"><span class="st falta">FALTA</span><span class="tx"><b>video_include</b>tem vídeo no anúncio — <b style="color:var(--bad)">a única não cumprida</b></span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>image_count</b>quantidade mínima de fotos — exige 2</span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>image_not_unfitted</b>foto no enquadramento certo, sem cortar o produto</span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>image_not_blurry</b>foto sem borrão</span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>image_clean_background</b>fundo limpo na foto principal</span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>image_without_prohibited_watermark</b>sem marca d'água proibida</span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>title_char_count</b>título com o mínimo de caracteres — exige 10</span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>title_not_spam</b>título sem repetição de palavra-chave</span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>title_not_exaggerate</b>título sem exagero — "o melhor", "imperdível"</span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>title_includes_product_or_brand_name</b>título contém o nome do produto ou da marca</span></div>
+<div class="chk"><span class="st feito">FEITO</span><span class="tx"><b>desc_char_count_or_image_count</b>descrição com 60+ caracteres ou 1+ imagem</span></div>
+
+<div class="aviso roxo"><b>Esta é a resposta direta para "como ganhar ranqueamento orgânico".</b> A Shopee não esconde — ela publica a lista, item por item, com o que falta em cada anúncio. Neste produto, falta <b>uma coisa só: vídeo</b>. E o mesmo payload traz <code>potential_item_tag: 5</code> e três notas de diagnóstico: <b>61, 33 e 12</b>.</div>
+
+<h2><span class="n">04</span> AS TRAVAS — E A CORREÇÃO IMPORTANTE</h2>
+<p class="lead">Rota <code>pas/v1/config/get</code>.</p>
+
+<div class="aviso verm"><b>Correção de um erro meu.</b> Eu apresentei as travas de mudança como regra universal. Elas estão todas dentro de <code>ads_config.roi_two.<b>cps</b></code> — modo CPS. Nas campanhas da colorindo_shop, <code>cps: false</code>. <b>Nenhuma delas se aplica a você hoje</b> — e foi você quem percebeu, ao dizer que altera e a campanha segue gastando.</div>
+
+<table>
+<tr><th>REGRA</th><th>VALOR</th><th>VALE PARA</th></tr>
+<tr><td>Bloqueio após alterar</td><td><b>7 dias</b></td><td>só modo CPS</td></tr>
+<tr><td>Mudança de meta</td><td><b>±20%, 1×/dia</b></td><td>só modo CPS</td></tr>
+<tr><td>Queda de orçamento</td><td><b>−20%, 1×/dia</b></td><td>só modo CPS</td></tr>
+<tr><td>Teto do multiplicador</td><td><b>7×</b></td><td>só modo CPS</td></tr>
+<tr><td>Aprendizado · lance automático</td><td><b>14 dias</b></td><td><b>todos</b></td></tr>
+<tr><td>Aprendizado · Meta ROAS</td><td><b>7 dias</b></td><td><b>todos</b></td></tr>
+<tr><td>Lance mínimo · busca produto</td><td><b>R$ 0,11</b> (passo R$ 0,02)</td><td><b>todos</b></td></tr>
+<tr><td>Lance mínimo · busca loja</td><td><b>R$ 0,17</b></td><td><b>todos</b></td></tr>
+<tr><td>Faixa absoluta de meta</td><td><b>1× a 50×</b></td><td><b>todos</b></td></tr>
+<tr><td>Nota mínima p/ lista branca</td><td><b>4,0 estrelas</b></td><td><b>todos</b></td></tr>
+</table>
+
+<h3 style="font-family:'Bebas Neue';font-size:22px;margin:28px 0 8px">POR QUE O TETO MUDA DE CONTA PRA CONTA</h3>
+<div class="conta">
+upper_bound_warning_multiplier ... 125.000 = <span class="o">1,25×</span><br>
+upper_bound_softcap_multiplier ... 200.000 = <span class="o">2,00×</span><br><br>
+<span class="c">// aplicados sobre o SEU upper_bound recomendado</span><br>
+seu upper_bound = 10x → aviso em 12,5x · teto em <span class="g">20x</span><br>
+outro com 15x&nbsp;&nbsp;&nbsp;→ aviso em 18,8x · teto em <span class="g">30x</span>
+</div>
+<p><b>O teto não é fixo.</b> É o dobro do topo recomendado da sua categoria. Por isso você vê 30x em algumas contas e não em outras — e o 50x é só o limite absoluto da plataforma.</p>
+
+<h2><span class="n">05</span> AS UNIDADES</h2>
+<div class="conta">
+<span class="c">// tudo multiplicado por 100.000</span><br>
+&nbsp;&nbsp;&nbsp;240.000 ÷ 100.000 = <span class="g">2,4x</span><br>
+11.074.853 ÷ 100.000 = <span class="g">R$ 110,75</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;22.088 ÷ 100.000 = <span class="g">R$ 0,22</span><br><br>
+<span class="c">// exceto nas taxas, que vêm como fração</span><br>
+ctr = 0,0414 → <span class="g">4,14%</span> &nbsp;&nbsp;<span class="c">(2.740 cliques ÷ 66.150 impressões)</span>
+</div>
+
+<h2><span class="n">06</span> PALAVRAS-CHAVE COM VOLUME REAL</h2>
+<p class="lead">Rota <code>setup_helper/list_recommended_keyword</code> · POST · <span class="tag t-ok">CONFIRMADO</span></p>
+<div class="conta">
+<span class="c">// corpo da requisição</span><br>
+{"campaign_type": <span class="o">"shop"</span>, "suggest_log_data": {...}}<br><br>
+<span class="c">// devolve 50 palavras</span><br>
+máquina de cortar cabelo ..... <span class="g">412.269</span> buscas · R$ 0,22<br>
+vasos decorativos para sala .. <span class="g">276.787</span> buscas · R$ 0,34<br>
+brinquedos educativos 3 anos . <span class="g">124.082</span> buscas · R$ 0,20<br>
+porta toalha banheiro ........ &nbsp;<span class="g">82.402</span> buscas · R$ 0,17<br>
+pinça de sobrancelha ......... &nbsp;<span class="g">80.411</span> buscas · R$ 0,35
+</div>
+<p>E a irmã, <code>list_keyword_with_recommended_price</code>, recebe <code>campaign_id</code> e devolve, por palavra: <b>lance atual vs lance recomendado</b> e o tipo de correspondência.</p>
+<div class="aviso verde"><b>O experimento que vale fazer:</b> <code>campaign_type</code> é parâmetro do corpo. Hoje é chamado com <code>"shop"</code>. Testar <code>"product"</code> é trocar uma palavra. Se aceitar, cada anúncio passa a receber a lista de palavras de alto volume que <b>não estão no título dele</b> — que é exatamente a ferramenta que você desenhou.</div>
+
+<footer>
+SELLER.IA · EFEITO VENDAS · MANUAL DO ALGORITMO<br>
+Extraído de 16 coletas · colorindo_shop · 24 a 26/07/2026<br>
+CONFIRMADO = o dado prova · INFERIDO = parâmetro certo, significado provável
+</footer>
+
+</div>
+</body>
+</html>
