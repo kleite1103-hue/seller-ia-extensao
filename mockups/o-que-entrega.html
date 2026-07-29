@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — O que o algoritmo entrega</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#8a909c;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:34px 16px 80px}
+h1{font-family:'Bebas Neue';font-size:clamp(30px,7vw,48px);letter-spacing:.02em;line-height:.98}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);font-size:15px;margin-top:9px;max-width:66ch}
+h2{font-family:'Bebas Neue';font-size:28px;letter-spacing:.03em;margin:44px 0 5px;display:flex;align-items:baseline;gap:11px}
+h2 .n{font-family:'Space Mono';font-size:11px;color:var(--orange);letter-spacing:.06em}
+.lead{color:var(--text3);font-size:13.5px;margin-bottom:16px;max-width:74ch}
+p{font-size:14.5px;color:var(--text2);margin-bottom:12px;max-width:74ch}
+b{color:var(--text);font-weight:600}
+code{font-family:'Space Mono';font-size:12.5px;color:#c88bff;background:rgba(123,47,255,.09);padding:1px 6px;border-radius:5px}
+.sinal{background:var(--bg2);border:1px solid var(--line);border-radius:13px;margin-bottom:12px;overflow:hidden}
+.sinal .cab{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:13px 16px;background:var(--bg3);border-bottom:1px solid var(--line)}
+.sinal .cab .nm{font-family:'Bebas Neue';font-size:21px;letter-spacing:.03em;flex:1;line-height:1.1}
+.sinal .cab .cd{font-family:'Space Mono';font-size:11px;color:#c88bff}
+.sinal .corpo{padding:14px 16px}
+.lin{display:flex;gap:11px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.lin:last-child{border-bottom:none}
+.lin .q{font-family:'Space Mono';font-size:10.5px;color:var(--text3);width:112px;flex:none;padding-top:3px;letter-spacing:.04em}
+.lin .r{flex:1;color:var(--text2)}
+.lin .r b{color:var(--text)}
+.lin .r .sim{color:var(--ok);font-weight:600}
+.lin .r .nao{color:var(--bad);font-weight:600}
+.lin .r .talvez{color:var(--warn);font-weight:600}
+.tag{font-family:'Space Mono';font-size:9.5px;padding:3px 9px;border-radius:99px;border:1px solid;white-space:nowrap}
+.t-ok{color:var(--ok);border-color:rgba(46,204,113,.4);background:rgba(46,204,113,.07)}
+.t-no{color:var(--bad);border-color:rgba(231,76,60,.4);background:rgba(231,76,60,.07)}
+.t-inf{color:var(--warn);border-color:rgba(245,176,65,.4);background:rgba(245,176,65,.07)}
+.conta{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:11px 0;font-family:'Space Mono';font-size:12.5px;color:var(--text2);line-height:1.9;overflow-x:auto}
+.conta .g{color:var(--ok)} .conta .r{color:var(--bad)} .conta .c{color:var(--text3)} .conta .o{color:var(--orange)}
+.aviso{background:var(--bg3);border-left:3px solid var(--orange);border-radius:0 12px 12px 0;padding:15px 17px;margin:17px 0;font-size:14px;color:var(--text2)}
+.aviso.verde{border-left-color:var(--ok)}
+.aviso.verm{border-left-color:var(--bad)}
+.aviso.roxo{border-left-color:var(--purple)}
+.passo{display:flex;gap:13px;padding:13px 0;border-bottom:1px solid var(--line)}
+.passo:last-child{border-bottom:none}
+.passo .n{font-family:'Bebas Neue';font-size:26px;color:var(--orange);line-height:1;width:26px;flex:none}
+.passo .t{font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px}
+.passo .d{font-size:13.5px;color:var(--text3);line-height:1.5}
+footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);font-family:'Space Mono';font-size:10.5px;color:var(--text3);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>O QUE O ALGORITMO<br><em>ENTREGA DE FATO</em></h1>
+<p class="sub">Para cada sinal: a Shopee diz qual é o alvo, ou só aponta o problema? Respondido contando as capturas reais, uma por uma.</p>
+
+<div class="aviso verm"><b>A pergunta que este documento responde:</b> não basta saber que existe um eixo chamado <code>bidding_v2</code>. Preciso saber se ele me diz <b>qual é o número certo</b>, ou se só reclama. Sem isso, é peça solta.</div>
+
+<h2><span class="n">01</span> OS 4 EIXOS DE ADS</h2>
+<p class="lead">Contei todas as capturas de veredito nos 16 arquivos. O resultado é desigual — e a diferença importa.</p>
+
+<div class="sinal">
+  <div class="cab"><span class="nm">O LANCE / A META</span><span class="cd">bidding_v2</span><span class="tag t-ok">ENTREGA O ALVO</span></div>
+  <div class="corpo">
+    <div class="lin"><span class="q">CAPTURAS</span><span class="r"><b>37</b> — 36 com problema, 1 boa</span></div>
+    <div class="lin"><span class="q">DIZ O ALVO?</span><span class="r"><span class="sim">SIM.</span> O campo <code>suggested_roi_two_target</code> vem com o número exato.</span></div>
+    <div class="lin"><span class="q">O QUE VEM</span><span class="r">meta atual · meta sugerida · ganho de GMV projetado · ganho de pedidos projetado</span></div>
+    <div class="lin"><span class="q">PROBLEMAS</span><span class="r"><code>low_traffic</code> em <b>31</b> campanhas · <code>room_more_traffic</code> em <b>5</b></span></div>
+    <div class="conta">
+<span class="c">// exemplo real, campanha 109343868</span><br>
+current_roi_two_target &nbsp;= 1.060.000 → <span class="r">10,6x</span><br>
+suggested_roi_two_target = &nbsp;&nbsp;300.000 → <span class="g">3,0x</span><br>
+estimate_gmv_pct &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= 3.000 → <span class="g">+30%</span><br>
+estimate_order_pct &nbsp;&nbsp;&nbsp;&nbsp;= 2.000 → <span class="g">+20%</span>
+    </div>
+    <div class="lin"><span class="q">O QUE MOSTRAR</span><span class="r"><b>"Sua meta é 10,6x. A Shopee recomenda 3,0x e projeta +30% de faturamento. Você está pedindo 3,5 vezes mais do que ela acha viável."</b></span></div>
+  </div>
+</div>
+
+<div class="sinal">
+  <div class="cab"><span class="nm">ORÇAMENTO E SALDO</span><span class="cd">budget_and_balance_v2</span><span class="tag t-no">NÃO SEI</span></div>
+  <div class="corpo">
+    <div class="lin"><span class="q">CAPTURAS</span><span class="r"><b>1</b> — e ela veio <code>good</code>, sem nenhum campo de dado</span></div>
+    <div class="lin"><span class="q">DIZ O ALVO?</span><span class="r"><span class="nao">NÃO SEI.</span> Nunca capturamos este eixo com problema, então nunca vimos o que ele carrega quando falha.</span></div>
+    <div class="lin"><span class="q">COMO DESCOBRIR</span><span class="r">Rodar a coleta numa conta com orçamento limitando ou saldo baixo. Uma captura resolve.</span></div>
+  </div>
+</div>
+
+<div class="sinal">
+  <div class="cab"><span class="nm">CONTINUIDADE</span><span class="cd">continuance_v2</span><span class="tag t-no">NÃO SEI</span></div>
+  <div class="corpo">
+    <div class="lin"><span class="q">CAPTURAS</span><span class="r"><b>1</b> — <code>good</code>, sem campos</span></div>
+    <div class="lin"><span class="q">DIZ O ALVO?</span><span class="r"><span class="nao">NÃO SEI.</span> Mesma situação.</span></div>
+    <div class="lin"><span class="q">COMO DESCOBRIR</span><span class="r">Conta com campanha pausada e religada várias vezes.</span></div>
+  </div>
+</div>
+
+<div class="sinal">
+  <div class="cab"><span class="nm">COMPETITIVIDADE</span><span class="cd">competitiveness_v2</span><span class="tag t-no">NÃO SEI</span></div>
+  <div class="corpo">
+    <div class="lin"><span class="q">CAPTURAS</span><span class="r"><b>1</b> — <code>good</code>, sem campos</span></div>
+    <div class="lin"><span class="q">DIZ O ALVO?</span><span class="r"><span class="nao">NÃO SEI</span> se detalha o que está errado nem onde deveria estar.</span></div>
+    <div class="lin"><span class="q">O QUE TEMOS</span><span class="r">Existe uma pista em outra rota: <code>get_product_performance_info</code> traz <code>competitiveness</code> de 0 a 100 por produto. Pode ser a mesma régua — não confirmado.</span></div>
+    <div class="lin"><span class="q">COMO DESCOBRIR</span><span class="r">Conta com produto caro para a categoria.</span></div>
+  </div>
+</div>
+
+<div class="aviso verm"><b>A conclusão honesta:</b> dos 4 eixos, <b>só 1 está decifrado</b>. Os outros 3 não é que a API não entregue — é que na colorindo_shop eles nunca falharam, então nunca vimos o conteúdo. Eu apresentei os quatro como se fossem iguais. Não são: um está pronto para virar código, três são incógnitas.</div>
+
+<h2><span class="n">02</span> AS NOTAS 61, 33 E 12 — EU ERREI</h2>
+<p class="lead">Chamei de "três notas". Abrindo o payload inteiro, não são notas.</p>
+
+<div class="conta">
+"diagnosis_result_list": [<br>
+&nbsp;&nbsp;{ "result": 61 },<br>
+&nbsp;&nbsp;{ "result": 33 },<br>
+&nbsp;&nbsp;{ "result": 12, <span class="o">"content_quality": { ... }</span> }<br>
+]
+</div>
+
+<p><b>São três códigos de diagnóstico, não pontuações.</b> A prova está no terceiro: quando o código é <b>12</b>, vem junto o objeto <code>content_quality</code> com o checklist. Ou seja, <code>result</code> identifica <b>qual</b> é o problema, e alguns códigos trazem o detalhe anexado.</p>
+
+<p>Este produto tem três diagnósticos simultâneos. Sabemos que <b>12 = qualidade de conteúdo</b>. Os códigos <b>61</b> e <b>33</b> ainda não sabemos, porque vieram sem detalhe.</p>
+
+<h2><span class="n">03</span> O ACHADO QUE ESTAVA ESCONDIDO NO MESMO PAYLOAD</h2>
+<div class="conta">
+is_new_product_period &nbsp;= <span class="g">true</span><br>
+new_product_period_day = <span class="o">90</span><br>
+task_deadline_day &nbsp;&nbsp;&nbsp;&nbsp; = <span class="r">69</span>
+</div>
+<p><b>Este produto está na janela de 90 dias de produto novo, e faltam 69 dias para o prazo das tarefas de qualidade.</b> Ou seja: existe um relógio correndo, com prazo, e a única tarefa não cumprida é <code>video_include</code>.</p>
+<div class="aviso verde"><b>Isso é acionável hoje:</b> "faltam 69 dias da sua janela de produto novo, e falta só o vídeo para completar a qualidade." Prazo + tarefa única + benefício. É o tipo de alerta que faz o vendedor agir na hora.</div>
+
+<h2><span class="n">04</span> AS 8 REGRAS DE PRODUTO — O QUE FALTA E COMO RESOLVER</h2>
+<p class="lead">Você tem razão: saber que existe a regra 10003 e não saber o nome dela não serve para nada.</p>
+
+<p><b>O que temos com certeza:</b> os parâmetros de cada regra (janela, limite, mínimo de pedidos), a contagem de produtos afetados e a lista dos produtos com os números.</p>
+<p><b>O que não temos:</b> o nome. Ele não está na API — fica no arquivo de tradução do painel da Shopee, que o navegador carrega separado.</p>
+
+<div class="aviso roxo"><b>E resolver isso custa 2 minutos, não uma investigação.</b> No Seller Central, em Central de Dados → Diagnóstico de Produto, cada regra aparece <b>com o nome escrito na tela</b> e a contagem ao lado. Basta comparar as contagens que já temos com o que estiver escrito:
+<div class="conta" style="margin-top:11px">
+regra 10003 → <span class="o">17</span> produtos<br>
+regra 10002 → <span class="o">10</span> produtos<br>
+regra 10006 → <span class="o">10</span> produtos<br>
+regra 10000 → &nbsp;<span class="o">2</span> produtos<br>
+regra 10004 → &nbsp;<span class="o">1</span> produto<br>
+regra 10005 · 10007 · 10008 → 0
+</div>
+As contagens são únicas — 17, 10, 10, 2, 1. Batendo os números com os títulos da tela, as 8 regras ficam nomeadas de uma vez e para sempre.</div>
+
+<h2><span class="n">05</span> O DESENHO — O QUE ENTRA NO PRODUTO AGORA</h2>
+<p class="lead">Só o que está decifrado. O resto vira fila de investigação, não vira tela.</p>
+
+<div class="passo"><span class="n">1</span><div><div class="t">Meta ROAS sugerida pela Shopee, no card</div><div class="d">Decifrado, 36 capturas, com número e projeção. <b>Vira a parte 3 do card imediatamente:</b> meta atual, meta recomendada, ganho projetado. É a peça mais pronta que temos.</div></div></div>
+
+<div class="passo"><span class="n">2</span><div><div class="t">Checklist de qualidade + prazo da janela</div><div class="d">Decifrado. As 11 tarefas com status, o nível de qualidade e os dias restantes. Vira uma seção do card de produto: "falta X para completar, restam Y dias".</div></div></div>
+
+<div class="passo"><span class="n">3</span><div><div class="t">Lista de produtos marcados pelas 8 regras</div><div class="d">Os produtos e os números já dá para mostrar hoje, mesmo sem o nome da regra — <b>desde que a gente diga honestamente "a Shopee marcou este produto"</b> em vez de inventar o motivo. Com os nomes, vira diagnóstico completo.</div></div></div>
+
+<div class="passo"><span class="n">4</span><div><div class="t">Fila de investigação</div><div class="d">Os 3 eixos não decifrados, os códigos 61 e 33, e os nomes das 8 regras. Nada disso vira tela até ser resolvido — <b>e nenhum deles precisa de engenharia, só de mais uma captura ou de olhar uma tela.</b></div></div></div>
+
+<footer>
+SELLER.IA · EFEITO VENDAS<br>
+Contagem feita sobre 16 coletas · colorindo_shop · 24 a 26/07/2026<br>
+Regra deste documento: se não sei, escrevo NÃO SEI e digo como descobrir
+</footer>
+
+</div>
+</body>
+</html>
