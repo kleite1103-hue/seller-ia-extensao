@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — O que a API traz de verdade</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07080a;--bg2:#0c0e12;--bg3:#12151b;--orange:#ff4d1c;--purple:#7B2FFF;--text:#f2f2f4;--text2:#b8bcc6;--text3:#8a909c;--line:#1d212a;--ok:#2ecc71;--warn:#f5b041;--bad:#e74c3c}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:34px 16px 80px}
+h1{font-family:'Bebas Neue';font-size:clamp(32px,7.5vw,52px);letter-spacing:.02em;line-height:.95}
+h1 em{font-style:normal;color:var(--orange)}
+.sub{color:var(--text2);font-size:15px;margin-top:9px;max-width:66ch}
+h2{font-family:'Bebas Neue';font-size:29px;letter-spacing:.03em;margin:44px 0 5px;display:flex;align-items:baseline;gap:11px}
+h2 .n{font-family:'Space Mono';font-size:11px;color:var(--orange);letter-spacing:.06em}
+.lead{color:var(--text3);font-size:13.5px;margin-bottom:16px;max-width:74ch}
+p{font-size:14.5px;color:var(--text2);margin-bottom:13px;max-width:74ch}
+b{color:var(--text);font-weight:600}
+code{font-family:'Space Mono';font-size:12.5px;color:#c88bff;background:rgba(123,47,255,.09);padding:1px 6px;border-radius:5px}
+.total{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:9px;margin:24px 0}
+.tc{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:13px;text-align:center}
+.tc .v{font-family:'Bebas Neue';font-size:34px;line-height:1;color:var(--orange)}
+.tc .l{font-family:'Space Mono';font-size:9px;color:var(--text3);letter-spacing:.05em;margin-top:3px}
+table{width:100%;border-collapse:collapse;margin:15px 0;font-size:13.5px}
+th{text-align:left;font-family:'Space Mono';font-size:10.5px;color:var(--text3);letter-spacing:.05em;padding:9px 8px;border-bottom:1px solid var(--line);font-weight:400}
+td{padding:9px 8px;border-bottom:1px solid var(--line);color:var(--text2);vertical-align:top}
+td b{color:var(--text)}
+td .m{font-family:'Space Mono';font-size:12.5px;color:var(--ok)}
+.bomba{background:var(--bg3);border:1px solid rgba(231,76,60,.3);border-left:3px solid var(--bad);border-radius:0 13px 13px 0;padding:17px 19px;margin:18px 0}
+.bomba .t{font-family:'Bebas Neue';font-size:23px;color:var(--bad);letter-spacing:.03em;margin-bottom:8px}
+.bomba p{font-size:14px;margin-bottom:9px}
+.conta{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin:13px 0;font-family:'Space Mono';font-size:13px;color:var(--text2);line-height:2;overflow-x:auto}
+.conta .g{color:var(--ok)}
+.conta .r{color:var(--bad)}
+.conta .c{color:var(--text3)}
+.aviso{background:var(--bg3);border-left:3px solid var(--orange);border-radius:0 12px 12px 0;padding:15px 17px;margin:17px 0;font-size:14px;color:var(--text2)}
+.aviso.verde{border-left-color:var(--ok)}
+.aviso.roxo{border-left-color:var(--purple)}
+footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);font-family:'Space Mono';font-size:10.5px;color:var(--text3);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>O QUE A API TRAZ<br><em>DE VERDADE</em></h1>
+<p class="sub">Análise dos 16 arquivos de coleta reais da sua conta. Nada aqui é teoria ou dedução — é o que está dentro do JSON, com os números da colorindo_shop.</p>
+
+<div class="total">
+  <div class="tc"><div class="v">16</div><div class="l">ARQUIVOS</div></div>
+  <div class="tc"><div class="v">19<span style="font-size:16px">MB</span></div><div class="l">DE CAPTURA</div></div>
+  <div class="tc"><div class="v">2.327</div><div class="l">RESPOSTAS BRUTAS</div></div>
+  <div class="tc"><div class="v">287</div><div class="l">ROTAS ÚNICAS</div></div>
+</div>
+
+<div class="aviso"><b>287 rotas.</b> O catálogo que montei antes tinha 36. A extensão captura oito vezes mais do que eu sabia — só que joga quase tudo fora sem olhar.</div>
+
+<h2><span class="n">01</span> DOIS CAMPOS DA SHOPEE ESTÃO MENTINDO</h2>
+<p class="lead">Descobri cruzando os números da campanha do Vaso Decorativo Preto. Isto não é opinião: é aritmética.</p>
+
+<div class="bomba">
+  <div class="t">O CAMPO "CPC" NÃO É CUSTO POR CLIQUE</div>
+  <div class="conta">
+<span class="c">// campanha 110778786 — Vaso Decorativo Moderno Preto</span><br>
+cost = 11.074.853 micro = <span class="g">R$ 110,75</span><br>
+click = 2.740<br>
+broad_order = 21<br><br>
+CPC verdadeiro = 110,75 ÷ 2.740 = <span class="g">R$ 0,04</span><br>
+campo <span class="r">cpc</span> da API = 527.373 micro = <span class="r">R$ 5,27</span><br><br>
+<span class="c">// mas repare:</span><br>
+11.074.853 ÷ 21 pedidos = <span class="g">527.374</span> ← <b style="color:#2ecc71">é isso</b>
+  </div>
+  <p><b>O campo chamado <code>cpc</code> é, na verdade, o custo por PEDIDO.</b> E o campo <code>cpdc</code> devolve exatamente o mesmo número. Quem lê <code>cpc</code> como custo por clique erra por <b>130 vezes</b> nesta campanha.</p>
+</div>
+
+<div class="bomba">
+  <div class="t">O CAMPO "CPM" TAMBÉM NÃO É CPM</div>
+  <div class="conta">
+impression = 66.150 · cost = R$ 110,75<br><br>
+CPM verdadeiro = 110,75 ÷ 66.150 × 1000 = <span class="g">R$ 1,67</span><br>
+campo <span class="r">cpm</span> da API = 11.199.653 micro = <span class="r">R$ 112,00</span>
+  </div>
+  <p>O valor devolvido é praticamente o <b>custo total</b>, não o custo por mil. Já tínhamos anotado isso no código — agora está provado com número.</p>
+</div>
+
+<div class="aviso verde"><b>Por que isso vale dinheiro:</b> qualquer ferramenta concorrente que leia <code>cpc</code> e <code>cpm</code> direto da API está mostrando número errado para o vendedor. Nós derivamos os dois. É diferencial verificável.</div>
+
+<p>E mais uma calibragem confirmada: <b><code>ctr</code>, <code>cr</code> e <code>atc_rate</code> vêm como fração, não porcentagem.</b> <code>ctr = 0.0414</code> é 4,14%. Conferido: 2.740 ÷ 66.150 = 0,0414.</p>
+
+<h2><span class="n">02</span> O REGULAMENTO DO ALGORITMO — COM OS NÚMEROS</h2>
+<p class="lead">A rota <code>pas/v1/config/get</code> entrega as regras. Capturada 21 vezes e nunca usada.</p>
+
+<table>
+<tr><th>REGRA</th><th>VALOR REAL</th><th>O QUE SIGNIFICA NA PRÁTICA</th></tr>
+<tr><td><b>Mudança de meta ROAS</b></td><td class="m">±20% por vez</td><td>Não adianta a IA sugerir pular de 16x para 6x. A Shopee recusa.</td></tr>
+<tr><td><b>Frequência da mudança</b></td><td class="m">1 vez por dia</td><td>Uma tentativa por dia. Errou, esperou.</td></tr>
+<tr><td><b>Queda de orçamento</b></td><td class="m">−20% por vez, 1×/dia</td><td>Cortar orçamento pela metade é impossível num movimento.</td></tr>
+<tr><td><b>Bloqueio após alterar</b></td><td class="m">7 dias</td><td>Mexeu, travou. É o custo real de cada mudança.</td></tr>
+<tr><td><b>Aprendizado — lance automático</b></td><td class="m">14 dias</td><td>O dobro do que se diz por aí.</td></tr>
+<tr><td><b>Aprendizado — Meta ROAS</b></td><td class="m">7 dias</td><td>Metade do automático. É argumento a favor da Meta ROAS.</td></tr>
+<tr><td><b>Lance mínimo — busca produto</b></td><td class="m">R$ 0,11</td><td>Piso real, com passo de R$ 0,02.</td></tr>
+<tr><td><b>Lance mínimo — busca loja</b></td><td class="m">R$ 0,17</td><td>Busca de loja custa 55% mais caro para entrar.</td></tr>
+<tr><td><b>Teto do multiplicador</b></td><td class="m">7×</td><td>Limite físico do quanto o algoritmo amplifica.</td></tr>
+<tr><td><b>Faixa aceita de meta ROAS</b></td><td class="m">1× a 50×</td><td>Fora disso a plataforma nem aceita.</td></tr>
+<tr><td><b>Nota mínima p/ automático</b></td><td class="m">4,0 estrelas</td><td>Loja abaixo de 4,0 não entra na lista automática.</td></tr>
+<tr><td><b>Saída do aprendizado por pedidos</b></td><td class="m">7 dias</td><td>Critério paralelo ao de tempo.</td></tr>
+</table>
+
+<div class="aviso roxo"><b>Isto sozinho já muda o consultor.</b> Hoje ele pode sugerir uma mudança que a Shopee vai recusar, e a usuária vai achar que a ferramenta está errada. Com estas travas, cada sugestão sai dentro do que é executável — e o passo vira <i>"baixe para 13x hoje, e só amanhã para 10,4x"</i>, que é o máximo permitido.</div>
+
+<h2><span class="n">03</span> O VOLUME DE BUSCA EXISTE E ESTÁ CAPTURADO</h2>
+<p class="lead">Achei na rota <code>setup_helper/list_recommended_keyword</code>.</p>
+
+<div class="conta">
+keyword = <span class="g">"máquina de cortar cabelo"</span><br>
+<span class="g">search_volume = 412.269</span><br>
+relevance = 2<br>
+recommended_price = 22.088 micro = R$ 0,22<br>
+is_recommended = true
+</div>
+
+<p>E na <code>list_keyword_with_recommended_price</code> vem o par <b>lance atual vs lance recomendado</b> por palavra, com tipo de correspondência (exata ou ampla).</p>
+
+<div class="aviso verde"><b>Isso é dado de SEO pago que ninguém no Brasil entrega para vendedor Shopee.</b> Volume de busca real, por termo, com o preço sugerido. Alimenta o Espião com número, não com comparação de títulos. Só aparece em Anúncio de Busca de Loja — e você já tem capturado.</div>
+
+<h2><span class="n">04</span> A FAIXA DE ROAS QUE VALIDA O CARD APROVADO</h2>
+<p class="lead">A rota <code>get_recommended_target_roi</code> devolve exatamente a barra que desenhamos no card final.</p>
+
+<div class="conta">
+lower_bound = 240.000 → <span class="g">2,4x</span> · percentil 80<br>
+exact&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 510.000 → <span class="g">5,1x</span> · percentil 50<br>
+upper_bound = 1.000.000 → <span class="g">10,0x</span> · percentil 20<br>
+hard_upper_bound = 50,0x
+</div>
+
+<p><b>São os mesmos 2,4x / 5,1x / 10x do card aprovado.</b> Aquela barra não era ilustração — era esta rota. Ela está capturada e só o valor do meio (5,1x) está sendo mostrado hoje.</p>
+
+<p>Atenção a uma armadilha de nomenclatura: <code>lower_bound</code> tem o percentil <b>80</b> e o valor <b>menor</b>. Os nomes estão invertidos em relação à intuição. Ler errado inverte o conselho.</p>
+
+<h2><span class="n">05</span> VOCÊ TEM R$ 484 DE CRÉDITO PARADO</h2>
+<p class="lead">Rota <code>pas/v1/wallet/get</code>, capturada e ignorada.</p>
+
+<div class="conta">
+ads_credit.total&nbsp;&nbsp;&nbsp;&nbsp; = <span class="g">R$ 484,33</span><br>
+ads_credit.free&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = <span class="g">R$ 230,29</span> <span class="c">← crédito grátis da Shopee</span><br>
+ads_credit.top_up&nbsp;&nbsp;&nbsp; = R$ 254,03<br>
+ads_credit.overdue&nbsp;&nbsp; = R$ 0,00<br>
+ads_credit.frozen&nbsp;&nbsp;&nbsp; = R$ 0,00
+</div>
+
+<p>Dá para saber quanto é dinheiro seu e quanto é bônus da plataforma, separadamente. Não aparece em nenhuma tela.</p>
+
+<h2><span class="n">06</span> O QUE MAIS ESTAVA ESCONDIDO NO REPORT DA CAMPANHA</h2>
+<p class="lead">O objeto de campanha tem 40 campos. Usamos 8.</p>
+
+<table>
+<tr><th>CAMPO</th><th>VALOR NA CAMPANHA DO VASO</th><th>PARA QUE SERVE</th></tr>
+<tr><td><code>avg_rank</code></td><td class="m">109</td><td>Posição média no leilão. Fundo de vitrine.</td></tr>
+<tr><td><code>sov</code></td><td class="m">0</td><td>Share of voice — fatia da vitrine que é sua.</td></tr>
+<tr><td><code>location_in_ads</code></td><td class="m">7.118.565</td><td>Onde o anúncio aparece. Ainda a decodificar.</td></tr>
+<tr><td><code>atc</code> / <code>atc_rate</code></td><td class="m">252 · 9,2%</td><td>Carrinho e taxa. O degrau que falta no card.</td></tr>
+<tr><td><code>voucher_amount</code> / <code>voucher_sales</code></td><td class="m">0 · 0</td><td>Quanto de cupom entrou na venda do anúncio.</td></tr>
+<tr><td><code>page_views</code> / <code>view</code></td><td class="m">2.764 · 9</td><td>Visualizações vs views de vídeo.</td></tr>
+<tr><td><code>roi_two_target</code></td><td class="m">16,2x</td><td>A meta configurada. Contra 9,14x entregue.</td></tr>
+<tr><td><code>bidding_strategy</code></td><td class="m">roi_two</td><td>Qual estratégia está rodando.</td></tr>
+<tr><td><code>enhanced_bid_price</code> / <code>cps</code></td><td class="m">false · false</td><td>Recursos avançados ligados ou não.</td></tr>
+<tr><td><code>trait_list</code></td><td class="m">ad_enabled_rapid_boost</td><td>Traços especiais ativos na campanha.</td></tr>
+<tr><td><code>trait_data</code> → <code>auto_rebate</code></td><td class="m">valid</td><td>Rebate automático ativo — dinheiro de volta.</td></tr>
+<tr><td><code>subtype</code></td><td class="m">product_homepage__roi_two__target</td><td>O tipo exato da campanha, sem adivinhar.</td></tr>
+</table>
+
+<h2><span class="n">07</span> O DIAGNÓSTICO DE PRODUTO DA PRÓPRIA SHOPEE</h2>
+<p class="lead">Duas rotas que nunca olhamos: <code>mydata/product/diagnosis/items</code> e <code>/sku</code>.</p>
+<div class="conta">
+<span class="c">// 17 produtos diagnosticados pela Shopee</span><br>
+itemid · title · image · status<br>
+<span class="g">d1 = 15 · d2 = 2 · d3 = "13.33"</span><br><br>
+<span class="c">// e por variação (SKU):</span><br>
+modelid · model_name = "Bege,GG-46"<br>
+<span class="g">d1 = 3 · d2 = 1 · d3 = 33.3333</span>
+</div>
+<p>Os campos <code>d1</code>, <code>d2</code> e <code>d3</code> ainda precisam ser decodificados — a proporção <code>d2 ÷ d1 × 100 = d3</code> bate nos dois exemplos (2÷15=13,33% e 1÷3=33,33%). <b>É uma taxa de alguma coisa por produto e por variação, calculada pela Shopee.</b> Descobrir o que são <code>d1</code> e <code>d2</code> é um experimento pequeno e provavelmente valioso.</p>
+
+<h2><span class="n">08</span> DESEMPENHO POR ITEM EM 30 DIAS, PRONTO</h2>
+<p class="lead"><code>opt/mpsku/list/v2/get_product_performance_info</code> — capturado uma vez.</p>
+<div class="conta">
+22198923228 → vendas 30d = <span class="g">30</span> · impressões = <span class="g">31.107</span> · conversão = 0,1<br>
+22295056294 → vendas 30d = <span class="r">2</span> · impressões = <span class="g">15.002</span> · conversão = 0,01<br>
+58214972136 → vendas 30d = 0 · impressões = <span class="r">0</span> · conversão = 0
+</div>
+<p>Três produtos, três diagnósticos diferentes na mesma linha: um convertendo, um com tráfego e sem venda, e um sem exibição nenhuma. <b>Esta única rota classifica o catálogo inteiro</b> e vem em lote, sem precisar abrir produto por produto.</p>
+
+<h2><span class="n">09</span> O QUE EU FARIA COM ISSO — EM ORDEM</h2>
+
+<table>
+<tr><th>#</th><th>O QUE</th><th>POR QUE PRIMEIRO</th></tr>
+<tr><td><b>1</b></td><td>Corrigir <code>cpc</code> e <code>cpm</code> em todo lugar</td><td>Estamos a um passo de mostrar número errado. É correção, não melhoria.</td></tr>
+<tr><td><b>2</b></td><td>Ligar as travas do <code>config/get</code></td><td>Faz o consultor sugerir só o que é executável. Muda a confiança na ferramenta.</td></tr>
+<tr><td><b>3</b></td><td>Abrir a faixa completa de ROAS</td><td>Os três números já estão capturados. É desenhar a barra do card aprovado.</td></tr>
+<tr><td><b>4</b></td><td>Alerta de crédito e rebate</td><td>R$ 484 parados e rebate ativo. Decisão de caixa, não de anúncio.</td></tr>
+<tr><td><b>5</b></td><td>Volume de busca no Espião</td><td>Transforma o Espião de comparador em ferramenta de palavra-chave.</td></tr>
+<tr><td><b>6</b></td><td>Decodificar <code>d1</code>, <code>d2</code>, <code>d3</code></td><td>Experimento barato, retorno desconhecido e possivelmente alto.</td></tr>
+</table>
+
+<footer>
+SELLER.IA · EFEITO VENDAS<br>
+Análise de 16 coletas reais · colorindo_shop · 24 a 26/07/2026<br>
+2.327 respostas brutas · 287 rotas únicas · valores em micro (÷100.000 = reais)
+</footer>
+
+</div>
+</body>
+</html>
