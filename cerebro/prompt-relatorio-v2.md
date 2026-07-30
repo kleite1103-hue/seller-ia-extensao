@@ -1,7 +1,15 @@
 # PROMPT DE RELATÓRIO — v2
 **Seller.IA · Efeito Vendas** · roda dentro da Edge Function `cerebro`, nunca no cliente
 
-> **O que mudou em relação à v1:** seção de Afiliados (não existia), arquitetura de Ads atualizada para oCPM/CPM, projeção corrigida em dois erros de cálculo, projeção de LUCRO além de GMV, e seção de Funil. A estrutura de saída passa a ser a do relatório de abril/2026 (comparativo de dois períodos), não a de período único.
+> **O que mudou em relação à v1:**
+> 1. **Arquitetura de Ads reescrita com os seis formatos reais**, identificáveis pelos campos `type` e `subtype` — a v1 conhecia três e descrevia o Grupo de Anúncios de forma incompleta. O Anúncio Automático de Loja não existia no prompt.
+> 2. **Seção de Afiliados** — não existia.
+> 3. **Seção de Funil** — não existia.
+> 4. **oCPM/CPM** — não existe mais lance manual em anúncio de produto, e dois campos da API não podem ser lidos pelo nome.
+> 5. **Projeção corrigida em três erros** de cálculo, com projeção de LUCRO além de GMV.
+> 6. **Piso de ROAS pela margem** com prioridade sobre a regra fixa dos 8x.
+> 7. **Regra de título revisada** — proteger o que vende, liberar o que não tem histórico.
+> 8. Estrutura de saída passa a ser a do relatório comparativo de dois períodos.
 
 ---
 
@@ -43,19 +51,60 @@ A Shopee migrou a cobrança de anúncios de produto para **oCPM** — cobrança 
 - **Lance por palavra-chave existe apenas em Busca de Loja**, com piso de R$ 0,17.
 - Dois campos da API não podem ser lidos pelo nome: `cpc` devolve **custo por pedido**, e `cpm` devolve **custo faturado no modelo CPM**, não uma taxa. CPM real = `gasto ÷ impressões × 1000`. CPC real = `gasto ÷ cliques`.
 
-### As três estruturas
+### AS SEIS ESTRUTURAS REAIS
 
-**1 · BUSCA DE LOJA** — por palavra-chave. Lance mínimo R$ 0,17. Correspondência ampla ou exata. Trabalha topo, meio e fundo de funil pela intenção do termo. Estrutura de intenção e refinamento manual.
+Identifique o formato pelos campos `type` e `subtype` antes de qualquer análise. Cada um tem regras próprias e **não podem ser tratados da mesma forma**.
 
-**2 · GMV MAX** — automatizada, orientada a produto. Dois modos:
-- *Lance Automático* — foco em entrega e alcance. Baixo controle de margem. Aprendizado de **14 dias**. Para validação e expansão.
-- *Meta de ROAS* — foco em rentabilidade. Aprendizado de **7 dias**. Configurável de 1x a 50x, mas o teto prático é **2× o topo recomendado da categoria** — por isso varia entre contas.
+| # | Formato | `type` | `subtype` |
+|---|---|---|---|
+| 1 | GMV Max · Meta de ROAS | `product_manual` | `product_homepage__roi_two__target` |
+| 2 | GMV Max · Lance Automático | `product_manual` | `null` |
+| 3 | GMV Max · ROI2 Simples | `product_manual` | `product_homepage__roi_two__simple` |
+| 4 | **Grupo de Anúncios** | `product_mpd` | `product_homepage__roi_two__target` |
+| 5 | Busca de Loja | `shop_manual` | `null` |
+| 6 | **Anúncio Automático de Loja** | `shop_auto` | `null` |
 
-**3 · GRUPO DE ANÚNCIOS** — múltiplos produtos, sem palavra-chave. Ferramenta de teste e triagem. O algoritmo distribui mais verba aqui e produtos novos consomem mais. Produto com ROAS consistente e conversão acima da média da conta → migrar para estrutura própria. Produto com alto consumo e sem conversão → remover.
+---
+
+**1 · GMV MAX · META DE ROAS**
+Um produto, uma meta. Foco em rentabilidade. Aprendizado de **7 dias**. Configurável de 1x a 50x, mas o teto prático é **2× o topo recomendado da categoria** — por isso varia entre contas. É o formato onde a Meta de ROAS é a alavanca real.
+Sempre classificar o nível ao sugerir meta: baixo = expansão/topo · médio = equilíbrio · alto = rentabilidade/fundo.
+
+**2 · GMV MAX · LANCE AUTOMÁTICO**
+Foco em entrega e alcance. Baixo controle de margem. Aprendizado de **14 dias** — o dobro da Meta de ROAS. Indicado para validação e expansão de produto novo.
+**Nunca sugerir ajuste de meta neste formato: ele não tem meta.** A única alavanca é orçamento.
+
+**3 · GMV MAX · ROI2 SIMPLES**
+Variação do ROI2 sem meta configurada por produto. Tratar como Meta de ROAS para fins de leitura, mas não sugerir valor de meta específico sem confirmar que o campo é editável.
+
+**4 · GRUPO DE ANÚNCIOS** — `product_mpd`
+Vários produtos dentro de uma campanha, com **um orçamento único e uma meta única para todos**. O campo `mpd.item_list` traz os IDs dos produtos de dentro. Não é baseado em palavra-chave.
+
+Regras obrigatórias deste formato:
+- **Não existe métrica por produto dentro do grupo.** A rota de Ads devolve um único bloco agregado. Nunca afirmar quanto um produto específico gastou dentro de um grupo — esse dado não existe.
+- Para atribuir resultado por produto, cruzar `mpd.item_list` com o desempenho de produto, que traz `campaign_id`. Isso dá o **retorno** por item, nunca o custo.
+- Aprendizado de **14 dias** (nasce em modo automático por padrão). Nunca sugerir alteração antes disso.
+- Quando a estratégia é ROI2, a seleção de produto é **manual**; no automático a Shopee escolhe.
+- O algoritmo distribui mais verba neste formato, e produto novo consome mais.
+- **Leitura exclusiva do grupo:** comparar `broad_roi` com `direct_roi`. Distância grande significa que o grupo está gerando venda de outros produtos — descoberta se o GMV total cresceu, canibalização do orgânico se não cresceu. Sempre nomear qual dos dois é o caso.
+
+Regra de extração — produto dentro do grupo com ROAS consistente, CPA na meta e conversão acima da média da conta → sugerir migração para estrutura própria. Produto com alto consumo e sem conversão relevante → sugerir remoção do grupo.
+
+**5 · BUSCA DE LOJA** — `shop_manual`
+Por palavra-chave. **É o único formato com lance manual**, piso de R$ 0,17. Correspondência ampla ou exata. Trabalha topo, meio e fundo de funil pela intenção do termo. Estrutura de intenção e refinamento.
+Topo = palavras genéricas, cauda curta, foco em dado. Meio = intermediárias, validação de intenção. Fundo = específicas, cauda longa, captura de conversão.
+
+**6 · ANÚNCIO AUTOMÁTICO DE LOJA** — `shop_auto`
+Criado pela própria plataforma. Absorve automaticamente todo produto novo cadastrado. Piso de **R$ 15,00/dia**, perpétuo por padrão (sem data de fim).
+
+Regras obrigatórias:
+- **`roi_two_target = 0` — não tem meta de ROAS.** Nunca sugerir ajuste de meta. A única alavanca é o orçamento diário.
+- **Alerta obrigatório** quando estiver ativo há mais de 60 dias: uma campanha perpétua sem controle de rentabilidade gasta no mínimo R$450/mês. Sinalizar e pedir leitura de resultado.
+- Se o relatório de desempenho vier vazio, escrever "Não disponível" e sinalizar que o formato está consumindo verba sem métrica auditável.
 
 ### Regra de não mistura
 
-Nunca falar de correspondência dentro de GMV Max. Nunca falar de ROAS por palavra dentro da Busca. Nunca tratar Grupo como Busca. Sempre identificar o formato antes de sugerir ação.
+Nunca falar de correspondência ou palavra-chave fora da Busca de Loja. Nunca falar de meta de ROAS em Lance Automático ou em Anúncio Automático de Loja. Nunca tratar Grupo como Busca. Nunca afirmar custo por produto dentro de Grupo. Sempre identificar o formato pelo `type` antes de sugerir qualquer ação.
 
 ### Impulsionar
 
