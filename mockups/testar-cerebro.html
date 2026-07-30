@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Testar o Cérebro</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--b0:#07080a;--b1:#0c0e12;--b2:#12151b;--li:#1d212a;--t0:#f2f2f4;--t1:#b8bcc6;--t2:#8a909c;--mk:#ff4d1c;--vd:#2ecc71;--rd:#e74c3c;--am:#f5b041;--px:#c08bff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--b0);color:var(--t0);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:720px;margin:0 auto;padding:30px 16px 70px}
+h1{font-family:'Bebas Neue';font-size:clamp(28px,7vw,42px);letter-spacing:.02em;line-height:1}
+h1 em{font-style:normal;color:var(--mk)}
+.sub{color:var(--t1);font-size:14px;margin-top:7px}
+.campo{margin:22px 0 12px}
+.campo label{display:block;font-family:'Space Mono';font-size:10.5px;color:var(--t2);letter-spacing:.06em;margin-bottom:6px}
+.campo input{width:100%;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px 13px;color:var(--t0);font-family:'Space Mono';font-size:12.5px}
+.campo input:focus{outline:none;border-color:var(--mk)}
+.ajuda{font-size:12.5px;color:var(--t2);margin-top:6px;line-height:1.5}
+.ajuda b{color:var(--t1)}
+button.ir{width:100%;background:var(--mk);border:none;color:#fff;font-family:'Outfit';font-weight:700;font-size:15px;padding:14px;border-radius:11px;cursor:pointer;margin-top:8px}
+button.ir:disabled{opacity:.5;cursor:default}
+.res{margin-top:24px}
+.chk{display:flex;gap:11px;align-items:flex-start;background:var(--b2);border:1px solid var(--li);border-left:3px solid var(--li);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:9px}
+.chk.ok{border-left-color:var(--vd)}
+.chk.fail{border-left-color:var(--rd)}
+.chk .ic{font-family:'Space Mono';font-size:15px;flex:none;line-height:1.3}
+.chk.ok .ic{color:var(--vd)}
+.chk.fail .ic{color:var(--rd)}
+.chk .t{font-size:14px;color:var(--t0);font-weight:500}
+.chk .d{font-size:13px;color:var(--t2);margin-top:3px;line-height:1.5}
+.chk .d b{color:var(--t1)}
+h2{font-family:'Bebas Neue';font-size:22px;letter-spacing:.03em;margin:26px 0 9px}
+pre{background:var(--b2);border:1px solid var(--li);border-radius:11px;padding:14px;overflow-x:auto;font-family:'Space Mono';font-size:11.5px;color:var(--t1);line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.ver{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.tag{font-family:'Space Mono';font-size:10.5px;padding:4px 10px;border-radius:99px;border:1px solid var(--li);color:var(--t2)}
+.tag.b{color:var(--px);border-color:var(--px)}
+.vd{background:var(--b2);border:1px solid var(--li);border-left:3px solid var(--li);border-radius:0 11px 11px 0;padding:12px 14px;margin-bottom:8px}
+.vd.vermelho{border-left-color:var(--rd)}.vd.amarelo{border-left-color:var(--am)}
+.vd.verde{border-left-color:var(--vd)}.vd.cinza{border-left-color:var(--t2)}
+.vd .tt{font-size:14.5px;font-weight:600;color:var(--t0)}
+.vd .tx{font-size:13.5px;color:var(--t1);margin-top:4px;line-height:1.5}
+.vd .ps{font-size:13px;color:var(--t2);margin-top:6px;line-height:1.6}
+.vd .meta{font-family:'Space Mono';font-size:9.5px;color:var(--t2);margin-top:6px}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--li);font-family:'Space Mono';font-size:10.5px;color:var(--t2);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>TESTAR O <em>CÉREBRO</em></h1>
+<p class="sub">Não precisa de terminal. Cole a chave, clique e leia o resultado.</p>
+
+<div class="campo">
+  <label>URL DA FUNÇÃO</label>
+  <input id="url" value="https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/cerebro-v2">
+</div>
+
+<div class="campo">
+  <label>CHAVE ANON DO PROJETO</label>
+  <input id="chave" type="password" placeholder="cole aqui a anon key" autocomplete="off">
+  <div class="ajuda">No Supabase: <b>Project Settings → API → Project API keys → anon public</b>. É a chave pública, a mesma que já vive na extensão. <b>Não use a service_role aqui.</b></div>
+</div>
+
+<button class="ir" id="ir">Rodar o teste</button>
+
+<div class="res" id="res"></div>
+
+<footer>
+SELLER.IA · EFEITO VENDAS<br>
+A chave não é salva nem enviada para lugar nenhum além do seu próprio Supabase.
+</footer>
+
+</div>
+
+<script>
+var CENARIO = {
+  loja: "413140457",
+  snapshot: {
+    margemMediaPct: 30,
+    produtos: {
+      "111": { nome: "Produto quase sem visita", metricas: { visitantes: 40 } },
+      "222": { nome: "Produto que recebe clique e nao vende", metricas: { visitantes: 2000, ctr_card: 0.035, conversao_pago: 0.006, vendas_pagas: 8240 } }
+    },
+    campanhas: {
+      "999": {
+        type: "product_manual",
+        subtype: "product_homepage__roi_two__target",
+        report: { gasto: 110.75, impression: 66150, click: 2740, broad_order: 21, broad_roi: 9.14 },
+        metaShopee: { atual: 10.6, sugerida: 3.0, ganhoGmvPct: 30 }
+      },
+      "888": {
+        type: "shop_auto",
+        campaign: { start_time: Math.round(Date.now() / 1000) - 180 * 86400 },
+        report: { gasto: 480, impression: 12000, click: 300, broad_order: 4, broad_roi: 1.2 }
+      }
+    }
+  }
+};
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+function checagem(ok, titulo, detalhe) {
+  return '<div class="chk ' + (ok ? 'ok' : 'fail') + '"><span class="ic">' + (ok ? '\u2713' : '\u2715') +
+    '</span><div><div class="t">' + esc(titulo) + '</div><div class="d">' + detalhe + '</div></div></div>';
+}
+
+document.getElementById('ir').addEventListener('click', async function () {
+  var btn = this, res = document.getElementById('res');
+  var url = document.getElementById('url').value.trim();
+  var chave = document.getElementById('chave').value.trim();
+  if (!chave) { res.innerHTML = checagem(false, 'Falta a chave', 'Cole a anon key do projeto para continuar.'); return; }
+
+  btn.disabled = true; btn.textContent = 'Rodando...';
+  res.innerHTML = '<p class="ajuda">Falando com o cérebro...</p>';
+
+  try {
+    var r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chave, 'apikey': chave },
+      body: JSON.stringify(CENARIO)
+    });
+    var txt = await r.text();
+    var d = null;
+    try { d = JSON.parse(txt); } catch (e) { /* noop */ }
+
+    if (!r.ok || !d) {
+      res.innerHTML = checagem(false, 'A função respondeu HTTP ' + r.status,
+        'Se for <b>401</b>, a chave está errada. Se for <b>404</b>, o nome da função não confere. Se for <b>500</b>, provavelmente falta a secret <b>SUPABASE_SERVICE_ROLE_KEY</b>.') +
+        '<h2>RESPOSTA CRUA</h2><pre>' + esc(txt.slice(0, 1500)) + '</pre>';
+      return;
+    }
+
+    var v = d.vereditos || [];
+    function achar(escopo, id) { return v.filter(function (x) { return x.escopo === escopo && String(x.id) === String(id); }); }
+    function temTexto(lista, trecho) {
+      return lista.some(function (x) { return (x.titulo + ' ' + x.texto).toLowerCase().indexOf(trecho.toLowerCase()) >= 0; });
+    }
+
+    var h = '';
+    h += '<div class="ver"><span class="tag b">regras ' + esc(d.rules_version || '?') + '</span>' +
+      '<span class="tag">código ' + esc(d.code_version || '?') + '</span>' +
+      '<span class="tag">' + v.length + ' vereditos</span></div>';
+
+    h += '<h2>O QUE PRECISA ESTAR CERTO</h2>';
+
+    h += checagem(d.rules_version === 'ocpm-2.0',
+      'O cérebro leu a tabela de conhecimento',
+      d.rules_version === 'ocpm-2.0'
+        ? 'Versão das regras: <b>ocpm-2.0</b>. A tabela <b>conhecimento</b> está sendo lida.'
+        : 'Veio <b>' + esc(d.rules_version || 'nada') + '</b>. Se a tabela não foi lida, rode o <b>conhecimento-2-regras.sql</b>.');
+
+    var p111 = achar('produto', '111');
+    h += checagem(temTexto(p111, 'insuficientes'),
+      'Produto com pouca visita não é julgado',
+      p111.length ? 'Respondeu: <b>' + esc(p111[0].titulo) + '</b>' : 'Nenhum veredito para este produto.');
+
+    var p222 = achar('produto', '222');
+    h += checagem(temTexto(p222, 'nao vende') || temTexto(p222, 'não vende'),
+      'Produto que recebe clique e não converte foi pego',
+      p222.length ? 'Respondeu: <b>' + esc(p222[0].titulo) + '</b>' : 'Nenhum veredito para este produto.');
+
+    var c999 = achar('campanha', '999');
+    var recusou = temTexto(c999, 'nao siga') || temTexto(c999, 'não siga');
+    h += checagem(recusou,
+      'O TESTE QUE MAIS IMPORTA — o cérebro protege a margem',
+      recusou
+        ? 'Com margem de 30% o piso é <b>3,33x</b>, e a Shopee sugere <b>3,0x</b> — abaixo do piso. O cérebro <b>recusou</b> a sugestão, como devia.'
+        : 'O cérebro <b>não recusou</b> uma sugestão que dá prejuízo. Isso precisa ser corrigido antes de ligar na extensão.');
+
+    var c888 = achar('campanha', '888');
+    h += checagem(c888.length > 0,
+      'Anúncio automático de loja rodando há meses foi sinalizado',
+      c888.length ? 'Respondeu: <b>' + esc(c888[0].titulo) + '</b>' : 'Não sinalizou. Confira se o formato <b>shop_auto</b> está na tabela.');
+
+    h += '<h2>TODOS OS VEREDITOS</h2>';
+    if (!v.length) h += '<pre>nenhum veredito</pre>';
+    v.forEach(function (x) {
+      h += '<div class="vd ' + esc(x.nivel) + '"><div class="tt">' + esc(x.titulo) + '</div>' +
+        '<div class="tx">' + esc(x.texto) + '</div>' +
+        (x.passos && x.passos.length ? '<div class="ps">' + x.passos.map(function (s) { return '\u2192 ' + esc(s); }).join('<br>') + '</div>' : '') +
+        '<div class="meta">' + esc(x.escopo) + (x.id ? ' ' + esc(x.id) : '') + ' \u00b7 ' + esc(x.nivel) + ' \u00b7 fonte ' + esc(x.fonte || '?') + '</div></div>';
+    });
+
+    res.innerHTML = h;
+  } catch (e) {
+    res.innerHTML = checagem(false, 'Não consegui alcançar a função',
+      'Erro: <b>' + esc(e.message || e) + '</b>. Se falar em CORS, a função não subiu ou o nome está diferente.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Rodar o teste';
+  }
+});
+</script>
+</body>
+</html>
