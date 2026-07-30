@@ -4,7 +4,10 @@
  * A chave abaixo e a ANON key (publica por desenho); as regras e os
  * segredos reais vivem no servidor. Licenciamento entra na Etapa 4.
  */
-var SIA_CEREBRO_URL = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/cerebro';
+// v2: le as regras da tabela `conhecimento`, conhece os 6 formatos de Ads e
+// recusa a sugestao da Shopee quando ela cai abaixo do piso da margem.
+// A funcao antiga segue no ar; voltar e trocar esta linha.
+var SIA_CEREBRO_URL = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/cerebro-v2';
 var SIA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZnJlZXpsaXpkYmZwampweG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MTczMTcsImV4cCI6MjEwMDQ5MzMxN30.ZavM7iPnecJdIfEyUMfStcShUEMjlUZf5GKfDaQ7zxQ';
 
 function ler(chaves) { return new Promise(function (r) { chrome.storage.local.get(chaves, r); }); }
