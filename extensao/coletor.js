@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.36.0';
+  var VERSAO = '0.37.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1535,7 +1535,7 @@
     '.painel{position:fixed;top:0;right:0;height:100vh;width:min(520px,100vw);background:var(--b1);border-left:1px solid var(--li);box-shadow:-18px 0 50px var(--sh);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
     '.painel.aberto{transform:translateX(0)}' +
     '@media(prefers-reduced-motion:reduce){.painel{transition:none}}' +
-    '.cab{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--li);background:var(--b0);flex-wrap:wrap}' +
+    '.cab{display:flex;align-items:center;gap:11px;padding:16px 20px 14px;border-bottom:1px solid var(--li);background:var(--b0);flex-wrap:wrap}' +
     '.cab svg{width:28px;height:28px;flex:none}' +
     '.cab .titulo{font-family:"Bebas Neue";font-weight:400;font-size:24px;letter-spacing:.05em;line-height:1}' +
     '.cab .titulo em{font-style:normal;color:var(--mk)}' +
@@ -1543,13 +1543,19 @@
     '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
     '.cab button{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:"Space Mono";font-size:11px;padding:7px 11px;border-radius:7px;cursor:pointer}' +
     '.cab button:hover{border-color:var(--mk);color:var(--t0)}' +
-    '.abas{display:flex;flex-wrap:wrap;gap:2px;background:var(--b0);padding:0 10px;border-bottom:1px solid var(--li)}' +
+    '.abas{display:flex;flex-wrap:wrap;gap:1px;background:var(--b0);padding:0 14px;border-bottom:1px solid var(--li)}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
     '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:"Space Mono";font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
     '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
     '.aba{background:none;border:none;color:var(--t2);font-family:"Space Mono";font-size:12px;letter-spacing:.03em;padding:11px 11px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
-    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 15px}' +
+    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:22px 20px 30px}' +
+    /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
+    '.olho{display:flex;align-items:center;gap:9px;font-family:"Space Mono";font-size:10.5px;color:var(--t2);letter-spacing:.12em;margin:26px 0 12px}' +
+    '.olho:first-child{margin-top:0}' +
+    '.olho::before{content:"";width:16px;height:1px;background:var(--mk);flex:none}' +
+    '.tit{font-family:"Bebas Neue";font-size:27px;letter-spacing:.02em;line-height:1.05;color:var(--t0);margin-bottom:6px}' +
+    '.lead{font-size:14px;color:var(--t1);line-height:1.55;margin-bottom:4px}' +
     '.corpo table{display:block;overflow-x:auto;white-space:nowrap}' +
     'table{width:100%;border-collapse:collapse;font-size:13.5px}' +
     'th{text-align:left;color:var(--t2);font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid var(--mk);position:sticky;top:-14px;background:var(--b1)}' +
@@ -1557,10 +1563,10 @@
     'td.nome{white-space:normal;min-width:160px;color:var(--t0)}' +
     'tr:hover td{background:var(--b2)}' +
     '.num{text-align:right;font-variant-numeric:tabular-nums}' +
-    '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:16px}' +
-    '.kpi{background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:12px}' +
+    '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:9px;margin-bottom:20px}' +
+    '.kpi{background:var(--b2);border:1px solid var(--li);border-radius:13px;padding:15px 13px}' +
     '.kpi .v{font-family:"Bebas Neue";font-size:32px;line-height:1;color:var(--mk)}' +
-    '.kpi .l{font-family:"Space Mono";font-size:9.5px;color:var(--t2);margin-top:5px;text-transform:uppercase;letter-spacing:.06em}' +
+    '.kpi .l{font-family:"Space Mono";font-size:9.5px;color:var(--t2);margin-top:6px;text-transform:uppercase;letter-spacing:.07em;line-height:1.35}' +
     '.vazio{color:var(--t2);font-size:14.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
     '.selo{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--li);border-radius:99px;padding:2px 8px;color:var(--t2);margin-left:8px}' +
     '.selo.ok{border-color:var(--vd);color:var(--vd)}' +
@@ -1848,11 +1854,13 @@
   // ==========================================================
   // SEMAFORO (Camada 2, metade LOCAL) — a triagem na tela
   // ==========================================================
+  // Tinta transparente sobre a superficie do tema, nunca cor solida:
+  // #2a0f0f era vermelho-escuro fixo — ilegivel no escuro e desastroso no claro.
   var CORES_SEM = {
-    vermelho: { bg: '#2a0f0f', bd: '#5a1f1f', dot: 'var(--rd)', nome: 'Sangrando' },
-    amarelo: { bg: '#2a230f', bd: '#5a4a1f', dot: 'var(--am)', nome: 'Sufocada' },
-    verde: { bg: '#0f2a17', bd: '#1f5a30', dot: 'var(--vd)', nome: 'Escalando' },
-    cinza: { bg: '#15171d', bd: 'var(--li2)', dot: 'var(--t3)', nome: 'Aprendendo' }
+    vermelho: { bg: 'color-mix(in srgb, var(--rd) 9%, var(--b2))', bd: 'color-mix(in srgb, var(--rd) 32%, var(--li))', dot: 'var(--rd)', nome: 'Sangrando' },
+    amarelo: { bg: 'color-mix(in srgb, var(--am) 9%, var(--b2))', bd: 'color-mix(in srgb, var(--am) 32%, var(--li))', dot: 'var(--am)', nome: 'Sufocada' },
+    verde: { bg: 'color-mix(in srgb, var(--vd) 9%, var(--b2))', bd: 'color-mix(in srgb, var(--vd) 32%, var(--li))', dot: 'var(--vd)', nome: 'Escalando' },
+    cinza: { bg: 'var(--b2)', bd: 'var(--li)', dot: 'var(--t3)', nome: 'Aprendendo' }
   };
 
   function renderSemaforo() {
@@ -1895,13 +1903,13 @@
       h += '<div style="font-size:11px;color:var(--mk);font-family:monospace;letter-spacing:.06em;margin-bottom:9px">FILA DE ACAO (' + R.fila.length + ') — clique para abrir o card</div>';
       R.fila.forEach(function (c) {
         var co = CORES_SEM[c.nivel];
-        h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:9px;padding:10px 12px;margin-bottom:8px">';
-        h += '<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">' +
-          '<span style="width:8px;height:8px;border-radius:50%;background:' + co.dot + ';display:inline-block;flex:0 0 auto"></span>' +
-          '<span style="font-size:12.5px;font-weight:700;color:var(--t0)">' + esc(c.titulo) + '</span>' +
-          '<span style="margin-left:auto;font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
-        if (c.campanha) h += '<div style="font-size:11px;color:var(--t2);margin-bottom:3px">' + esc(c.campanha) + (c.roas ? ' · ROAS ' + c.roas.toFixed(1) + 'x' : '') + (c.posicao ? ' · pos ' + c.posicao : '') + '</div>';
-        h += '<div style="font-size:11.5px;color:var(--t1);line-height:1.5">' + esc(c.texto) + '</div>';
+        h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:12px;padding:15px 16px;margin-bottom:10px;transition:border-color .15s">';
+        h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
+          '<span style="flex:1;font-size:15px;font-weight:600;color:var(--t0);line-height:1.3;letter-spacing:-.01em">' + esc(c.titulo) + '</span>' +
+          '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
+        if (c.campanha) h += '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + esc(c.campanha) +
+          '<span style="font-family:Space Mono,monospace;color:var(--t3)">' + (c.roas ? '  ROAS ' + c.roas.toFixed(1) + 'x' : '') + (c.posicao ? '  pos ' + c.posicao : '') + '</span></div>';
+        h += '<div style="font-size:13.5px;color:var(--t1);line-height:1.55">' + esc(c.texto) + '</div>';
         h += '</div>';
       });
       h += '<div class="nota" style="margin-top:10px">As <b>' + R.contagem.cinza + '</b> campanhas em aprendizado ficam fora da fila de proposito: mexer nelas antes de 7 dias atrapalha o algoritmo.</div>';
@@ -2128,7 +2136,7 @@
     var pior = null;
     for (i = 0; i < quedas.length; i++) if (quedas[i].pct != null && (!pior || quedas[i].pct > pior.pct)) pior = quedas[i];
 
-    var h = '<div style="font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.06em;margin-bottom:9px">O CAMINHO ATE A VENDA' + dica('<b>O funil da loja inteira.</b> Cada degrau mostra quantas pessoas passaram para a etapa seguinte. A queda entre dois degraus e onde voce perde gente. O degrau com a maior queda e onde vale colocar esforco primeiro — melhorar um degrau que ja esta bom rende pouco.') + '</div>';
+    var h = olho('O CAMINHO ATE A VENDA', '<b>O funil da loja inteira.</b> Cada degrau mostra quantas pessoas passaram para a etapa seguinte. A queda entre dois degraus e onde voce perde gente. O degrau com a maior queda e onde vale colocar esforco primeiro — melhorar um degrau que ja esta bom rende pouco.');
     h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:14px 10px;display:flex;align-items:flex-end;gap:3px;margin-bottom:11px">';
     for (i = 0; i < etapas.length; i++) {
       if (i > 0) {
@@ -2758,7 +2766,7 @@
     var margemPct = (liquido != null && preco) ? (liquido / preco) * 100 : null;
 
     h += '<div style="border:1px solid var(--li);border-radius:12px;padding:12px;margin-bottom:11px">' +
-      '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;margin-bottom:8px">A CONTA DE UM PEDIDO' + dica('<b>A conta de um pedido:</b> o que entra e o que sai em UMA venda deste produto. Ticket medio menos comissao da Shopee, menos o que o anuncio custou por pedido, menos custo, embalagem e imposto quando cadastrados no Cofre. O que sobra e o seu lucro por unidade vendida.') + '</div>';
+      olho('A CONTA DE UM PEDIDO', 'A conta de um pedido: o que entra e o que sai em UMA venda deste produto. Ticket medio menos comissao da Shopee, menos o que o anuncio custou por pedido, menos custo, embalagem e imposto quando cadastrados no Cofre. O que sobra e o seu lucro por unidade vendida.');
     function linhaR(l, v, forte) {
       return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;color:' + (forte ? 'var(--t0)' : 'var(--t1)') + '"><span>' + l + '</span><span style="font-family:monospace">' + v + '</span></div>';
     }
@@ -2889,7 +2897,7 @@
     var diagRot = dg ? dg[0] : (probl ? esc(String(probl).slice(0, 16)) : '—');
     var diagSub = dg ? dg[1] : (probl ? 'apontado pela propria Shopee' : 'sem apontamento');
     var diagCor = !probl ? 'var(--t2)' : (String(probl).toLowerCase() === 'na' || String(probl).toLowerCase() === 'good' ? 'var(--vd)' : (String(probl).toLowerCase() === 'room_more_traffic' ? 'var(--vd)' : 'var(--am)'));
-    h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;margin-bottom:7px">O QUE A SHOPEE SABE E NAO MOSTRA' + dica('<b>Estes quatro numeros existem na API da Shopee e nao aparecem no painel dela.</b> Posicao no leilao e onde seu anuncio cai na disputa. Competitividade e como o seu preco esta contra a categoria, na regua dela. Status diz se o produto tem alcance limitado. Diagnostico e o problema que ela mesma aponta.') + '</div>' +
+    h += olho('O QUE A SHOPEE SABE E NAO MOSTRA', '<b>Estes quatro numeros existem na API da Shopee e nao aparecem no painel dela.</b> Posicao no leilao e onde seu anuncio cai na disputa. Competitividade e como o seu preco esta contra a categoria, na regua dela. Status diz se o produto tem alcance limitado. Diagnostico e o problema que ela mesma aponta.') +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:11px">' +
       chip('POSICAO NO LEILAO', posLeilao != null ? fmt(posLeilao, 0) : '—', posLeilao == null ? 'sem dado' : (posLeilao <= 10 ? 'topo da vitrine' : (posLeilao <= 30 ? 'meio da vitrine' : 'fundo da vitrine')), posLeilao != null && posLeilao <= 10 ? 'var(--vd)' : (posLeilao > 30 ? 'var(--rd)' : 'var(--am)')) +
       chip('COMPETITIVIDADE PRECO', comp != null ? fmt(comp, 0) + '<span style="font-size:11px;color:var(--t2)">/100</span>' : '—', comp == null ? 'abra a campanha uma vez' : (comp >= 70 ? 'acima da categoria' : (comp >= 40 ? 'na media' : 'caro pra categoria')), comp != null && comp >= 70 ? 'var(--vd)' : (comp != null && comp < 40 ? 'var(--rd)' : 'var(--am)')) +
@@ -2953,6 +2961,9 @@
   /* ============ EXPLICACOES SOB DEMANDA ============
      Todo rotulo que nao se explica sozinho ganha um "?". A explicacao abre
      numa faixa no pe da gaveta, uma por vez — nao empilha texto na tela. */
+  function olho(rot, txtDica) {
+    return '<div class="olho">' + rot + (txtDica ? dica(txtDica) : '') + '</div>';
+  }
   function dica(txt) {
     return '<button class="dica" data-dica="' + esc(txt) + '" aria-label="explicar">?</button>';
   }
