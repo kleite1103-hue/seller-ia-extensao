@@ -38,7 +38,7 @@ async function carregarConhecimento(supa: any) {
   if (CACHE && Date.now() - CACHE.em < CACHE_MS) return CACHE.dados;
   const { data, error } = await supa
     .from("conhecimento")
-    .select("dominio,chave,condicao,veredito,observacao,prioridade")
+    .select("dominio,chave,versao,condicao,veredito,observacao,prioridade")
     .eq("ativo", true)
     .order("prioridade", { ascending: true });
   if (error) throw new Error("conhecimento: " + error.message);
@@ -49,7 +49,13 @@ async function carregarConhecimento(supa: any) {
     (porDominio[r.dominio] = porDominio[r.dominio] || []).push(r);
     porChave[r.dominio + "." + r.chave] = r;
   }
-  const dados = { porDominio, porChave, versao: "ocpm-2.0" };
+  // A versao vem da TABELA, nao do codigo. Antes era constante aqui, o que
+  // fazia a resposta parecer saudavel mesmo com a tabela vazia.
+  const total = (data || []).length;
+  const versao = (data || [])[0]?.versao || "sem-conhecimento";
+  const contagem: Record<string, number> = {};
+  for (const d of Object.keys(porDominio)) contagem[d] = porDominio[d].length;
+  const dados = { porDominio, porChave, versao, total, contagem };
   CACHE = { em: Date.now(), dados };
   return dados;
 }
@@ -428,6 +434,8 @@ Deno.serve(async (req) => {
     loja,
     rules_version: K.versao,
     code_version: CODE_VERSION,
+    regras_carregadas: K.total,          // prova que a tabela foi lida
+    regras_por_dominio: K.contagem,      // e quais dominios chegaram
     total: vereditos.length,
     vereditos,
   });

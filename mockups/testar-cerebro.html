@@ -145,11 +145,19 @@ document.getElementById('ir').addEventListener('click', async function () {
 
     h += '<h2>O QUE PRECISA ESTAR CERTO</h2>';
 
-    h += checagem(d.rules_version === 'ocpm-2.0',
-      'O cérebro leu a tabela de conhecimento',
-      d.rules_version === 'ocpm-2.0'
-        ? 'Versão das regras: <b>ocpm-2.0</b>. A tabela <b>conhecimento</b> está sendo lida.'
-        : 'Veio <b>' + esc(d.rules_version || 'nada') + '</b>. Se a tabela não foi lida, rode o <b>conhecimento-2-regras.sql</b>.');
+    var nregras = d.regras_carregadas;
+    var porDom = d.regras_por_dominio || {};
+    var domTxt = Object.keys(porDom).map(function (k) { return k + ' ' + porDom[k]; }).join(' \u00b7 ');
+    if (nregras === undefined) {
+      h += checagem(false, 'Função antiga ainda no ar',
+        'Esta versão não informa quantas regras carregou. Republique o <b>cerebro-v2.ts</b> atualizado para o teste ser confiável.');
+    } else {
+      h += checagem(nregras >= 37,
+        'O cérebro leu a tabela de conhecimento',
+        nregras >= 37
+          ? 'Carregou <b>' + nregras + ' regras</b>. ' + esc(domTxt)
+          : 'Carregou apenas <b>' + nregras + ' regras</b> — o esperado é 37. Falta rodar o <b>conhecimento-2-regras.sql</b> inteiro. ' + (domTxt ? 'Chegaram: ' + esc(domTxt) : 'A tabela está vazia.'));
+    }
 
     var p111 = achar('produto', '111');
     h += checagem(temTexto(p111, 'insuficientes'),
