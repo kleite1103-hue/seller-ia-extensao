@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.32.0';
+  var VERSAO = '0.33.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -53,6 +53,7 @@
     trocou: null,            // ultima troca de conta detectada
     lidoEm: null,            // quando esta conta foi lida
     autoColeta: false,       // coletar sozinho ao trocar de conta
+    temaClaro: false,        // tema claro (nude) ou escuro
     spc: null,               // chave de sessao SPC_CDS (colhida das chamadas)
     coletaProgresso: null,   // texto de progresso da coleta completa
     periodoAds: null,        // janela selecionada na tela do Ads (start/end)
@@ -799,15 +800,15 @@
 
   function montarCardLente(item) {
     var le = item.leitura ? item.leitura() : null;
-    var h = '<div style="font-weight:700;font-size:12px;color:#fff;margin-bottom:6px">O que e</div>' +
+    var h = '<div style="font-weight:700;font-size:12px;color:var(--t0);margin-bottom:6px">O que e</div>' +
       '<div style="font-size:12px;color:#c9cdd6;line-height:1.5">' + item.oque + '</div>';
     if (le) {
-      h += '<div style="font-weight:700;font-size:12px;color:#fff;margin:10px 0 4px">Como esta o seu</div>' +
-        '<div style="font-size:12px;line-height:1.5;color:#c9cdd6"><b style="color:' + (le.bom ? '#2ecc71' : '#f5b041') + '">' + le.valor + '</b>' + (le.texto ? ' — ' + le.texto : '') + '</div>';
+      h += '<div style="font-weight:700;font-size:12px;color:var(--t0);margin:10px 0 4px">Como esta o seu</div>' +
+        '<div style="font-size:12px;line-height:1.5;color:#c9cdd6"><b style="color:' + (le.bom ? 'var(--vd)' : 'var(--am)') + '">' + le.valor + '</b>' + (le.texto ? ' — ' + le.texto : '') + '</div>';
     }
-    h += '<div style="font-weight:700;font-size:12px;color:#fff;margin:10px 0 4px">Faca assim</div>' +
+    h += '<div style="font-weight:700;font-size:12px;color:var(--t0);margin:10px 0 4px">Faca assim</div>' +
       '<div style="font-size:12px;color:#c9cdd6;line-height:1.5">' + item.acao + '</div>' +
-      '<div style="font-size:9px;color:#6d7280;margin-top:10px;letter-spacing:.08em">SELLER.IA · METODO EFEITO VENDAS</div>';
+      '<div style="font-size:9px;color:var(--t2);margin-top:10px;letter-spacing:.08em">SELLER.IA · METODO EFEITO VENDAS</div>';
     return h;
   }
 
@@ -828,12 +829,12 @@
     } else {
       pos = 'top:72px;right:14px;';
     }
-    cardLente.style.cssText = 'all:initial;position:fixed;' + pos + 'z-index:2147483200;width:min(430px,94vw);max-height:70vh;display:flex;flex-direction:column;background:#0c0e12;border:1px solid #2a2f3a;border-top:3px solid #ff4d1c;border-radius:12px;box-shadow:0 16px 50px rgba(0,0,0,.6);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
+    cardLente.style.cssText = 'all:initial;position:fixed;' + pos + 'z-index:2147483200;width:min(430px,94vw);max-height:70vh;display:flex;flex-direction:column;background:var(--b1);border:1px solid var(--li2);border-top:3px solid var(--mk);border-radius:12px;box-shadow:0 16px 50px rgba(0,0,0,.6);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
     cardLente.innerHTML =
-      '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #1d212a;flex:none">' +
-      '<span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);display:inline-block"></span>' +
-      '<span style="font:700 12px Arial;color:#fff;letter-spacing:.04em;flex:1">' + (titulo || 'SELLER.IA') + '</span>' +
-      '<button data-sia-fechar="1" style="all:initial;cursor:pointer;color:#b8bcc6;font:700 14px Arial;padding:4px 8px;border-radius:6px;background:#12151b">✕</button>' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--li);flex:none">' +
+      '<span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(120deg,var(--mk),var(--px));display:inline-block"></span>' +
+      '<span style="font:700 12px Arial;color:var(--t0);letter-spacing:.04em;flex:1">' + (titulo || 'SELLER.IA') + '</span>' +
+      '<button data-sia-fechar="1" style="all:initial;cursor:pointer;color:var(--t1);font:700 14px Arial;padding:4px 8px;border-radius:6px;background:var(--b2)">✕</button>' +
       '</div>' +
       '<div style="padding:14px 16px;overflow:auto;font-size:12.5px;line-height:1.55">' + html + '</div>';
     document.documentElement.appendChild(cardLente);
@@ -881,7 +882,7 @@
         var leRapida = item.leitura ? item.leitura() : null;
         selo.textContent = (leRapida && leRapida.valor) ? ('Seller.IA · ' + leRapida.valor) : 'Seller.IA · leitura';
         selo.title = 'O que e, como esta o seu e o que fazer';
-        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:220px;margin-top:4px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;' + (leRapida ? 'box-shadow:0 0 0 1px ' + (leRapida.bom ? '#2ecc71' : '#f5b041') + ' inset;' : '');
+        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:220px;margin-top:4px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,var(--mk),var(--px));color:var(--t0);font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;' + (leRapida ? 'box-shadow:0 0 0 1px ' + (leRapida.bom ? 'var(--vd)' : 'var(--am)') + ' inset;' : '');
         (function (itemF) {
           selo.addEventListener('click', function (ev) {
             ev.stopPropagation(); ev.preventDefault();
@@ -894,23 +895,23 @@
     }
   }
   function cardVereditoCampanha(vereditos, nomeCamp) {
-    var cor = { forte: '#2ecc71', atencao: '#f5b041', critico: '#e74c3c' };
-    var h = '<div style="font-weight:700;font-size:12px;color:#fff;margin-bottom:8px">' + nomeCamp.slice(0, 60) + '</div>';
+    var cor = { forte: 'var(--vd)', atencao: 'var(--am)', critico: 'var(--rd)' };
+    var h = '<div style="font-weight:700;font-size:12px;color:var(--t0);margin-bottom:8px">' + nomeCamp.slice(0, 60) + '</div>';
     for (var i = 0; i < vereditos.length; i++) {
       var vd = vereditos[i];
-      h += '<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #1d212a">' +
-        '<span style="font-size:9px;letter-spacing:.08em;border:1px solid ' + (cor[vd.status] || '#7d8290') + ';color:' + (cor[vd.status] || '#7d8290') + ';border-radius:99px;padding:2px 8px">' + vd.veredito + '</span>' +
-        '<div style="font-weight:700;font-size:12px;color:#f2f2f4;margin:6px 0 3px">' + vd.manchete + '</div>' +
+      h += '<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--li)">' +
+        '<span style="font-size:9px;letter-spacing:.08em;border:1px solid ' + (cor[vd.status] || 'var(--t2)') + ';color:' + (cor[vd.status] || 'var(--t2)') + ';border-radius:99px;padding:2px 8px">' + vd.veredito + '</span>' +
+        '<div style="font-weight:700;font-size:12px;color:var(--t0);margin:6px 0 3px">' + vd.manchete + '</div>' +
         '<div style="font-size:11.5px;color:#c9cdd6;line-height:1.45;white-space:pre-line">' + vd.diagnostico + '</div>';
       if (vd.passos && vd.passos.length) {
-        h += '<div style="font-size:11.5px;color:#fff;font-weight:700;margin-top:6px">Faca assim:</div><ol style="margin:2px 0 0 16px;padding:0">';
+        h += '<div style="font-size:11.5px;color:var(--t0);font-weight:700;margin-top:6px">Faca assim:</div><ol style="margin:2px 0 0 16px;padding:0">';
         for (var p2 = 0; p2 < vd.passos.length; p2++) h += '<li style="font-size:11.5px;color:#c9cdd6;margin:2px 0;line-height:1.4">' + vd.passos[p2] + '</li>';
         h += '</ol>';
       }
       if (vd.impacto) h += '<div style="font-size:11.5px;margin-top:5px;color:#a78bfa"><b>Impacto:</b> <span style="color:#c9cdd6">' + vd.impacto + '</span></div>';
       h += '</div>';
     }
-    h += '<div style="font-size:9px;color:#6d7280;letter-spacing:.08em">SELLER.IA · METODO EFEITO VENDAS</div>';
+    h += '<div style="font-size:9px;color:var(--t2);letter-spacing:.08em">SELLER.IA · METODO EFEITO VENDAS</div>';
     return h;
   }
 
@@ -935,7 +936,7 @@
         if (meus[m2].status === 'critico') { pior = 'critico'; break; }
         if (meus[m2].status === 'atencao') pior = 'atencao';
       }
-      var corS = pior === 'forte' ? '#2ecc71' : pior === 'critico' ? '#e74c3c' : '#f5b041';
+      var corS = pior === 'forte' ? 'var(--vd)' : pior === 'critico' ? 'var(--rd)' : 'var(--am)';
       var mB = estado.campanhas[idC] && estado.campanhas[idC].metricas ? estado.campanhas[idC].metricas : {};
       var posTxt = typeof mB.posicao === 'number' ? ' · POS ' + Math.round(mB.posicao) : '';
       barra.textContent = 'Seller.IA · ' + meus[0].veredito + posTxt;
@@ -944,7 +945,7 @@
     }
     if (estado.diagnostico && estado.diagnostico.vereditos && grupoObservacao()) {
       barra.textContent = 'Seller.IA · EM OBSERVACAO';
-      barra.style.boxShadow = '0 0 0 1px #f5b041 inset';
+      barra.style.boxShadow = '0 0 0 1px var(--am) inset';
       return;
     }
     barra.textContent = 'Seller.IA · analisar';
@@ -985,7 +986,7 @@
         var selo = document.createElement('span');
         selo.setAttribute('data-sia-barra-camp', nomes[j].id);
         selo.title = 'Veredito desta campanha';
-        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:230px;margin-top:3px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;';
+        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:230px;margin-top:3px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,var(--mk),var(--px));color:var(--t0);font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;';
         vestirBarraCampanha(selo, nomes[j].id);
         (function (idF, nomeF) {
           selo.addEventListener('click', function (ev) {
@@ -997,22 +998,22 @@
               var cG = estado.campanhas[idF];
               var mG = cG && cG.metricas ? cG.metricas : {};
               var roasG = mG.roas !== undefined ? mG.roas : (mG.gasto ? (mG.gmv || 0) / mG.gasto : null);
-              abrirCardHtml(ev.target, '<div style="color:#c9cdd6"><b style="color:#fff">' + nomeF.slice(0, 60) + '</b><br>' +
-                '<span style="font-size:9px;letter-spacing:.08em;border:1px solid #f5b041;color:#f5b041;border-radius:99px;padding:2px 8px;display:inline-block;margin:6px 0">EM OBSERVACAO</span><br>' +
+              abrirCardHtml(ev.target, '<div style="color:#c9cdd6"><b style="color:var(--t0)">' + nomeF.slice(0, 60) + '</b><br>' +
+                '<span style="font-size:9px;letter-spacing:.08em;border:1px solid var(--am);color:var(--am);border-radius:99px;padding:2px 8px;display:inline-block;margin:6px 0">EM OBSERVACAO</span><br>' +
                 'Numeros do periodo: gasto R$ ' + fLe(mG.gasto || 0, 2) + ' · vendas R$ ' + fLe(mG.gmv || 0, 2) + ' · ' + fLe(mG.pedidos || 0, 0) + ' pedido(s)' + (roasG ? ' · ROAS ' + fLe(roasG, 2) + 'x' : '') + '.<br>' +
-                (typeof mG.posicao === 'number' ? '<b style="color:#fff">Leilao:</b> posicao media ' + Math.round(mG.posicao) + (mG.posicao <= 10 ? ' — vitrine nobre; o funil esta pagando o espaco.' : mG.posicao > 40 ? ' — fundo de vitrine; enquanto acumula vendas, ja da pra atacar a causa: ' + (typeof mG.ctr === 'number' && (mG.ctr <= 1 ? mG.ctr * 100 : mG.ctr) >= 2 ? 'o card clica bem, o alvo e conversao/ticket da pagina.' : 'o card clica pouco — foto principal e titulo.') : ' — zona intermediaria do leilao.') + '<br>' : '') +
-                (typeof mG.ctr === 'number' ? '<b style="color:#fff">CTR:</b> ' + fLe((mG.ctr <= 1 ? mG.ctr * 100 : mG.ctr), 2) + '%<br>' : '') + '<br>' +
-                '<b style="color:#fff">Por que sem veredito individual:</b> ainda ha poucas vendas para uma leitura confiavel — o ROAS pode dobrar ou cair pela metade por puro acaso. Decidir agora seria chutar.<br><br>' +
-                '<b style="color:#fff">Faca assim:</b> nao pause nem escale; mantenha o orcamento estavel e deixe acumular vendas. Quando passar do volume minimo da janela, o veredito proprio aparece aqui sozinho.</div>');
+                (typeof mG.posicao === 'number' ? '<b style="color:var(--t0)">Leilao:</b> posicao media ' + Math.round(mG.posicao) + (mG.posicao <= 10 ? ' — vitrine nobre; o funil esta pagando o espaco.' : mG.posicao > 40 ? ' — fundo de vitrine; enquanto acumula vendas, ja da pra atacar a causa: ' + (typeof mG.ctr === 'number' && (mG.ctr <= 1 ? mG.ctr * 100 : mG.ctr) >= 2 ? 'o card clica bem, o alvo e conversao/ticket da pagina.' : 'o card clica pouco — foto principal e titulo.') : ' — zona intermediaria do leilao.') + '<br>' : '') +
+                (typeof mG.ctr === 'number' ? '<b style="color:var(--t0)">CTR:</b> ' + fLe((mG.ctr <= 1 ? mG.ctr * 100 : mG.ctr), 2) + '%<br>' : '') + '<br>' +
+                '<b style="color:var(--t0)">Por que sem veredito individual:</b> ainda ha poucas vendas para uma leitura confiavel — o ROAS pode dobrar ou cair pela metade por puro acaso. Decidir agora seria chutar.<br><br>' +
+                '<b style="color:var(--t0)">Faca assim:</b> nao pause nem escale; mantenha o orcamento estavel e deixe acumular vendas. Quando passar do volume minimo da janela, o veredito proprio aparece aqui sozinho.</div>');
               return;
             }
             {
               var c = estado.campanhas[idF];
               var m = c && c.metricas ? c.metricas : {};
               var roasT = m.roas !== undefined ? m.roas : (m.gasto ? (m.gmv || 0) / m.gasto : null);
-              abrirCardHtml(ev.target, '<div style="color:#c9cdd6"><b style="color:#fff">' + nomeF.slice(0, 60) + '</b><br><br>' +
+              abrirCardHtml(ev.target, '<div style="color:#c9cdd6"><b style="color:var(--t0)">' + nomeF.slice(0, 60) + '</b><br><br>' +
                 'Dados coletados: gasto R$ ' + fLe(m.gasto || 0, 2) + ' · vendas R$ ' + fLe(m.gmv || 0, 2) + (roasT ? ' · ROAS ' + fLe(roasT, 2) + 'x' : '') + '.<br><br>' +
-                'Rode <b style="color:#ff4d1c">Coletar conta completa + Analisar</b> no painel para o veredito do metodo aparecer aqui.</div>');
+                'Rode <b style="color:var(--mk)">Coletar conta completa + Analisar</b> no painel para o veredito do metodo aparecer aqui.</div>');
             }
           });
         })(nomes[j].id, nomes[j].nome);
@@ -1032,7 +1033,7 @@
     // julgamento imediato, sempre com nota explicita (o Cerebro aprofunda no Analisar)
     var itens = [];
     function pct(v) { return v <= 1 ? v * 100 : v; }
-    function nota(ok2, rotulo) { return '<b style="color:' + (ok2 === true ? '#2ecc71' : ok2 === false ? '#e74c3c' : '#f5b041') + '">' + rotulo + '</b>'; }
+    function nota(ok2, rotulo) { return '<b style="color:' + (ok2 === true ? 'var(--vd)' : ok2 === false ? 'var(--rd)' : 'var(--am)') + '">' + rotulo + '</b>'; }
 
     if (typeof m.ctr_card === 'number') {
       var ctr = pct(m.ctr_card);
@@ -1053,10 +1054,10 @@
       var tk = m.ticket_pedido;
       var com = comissaoShopee(tk);
       var liquido = tk - com;
-      var linha = 'Do ticket de R$ ' + fLe(tk, 2) + ': comissao Shopee R$ ' + fLe(com, 2) + ' → sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido, 2) + '</b> por pedido, antes de custo do produto e trafego.';
+      var linha = 'Do ticket de R$ ' + fLe(tk, 2) + ': comissao Shopee R$ ' + fLe(com, 2) + ' → sobram <b style="color:var(--t0)">R$ ' + fLe(liquido, 2) + '</b> por pedido, antes de custo do produto e trafego.';
       if (typeof m.gasto === 'number' && typeof m.pedidos_pagos === 'number' && m.pedidos_pagos > 0 && m.gasto > 0) {
         var adsPed = m.gasto / m.pedidos_pagos;
-        linha += ' Descontando o ads deste produto (~R$ ' + fLe(adsPed, 2) + '/pedido, estimado), sobram <b style="color:#f2f2f4">R$ ' + fLe(liquido - adsPed, 2) + '</b>.';
+        linha += ' Descontando o ads deste produto (~R$ ' + fLe(adsPed, 2) + '/pedido, estimado), sobram <b style="color:var(--t0)">R$ ' + fLe(liquido - adsPed, 2) + '</b>.';
       }
       if (m.fontes) {
         if (m.fontes.ads && typeof m.fontes.ads.vendas === 'number') linha += ' Vendas via Ads: R$ ' + fLe(m.fontes.ads.vendas, 2) + '.';
@@ -1075,13 +1076,13 @@
   function cardProduto(id) {
     var p = estado.produtos[id];
     var titulo = p && p.nome ? p.nome.slice(0, 70) : 'Produto ' + id;
-    var h = '<div style="font-weight:700;font-size:12px;color:#fff;margin-bottom:2px">' + titulo + '</div>' +
-      '<div style="font-size:9.5px;color:#6d7280;margin-bottom:8px">ID ' + id + '</div>';
+    var h = '<div style="font-weight:700;font-size:12px;color:var(--t0);margin-bottom:2px">' + titulo + '</div>' +
+      '<div style="font-size:9.5px;color:var(--t2);margin-bottom:8px">ID ' + id + '</div>';
     if (!p || !p.metricas || !Object.keys(p.metricas).length) {
       return h + '<div style="font-size:12px;color:#c9cdd6;line-height:1.5">Ainda sem dados coletados deste produto nesta sessao. Navegue pela <b>Performance de Produto</b> (e role ate ele aparecer na lista) — a leitura fica pronta aqui.</div>';
     }
     var m = p.metricas;
-    function cel(rot, val) { return val === undefined || val === null ? '' : '<div style="min-width:86px"><div style="font-size:9px;color:#6d7280;text-transform:uppercase;letter-spacing:.05em">' + rot + '</div><div style="font-size:13px;font-weight:700;color:#f2f2f4">' + val + '</div></div>'; }
+    function cel(rot, val) { return val === undefined || val === null ? '' : '<div style="min-width:86px"><div style="font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">' + rot + '</div><div style="font-size:13px;font-weight:700;color:var(--t0)">' + val + '</div></div>'; }
     function pct(v) { return v === undefined ? undefined : fLe((v <= 1 ? v * 100 : v), 2) + '%'; }
     h += '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">' +
       cel('Vendas', m.vendas_pagas !== undefined ? 'R$ ' + fLe(m.vendas_pagas, 2) : undefined) +
@@ -1094,18 +1095,18 @@
       '</div>';
     var leituras = leituraLocalProduto(m);
     if (leituras.length) {
-      h += '<div style="font-weight:700;font-size:12px;color:#fff;margin-bottom:4px">O que os numeros dizem</div>';
+      h += '<div style="font-weight:700;font-size:12px;color:var(--t0);margin-bottom:4px">O que os numeros dizem</div>';
       for (var i = 0; i < leituras.length; i++) {
-        var corPonto = leituras[i].ok === true ? '#2ecc71' : leituras[i].ok === false ? '#e74c3c' : '#f5b041';
+        var corPonto = leituras[i].ok === true ? 'var(--vd)' : leituras[i].ok === false ? 'var(--rd)' : 'var(--am)';
         h += '<div style="font-size:11.5px;line-height:1.5;color:#c9cdd6;margin-bottom:5px"><span style="color:' + corPonto + '">&#9679;</span> ' + leituras[i].txt + '</div>';
       }
     }
     var vds = estado.diagnostico && estado.diagnostico.vereditos ? estado.diagnostico.vereditos.filter(function (v) { return String(v.id).split(':')[0] === String(id); }) : [];
     if (vds.length) {
-      h += '<div style="font-weight:700;font-size:12px;color:#fff;margin:8px 0 4px">Veredito Seller.IA</div>';
+      h += '<div style="font-weight:700;font-size:12px;color:var(--t0);margin:8px 0 4px">Veredito Seller.IA</div>';
       for (var v2 = 0; v2 < Math.min(vds.length, 2); v2++) {
         var vd = vds[v2];
-        h += '<div style="font-size:11.5px;color:#c9cdd6;line-height:1.45;margin-bottom:6px"><b style="color:#ff4d1c">' + vd.veredito + '</b> — ' + vd.manchete + '</div>';
+        h += '<div style="font-size:11.5px;color:#c9cdd6;line-height:1.45;margin-bottom:6px"><b style="color:var(--mk)">' + vd.veredito + '</b> — ' + vd.manchete + '</div>';
         if (vd.passos && vd.passos.length) {
           h += '<ol style="margin:0 0 4px 16px;padding:0">';
           for (var pz = 0; pz < vd.passos.length; pz++) h += '<li style="font-size:11px;color:#c9cdd6;margin:2px 0">' + vd.passos[pz] + '</li>';
@@ -1113,9 +1114,9 @@
         }
       }
     } else {
-      h += '<div style="font-size:10.5px;color:#6d7280;margin-top:6px">Para o veredito completo do metodo, clique em Analisar no painel Seller.IA.</div>';
+      h += '<div style="font-size:10.5px;color:var(--t2);margin-top:6px">Para o veredito completo do metodo, clique em Analisar no painel Seller.IA.</div>';
     }
-    h += '<div style="font-size:9px;color:#6d7280;margin-top:8px;letter-spacing:.08em">SELLER.IA · METODO EFEITO VENDAS</div>';
+    h += '<div style="font-size:9px;color:var(--t2);margin-top:8px;letter-spacing:.08em">SELLER.IA · METODO EFEITO VENDAS</div>';
     return h;
   }
 
@@ -1133,7 +1134,7 @@
       var selo = document.createElement('span');
       selo.textContent = 'Seller.IA';
       selo.title = 'Ver a leitura deste produto';
-      selo.style.cssText = 'all:initial;display:inline-block;margin-left:8px;padding:2px 8px;border-radius:99px;background:linear-gradient(120deg,#ff4d1c,#7B2FFF);color:#fff;font:700 8.5px/1.3 Arial;letter-spacing:.05em;cursor:pointer;vertical-align:middle;';
+      selo.style.cssText = 'all:initial;display:inline-block;margin-left:8px;padding:2px 8px;border-radius:99px;background:linear-gradient(120deg,var(--mk),var(--px));color:var(--t0);font:700 8.5px/1.3 Arial;letter-spacing:.05em;cursor:pointer;vertical-align:middle;';
       (function (idF) {
         selo.addEventListener('click', function (ev) {
           ev.stopPropagation(); ev.preventDefault();
@@ -1515,51 +1516,66 @@
   raiz.innerHTML =
     '<style>' +
     '@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap");' +
-    ':host{all:initial}' +
+    ':host{all:initial;' +
+    '--b0:#07080a;--b1:#0c0e12;--b2:#12151b;--li:#1d212a;--li2:#2a2f3a;' +
+    '--t0:#f2f2f4;--t1:#b8bcc6;--t2:#8a909c;--t3:#5a5f6a;' +
+    '--mk:#ff4d1c;--mk2:#ff7a4d;--vd:#2ecc71;--rd:#e74c3c;--am:#f5b041;--px:#c08bff;' +
+    '--sh:rgba(0,0,0,.55);--shb:rgba(0,0,0,.45)}' +
+    ':host(.claro){' +
+    '--b0:#ffffff;--b1:#fbfaf8;--b2:#f5f3ef;--li:#e5e1d8;--li2:#d4cec1;' +
+    '--t0:#1b1b1e;--t1:#4d5057;--t2:#7c818a;--t3:#a4a8b0;' +
+    '--mk:#e0400f;--mk2:#f06a33;--vd:#1c8a52;--rd:#c42a2f;--am:#a8700a;--px:#6b28d9;' +
+    '--sh:rgba(60,50,40,.16);--shb:rgba(60,50,40,.22)}' +
     '*{box-sizing:border-box;margin:0;padding:0;font-family:"Outfit",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-weight:300}' +
-    '.botao{position:fixed;bottom:22px;right:22px;width:54px;height:54px;z-index:2147483001;border-radius:50%;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.45);transition:transform .15s;background:#07080a;border:none;padding:6px}' +
+    '.botao{position:fixed;bottom:22px;right:22px;width:54px;height:54px;z-index:2147483001;border-radius:50%;cursor:pointer;box-shadow:0 4px 18px var(--shb);transition:transform .15s;background:var(--b0);border:none;padding:6px}' +
     '.botao:hover{transform:scale(1.08)}' +
     '.botao svg{width:100%;height:100%}' +
-    '.painel{position:fixed;top:0;right:0;height:100vh;width:min(520px,100vw);background:#0c0e12;border-left:1px solid #1d212a;box-shadow:-18px 0 50px rgba(0,0,0,.55);display:flex;flex-direction:column;overflow:hidden;color:#f2f2f4;transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
+    '.painel{position:fixed;top:0;right:0;height:100vh;width:min(520px,100vw);background:var(--b1);border-left:1px solid var(--li);box-shadow:-18px 0 50px var(--sh);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
     '.painel.aberto{transform:translateX(0)}' +
     '@media(prefers-reduced-motion:reduce){.painel{transition:none}}' +
-    '.cab{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #1d212a;background:#07080a;flex-wrap:wrap}' +
+    '.cab{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--li);background:var(--b0);flex-wrap:wrap}' +
     '.cab svg{width:28px;height:28px;flex:none}' +
     '.cab .titulo{font-family:"Bebas Neue";font-weight:400;font-size:24px;letter-spacing:.05em;line-height:1}' +
-    '.cab .titulo em{font-style:normal;color:#ff4d1c}' +
-    '.cab .info{font-family:"Space Mono";font-size:10.5px;color:#7d8290;width:100%;order:3;margin-top:2px}' +
+    '.cab .titulo em{font-style:normal;color:var(--mk)}' +
+    '.cab .info{font-family:"Space Mono";font-size:10.5px;color:var(--t2);width:100%;order:3;margin-top:2px}' +
     '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
-    '.cab button{background:#12151b;border:1px solid #1d212a;color:#b8bcc6;font-family:"Space Mono";font-size:11px;padding:7px 11px;border-radius:7px;cursor:pointer}' +
-    '.cab button:hover{border-color:#ff4d1c;color:#fff}' +
-    '.abas{display:flex;flex-wrap:wrap;gap:2px;background:#07080a;padding:0 10px;border-bottom:1px solid #1d212a}' +
+    '.cab button{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:"Space Mono";font-size:11px;padding:7px 11px;border-radius:7px;cursor:pointer}' +
+    '.cab button:hover{border-color:var(--mk);color:var(--t0)}' +
+    '.abas{display:flex;flex-wrap:wrap;gap:2px;background:var(--b0);padding:0 10px;border-bottom:1px solid var(--li)}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
-    '.subaba{background:#12151b;border:1px solid #1d212a;color:#7d8290;font-family:"Space Mono";font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
-    '.subaba.ativa{color:#fff;border-color:#ff4d1c;background:rgba(255,77,28,.1)}' +
-    '.aba{background:none;border:none;color:#7d8290;font-family:"Space Mono";font-size:12px;letter-spacing:.03em;padding:11px 11px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
-    '.aba.ativa{color:#fff;border-bottom-color:#ff4d1c}' +
+    '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:"Space Mono";font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
+    '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
+    '.aba{background:none;border:none;color:var(--t2);font-family:"Space Mono";font-size:12px;letter-spacing:.03em;padding:11px 11px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
+    '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
     '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 15px}' +
     '.corpo table{display:block;overflow-x:auto;white-space:nowrap}' +
     'table{width:100%;border-collapse:collapse;font-size:13.5px}' +
-    'th{text-align:left;color:#7d8290;font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid #ff4d1c;position:sticky;top:-14px;background:#0c0e12}' +
-    'td{padding:9px 8px;border-bottom:1px solid #1d212a;color:#b8bcc6;white-space:nowrap}' +
-    'td.nome{white-space:normal;min-width:160px;color:#f2f2f4}' +
-    'tr:hover td{background:#12151b}' +
+    'th{text-align:left;color:var(--t2);font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid var(--mk);position:sticky;top:-14px;background:var(--b1)}' +
+    'td{padding:9px 8px;border-bottom:1px solid var(--li);color:var(--t1);white-space:nowrap}' +
+    'td.nome{white-space:normal;min-width:160px;color:var(--t0)}' +
+    'tr:hover td{background:var(--b2)}' +
     '.num{text-align:right;font-variant-numeric:tabular-nums}' +
     '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:16px}' +
-    '.kpi{background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:12px}' +
-    '.kpi .v{font-family:"Bebas Neue";font-size:32px;line-height:1;color:#ff4d1c}' +
-    '.kpi .l{font-family:"Space Mono";font-size:9.5px;color:#7d8290;margin-top:5px;text-transform:uppercase;letter-spacing:.06em}' +
-    '.vazio{color:#8a909c;font-size:14.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
-    '.selo{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid #1d212a;border-radius:99px;padding:2px 8px;color:#7d8290;margin-left:8px}' +
-    '.selo.ok{border-color:#2ecc71;color:#2ecc71}' +
-    '.selo.off{border-color:#e74c3c;color:#e74c3c}' +
-    '.nota{font-size:13px;color:#8a909c;margin:10px 0;line-height:1.55}' +
-    '.bloco-d{background:#12151b;border:1px solid #1d212a;border-radius:9px;padding:10px 12px;margin-bottom:9px}' +
-    '.bloco-d .td{font-family:"Space Mono";font-size:11px;letter-spacing:.06em;color:#ff4d1c;margin-bottom:7px}' +
-    '.bloco-d .ld{font-size:13.5px;color:#b8bcc6;line-height:1.65;padding:2px 0}' +
-    '.bloco-d .ld b{color:#f2f2f4}' +
-    '.bloco-d .vazio-d{color:#6a707c;font-style:italic;font-size:12.5px}' +
-    '.tag-ads{color:#ff4d1c}.tag-conta{color:#7B2FFF}.tag-cadastro{color:#2ecc71}.tag-marketing{color:#f5b041}.tag-outra{color:#7d8290}.tag-afiliados{color:#e91e8c}.tag-performance{color:#3ab7f5}' +
+    '.kpi{background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:12px}' +
+    '.kpi .v{font-family:"Bebas Neue";font-size:32px;line-height:1;color:var(--mk)}' +
+    '.kpi .l{font-family:"Space Mono";font-size:9.5px;color:var(--t2);margin-top:5px;text-transform:uppercase;letter-spacing:.06em}' +
+    '.vazio{color:var(--t2);font-size:14.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
+    '.selo{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--li);border-radius:99px;padding:2px 8px;color:var(--t2);margin-left:8px}' +
+    '.selo.ok{border-color:var(--vd);color:var(--vd)}' +
+    '.selo.off{border-color:var(--rd);color:var(--rd)}' +
+    '.dica{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--li2);background:var(--b2);color:var(--t2);font-family:"Space Mono";font-size:10px;cursor:pointer;padding:0;margin-left:5px;vertical-align:middle;line-height:1}' +
+    '.dica:hover{border-color:var(--mk);color:var(--mk)}' +
+    '.expl{display:none;padding:12px 15px;border-top:1px solid var(--li);background:var(--b2);font-size:13.5px;color:var(--t1);line-height:1.55}' +
+    '.expl.on{display:block}' +
+    '.expl b{color:var(--t0)}' +
+    '.expl .x{float:right;background:none;border:none;color:var(--t2);cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 10px}' +
+    '.nota{font-size:13px;color:var(--t2);margin:10px 0;line-height:1.55}' +
+    '.bloco-d{background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:10px 12px;margin-bottom:9px}' +
+    '.bloco-d .td{font-family:"Space Mono";font-size:11px;letter-spacing:.06em;color:var(--mk);margin-bottom:7px}' +
+    '.bloco-d .ld{font-size:13.5px;color:var(--t1);line-height:1.65;padding:2px 0}' +
+    '.bloco-d .ld b{color:var(--t0)}' +
+    '.bloco-d .vazio-d{color:var(--t3);font-style:italic;font-size:12.5px}' +
+    '.tag-ads{color:var(--mk)}.tag-conta{color:var(--px)}.tag-cadastro{color:var(--vd)}.tag-marketing{color:var(--am)}.tag-outra{color:var(--t2)}.tag-afiliados{color:#e91e8c}.tag-performance{color:#3ab7f5}' +
     '</style>' +
     '<button class="botao" id="sia-abrir" title="Seller.IA">' + LOGO + '</button>' +
     '<div class="painel" id="sia-painel">' +
@@ -1567,6 +1583,7 @@
     '    <span class="titulo">SELLER<em>.IA</em></span>' +
     '    <span class="info" id="sia-info"></span>' +
     '    <div class="acoes">' +
+    '      <button id="sia-tema" title="Alternar claro e escuro">tema</button>' +
     '      <button id="sia-exportar" title="Exportar coleta">exportar</button>' +
     '      <button id="sia-limpar" title="Limpar coleta">limpar</button>' +
     '      <button id="sia-fechar" title="Fechar">\u2715</button>' +
@@ -1574,6 +1591,7 @@
     '  </div>' +
     '  <div class="abas" id="sia-abas"></div>' +
     '  <div class="corpo" id="sia-corpo"></div>' +
+    '  <div class="expl" id="sia-expl"></div>' +
     '</div>';
 
   var $ = function (id) { return raiz.getElementById(id); };
@@ -1804,7 +1822,7 @@
       var varh = '—';
       if (p.r !== undefined && p.r !== null) {
         var pct = p.r * 100;
-        var cor = pct >= 0 ? '#2ecc71' : '#e74c3c';
+        var cor = pct >= 0 ? 'var(--vd)' : 'var(--rd)';
         varh = '<span style="color:' + cor + '">' + (pct >= 0 ? '+' : '') + fmt(pct, 1) + '%</span>';
       }
       h += '<tr><td class="nome">' + esc(rotulo) + '</td><td class="num">' + valor + '</td><td class="num">' + varh + '</td></tr>';
@@ -1829,10 +1847,10 @@
   // SEMAFORO (Camada 2, metade LOCAL) — a triagem na tela
   // ==========================================================
   var CORES_SEM = {
-    vermelho: { bg: '#2a0f0f', bd: '#5a1f1f', dot: '#e74c3c', nome: 'Sangrando' },
-    amarelo: { bg: '#2a230f', bd: '#5a4a1f', dot: '#f5b041', nome: 'Sufocada' },
-    verde: { bg: '#0f2a17', bd: '#1f5a30', dot: '#2ecc71', nome: 'Escalando' },
-    cinza: { bg: '#15171d', bd: '#2a2f3a', dot: '#5a5f6a', nome: 'Aprendendo' }
+    vermelho: { bg: '#2a0f0f', bd: '#5a1f1f', dot: 'var(--rd)', nome: 'Sangrando' },
+    amarelo: { bg: '#2a230f', bd: '#5a4a1f', dot: 'var(--am)', nome: 'Sufocada' },
+    verde: { bg: '#0f2a17', bd: '#1f5a30', dot: 'var(--vd)', nome: 'Escalando' },
+    cinza: { bg: '#15171d', bd: 'var(--li2)', dot: 'var(--t3)', nome: 'Aprendendo' }
   };
 
   function renderSemaforo() {
@@ -1845,7 +1863,7 @@
     if (nCamp === 0) {
       return '<div style="padding:24px;text-align:center">' +
         '<div style="font-size:34px;margin-bottom:10px">\u25cf</div>' +
-        '<div style="font-size:14px;color:#f2f2f4;font-weight:600;margin-bottom:6px">Nenhuma campanha lida ainda</div>' +
+        '<div style="font-size:14px;color:var(--t0);font-weight:600;margin-bottom:6px">Nenhuma campanha lida ainda</div>' +
         '<div class="nota" style="max-width:340px;margin:0 auto">Abra a pagina de <b>Anuncios</b> no Seller Central e navegue pelas campanhas. Conforme a Shopee carrega os dados, o semaforo se enche sozinho.</div></div>';
     }
 
@@ -1854,7 +1872,7 @@
     // cabecalho com contagem
     var h = '<div style="padding:4px 2px 14px">';
     h += '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">' +
-      '<div style="font-size:15px;font-weight:700;color:#f2f2f4">Semaforo de campanhas</div>' +
+      '<div style="font-size:15px;font-weight:700;color:var(--t0)">Semaforo de campanhas</div>' +
       '<div class="nota" style="margin:0">' + R.total + ' lidas · R$ ' + R.gastoTotal.toFixed(2).replace('.', ',') + ' no periodo</div></div>';
     h += '<div class="nota" style="margin:0 0 12px">Margem assumida: 25% (piso ROAS 4x). Com o Cofre de Custos, vira seu numero real.</div>';
 
@@ -1864,24 +1882,24 @@
       var c = CORES_SEM[nv];
       h += '<div style="background:' + c.bg + ';border:1px solid ' + c.bd + ';border-radius:10px;padding:11px 8px;text-align:center">' +
         '<div style="font-size:24px;font-weight:800;color:' + c.dot + ';line-height:1">' + R.contagem[nv] + '</div>' +
-        '<div style="font-size:10px;color:#b8bcc6;margin-top:3px;font-weight:600">' + c.nome + '</div></div>';
+        '<div style="font-size:10px;color:var(--t1);margin-top:3px;font-weight:600">' + c.nome + '</div></div>';
     });
     h += '</div>';
 
     // fila de acao
     if (R.fila.length === 0) {
-      h += '<div style="background:#0f2a17;border:1px solid #1f5a30;border-radius:10px;padding:16px;text-align:center;color:#2ecc71;font-size:13px">Tudo sob controle. Nenhuma campanha pedindo acao agora.</div>';
+      h += '<div style="background:#0f2a17;border:1px solid #1f5a30;border-radius:10px;padding:16px;text-align:center;color:var(--vd);font-size:13px">Tudo sob controle. Nenhuma campanha pedindo acao agora.</div>';
     } else {
-      h += '<div style="font-size:11px;color:#ff4d1c;font-family:monospace;letter-spacing:.06em;margin-bottom:9px">FILA DE ACAO (' + R.fila.length + ') — clique para abrir o card</div>';
+      h += '<div style="font-size:11px;color:var(--mk);font-family:monospace;letter-spacing:.06em;margin-bottom:9px">FILA DE ACAO (' + R.fila.length + ') — clique para abrir o card</div>';
       R.fila.forEach(function (c) {
         var co = CORES_SEM[c.nivel];
         h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:9px;padding:10px 12px;margin-bottom:8px">';
         h += '<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">' +
           '<span style="width:8px;height:8px;border-radius:50%;background:' + co.dot + ';display:inline-block;flex:0 0 auto"></span>' +
-          '<span style="font-size:12.5px;font-weight:700;color:#f2f2f4">' + esc(c.titulo) + '</span>' +
-          '<span style="margin-left:auto;font-size:11px;color:#7d8290;font-variant-numeric:tabular-nums">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
-        if (c.campanha) h += '<div style="font-size:11px;color:#9aa0ac;margin-bottom:3px">' + esc(c.campanha) + (c.roas ? ' · ROAS ' + c.roas.toFixed(1) + 'x' : '') + (c.posicao ? ' · pos ' + c.posicao : '') + '</div>';
-        h += '<div style="font-size:11.5px;color:#c8ccd4;line-height:1.5">' + esc(c.texto) + '</div>';
+          '<span style="font-size:12.5px;font-weight:700;color:var(--t0)">' + esc(c.titulo) + '</span>' +
+          '<span style="margin-left:auto;font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
+        if (c.campanha) h += '<div style="font-size:11px;color:var(--t2);margin-bottom:3px">' + esc(c.campanha) + (c.roas ? ' · ROAS ' + c.roas.toFixed(1) + 'x' : '') + (c.posicao ? ' · pos ' + c.posicao : '') + '</div>';
+        h += '<div style="font-size:11.5px;color:var(--t1);line-height:1.5">' + esc(c.texto) + '</div>';
         h += '</div>';
       });
       h += '<div class="nota" style="margin-top:10px">As <b>' + R.contagem.cinza + '</b> campanhas em aprendizado ficam fora da fila de proposito: mexer nelas antes de 7 dias atrapalha o algoritmo.</div>';
@@ -1902,7 +1920,7 @@
 
     // se ja esta coletando, mostra isso
     if (coletaEmAndamento || estado.coletaProgresso) {
-      if (status) { status.textContent = estado.coletaProgresso || 'coletando…'; status.style.color = '#7d8290'; }
+      if (status) { status.textContent = estado.coletaProgresso || 'coletando…'; status.style.color = 'var(--t2)'; }
       return;
     }
     // ja temos tudo do periodo? avisa que esta pronto (com opcao de recoletar)
@@ -1914,7 +1932,7 @@
       completo = temPeriodo && temResto;
     } catch (e) { }
     if (completo && coletouNestaSessao) {
-      if (status) { status.textContent = 'conta lida agora. Toque pra atualizar.'; status.style.color = '#2ecc71'; }
+      if (status) { status.textContent = 'conta lida agora. Toque pra atualizar.'; status.style.color = 'var(--vd)'; }
       if (btn) btn.textContent = 'Coletar de novo';
       return;
     }
@@ -1922,24 +1940,24 @@
     // pra trazer o Ads/semaforo/campanhas (que o cache pode nao ter).
     // nao esta completo OU cache velho: dispara. Se a chave existe, ja; senao espera aparecer.
     if (coletaJaTentada && !completo) {
-      if (status) { status.textContent = 'toque em Coletar pra tentar de novo.'; status.style.color = '#f5b041'; }
+      if (status) { status.textContent = 'toque em Coletar pra tentar de novo.'; status.style.color = 'var(--am)'; }
       return;
     }
     if (coletaJaTentada) return;
     if (estado.spc) {
       coletaJaTentada = true;
-      if (status) { status.textContent = 'iniciando coleta…'; status.style.color = '#7d8290'; }
+      if (status) { status.textContent = 'iniciando coleta…'; status.style.color = 'var(--t2)'; }
       setTimeout(dispararColeta, 400);
     } else {
-      if (status) { status.textContent = 'preparando… (abra o Seller Central e aguarde)'; status.style.color = '#7d8290'; }
+      if (status) { status.textContent = 'preparando… (abra o Seller Central e aguarde)'; status.style.color = 'var(--t2)'; }
       var espera = 0;
       var vigia = setInterval(function () {
         espera++;
-        if (coletaJaTentada || espera > 30) { clearInterval(vigia); if (!coletaJaTentada && status) { status.textContent = 'toque em Coletar pra buscar agora.'; status.style.color = '#f5b041'; } return; }
+        if (coletaJaTentada || espera > 30) { clearInterval(vigia); if (!coletaJaTentada && status) { status.textContent = 'toque em Coletar pra buscar agora.'; status.style.color = 'var(--am)'; } return; }
         if (estado.spc) {
           clearInterval(vigia);
           coletaJaTentada = true;
-          if (status) { status.textContent = 'iniciando coleta…'; status.style.color = '#7d8290'; }
+          if (status) { status.textContent = 'iniciando coleta…'; status.style.color = 'var(--t2)'; }
           dispararColeta();
         }
       }, 1000);
@@ -1950,7 +1968,7 @@
     if (coletaEmAndamento || estado.coletaProgresso) return;
     if (!estado.spc) {
       var st0 = $('sia-lote-status');
-      if (st0) { st0.textContent = 'Abra a Central de Dados uma vez pra capturar a sessao, e volte aqui.'; st0.style.color = '#f5b041'; }
+      if (st0) { st0.textContent = 'Abra a Central de Dados uma vez pra capturar a sessao, e volte aqui.'; st0.style.color = 'var(--am)'; }
       return;
     }
     coletaJaTentada = true;
@@ -1961,8 +1979,8 @@
     var barra = $('sia-lote-barra');
     if (btn) { btn.style.opacity = '0.6'; btn.textContent = 'Coletando…'; }
     if (barraBg) barraBg.style.display = 'block';
-    if (barra) { barra.style.width = '15%'; barra.style.background = 'linear-gradient(90deg,#ff4d1c,#7B2FFF)'; }
-    if (status) { status.style.color = '#7d8290'; status.textContent = 'iniciando…'; }
+    if (barra) { barra.style.width = '15%'; barra.style.background = 'linear-gradient(90deg,var(--mk),var(--px))'; }
+    if (status) { status.style.color = 'var(--t2)'; status.textContent = 'iniciando…'; }
 
     // usa o coletaCompleta (testado, com paginacao e CDS confiavel)
     var pulso = 15;
@@ -1974,12 +1992,12 @@
       coletaEmAndamento = false;
       if (btn) { btn.style.opacity = '1'; btn.textContent = 'Coletar de novo'; }
       if (!res || !res.ok) {
-        if (status) { status.textContent = (res && res.erro) || 'nao foi possivel coletar'; status.style.color = '#e74c3c'; }
-        if (barra) barra.style.background = '#e74c3c';
+        if (status) { status.textContent = (res && res.erro) || 'nao foi possivel coletar'; status.style.color = 'var(--rd)'; }
+        if (barra) barra.style.background = 'var(--rd)';
         return;
       }
       if (barra) barra.style.width = '100%';
-      if (status) { status.style.color = '#2ecc71'; status.textContent = 'pronto! conta lida.'; }
+      if (status) { status.style.color = 'var(--vd)'; status.textContent = 'pronto! conta lida.'; }
       coletouNestaSessao = true;
       // persiste e re-renderiza pra mostrar os blocos cheios
       try { if (window.SIA_Diamantes && window.SIA_Diamantes.persistir) window.SIA_Diamantes.persistir(); } catch (e) { }
@@ -1991,8 +2009,8 @@
   // CALCULADORA DE MARGEM REAL — custo + taxas Shopee + ads
   // ==========================================================
   function renderCalculadora() {
-    var i = 'width:100%;box-sizing:border-box;background:#0c0e12;border:1px solid #242630;border-radius:8px;padding:9px 11px;color:#f2f2f4;font-size:13px;margin-top:4px';
-    var lbl = 'font-size:11px;color:#9aa0ac;font-weight:600';
+    var i = 'width:100%;box-sizing:border-box;background:var(--b1);border:1px solid #242630;border-radius:8px;padding:9px 11px;color:var(--t0);font-size:13px;margin-top:4px';
+    var lbl = 'font-size:11px;color:var(--t2);font-weight:600';
     var h = '<div style="padding:2px">';
     h += '<div class="nota" style="margin:0 0 12px">Sua margem <b>real</b> cruzando custo, taxas da Shopee e o gasto de ads. Descobre se voce lucra de verdade.</div>';
 
@@ -2005,10 +2023,10 @@
 
     h += '<div class="bloco-d"><div class="td">ADS (opcional)</div>';
     h += '<div style="' + lbl + '">Gasto de ads por venda (R$)</div><input id="calc-ads" type="tel" inputmode="decimal" placeholder="deixe vazio se nao usa" style="' + i + '">';
-    h += '<div class="ld" style="font-size:11px;color:#7d8290;margin-top:5px">Se preencher, cruzamos com o ROAS minimo pra ver se ta no lucro.</div>';
+    h += '<div class="ld" style="font-size:11px;color:var(--t2);margin-top:5px">Se preencher, cruzamos com o ROAS minimo pra ver se ta no lucro.</div>';
     h += '</div>';
 
-    h += '<button id="calc-btn" style="all:unset;cursor:pointer;display:block;text-align:center;background:linear-gradient(135deg,#ff4d1c,#7B2FFF);color:#fff;font-weight:700;font-size:13px;padding:11px;border-radius:9px;margin:4px 0 12px">Calcular margem real</button>';
+    h += '<button id="calc-btn" style="all:unset;cursor:pointer;display:block;text-align:center;background:linear-gradient(135deg,var(--mk),var(--px));color:var(--t0);font-weight:700;font-size:13px;padding:11px;border-radius:9px;margin:4px 0 12px">Calcular margem real</button>';
 
     h += '<div id="calc-resultado"></div>';
     h += '</div>';
@@ -2028,25 +2046,25 @@
       };
       var m = window.SIA_Calc.margem(ent);
       var alvo = $('calc-resultado');
-      if (!m) { if (alvo) alvo.innerHTML = '<div class="nota" style="color:#e74c3c">Preencha ao menos o preco de venda.</div>'; return; }
+      if (!m) { if (alvo) alvo.innerHTML = '<div class="nota" style="color:var(--rd)">Preencha ao menos o preco de venda.</div>'; return; }
       alvo.innerHTML = montarResultadoCalc(m, ent.adsReais);
     });
   }
 
   function montarResultadoCalc(m, adsInput) {
     function fr(v) { return 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
-    var corLucro = m.noLucro ? '#2ecc71' : '#e74c3c';
+    var corLucro = m.noLucro ? 'var(--vd)' : 'var(--rd)';
     var h = '<div class="bloco-d" style="border-color:' + (m.noLucro ? '#1f5a30' : '#5a1f1f') + '">';
     h += '<div class="td">RESULTADO · ' + esc(m.faixa) + '</div>';
     // cascata de custos
     h += '<div class="ld">Preco de venda: <b>' + fr(m.preco) + '</b></div>';
-    h += '<div class="ld" style="color:#9aa0ac">− Custo produto: ' + fr(m.custoProduto) + (m.outros ? ' · outros ' + fr(m.outros) : '') + '</div>';
-    h += '<div class="ld" style="color:#9aa0ac">− Comissao Shopee (' + m.comissao.pct + '%): ' + fr(m.comissao.reais) + ' + taxa fixa ' + fr(m.taxaFixa) + '</div>';
-    if (m.imposto.reais > 0) h += '<div class="ld" style="color:#9aa0ac">− Imposto (' + m.imposto.pct + '%): ' + fr(m.imposto.reais) + '</div>';
-    if (m.ads > 0) h += '<div class="ld" style="color:#9aa0ac">− Ads por venda: ' + fr(m.ads) + '</div>';
+    h += '<div class="ld" style="color:var(--t2)">− Custo produto: ' + fr(m.custoProduto) + (m.outros ? ' · outros ' + fr(m.outros) : '') + '</div>';
+    h += '<div class="ld" style="color:var(--t2)">− Comissao Shopee (' + m.comissao.pct + '%): ' + fr(m.comissao.reais) + ' + taxa fixa ' + fr(m.taxaFixa) + '</div>';
+    if (m.imposto.reais > 0) h += '<div class="ld" style="color:var(--t2)">− Imposto (' + m.imposto.pct + '%): ' + fr(m.imposto.reais) + '</div>';
+    if (m.ads > 0) h += '<div class="ld" style="color:var(--t2)">− Ads por venda: ' + fr(m.ads) + '</div>';
     h += '<div style="border-top:1px solid #242630;margin:8px 0 6px"></div>';
-    h += '<div class="ld" style="font-size:15px">Lucro por venda: <b style="color:' + corLucro + '">' + fr(m.lucro) + '</b> <span style="color:#7d8290;font-size:12px">(margem ' + m.margemPct + '%)</span></div>';
-    if (!m.noLucro) h += '<div class="ld" style="color:#e74c3c;font-size:11px;margin-top:4px">Atencao: este produto esta no PREJUIZO com esses numeros.</div>';
+    h += '<div class="ld" style="font-size:15px">Lucro por venda: <b style="color:' + corLucro + '">' + fr(m.lucro) + '</b> <span style="color:var(--t2);font-size:12px">(margem ' + m.margemPct + '%)</span></div>';
+    if (!m.noLucro) h += '<div class="ld" style="color:var(--rd);font-size:11px;margin-top:4px">Atencao: este produto esta no PREJUIZO com esses numeros.</div>';
     // ROAS minimo + cruzamento
     if (m.roasMinimo) {
       h += '<div style="border-top:1px solid #242630;margin:8px 0 6px"></div>';
@@ -2059,10 +2077,10 @@
       } catch (e) { }
       var cruz = window.SIA_Calc.cruzarAds(m, roasReal);
       if (cruz && roasReal) {
-        var cor = { verde: '#2ecc71', amarelo: '#f5b041', vermelho: '#e74c3c', cinza: '#7d8290' }[cruz.nivel];
+        var cor = { verde: 'var(--vd)', amarelo: 'var(--am)', vermelho: 'var(--rd)', cinza: 'var(--t2)' }[cruz.nivel];
         h += '<div class="ld" style="color:' + cor + ';font-size:11.5px;margin-top:3px">' + esc(cruz.texto) + '</div>';
       } else {
-        h += '<div class="ld" style="color:#7d8290;font-size:11px;margin-top:3px">Rode a coleta pra cruzar com seu ROAS real da conta.</div>';
+        h += '<div class="ld" style="color:var(--t2);font-size:11px;margin-top:3px">Rode a coleta pra cruzar com seu ROAS real da conta.</div>';
       }
     }
     h += '</div>';
@@ -2085,13 +2103,13 @@
     function varia(v, inverso) {
       if (v == null) return '';
       var bom = inverso ? v < 0 : v > 0;
-      var cor = v === 0 ? '#7d8290' : (bom ? '#2ecc71' : '#e74c3c');
+      var cor = v === 0 ? 'var(--t2)' : (bom ? 'var(--vd)' : 'var(--rd)');
       var seta = v > 0 ? '\u25b2' : (v < 0 ? '\u25bc' : '');
       return ' <span style="color:' + cor + ';font-size:10px">' + seta + ' ' + Math.abs(v).toFixed(0) + '%</span>';
     }
     function tend(t) {
       if (!t) return '';
-      var m = { subindo: ['#2ecc71', 'subindo'], caindo: ['#e74c3c', 'caindo'], estavel: ['#7d8290', 'estavel'] }[t.direcao] || ['#7d8290', t.direcao];
+      var m = { subindo: ['var(--vd)', 'subindo'], caindo: ['var(--rd)', 'caindo'], estavel: ['var(--t2)', 'estavel'] }[t.direcao] || ['var(--t2)', t.direcao];
       return '<span style="color:' + m[0] + ';font-size:10px"> · ' + m[1] + '</span>';
     }
     function bloco(titulo, conteudo, vazio) {
@@ -2100,15 +2118,15 @@
 
     var h = '<div style="padding:2px">';
     // ---- COLETA AUTOMATICA (coletor em lote) ----
-    h += '<div id="sia-lote-box" style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:12px;margin-bottom:12px">';
+    h += '<div id="sia-lote-box" style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:12px;margin-bottom:12px">';
     h += '<div style="display:flex;align-items:center;gap:8px">';
-    h += '<button id="sia-btn-coletar" style="all:unset;cursor:pointer;background:linear-gradient(135deg,#ff4d1c,#7B2FFF);color:#fff;font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:8px;text-align:center">Coletar conta agora</button>';
-    h += '<div id="sia-lote-status" style="font-size:11px;color:#7d8290;flex:1">Clique para a extensao buscar tudo sozinha</div>';
+    h += '<button id="sia-btn-coletar" style="all:unset;cursor:pointer;background:linear-gradient(135deg,var(--mk),var(--px));color:var(--t0);font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:8px;text-align:center">Coletar conta agora</button>';
+    h += '<div id="sia-lote-status" style="font-size:11px;color:var(--t2);flex:1">Clique para a extensao buscar tudo sozinha</div>';
     h += '</div>';
-    h += '<div id="sia-lote-barra-bg" style="display:none;height:6px;background:#1d212a;border-radius:3px;margin-top:10px;overflow:hidden"><div id="sia-lote-barra" style="height:100%;width:0%;background:linear-gradient(90deg,#ff4d1c,#7B2FFF);transition:width .3s"></div></div>';
+    h += '<div id="sia-lote-barra-bg" style="display:none;height:6px;background:var(--li);border-radius:3px;margin-top:10px;overflow:hidden"><div id="sia-lote-barra" style="height:100%;width:0%;background:linear-gradient(90deg,var(--mk),var(--px));transition:width .3s"></div></div>';
     // diagnostico: mostra se a sessao (chave) foi capturada
     var temChave = !!estado.spc;
-    h += '<div style="font-size:10px;margin-top:8px;color:' + (temChave ? '#2ecc71' : '#f5b041') + '">' +
+    h += '<div style="font-size:10px;margin-top:8px;color:' + (temChave ? 'var(--vd)' : 'var(--am)') + '">' +
       (temChave ? '\u25cf sessao capturada — pronto pra coletar' : '\u25cb sessao ainda nao capturada — abra/recarregue o Seller Central') + '</div>';
     h += '</div>';
     h += '<div class="nota" style="margin:0 0 12px">Retrato da conta lido direto da Shopee. Use o botao acima ou navegue pelas telas.</div>';
@@ -2117,12 +2135,12 @@
     var g = D.gerenciais, cg = '';
     if (g && (g.gmvPago || g.pv)) {
       // avisa a origem do dado: dia (navegacao passiva) ou periodo (coleta/central)
-      if (g.fonte === 'dia') cg += '<div class="ld" style="color:#f5b041;font-size:11px;margin-bottom:4px">\u26a0 Dados de HOJE. Clique em "Coletar" ou abra a Central pro mes completo.</div>';
-      else if (g.fonte === 'periodo') cg += '<div class="ld" style="color:#2ecc71;font-size:11px;margin-bottom:4px">Dados do periodo (mes)</div>';
+      if (g.fonte === 'dia') cg += '<div class="ld" style="color:var(--am);font-size:11px;margin-bottom:4px">\u26a0 Dados de HOJE. Clique em "Coletar" ou abra a Central pro mes completo.</div>';
+      else if (g.fonte === 'periodo') cg += '<div class="ld" style="color:var(--vd);font-size:11px;margin-bottom:4px">Dados do periodo (mes)</div>';
       if (g.gmvPago) cg += '<div class="ld">GMV pago: <b>' + fmtR(g.gmvPago.valor) + '</b>' + varia(g.gmvPago.variacao) + '</div>';
       if (g.pedidosPagos) cg += '<div class="ld">Pedidos: <b>' + fmtN(g.pedidosPagos.valor) + '</b>' + varia(g.pedidosPagos.variacao) + (g.ticketMedio ? ' · ticket <b>' + fmtR(g.ticketMedio) + '</b>' : '') + '</div>';
       if (g.visitantes) cg += '<div class="ld">Visitantes: <b>' + fmtN(g.visitantes.valor) + '</b>' + varia(g.visitantes.variacao) + (g.conversaoLoja != null ? ' · conversao <b>' + g.conversaoLoja + '%</b>' : '') + '</div>';
-      if (g.pv && g.uv) cg += '<div class="ld" style="color:#7d8290;font-size:11px">PV ' + fmtN(g.pv.valor) + ' · UV ' + fmtN(g.uv.valor) + '</div>';
+      if (g.pv && g.uv) cg += '<div class="ld" style="color:var(--t2);font-size:11px">PV ' + fmtN(g.pv.valor) + ' · UV ' + fmtN(g.uv.valor) + '</div>';
     }
     h += bloco('1 · VISAO GERENCIAL', cg, 'abra a Central de Dados (Painel) para capturar');
 
@@ -2131,7 +2149,7 @@
       var s = g.saude, cs = '';
       if (s.reembolsos) cs += '<div class="ld">Reembolsos: <b>' + fmtR(s.reembolsos.valor) + '</b>' + varia(s.reembolsos.variacao, true) + '</div>';
       if (s.vendasCanceladas) cs += '<div class="ld">Cancelamentos: <b>' + fmtR(s.vendasCanceladas.valor) + '</b>' + varia(s.vendasCanceladas.variacao, true) + '</div>';
-      if (s.pedidosDevolvidos) cs += '<div class="ld" style="color:#7d8290;font-size:11px">' + fmtN(s.pedidosDevolvidos.valor) + ' devolucoes · ' + fmtN(s.pedidosCancelados ? s.pedidosCancelados.valor : 0) + ' cancelados</div>';
+      if (s.pedidosDevolvidos) cs += '<div class="ld" style="color:var(--t2);font-size:11px">' + fmtN(s.pedidosDevolvidos.valor) + ' devolucoes · ' + fmtN(s.pedidosCancelados ? s.pedidosCancelados.valor : 0) + ' cancelados</div>';
       if (cs) h += bloco('SAUDE DAS VENDAS', cs, '');
     }
 
@@ -2142,9 +2160,9 @@
       var nomes = { card: 'Vitrine (card)', ads: 'Anuncios', afiliado: 'Afiliados', live: 'Live', video: 'Video' };
       ordem.forEach(function (k) {
         var ca = f.canais[k];
-        if (ca && ca.valor > 0) cf += '<div class="ld">' + nomes[k] + ': <b>' + (ca.ratio != null ? ca.ratio.toFixed(1) + '%' : '—') + '</b> <span style="color:#7d8290;font-size:11px">(' + fmtR(ca.valor) + ')</span>' + varia(ca.variacao) + '</div>';
+        if (ca && ca.valor > 0) cf += '<div class="ld">' + nomes[k] + ': <b>' + (ca.ratio != null ? ca.ratio.toFixed(1) + '%' : '—') + '</b> <span style="color:var(--t2);font-size:11px">(' + fmtR(ca.valor) + ')</span>' + varia(ca.variacao) + '</div>';
       });
-      if (f.naoUsa && f.naoUsa.length) cf += '<div class="ld" style="color:#f5b041;font-size:11px">Nao usa: ' + f.naoUsa.join(', ') + ' — canais parados</div>';
+      if (f.naoUsa && f.naoUsa.length) cf += '<div class="ld" style="color:var(--am);font-size:11px">Nao usa: ' + f.naoUsa.join(', ') + ' — canais parados</div>';
     }
     h += bloco('2 · FUNIL / ORIGEM DO DINHEIRO', cf, 'abra Fluxo de Visitantes na Central de Dados');
 
@@ -2164,11 +2182,11 @@
         var nome = (p.nome || k).slice(0, 26);
         var alerta = '';
         // sinal visual: CTR bom + conversao baixa = pagina nao converte
-        if (P.ctr >= 2 && P.convPago != null && P.convPago < 1) alerta = ' <span style="color:#f5b041;font-size:10px">pagina segura</span>';
-        else if (P.rejeicao != null && P.rejeicao > 45) alerta = ' <span style="color:#e74c3c;font-size:10px">rejeicao alta</span>';
+        if (P.ctr >= 2 && P.convPago != null && P.convPago < 1) alerta = ' <span style="color:var(--am);font-size:10px">pagina segura</span>';
+        else if (P.rejeicao != null && P.rejeicao > 45) alerta = ' <span style="color:var(--rd);font-size:10px">rejeicao alta</span>';
         cp += '<div class="ld" style="border-bottom:1px solid #15171d;padding-bottom:5px;margin-bottom:5px">' +
           '<b>' + esc(nome) + '</b>' + alerta + '<br>' +
-          '<span style="color:#9aa0ac;font-size:11px">CTR ' + (P.ctr != null ? P.ctr.toFixed(1) : '—') + '% · conv ' + (P.convPago != null ? P.convPago.toFixed(1) : '—') + '% · rejeicao ' + (P.rejeicao != null ? P.rejeicao.toFixed(0) : '—') + '% · ' + fmtR(P.vendaPaga || P.venda) + (P.fatiaVendas != null ? ' · ' + P.fatiaVendas.toFixed(0) + '% da loja' : '') + '</span></div>';
+          '<span style="color:var(--t2);font-size:11px">CTR ' + (P.ctr != null ? P.ctr.toFixed(1) : '—') + '% · conv ' + (P.convPago != null ? P.convPago.toFixed(1) : '—') + '% · rejeicao ' + (P.rejeicao != null ? P.rejeicao.toFixed(0) : '—') + '% · ' + fmtR(P.vendaPaga || P.venda) + (P.fatiaVendas != null ? ' · ' + P.fatiaVendas.toFixed(0) + '% da loja' : '') + '</span></div>';
       });
     }
     h += bloco('3 · PERFORMANCE DE PRODUTO', cp, 'abra Produtos na Central de Dados');
@@ -2178,7 +2196,7 @@
     // saude da conta (rating de performance + penalidade) — vem do accounthealth
     if (D.conta && D.conta.saudeConta) {
       var sc = D.conta.saudeConta;
-      var corRating = sc.ratingPerformance === 'excellent' ? '#2ecc71' : (sc.ratingPerformance === 'good' ? '#f5b041' : '#e74c3c');
+      var corRating = sc.ratingPerformance === 'excellent' ? 'var(--vd)' : (sc.ratingPerformance === 'good' ? 'var(--am)' : 'var(--rd)');
       var traduz = { excellent: 'Excelente', good: 'Boa', improvement_needed: 'Precisa melhorar', poor: 'Ruim' };
       ca4 += '<div class="ld">Saude da conta: <b style="color:' + corRating + '">' + (traduz[sc.ratingPerformance] || sc.ratingPerformance) + '</b>';
       if (sc.pontosPenalidade != null) ca4 += ' · ' + sc.pontosPenalidade + ' pts penalidade';
@@ -2188,13 +2206,13 @@
       var comAval = Object.keys(E.porProduto).filter(function (k) { return E.porProduto[k].avaliacoes; });
       var totBaixas = 0, totAval = 0;
       comAval.forEach(function (k) { totBaixas += E.porProduto[k].avaliacoes.baixas || 0; totAval += E.porProduto[k].avaliacoes.total || 0; });
-      if (comAval.length) ca4 += '<div class="ld">' + comAval.length + ' produtos avaliados · <b>' + totAval + '</b> avaliacoes' + (totBaixas > 0 ? ' · <span style="color:#e74c3c">' + totBaixas + ' baixas (1-2\u2605)</span>' : ' · <span style="color:#2ecc71">nenhuma baixa</span>') + '</div>';
+      if (comAval.length) ca4 += '<div class="ld">' + comAval.length + ' produtos avaliados · <b>' + totAval + '</b> avaliacoes' + (totBaixas > 0 ? ' · <span style="color:var(--rd)">' + totBaixas + ' baixas (1-2\u2605)</span>' : ' · <span style="color:var(--vd)">nenhuma baixa</span>') + '</div>';
     }
     if (g && g.travasDetectadas && Object.keys(g.travasDetectadas).length) {
       var travasSet = {};
       Object.keys(g.travasDetectadas).forEach(function (l) { (g.travasDetectadas[l] || []).forEach(function (t) { travasSet[t] = 1; }); });
       var listaT = Object.keys(travasSet);
-      if (listaT.length) ca4 += '<div class="ld" style="color:#f5b041;font-size:11px">Travas de edicao detectadas: ' + listaT.slice(0, 4).join(', ') + '</div>';
+      if (listaT.length) ca4 += '<div class="ld" style="color:var(--am);font-size:11px">Travas de edicao detectadas: ' + listaT.slice(0, 4).join(', ') + '</div>';
     }
     h += bloco('4 · SAUDE / AVALIACOES', ca4, 'abra Avaliacoes ou um Produto para capturar');
 
@@ -2206,23 +2224,23 @@
       caf += '<div class="ld">GMV afiliados: <b>' + fmtR(r5.gmv) + '</b> · <b>' + fmtN(r5.pedidos) + '</b> pedidos · comissao ' + fmtR(r5.comissaoPaga) + '</div>';
     }
     if (af && af.top && af.top.length) {
-      caf += '<div class="ld" style="color:#7d8290;font-size:11px;margin-top:4px">Top afiliados:</div>';
+      caf += '<div class="ld" style="color:var(--t2);font-size:11px;margin-top:4px">Top afiliados:</div>';
       af.top.slice(0, 3).forEach(function (t) {
         caf += '<div class="ld" style="font-size:11px">• ' + esc((t.nome || '').slice(0, 22)) + ' — ' + (t.roi != null ? t.roi.toFixed(1) + 'x' : '—') + ' · ' + fmtR(t.gmv) + (t.seguidores ? ' · ' + fmtN(t.seguidores) + ' seg' : '') + '</div>';
       });
     }
-    if (af && af.creatorsDisponiveis) caf += '<div class="ld" style="color:#7d8290;font-size:11px;margin-top:3px">' + af.creatorsDisponiveis + ' creators disponiveis para recrutar</div>';
+    if (af && af.creatorsDisponiveis) caf += '<div class="ld" style="color:var(--t2);font-size:11px;margin-top:3px">' + af.creatorsDisponiveis + ' creators disponiveis para recrutar</div>';
     h += bloco('5 · AFILIADOS', caf, 'abra o painel de Afiliados no Seller Central');
 
     // ---- 6) FINANCEIRO ----
     var fin = D.financeiro, cfin = '';
     if (fin && fin.componentes) {
       var comp = fin.componentes;
-      cfin += '<div class="ld" style="color:#7d8290;font-size:11px">Taxas reais da Shopee (' + fin.amostras + ' pedido' + (fin.amostras > 1 ? 's' : '') + ' lido' + (fin.amostras > 1 ? 's' : '') + '):</div>';
+      cfin += '<div class="ld" style="color:var(--t2);font-size:11px">Taxas reais da Shopee (' + fin.amostras + ' pedido' + (fin.amostras > 1 ? 's' : '') + ' lido' + (fin.amostras > 1 ? 's' : '') + '):</div>';
       if (comp.COMMISSION_FEE != null) cfin += '<div class="ld">Comissao: <b>' + fmtR(Math.abs(comp.COMMISSION_FEE)) + '</b></div>';
       if (comp.SERVICE_FEE != null) cfin += '<div class="ld">Taxa de servico: <b>' + fmtR(Math.abs(comp.SERVICE_FEE)) + '</b></div>';
-      if (comp.ESCROW_AMOUNT != null) cfin += '<div class="ld">Liquido recebido: <b style="color:#2ecc71">' + fmtR(comp.ESCROW_AMOUNT) + '</b></div>';
-      cfin += '<div class="ld" style="color:#7d8290;font-size:11px;margin-top:3px">A Shopee ja entrega comissao e taxas. Falta so o custo do produto (Cofre de Custos).</div>';
+      if (comp.ESCROW_AMOUNT != null) cfin += '<div class="ld">Liquido recebido: <b style="color:var(--vd)">' + fmtR(comp.ESCROW_AMOUNT) + '</b></div>';
+      cfin += '<div class="ld" style="color:var(--t2);font-size:11px;margin-top:3px">A Shopee ja entrega comissao e taxas. Falta so o custo do produto (Cofre de Custos).</div>';
     }
     h += bloco('6 · FINANCEIRO (margem real)', cfin, 'abra um pedido em Financeiro > Minha Renda');
 
@@ -2363,39 +2381,39 @@
 
     h += '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
       '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="digite o termo que o comprador pesquisa" ' +
-      'style="flex:1;min-width:200px;background:#12151b;border:1px solid #1d212a;border-radius:8px;padding:10px 12px;color:#f2f2f4;font-size:13px">' +
-      '<button id="sia-esp-ir" style="background:#ff4d1c;border:none;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:pointer">' + (e.buscando ? 'Espiando...' : 'Espiar') + '</button>' +
-      '<button id="sia-esp-radar" style="background:#12151b;border:1px solid #2a2f3a;color:#fff;font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
+      'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:8px;padding:10px 12px;color:var(--t0);font-size:13px">' +
+      '<button id="sia-esp-ir" style="background:var(--mk);border:none;color:var(--t0);font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:pointer">' + (e.buscando ? 'Espiando...' : 'Espiar') + '</button>' +
+      '<button id="sia-esp-radar" style="background:var(--b2);border:1px solid var(--li2);color:var(--t0);font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
       (e.radarRodando ? 'Radar ' + e.radarRodando + '/' + e.radarTotal + '...' : 'Radar dos meus produtos') + '</button></div>';
 
     h += '<div class="nota" style="margin-top:0">A busca abre a vitrine numa aba em segundo plano e le a resposta que a propria Shopee entrega — nao fabricamos chamada, so escutamos. Cada termo leva alguns segundos. O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
 
-    if (e.erro) h += '<div class="nota" style="color:#e74c3c">' + esc(e.erro) + '</div>';
+    if (e.erro) h += '<div class="nota" style="color:var(--rd)">' + esc(e.erro) + '</div>';
 
     /* ---- RADAR ---- */
     if (e.radar && e.radar.length) {
-      h += '<div style="font-family:monospace;font-size:10px;color:#7d8290;letter-spacing:.06em;margin:16px 0 8px">SEUS PRODUTOS NAS BUSCAS DELES</div>';
+      h += '<div style="font-family:monospace;font-size:10px;color:var(--t2);letter-spacing:.06em;margin:16px 0 8px">SEUS PRODUTOS NAS BUSCAS DELES</div>';
       for (var r = 0; r < e.radar.length; r++) {
         var L = e.radar[r];
-        var cor = '#7d8290', txt = '', posTxt = '—';
+        var cor = 'var(--t2)', txt = '', posTxt = '—';
         if (L.erro) { txt = esc(L.erro); }
         else {
           posTxt = L.pos ? String(L.pos) : '—';
-          if (L.meuFat == null) { txt = 'voce nao aparece no top ' + (L.total || 60) + ' dessa busca'; cor = '#e74c3c'; }
-          else if (L.barreira && L.meuFat >= L.barreira) { txt = 'acima da barreira do TOP 5'; cor = '#2ecc71'; }
-          else if (L.barreira) { txt = fmt(L.barreira / L.meuFat, 1) + 'x abaixo da barreira'; cor = L.barreira / L.meuFat > 2 ? '#e74c3c' : '#f5b041'; }
+          if (L.meuFat == null) { txt = 'voce nao aparece no top ' + (L.total || 60) + ' dessa busca'; cor = 'var(--rd)'; }
+          else if (L.barreira && L.meuFat >= L.barreira) { txt = 'voce vende mais que eles'; cor = 'var(--vd)'; }
+          else if (L.barreira) { txt = 'eles vendem ' + fmt(L.barreira / L.meuFat, 1) + 'x mais que voce'; cor = L.barreira / L.meuFat > 2 ? 'var(--rd)' : 'var(--am)'; }
         }
-        h += '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:10px 12px;margin-bottom:7px">' +
+        h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:10px 12px;margin-bottom:7px">' +
           '<div style="display:flex;gap:8px;align-items:center">' +
           '<span style="font-family:monospace;font-size:15px;color:' + cor + ';width:26px">' + posTxt + '</span>' +
           '<span style="flex:1;font-size:12.5px">' + esc(String(L.produto).slice(0, 52)) + '</span>' +
-          (L.meuAds ? '<span style="font-family:monospace;font-size:8px;color:#ff4d1c;border:1px solid rgba(255,77,28,.4);border-radius:99px;padding:2px 7px">ADS</span>' : '') +
+          (L.meuAds ? '<span style="font-family:monospace;font-size:8px;color:var(--mk);border:1px solid rgba(255,77,28,.4);border-radius:99px;padding:2px 7px">ADS</span>' : '') +
           '</div>' +
-          '<div style="font-family:monospace;font-size:10px;color:#7d8290;margin-top:4px">busca "' + esc(L.termo) + '"' + (L.total ? ' · ' + L.total + ' resultados · ' + L.ads + ' anuncios' : '') + '</div>' +
+          '<div style="font-family:monospace;font-size:10px;color:var(--t2);margin-top:4px">busca "' + esc(L.termo) + '"' + (L.total ? ' · ' + L.total + ' resultados · ' + L.ads + ' anuncios' : '') + '</div>' +
           '<div style="font-family:monospace;font-size:10.5px;margin-top:5px">' +
-          '<span style="color:#b8bcc6">voce ' + espDinheiro(L.meuFat) + '/mes</span> ' +
-          '<span style="color:#7d8290">→</span> ' +
-          '<span style="color:#2ecc71">TOP 5 ' + espDinheiro(L.barreira) + '</span> ' +
+          '<span style="color:var(--t1)">voce ' + espDinheiro(L.meuFat) + '/mes</span> ' +
+          '<span style="color:var(--t2)">→</span> ' +
+          '<span style="color:var(--vd)">TOP 5 ' + espDinheiro(L.barreira) + '</span> ' +
           '<span style="color:' + cor + '">· ' + txt + '</span></div></div>';
       }
     }
@@ -2407,31 +2425,31 @@
       for (i = 0; i < lista.length; i++) if (lista[i].ads) nAds++;
 
       h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 10px">' +
-        '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:9px;text-align:center"><div style="font-family:"Space Mono";font-size:10px;color:#7d8290">ANUNCIOS</div><div style="font-size:20px;color:#ff4d1c">' + nAds + '<span style="font-size:12px;color:#7d8290">/' + lista.length + '</span></div></div>' +
-        '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:9px;text-align:center"><div style="font-family:"Space Mono";font-size:10px;color:#7d8290">PRECO TOP 5</div><div style="font-size:20px">' + (b && b.preco != null ? 'R$' + fmt(b.preco, 0) : '—') + '</div></div>' +
-        '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:9px;text-align:center"><div style="font-family:"Space Mono";font-size:10px;color:#7d8290">BARREIRA/MES</div><div style="font-size:20px;color:#2ecc71">' + (b ? espDinheiro(b.faturamentoMes) : '—') + '</div></div></div>';
+        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">ANUNCIOS</div><div style="font-size:20px;color:var(--mk)">' + nAds + '<span style="font-size:12px;color:var(--t2)">/' + lista.length + '</span></div></div>' +
+        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">PRECO TOP 5</div><div style="font-size:20px">' + (b && b.preco != null ? 'R$' + fmt(b.preco, 0) : '—') + '</div></div>' +
+        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">BARREIRA/MES</div><div style="font-size:20px;color:var(--vd)">' + (b ? espDinheiro(b.faturamentoMes) : '—') + '</div></div></div>';
 
       for (i = 0; i < lista.length; i++) {
         var x = lista[i];
-        h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:1px solid #1d212a;font-size:11.5px' + (x.eu ? ';background:rgba(46,204,113,.06);border-radius:6px' : '') + '">' +
-          '<span style="font-family:monospace;font-size:13px;width:22px;color:' + (x.eu ? '#2ecc71' : '#7d8290') + '">' + x.pos + '</span>' +
-          '<span style="flex:1;color:' + (x.eu ? '#2ecc71' : '#b8bcc6') + (x.eu ? ';font-weight:600' : '') + '">' + esc(x.nome.slice(0, 44)) + (x.eu ? ' (voce)' : '') + '</span>' +
-          (x.ads ? '<span style="font-family:monospace;font-size:8px;color:#ff4d1c">ADS</span>' : '') +
+        h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:1px solid var(--li);font-size:11.5px' + (x.eu ? ';background:rgba(46,204,113,.06);border-radius:6px' : '') + '">' +
+          '<span style="font-family:monospace;font-size:13px;width:22px;color:' + (x.eu ? 'var(--vd)' : 'var(--t2)') + '">' + x.pos + '</span>' +
+          '<span style="flex:1;color:' + (x.eu ? 'var(--vd)' : 'var(--t1)') + (x.eu ? ';font-weight:600' : '') + '">' + esc(x.nome.slice(0, 44)) + (x.eu ? ' (voce)' : '') + '</span>' +
+          (x.ads ? '<span style="font-family:monospace;font-size:8px;color:var(--mk)">ADS</span>' : '') +
           '<span style="text-align:right"><span style="font-family:monospace;font-size:10.5px;display:block">' + (x.preco != null ? 'R$' + fmt(x.preco, 2) : '—') + '</span>' +
-          '<span style="font-family:monospace;font-size:8.5px;color:#2ecc71">' + (x.vendasMes != null ? x.vendasMes + '/mes · ' + espDinheiro(x.faturamentoMes) : 'sem dado') + '</span></span></div>';
+          '<span style="font-family:monospace;font-size:8.5px;color:var(--vd)">' + (x.vendasMes != null ? x.vendasMes + '/mes · ' + espDinheiro(x.faturamentoMes) : 'sem dado') + '</span></span></div>';
       }
 
       var meus = lista.filter(function (z) { return z.eu; });
       if (meus.length && b) {
         var m = meus[0], lid = b.lider;
-        h += '<div style="font-family:monospace;font-size:10px;color:#7d8290;letter-spacing:.06em;margin:18px 0 8px">VOCE · PADRAO TOP 5 · LIDER</div>';
+        h += '<div style="font-family:monospace;font-size:10px;color:var(--t2);letter-spacing:.06em;margin:18px 0 8px">VOCE · MEDIA DOS 5 PRIMEIROS · O PRIMEIRO</div>';
         h += '<table style="width:100%;border-collapse:collapse;font-size:11.5px">' +
-          '<tr><th></th><th style="font-family:monospace;font-size:9px;color:#ff4d1c;padding:6px">VOCE</th><th style="font-family:monospace;font-size:9px;color:#2ecc71;padding:6px">PADRAO TOP 5</th><th style="font-family:"Space Mono";font-size:10.5px;color:#7d8290;padding:6px">LIDER</th></tr>';
+          '<tr><th></th><th style="font-family:monospace;font-size:9px;color:var(--mk);padding:6px">VOCE</th><th style="font-family:monospace;font-size:9px;color:var(--vd);padding:6px">MEDIA DOS 5</th><th style="font-family:"Space Mono";font-size:10.5px;color:var(--t2);padding:6px">O PRIMEIRO</th></tr>';
         function linha(rot, a, c, d) {
-          return '<tr><td style="font-family:"Space Mono";font-size:10.5px;color:#7d8290;padding:6px 4px">' + rot + '</td>' +
+          return '<tr><td style="font-family:"Space Mono";font-size:10.5px;color:var(--t2);padding:6px 4px">' + rot + '</td>' +
             '<td style="text-align:center;padding:6px;font-family:monospace;background:rgba(255,77,28,.05)">' + a + '</td>' +
-            '<td style="text-align:center;padding:6px;color:#b8bcc6">' + c + '</td>' +
-            '<td style="text-align:center;padding:6px;color:#7d8290">' + d + '</td></tr>';
+            '<td style="text-align:center;padding:6px;color:var(--t1)">' + c + '</td>' +
+            '<td style="text-align:center;padding:6px;color:var(--t2)">' + d + '</td></tr>';
         }
         h += linha('Posicao', m.pos, '1 a 5', lid.pos);
         h += linha('Preco', m.preco != null ? 'R$' + fmt(m.preco, 2) : '—', b.preco != null ? 'R$' + fmt(b.preco, 2) : '—', lid.preco != null ? 'R$' + fmt(lid.preco, 2) : '—');
@@ -2444,16 +2462,16 @@
 
         var falta = (b.faturamentoMes != null && m.faturamentoMes != null) ? b.faturamentoMes - m.faturamentoMes : null;
         var faltaUn = (b.vendasMes != null && m.vendasMes != null) ? Math.round(b.vendasMes - m.vendasMes) : null;
-        h += '<div style="background:#12151b;border-left:3px solid #ff4d1c;border-radius:0 9px 9px 0;padding:11px 13px;margin-top:12px;font-size:12px;color:#b8bcc6;line-height:1.5">';
+        h += '<div style="background:var(--b2);border-left:3px solid var(--mk);border-radius:0 9px 9px 0;padding:11px 13px;margin-top:12px;font-size:12px;color:var(--t1);line-height:1.5">';
         if (falta != null && falta > 0) {
-          h += '<b style="color:#f2f2f4">A barreira:</b> faltam <b style="color:#ff4d1c">' + espDinheiro(falta) + '/mes</b> para encostar no padrao do topo' +
+          h += '<b style="color:var(--t0)">Para chegar no topo:</b> faltam <b style="color:var(--mk)">' + espDinheiro(falta) + '/mes</b> para encostar no padrao do topo' +
             (faltaUn > 0 ? ' — em unidades, de ' + m.vendasMes + ' para cerca de ' + fmt(b.vendasMes, 0) + ' vendas/mes.' : '.');
-        } else { h += '<b style="color:#2ecc71">Voce esta acima da barreira do TOP 5 nesta busca.</b> Aqui a leitura muda: proteja a posicao, nao persiga preco.'; }
+        } else { h += '<b style="color:var(--vd)">Voce esta acima da barreira do TOP 5 nesta busca.</b> Aqui a leitura muda: proteja a posicao, nao persiga preco.'; }
         if (m.preco != null && b.preco != null && m.preco > b.preco * 1.15) h += ' Voce esta ' + fmt((m.preco / b.preco - 1) * 100, 0) + '% mais caro que o padrao do topo.';
         if (!m.cupom && b.comCupom >= 2) h += ' E e o unico sem cupom entre os primeiros — cupom vira selo na busca e custa menos que cortar preco.';
-        h += '<br><br><b style="color:#f2f2f4">Antes de mexer no preco:</b> abra a Margem e veja seu liquido de hoje. Preco e o ultimo passo, e so se a margem aguentar.</div>';
+        h += '<br><br><b style="color:var(--t0)">Antes de mexer no preco:</b> abra a Margem e veja seu liquido de hoje. Preco e o ultimo passo, e so se a margem aguentar.</div>';
       } else if (b) {
-        h += '<div class="nota" style="color:#f5b041;margin-top:12px">Nenhum produto seu apareceu nesta busca. Quando o titulo nao carrega o termo que o comprador digita, voce nem entra na disputa — nem paga, nem organica.</div>';
+        h += '<div class="nota" style="color:var(--am);margin-top:12px">Nenhum produto seu apareceu nesta busca. Quando o titulo nao carrega o termo que o comprador digita, voce nem entra na disputa — nem paga, nem organica.</div>';
       }
     }
     return h;
@@ -2572,10 +2590,10 @@
   }
 
   function chip(rot, val, sub, cor) {
-    return '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:9px 10px">' +
-      '<div style="font-family:Space Mono,monospace;font-size:11.5px;color:#8a909c;letter-spacing:.05em">' + rot + '</div>' +
-      '<div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1.1;margin-top:3px;color:' + (cor || '#f2f2f4') + '">' + val + '</div>' +
-      '<div style="font-size:12px;color:#8a909c;margin-top:2px">' + sub + '</div></div>';
+    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px 10px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2);letter-spacing:.05em">' + rot + '</div>' +
+      '<div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1.1;margin-top:3px;color:' + (cor || 'var(--t0)') + '">' + val + '</div>' +
+      '<div style="font-size:12px;color:var(--t2);margin-top:2px">' + sub + '</div></div>';
   }
 
   function renderCard6() {
@@ -2584,9 +2602,9 @@
     var h = '';
 
     h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
-      '<button data-voltar="1" style="background:#12151b;border:1px solid #2a2f3a;color:#b8bcc6;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">‹ voltar</button>' +
+      '<button data-voltar="1" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">‹ voltar</button>' +
       '<div style="flex:1"><div style="font-size:14px;font-weight:600;line-height:1.25">' + esc(String(R.nome).slice(0, 62)) + '</div>' +
-      '<div style="font-family:monospace;font-size:9.5px;color:#7d8290">' + (R.tipo === 'produto' ? 'produto · ID ' + esc(R.idProduto || '—') : 'campanha · ' + esc(R.idCamp || '—')) + '</div></div></div>';
+      '<div style="font-family:monospace;font-size:9.5px;color:var(--t2)">' + (R.tipo === 'produto' ? 'produto · ID ' + esc(R.idProduto || '—') : 'campanha · ' + esc(R.idCamp || '—')) + '</div></div></div>';
 
     if (!pc && !pp) {
       return h + '<div class="vazio">Ainda nao tenho dados ' + (R.tipo === 'produto' ? 'deste produto' : 'desta campanha') + '. Rode a coleta completa na aba Inicio.</div>';
@@ -2594,7 +2612,7 @@
 
     /* ---- 1. ALERTA DE APRENDIZADO (so quando existe) ---- */
     if (pp && pp.emAprendizado && pp.aprendizadoDias) {
-      h += '<div style="display:flex;gap:8px;background:rgba(245,176,65,.1);border:1px solid rgba(245,176,65,.28);border-radius:10px;padding:10px 12px;margin-bottom:11px;font-size:12px;color:#ffd89e;line-height:1.45">' +
+      h += '<div style="display:flex;gap:8px;background:rgba(245,176,65,.1);border:1px solid rgba(245,176,65,.28);border-radius:10px;padding:10px 12px;margin-bottom:11px;font-size:12px;color:var(--am);line-height:1.45">' +
         '<b>Em aprendizado:</b> faltam ' + fmt(pp.aprendizadoDias, 0) + ' dias. Nao altere preco nem lance agora — reinicia a contagem do algoritmo.</div>';
     }
 
@@ -2625,10 +2643,10 @@
       : null;
     var margemPct = (liquido != null && preco) ? (liquido / preco) * 100 : null;
 
-    h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
-      '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:8px">A CONTA DESTE PEDIDO</div>';
+    h += '<div style="border:1px solid var(--li);border-radius:12px;padding:12px;margin-bottom:11px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;margin-bottom:8px">A CONTA DE UM PEDIDO' + dica('<b>A conta de um pedido:</b> o que entra e o que sai em UMA venda deste produto. Ticket medio menos comissao da Shopee, menos o que o anuncio custou por pedido, menos custo, embalagem e imposto quando cadastrados no Cofre. O que sobra e o seu lucro por unidade vendida.') + '</div>';
     function linhaR(l, v, forte) {
-      return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;color:' + (forte ? '#f2f2f4' : '#b8bcc6') + '"><span>' + l + '</span><span style="font-family:monospace">' + v + '</span></div>';
+      return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;color:' + (forte ? 'var(--t0)' : 'var(--t1)') + '"><span>' + l + '</span><span style="font-family:monospace">' + v + '</span></div>';
     }
     h += linhaR('Ticket medio' + (precoDerivado && preco != null ? ' (GMV ÷ pedidos)' : ''), preco != null ? reais(preco) : '—', true);
     h += linhaR('− Comissao Shopee' + (faixaTxt ? ' (' + faixaTxt + ')' : ''), comissao != null ? '− ' + reais(comissao) : '—');
@@ -2636,27 +2654,27 @@
     if (custoProd) h += linhaR('− Custo do produto', '− ' + reais(custoProd));
     if (emb) h += linhaR('− Embalagem', '− ' + reais(emb));
     if (imposto) h += linhaR('− Imposto (' + fmt(impPct, 1) + '%)', '− ' + reais(imposto));
-    h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #1d212a;margin-top:6px;padding-top:7px">' +
+    h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--li);margin-top:6px;padding-top:7px">' +
       '<span style="font-size:14px;font-weight:600">' + (custoProd ? 'Lucro por pedido' : 'Sobra antes do custo') + '</span>' +
-      '<span style="font-size:26px;color:' + (liquido > 0 ? '#2ecc71' : '#e74c3c') + '">' + (liquido != null ? reais(liquido) : '—') + '</span></div>';
+      '<span style="font-size:26px;color:' + (liquido > 0 ? 'var(--vd)' : 'var(--rd)') + '">' + (liquido != null ? reais(liquido) : '—') + '</span></div>';
     if (!custoProd) {
       var lp = listaProdutos();
       if (lp.length) {
-        h += '<div style="background:#12151b;border:1px solid #1d212a;border-radius:9px;padding:9px 11px;margin-top:9px">' +
-          '<div style="font-family:"Space Mono";font-size:10px;color:#7d8290;margin-bottom:6px">QUAL PRODUTO E ESTA CAMPANHA?</div>' +
-          '<div style="display:flex;gap:6px"><select id="sia-vinc" style="flex:1;background:#0c0e12;border:1px solid #1d212a;border-radius:7px;padding:7px;color:#f2f2f4;font-size:11.5px"><option value="">escolha o produto...</option>';
+        h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:9px 11px;margin-top:9px">' +
+          '<div style="font-family:"Space Mono";font-size:10px;color:var(--t2);margin-bottom:6px">QUAL PRODUTO E ESTA CAMPANHA?</div>' +
+          '<div style="display:flex;gap:6px"><select id="sia-vinc" style="flex:1;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:7px;color:var(--t0);font-size:11.5px"><option value="">escolha o produto...</option>';
         for (var vp = 0; vp < lp.length; vp++) {
           h += '<option value="' + esc(lp[vp].id) + '"' + (String(lp[vp].id) === String(R.idProduto) ? ' selected' : '') + '>' + esc(String(lp[vp].nome).slice(0, 40)) + (custoDe(lp[vp].id) ? ' · custo ok' : ' · sem custo') + '</option>';
         }
-        h += '</select><button id="sia-vinc-ok" data-camp="' + esc(R.idCamp || '') + '" style="background:#ff4d1c;border:none;color:#fff;font-size:11.5px;font-weight:600;padding:0 13px;border-radius:7px;cursor:pointer">Vincular</button></div></div>';
+        h += '</select><button id="sia-vinc-ok" data-camp="' + esc(R.idCamp || '') + '" style="background:var(--mk);border:none;color:var(--t0);font-size:11.5px;font-weight:600;padding:0 13px;border-radius:7px;cursor:pointer">Vincular</button></div></div>';
       }
     }
     if (custoProd) {
-      h += '<div style="background:#12151b;border-left:3px solid #2ecc71;border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:#b8bcc6">' +
-        'Margem real de <b style="color:#2ecc71">' + (margemPct != null ? fmt(margemPct, 1) + '%' : '—') + '</b> — custo, embalagem e imposto ja descontados.' + (R.autoNome ? ' <span style="color:#f5b041">Produto identificado pelo nome — confira se e este mesmo.</span>' : '') + '</div></div>';
+      h += '<div style="background:var(--b2);border-left:3px solid var(--vd);border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:var(--t1)">' +
+        'Margem real de <b style="color:var(--vd)">' + (margemPct != null ? fmt(margemPct, 1) + '%' : '—') + '</b> — custo, embalagem e imposto ja descontados.' + (R.autoNome ? ' <span style="color:var(--am)">Produto identificado pelo nome — confira se e este mesmo.</span>' : '') + '</div></div>';
     } else {
-      h += '<div style="background:#12151b;border-left:3px solid #7B2FFF;border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:#b8bcc6">' +
-        'Falta o custo deste produto. Cadastre na aba <b style="color:#f2f2f4">Cofre</b> e esta sobra vira lucro de verdade.</div></div>';
+      h += '<div style="background:var(--b2);border-left:3px solid var(--px);border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:var(--t1)">' +
+        'Falta o custo deste produto. Cadastre na aba <b style="color:var(--t0)">Cofre</b> e esta sobra vira lucro de verdade.</div></div>';
     }
 
     /* ---- 3. POR QUE ESTE ROAS (a Shopee explica) ---- */
@@ -2671,40 +2689,40 @@
     var equil = temCusto ? teto : null;
     var temAds = !!(pc && (pc.resultado || pc.leilao));
     if (!temAds) {
-      h += '<div style="background:#12151b;border-left:3px solid #7B2FFF;border-radius:0 9px 9px 0;padding:10px 12px;margin-bottom:11px;font-size:13px;color:#b8bcc6;line-height:1.5">' +
+      h += '<div style="background:var(--b2);border-left:3px solid var(--px);border-radius:0 9px 9px 0;padding:10px 12px;margin-bottom:11px;font-size:13px;color:var(--t1);line-height:1.5">' +
         'Este produto nao tem anuncio ativo nesta coleta, entao nao ha ROAS para explicar. O julgamento acima vem do funil organico da pagina.</div>';
     } else {
-    h += '<div style="border:1px solid #1d212a;border-radius:12px;padding:12px;margin-bottom:11px">' +
-      '<div style="font-family:Space Mono,monospace;font-size:12px;color:#c88bff;letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
+    h += '<div style="border:1px solid var(--li);border-radius:12px;padding:12px;margin-bottom:11px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--px);letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;text-align:center">' +
-      '<div><div style="font-size:18px;color:#f5b041">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:"Space Mono";font-size:10px;color:#7d8290">VOCE PEDE</div></div>' +
-      '<div><div style="font-size:18px;color:#2ecc71">' + (meta.sugerida != null ? fmt(meta.sugerida, 1) + 'x' : '—') + '</div><div style="font-family:"Space Mono";font-size:10px;color:#7d8290">SHOPEE SUGERE</div></div>' +
-      '<div><div style="font-size:18px;color:' + (equil != null ? '#ff4d1c' : '#7d8290') + '">' + (equil != null ? fmt(equil, 1) + 'x' : (teto != null ? fmt(teto, 1) + 'x' : '—')) + '</div><div style="font-family:monospace;font-size:8px;color:' + (equil != null ? '#7d8290' : '#f5b041') + '">' + (equil != null ? 'SEU EQUILIBRIO' : 'TETO · SEM CUSTO') + '</div></div></div>';
+      '<div><div style="font-size:18px;color:var(--am)">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">VOCE PEDE</div></div>' +
+      '<div><div style="font-size:18px;color:var(--vd)">' + (meta.sugerida != null ? fmt(meta.sugerida, 1) + 'x' : '—') + '</div><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">SHOPEE SUGERE</div></div>' +
+      '<div><div style="font-size:18px;color:' + (equil != null ? 'var(--mk)' : 'var(--t2)') + '">' + (equil != null ? fmt(equil, 1) + 'x' : (teto != null ? fmt(teto, 1) + 'x' : '—')) + '</div><div style="font-family:monospace;font-size:8px;color:' + (equil != null ? 'var(--t2)' : 'var(--am)') + '">' + (equil != null ? 'SEU EQUILIBRIO' : 'TETO · SEM CUSTO') + '</div></div></div>';
     // Uma ideia por linha. Nada de paragrafo com tres assuntos misturados,
     // nada de frase de efeito. Cada linha responde uma pergunta so.
     function linhaRoas(txt, cor) {
-      return '<div style="display:flex;gap:8px;font-size:13.5px;color:#b8bcc6;padding:7px 0;border-top:1px solid #1d212a;line-height:1.45">' +
-        '<span style="color:' + (cor || '#7d8290') + ';flex:none">•</span><span>' + txt + '</span></div>';
+      return '<div style="display:flex;gap:8px;font-size:13.5px;color:var(--t1);padding:7px 0;border-top:1px solid var(--li);line-height:1.45">' +
+        '<span style="color:' + (cor || 'var(--t2)') + ';flex:none">•</span><span>' + txt + '</span></div>';
     }
     h += '<div style="margin-top:10px">';
     if (meta.atual != null && roasReal != null) {
       var folga = meta.atual - roasReal;
-      h += linhaRoas('Voce pede <b style="color:#f2f2f4">' + fmt(meta.atual, 1) + 'x</b> e a campanha entrega <b style="color:#f2f2f4">' + fmt(roasReal, 2) + 'x</b>.' +
+      h += linhaRoas('Voce pede <b style="color:var(--t0)">' + fmt(meta.atual, 1) + 'x</b> e a campanha entrega <b style="color:var(--t0)">' + fmt(roasReal, 2) + 'x</b>.' +
         (folga > 1 ? ' A meta esta acima do que ela consegue.' : ' A meta esta no tamanho da entrega.'),
-        folga > 1 ? '#f5b041' : '#2ecc71');
+        folga > 1 ? 'var(--am)' : 'var(--vd)');
     } else if (roasReal != null) {
-      h += linhaRoas('A campanha entrega <b style="color:#f2f2f4">' + fmt(roasReal, 2) + 'x</b> hoje.');
+      h += linhaRoas('A campanha entrega <b style="color:var(--t0)">' + fmt(roasReal, 2) + 'x</b> hoje.');
     }
     if (meta.sugerida != null) {
-      h += linhaRoas('A Shopee sugere baixar a meta pra <b style="color:#2ecc71">' + fmt(meta.sugerida, 1) + 'x</b>' +
-        (meta.ganhoGmvPct != null ? ' e projeta <b style="color:#2ecc71">+' + fmt(meta.ganhoGmvPct, 0) + '%</b> de vendas.' : '.'), '#2ecc71');
+      h += linhaRoas('A Shopee sugere baixar a meta pra <b style="color:var(--vd)">' + fmt(meta.sugerida, 1) + 'x</b>' +
+        (meta.ganhoGmvPct != null ? ' e projeta <b style="color:var(--vd)">+' + fmt(meta.ganhoGmvPct, 0) + '%</b> de vendas.' : '.'), 'var(--vd)');
     } else {
-      h += linhaRoas('A sugestao da Shopee ainda nao foi lida. Abra a tela de Shopee Ads uma vez.', '#f5b041');
+      h += linhaRoas('A sugestao da Shopee ainda nao foi lida. Abra a tela de Shopee Ads uma vez.', 'var(--am)');
     }
     if (equil != null) {
-      h += linhaRoas('Abaixo de <b style="color:#ff4d1c">' + fmt(equil, 1) + 'x</b> voce paga pra vender.', '#ff4d1c');
+      h += linhaRoas('Abaixo de <b style="color:var(--mk)">' + fmt(equil, 1) + 'x</b> voce paga pra vender.', 'var(--mk)');
     } else if (teto != null) {
-      h += linhaRoas('<b style="color:#f5b041">Nao use o ' + fmt(teto, 1) + 'x como meta.</b> Ele ignora o custo do produto. Seu limite real e mais alto, e so o Cofre de Custos vai dizer quanto.', '#f5b041');
+      h += linhaRoas('<b style="color:var(--am)">Nao use o ' + fmt(teto, 1) + 'x como meta.</b> Ele ignora o custo do produto. Seu limite real e mais alto, e so o Cofre de Custos vai dizer quanto.', 'var(--am)');
     }
     h += '</div></div>';
     }
@@ -2721,18 +2739,18 @@
     } catch (e) { /* noop */ }
     var dp = (R.tipo === 'produto' && R.idProduto && estado.produtos[R.idProduto]) ? diagProduto(R.idProduto) : null;
     var fraseCard = (dp && dp.titulo) || (diag && (diag.titulo || diag.frase)) || cardFraseLocal(pc, pp);
-    h += '<div style="background:#12151b;border:1px solid #1d212a;border-radius:12px;padding:13px;margin-bottom:11px">' +
-      '<div style="font-size:19px;color:#ff4d1c;line-height:1.25;margin-bottom:6px">' + esc(fraseCard) + '</div>';
-    if (dp && dp.texto) h += '<div style="font-size:13px;color:#c8ccd4;line-height:1.5;margin-bottom:8px">' + esc(dp.texto) + '</div>';
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:13px;margin-bottom:11px">' +
+      '<div style="font-size:19px;color:var(--mk);line-height:1.25;margin-bottom:6px">' + esc(fraseCard) + '</div>';
+    if (dp && dp.texto) h += '<div style="font-size:13px;color:var(--t1);line-height:1.5;margin-bottom:8px">' + esc(dp.texto) + '</div>';
     var passos = (diag && diag.acoes) || (dp && dp.acao ? [dp.acao] : null);
     if (passos && passos.length) {
-      h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:6px">FACA NESTA ORDEM</div>';
+      h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;margin-bottom:6px">FACA NESTA ORDEM</div>';
       for (var s = 0; s < passos.length; s++) {
-        h += '<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid #1d212a;font-size:11.5px;color:#b8bcc6">' +
-          '<span style="font-family:monospace;color:#ff4d1c">' + (s + 1) + '</span><span>' + esc(passos[s]) + '</span></div>';
+        h += '<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid var(--li);font-size:11.5px;color:var(--t1)">' +
+          '<span style="font-family:monospace;color:var(--mk)">' + (s + 1) + '</span><span>' + esc(passos[s]) + '</span></div>';
       }
     } else {
-      h += '<div style="font-size:11.5px;color:#7d8290">O passo a passo vem do cerebro treinado. Rode <b style="color:#b8bcc6">Analisar</b> na aba Diagnostico para trazer as acoes desta campanha.</div>';
+      h += '<div style="font-size:11.5px;color:var(--t2)">O passo a passo vem do cerebro treinado. Rode <b style="color:var(--t1)">Analisar</b> na aba Diagnostico para trazer as acoes desta campanha.</div>';
     }
     h += '</div>';
 
@@ -2756,12 +2774,12 @@
     var dg = DIAG[String(probl || '').toLowerCase()] || null;
     var diagRot = dg ? dg[0] : (probl ? esc(String(probl).slice(0, 16)) : '—');
     var diagSub = dg ? dg[1] : (probl ? 'apontado pela propria Shopee' : 'sem apontamento');
-    var diagCor = !probl ? '#7d8290' : (String(probl).toLowerCase() === 'na' || String(probl).toLowerCase() === 'good' ? '#2ecc71' : (String(probl).toLowerCase() === 'room_more_traffic' ? '#2ecc71' : '#f5b041'));
-    h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:7px">O QUE A SHOPEE SABE E NAO MOSTRA</div>' +
+    var diagCor = !probl ? 'var(--t2)' : (String(probl).toLowerCase() === 'na' || String(probl).toLowerCase() === 'good' ? 'var(--vd)' : (String(probl).toLowerCase() === 'room_more_traffic' ? 'var(--vd)' : 'var(--am)'));
+    h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;margin-bottom:7px">O QUE A SHOPEE SABE E NAO MOSTRA' + dica('<b>Estes quatro numeros existem na API da Shopee e nao aparecem no painel dela.</b> Posicao no leilao e onde seu anuncio cai na disputa. Competitividade e como o seu preco esta contra a categoria, na regua dela. Status diz se o produto tem alcance limitado. Diagnostico e o problema que ela mesma aponta.') + '</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:11px">' +
-      chip('POSICAO NO LEILAO', posLeilao != null ? fmt(posLeilao, 0) : '—', posLeilao == null ? 'sem dado' : (posLeilao <= 10 ? 'topo da vitrine' : (posLeilao <= 30 ? 'meio da vitrine' : 'fundo da vitrine')), posLeilao != null && posLeilao <= 10 ? '#2ecc71' : (posLeilao > 30 ? '#e74c3c' : '#f5b041')) +
-      chip('COMPETITIVIDADE PRECO', comp != null ? fmt(comp, 0) + '<span style="font-size:11px;color:#7d8290">/100</span>' : '—', comp == null ? 'abra a campanha uma vez' : (comp >= 70 ? 'acima da categoria' : (comp >= 40 ? 'na media' : 'caro pra categoria')), comp != null && comp >= 70 ? '#2ecc71' : (comp != null && comp < 40 ? '#e74c3c' : '#f5b041')) +
-      chip('STATUS SHOPEE', st ? esc(st === 'normal' ? 'Normal' : st) : '—', st === 'normal' ? 'sem limitacao' : (st ? 'produto limitado' : 'abra a campanha uma vez'), st && st !== 'normal' ? '#e74c3c' : '#2ecc71') +
+      chip('POSICAO NO LEILAO', posLeilao != null ? fmt(posLeilao, 0) : '—', posLeilao == null ? 'sem dado' : (posLeilao <= 10 ? 'topo da vitrine' : (posLeilao <= 30 ? 'meio da vitrine' : 'fundo da vitrine')), posLeilao != null && posLeilao <= 10 ? 'var(--vd)' : (posLeilao > 30 ? 'var(--rd)' : 'var(--am)')) +
+      chip('COMPETITIVIDADE PRECO', comp != null ? fmt(comp, 0) + '<span style="font-size:11px;color:var(--t2)">/100</span>' : '—', comp == null ? 'abra a campanha uma vez' : (comp >= 70 ? 'acima da categoria' : (comp >= 40 ? 'na media' : 'caro pra categoria')), comp != null && comp >= 70 ? 'var(--vd)' : (comp != null && comp < 40 ? 'var(--rd)' : 'var(--am)')) +
+      chip('STATUS SHOPEE', st ? esc(st === 'normal' ? 'Normal' : st) : '—', st === 'normal' ? 'sem limitacao' : (st ? 'produto limitado' : 'abra a campanha uma vez'), st && st !== 'normal' ? 'var(--rd)' : 'var(--vd)') +
       chip('DIAGNOSTICO SHOPEE', diagRot, diagSub, diagCor) +
       '</div>';
 
@@ -2786,18 +2804,18 @@
         { r: 'VENDAS', v: (pc && pc.resultado && pc.resultado.pedidos) || f.checkout }
       ];
     }
-    h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;margin-bottom:7px">' + tituloFunil + '</div>' +
-      '<div style="display:flex;align-items:center;gap:4px;background:#12151b;border:1px solid #1d212a;border-radius:12px;padding:12px 8px">';
+    h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;margin-bottom:7px">' + tituloFunil + '</div>' +
+      '<div style="display:flex;align-items:center;gap:4px;background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:12px 8px">';
     for (var i = 0; i < etapas.length; i++) {
       if (i > 0) {
         var ant = null;
         for (var z = i - 1; z >= 0; z--) { if (etapas[z].v != null) { ant = etapas[z].v; break; } }
         var at = etapas[i].v;
         var queda = (ant && at != null) ? Math.round((1 - at / ant) * 100) : null;
-        h += '<div style="flex:none;text-align:center;color:#7d8290;font-family:monospace;font-size:8px">›<br>' + (queda != null ? '−' + queda + '%' : '') + '</div>';
+        h += '<div style="flex:none;text-align:center;color:var(--t2);font-family:monospace;font-size:8px">›<br>' + (queda != null ? '−' + queda + '%' : '') + '</div>';
       }
-      h += '<div style="flex:1;text-align:center"><div style="font-size:17px;color:#f2f2f4">' + (etapas[i].v != null ? fmt(etapas[i].v, 0) : '—') + '</div>' +
-        '<div style="font-family:monospace;font-size:7.5px;color:#7d8290">' + etapas[i].r + '</div></div>';
+      h += '<div style="flex:1;text-align:center"><div style="font-size:17px;color:var(--t0)">' + (etapas[i].v != null ? fmt(etapas[i].v, 0) : '—') + '</div>' +
+        '<div style="font-family:monospace;font-size:7.5px;color:var(--t2)">' + etapas[i].r + '</div></div>';
     }
     h += '</div>';
     return h;
@@ -2810,12 +2828,39 @@
     var ctr = (f.impressoes && f.cliques != null) ? (f.cliques / f.impressoes) * 100 : null;
     var conv = (f.cliques && pc && pc.resultado && pc.resultado.pedidos != null) ? (pc.resultado.pedidos / f.cliques) * 100 : null;
     if (pp && pp.emAprendizado) return 'Esta campanha ainda esta aprendendo. Deixe rodar.';
-    if (roas != null && roas < 1) return 'Esta campanha devolve menos do que custa.';
-    if (ctr != null && ctr >= 1.8 && conv != null && conv < 1) return 'Clica bem, mas a pagina nao fecha.';
-    if (ctr != null && ctr < 1) return 'Poucos clicam. O problema comeca na foto e no preco do card.';
-    if (roas != null && roas < 2) return 'Esta campanha esta gastando mais do que devolve.';
-    if (roas != null && roas > 8) return 'Sobra margem aqui. Da pra buscar mais entrega.';
+    if (roas != null && roas < 1) return 'Cada real investido aqui volta menos que um real.';
+    if (ctr != null && ctr >= 1.8 && conv != null && conv < 1) return 'Recebe clique e nao fecha a venda.';
+    if (ctr != null && ctr < 1) return 'Aparece na busca e recebe pouco clique.';
+    if (roas != null && roas < 2) return 'Esta campanha gasta mais do que devolve.';
+    if (roas != null && roas > 8) return 'Sobra margem: da pra buscar mais volume.';
     return 'Leitura desta campanha.';
+  }
+
+  /* ============ EXPLICACOES SOB DEMANDA ============
+     Todo rotulo que nao se explica sozinho ganha um "?". A explicacao abre
+     numa faixa no pe da gaveta, uma por vez — nao empilha texto na tela. */
+  function dica(txt) {
+    return '<button class="dica" data-dica="' + esc(txt) + '" aria-label="explicar">?</button>';
+  }
+  function mostrarExpl(txt) {
+    var e = $('sia-expl');
+    if (!e) return;
+    e.innerHTML = '<button class="x" id="sia-expl-x" aria-label="fechar">\u2715</button>' + txt;
+    e.classList.add('on');
+    var x = $('sia-expl-x');
+    if (x) x.addEventListener('click', function () { e.classList.remove('on'); });
+  }
+  function aplicarTema(claro) {
+    estado.temaClaro = !!claro;
+    try { host.classList.toggle('claro', !!claro); } catch (e) { /* noop */ }
+  }
+  function ligarTema() {
+    var b = $('sia-tema');
+    if (!b) return;
+    b.addEventListener('click', function () {
+      aplicarTema(!estado.temaClaro);
+      try { chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'temaClaro', valor: estado.temaClaro }, function () { void chrome.runtime.lastError; }); } catch (e) { /* noop */ }
+    });
   }
 
   /* ==================== MULTICONTA ====================
@@ -2886,21 +2931,21 @@
   }
   function renderBannerConta() {
     if (!estado.loja) {
-      return '<div style="background:#12151b;border-left:3px solid #f5b041;border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:#b8bcc6">Identificando a loja... navegue uma vez no painel para a Seller.IA reconhecer a conta.</div>';
+      return '<div style="background:var(--b2);border-left:3px solid var(--am);border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1)">Identificando a loja... navegue uma vez no painel para a Seller.IA reconhecer a conta.</div>';
     }
     var n = Object.keys(estado.campanhas).length, p = Object.keys(estado.produtos).length;
     var vazio = (n + p) === 0;
     var trocouAgora = estado.trocou && (Date.now() - estado.trocou.em) < 600000;
     if (!vazio && !trocouAgora) return '';
-    var cor = vazio ? '#f5b041' : '#2ecc71';
+    var cor = vazio ? 'var(--am)' : 'var(--vd)';
     var txt = vazio
       ? '<b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> ainda nao foi lida nesta sessao.'
       : '<b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> — dado desta conta, lido ' + (lidoHa() || 'agora') + '.';
-    return '<div style="background:#12151b;border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:#b8bcc6;line-height:1.5">' + txt +
-      (vazio ? ' <button id="sia-coletar-agora" style="background:#ff4d1c;border:none;color:#fff;font-weight:600;font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;margin-left:6px">Coletar esta conta</button>' : '') +
-      '<div style="font-family:Space Mono,monospace;font-size:10.5px;color:#7d8290;margin-top:6px">' +
+    return '<div style="background:var(--b2);border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' + txt +
+      (vazio ? ' <button id="sia-coletar-agora" style="background:var(--mk);border:none;color:var(--t0);font-weight:600;font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;margin-left:6px">Coletar esta conta</button>' : '') +
+      '<div style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2);margin-top:6px">' +
       '<label style="cursor:pointer"><input type="checkbox" id="sia-auto-troca"' + (estado.autoColeta ? ' checked' : '') + '> coletar automaticamente ao trocar de conta</label>' +
-      ' &nbsp;·&nbsp; <a href="#" id="sia-limpar-contas" style="color:#7d8290;text-decoration:underline">apagar dados de todas as contas</a></div></div>';
+      ' &nbsp;·&nbsp; <a href="#" id="sia-limpar-contas" style="color:var(--t2);text-decoration:underline">apagar dados de todas as contas</a></div></div>';
   }
   function ligarBannerConta() {
     var b = $('sia-coletar-agora');
@@ -2975,28 +3020,28 @@
     h += '<div class="nota" style="margin-top:0">Cadastre o custo <b>uma vez</b> por produto. Embalagem e imposto sao da loja inteira — preenche aqui em cima e vale pra todos. Sem isso, o card mostra teto, nao lucro.</div>';
 
     h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0">' +
-      '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:10px">' +
-      '<div style="font-family:"Space Mono";font-size:10px;color:#7d8290">EMBALAGEM POR PEDIDO (R$)</div>' +
-      '<input id="sia-cf-emb" value="' + (cf.embalagem ? String(cf.embalagem).replace('.', ',') : '') + '" placeholder="0,00" style="width:100%;background:#0c0e12;border:1px solid #1d212a;border-radius:7px;padding:7px 9px;color:#f2f2f4;font-family:monospace;font-size:13px;margin-top:5px"></div>' +
-      '<div style="background:#12151b;border:1px solid #1d212a;border-radius:10px;padding:10px">' +
-      '<div style="font-family:"Space Mono";font-size:10px;color:#7d8290">IMPOSTO SOBRE A VENDA (%)</div>' +
-      '<input id="sia-cf-imp" value="' + (cf.imposto ? String(cf.imposto).replace('.', ',') : '') + '" placeholder="0" style="width:100%;background:#0c0e12;border:1px solid #1d212a;border-radius:7px;padding:7px 9px;color:#f2f2f4;font-family:monospace;font-size:13px;margin-top:5px"></div></div>';
+      '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:10px">' +
+      '<div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">EMBALAGEM POR PEDIDO (R$)</div>' +
+      '<input id="sia-cf-emb" value="' + (cf.embalagem ? String(cf.embalagem).replace('.', ',') : '') + '" placeholder="0,00" style="width:100%;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:7px 9px;color:var(--t0);font-family:monospace;font-size:13px;margin-top:5px"></div>' +
+      '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:10px">' +
+      '<div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">IMPOSTO SOBRE A VENDA (%)</div>' +
+      '<input id="sia-cf-imp" value="' + (cf.imposto ? String(cf.imposto).replace('.', ',') : '') + '" placeholder="0" style="width:100%;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:7px 9px;color:var(--t0);font-family:monospace;font-size:13px;margin-top:5px"></div></div>';
 
     h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">' +
-      '<span style="font-family:Space Mono,monospace;font-size:12px;color:#8a909c;letter-spacing:.06em;flex:1">CUSTO POR PRODUTO — ' + preenchidos + ' de ' + lista.length + ' cadastrados</span>' +
-      '<button id="sia-cf-salvar" style="background:#ff4d1c;border:none;color:#fff;font-weight:700;font-size:12px;padding:8px 16px;border-radius:8px;cursor:pointer">Salvar</button></div>';
+      '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;flex:1">CUSTO POR PRODUTO — ' + preenchidos + ' de ' + lista.length + ' cadastrados</span>' +
+      '<button id="sia-cf-salvar" style="background:var(--mk);border:none;color:var(--t0);font-weight:700;font-size:12px;padding:8px 16px;border-radius:8px;cursor:pointer">Salvar</button></div>';
 
     if (!lista.length) return h + '<div class="vazio">Nenhum produto lido ainda. Rode a coleta na aba Inicio.</div>';
 
     for (var i = 0; i < lista.length; i++) {
       var it = lista[i];
       var cst = custoDe(it.id);
-      h += '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #1d212a">' +
-        '<span style="width:6px;height:6px;border-radius:50%;background:' + (cst ? '#2ecc71' : '#3a4152') + ';flex:none"></span>' +
-        '<span style="flex:1;font-size:12px;color:#b8bcc6;min-width:0">' + esc(String(it.nome).slice(0, 46)) + '</span>' +
-        (it.gmv ? '<span style="font-family:"Space Mono";font-size:10.5px;color:#7d8290">' + reais(it.gmv) + '</span>' : '') +
+      h += '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--li)">' +
+        '<span style="width:6px;height:6px;border-radius:50%;background:' + (cst ? 'var(--vd)' : 'var(--li2)') + ';flex:none"></span>' +
+        '<span style="flex:1;font-size:12px;color:var(--t1);min-width:0">' + esc(String(it.nome).slice(0, 46)) + '</span>' +
+        (it.gmv ? '<span style="font-family:"Space Mono";font-size:10.5px;color:var(--t2)">' + reais(it.gmv) + '</span>' : '') +
         '<input data-custo="' + esc(it.id) + '" value="' + (cst ? String(cst).replace('.', ',') : '') + '" placeholder="custo" ' +
-        'style="width:84px;background:#0c0e12;border:1px solid ' + (cst ? '#2a4a35' : '#1d212a') + ';border-radius:7px;padding:6px 8px;color:#f2f2f4;font-family:monospace;font-size:12px;text-align:right"></div>';
+        'style="width:84px;background:var(--b1);border:1px solid ' + (cst ? 'var(--vd)' : 'var(--li)') + ';border-radius:7px;padding:6px 8px;color:var(--t0);font-family:monospace;font-size:12px;text-align:right"></div>';
     }
     h += '<div class="nota">Comece pelos de cima — eles concentram o faturamento. Nao precisa cadastrar todos hoje.</div>';
     return h;
@@ -3020,7 +3065,7 @@
     var bt = $('sia-cf-salvar');
     if (bt) bt.addEventListener('click', function () {
       coletarCampos(); salvarCofre();
-      bt.textContent = 'Salvo'; bt.style.background = '#2ecc71';
+      bt.textContent = 'Salvo'; bt.style.background = 'var(--vd)';
       setTimeout(function () { render(); }, 800);
     });
   }
@@ -3062,63 +3107,63 @@
     // sem volume nao se le nada. Dizer isso e melhor que inventar veredito.
     if (!visitas || visitas < 100) {
       r.nivel = 'cinza';
-      r.titulo = 'Sem volume para leitura';
-      r.texto = (visitas ? fmt(visitas, 0) + ' visitantes' : 'quase sem visita') + ' — abaixo disso qualquer taxa e ruido.';
-      r.acao = 'Traga tráfego antes de julgar este produto.';
+      r.titulo = 'Visitas insuficientes para julgar';
+      r.texto = 'Recebeu ' + (visitas ? fmt(visitas, 0) : '0') + ' visitantes no periodo. Com menos de 100, qualquer percentual vira ruido: 1 venda em 3 visitas daria 33% e nao significa nada.';
+      r.acao = 'Traga visita antes de tirar conclusao deste produto.';
       return r;
     }
 
     // 1) o card nao chama: o problema nasce antes da pagina
     if (ctr != null && ctr < 1.8) {
       r.nivel = 'vermelho';
-      r.titulo = 'O card nao chama o clique';
-      r.texto = 'CTR de ' + fmt(ctr, 2) + '% — abaixo de 1,8%. Quem passa pela vitrine nao para aqui.';
-      r.acao = 'Foto principal e inicio do titulo. O preco do card entra depois.';
+      r.titulo = 'Aparece na vitrine e recebe pouco clique';
+      r.texto = 'De cada 100 pessoas que viram este produto na busca, ' + fmt(ctr, 1) + ' clicaram. O normal e ao menos 2.';
+      r.acao = 'O que decide o clique e a primeira foto, o preco no card e o comeco do titulo — nesta ordem.';
       return r;
     }
     // 2) clica e nao compra: a pagina e o gargalo
     if (conv != null && conv < 1 && ctr != null && ctr >= 1.8) {
       r.nivel = 'vermelho';
-      r.titulo = 'Clica bem, mas a pagina nao fecha';
-      r.texto = 'CTR de ' + fmt(ctr, 2) + '% e conversao de ' + fmt(conv, 2) + '%. De 100 que entram, menos de 1 compra.';
-      r.acao = 'Pagina no celular: preco vs concorrencia, variacao com estoque, avaliacoes respondidas.';
+      r.titulo = 'Recebe clique e nao vende';
+      r.texto = 'O card funciona: ' + fmt(ctr, 1) + ' de cada 100 clicam. Mas de cada 100 que entram na pagina, menos de 1 compra.';
+      r.acao = 'Abra a pagina no celular e compare com o concorrente: preco, variacao sem estoque e avaliacoes sem resposta sao os tres motivos mais comuns.';
       return r;
     }
     // 3) entra e sai na hora
     if (rej != null && rej >= 70) {
       r.nivel = 'amarelo';
-      r.titulo = 'Entra e sai sem olhar';
-      r.texto = fmt(rej, 0) + '% saem sem interagir. A promessa do card nao bate com a pagina.';
-      r.acao = 'Alinhe a primeira foto e o titulo com o que a pagina entrega.';
+      r.titulo = 'A maioria sai sem olhar nada';
+      r.texto = 'De cada 100 que entram, ' + fmt(rej, 0) + ' saem sem clicar em nada. Normalmente e porque a pagina nao entrega o que o card prometeu.';
+      r.acao = 'Confira se a primeira foto e o titulo descrevem o que a pessoa encontra ao entrar.';
       return r;
     }
     // 4) concentracao de risco
     if (fatia != null && fatia >= 30) {
       r.nivel = 'amarelo';
-      r.titulo = 'A loja depende demais dele';
-      r.texto = fmt(fatia, 0) + '% do faturamento sai deste produto. Se ele cair, a loja cai junto.';
-      r.acao = 'Proteja este e suba o segundo colocado — nao mexa neste sem necessidade.';
+      r.titulo = fmt(fatia, 0) + '% do faturamento vem deste produto';
+      r.texto = 'Se ele perder posicao, sair de estoque ou ganhar um concorrente mais barato, a loja perde ' + fmt(fatia, 0) + '% de uma vez.';
+      r.acao = 'Nao mexa neste sem motivo. Coloque esforco no segundo colocado para reduzir a dependencia.';
       return r;
     }
     // 5) ticket abaixo do degrau de comissao
     if (ticket != null && ticket > 0 && ticket < 80) {
       r.nivel = 'amarelo';
-      r.titulo = 'Ticket abaixo do degrau dos R$80';
-      r.texto = 'Ticket de ' + reais(ticket) + '. Ate R$79,99 a comissao e 20% + R$4; a partir de R$80 cai pra 14% + R$16.';
-      r.acao = 'Kit ou combo que passe de R$80 sobe a margem sem trazer visita nova.';
+      r.titulo = 'Preco na faixa de comissao mais cara';
+      r.texto = 'Cada pedido sai a ' + reais(ticket) + '. Ate R$79,99 a Shopee cobra 20% + R$4. Passando de R$80 cai para 14% + R$16 — em muitos casos sobra mais dinheiro vendendo mais caro.';
+      r.acao = 'Um kit ou combo que passe de R$80 aumenta a sobra sem precisar de visita nova.';
       return r;
     }
     // 6) converte bem e ninguem esta empurrando
     if (conv != null && conv >= 2) {
       r.nivel = 'verde';
-      r.titulo = 'Converte bem — da pra empurrar';
-      r.texto = 'Conversao de ' + fmt(conv, 2) + '%' + (ctr != null ? ' com CTR de ' + fmt(ctr, 2) + '%' : '') + '. A pagina faz o trabalho dela.';
-      r.acao = (d.campaignId || perf.temAds) ? 'Suba o orcamento em 20% e reavalie em 7 dias.' : 'Este produto converte e nao tem anuncio. Comece por ele.';
+      r.titulo = (d.campaignId || perf.temAds) ? 'Vende bem e ja tem anuncio' : 'Vende bem sem nenhum anuncio';
+      r.texto = 'De cada 100 pessoas que entram na pagina, ' + fmt(conv, 1) + ' compram. A media da loja e mais baixa que isso.';
+      r.acao = (d.campaignId || perf.temAds) ? 'Suba o orcamento em 20% e reavalie em 7 dias, uma mudanca por vez.' : 'A pagina ja vende sozinha. E o produto mais barato para comecar a anunciar, porque voce paga por visita que ja sabe converter.';
       return r;
     }
     r.nivel = 'verde';
-    r.titulo = 'Dentro do esperado';
-    r.texto = (conv != null ? 'Conversao de ' + fmt(conv, 2) + '%' : 'Funil sem alerta') + (ctr != null ? ' e CTR de ' + fmt(ctr, 2) + '%' : '') + '.';
+    r.titulo = 'Sem alerta';
+    r.texto = (conv != null ? 'De cada 100 que entram, ' + fmt(conv, 1) + ' compram' : 'Nenhum degrau do funil chamou atencao') + (ctr != null ? ', e ' + fmt(ctr, 1) + ' de cada 100 que veem na busca clicam' : '') + '.';
     r.acao = 'Nada urgente aqui.';
     return r;
   }
@@ -3144,29 +3189,29 @@
     for (i = 0; i < lidos.length; i++) cont[lidos[i].nivel]++;
 
     var CORES = {
-      vermelho: { dot: '#e74c3c', bg: 'rgba(231,76,60,.07)', bd: 'rgba(231,76,60,.25)' },
-      amarelo: { dot: '#f5b041', bg: 'rgba(245,176,65,.07)', bd: 'rgba(245,176,65,.25)' },
-      verde: { dot: '#2ecc71', bg: 'rgba(46,204,113,.07)', bd: 'rgba(46,204,113,.25)' },
-      cinza: { dot: '#5a5f6a', bg: 'transparent', bd: '#1d212a' }
+      vermelho: { dot: 'var(--rd)', bg: 'rgba(231,76,60,.07)', bd: 'rgba(231,76,60,.25)' },
+      amarelo: { dot: 'var(--am)', bg: 'rgba(245,176,65,.07)', bd: 'rgba(245,176,65,.25)' },
+      verde: { dot: 'var(--vd)', bg: 'rgba(46,204,113,.07)', bd: 'rgba(46,204,113,.25)' },
+      cinza: { dot: 'var(--t3)', bg: 'transparent', bd: 'var(--li)' }
     };
     var h = '<div class="kpis">' +
-      '<div class="kpi"><div class="v" style="color:#e74c3c">' + cont.vermelho + '</div><div class="l">Travados</div></div>' +
-      '<div class="kpi"><div class="v" style="color:#f5b041">' + cont.amarelo + '</div><div class="l">Com folga</div></div>' +
-      '<div class="kpi"><div class="v" style="color:#2ecc71">' + cont.verde + '</div><div class="l">Saudaveis</div></div>' +
-      '<div class="kpi"><div class="v" style="color:#7d8290">' + cont.cinza + '</div><div class="l">Sem volume</div></div></div>';
+      '<div class="kpi"><div class="v" style="color:var(--rd)">' + cont.vermelho + '</div><div class="l">Perdendo dinheiro' + dica('<b>Perdendo dinheiro:</b> produtos que recebem visita e quase nao vendem, ou que tiveram queda forte. Cada real gasto neles rende menos que a media da loja. Sao os primeiros a mexer.') + '</div></div>' +
+      '<div class="kpi"><div class="v" style="color:var(--am)">' + cont.amarelo + '</div><div class="l">Da pra melhorar' + dica('<b>Da pra melhorar:</b> vendem, mas tem um gargalo identificado — preco na faixa de comissao errada, muita gente saindo sem olhar, ou concentracao de risco. Nao e urgente, e e onde tem ganho facil.') + '</div></div>' +
+      '<div class="kpi"><div class="v" style="color:var(--vd)">' + cont.verde + '</div><div class="l">Vendendo bem' + dica('<b>Vendendo bem:</b> convertem acima da media da loja. A regra aqui e nao mexer sem motivo — e proteger, nao otimizar. Se algum deles nao tem anuncio, e por ele que se comeca.') + '</div></div>' +
+      '<div class="kpi"><div class="v" style="color:var(--t2)">' + cont.cinza + '</div><div class="l">Sem visita' + dica('<b>Sem visita:</b> menos de 100 visitantes no periodo. Ficam de fora do julgamento de proposito, porque com pouca visita qualquer percentual engana — 1 venda em 3 visitas daria 33% de conversao e nao significa nada.') + '</div></div></div>';
 
-    h += '<div style="font-family:Space Mono,monospace;font-size:11px;color:#8a909c;letter-spacing:.06em;margin-bottom:9px">ORDENADO POR IMPACTO — CLIQUE PARA ABRIR O CARD</div>';
+    h += '<div style="font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.06em;margin-bottom:9px">ORDENADO POR DINHEIRO EM JOGO' + dica('<b>Por que esta ordem:</b> a lista nao ordena por gravidade, e por quanto dinheiro esta em jogo. Um problema num produto que fatura R$8 mil vem antes de um problema em produto que fatura R$80 — mesmo que o segundo esteja mais quebrado. Gravidade sem valor e distracao.') + ' &middot; clique para abrir</div>';
 
     for (i = 0; i < lidos.length; i++) {
       var L = lidos[i], co = CORES[L.nivel];
       h += '<div data-card="produto:' + esc(L.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:9px;padding:11px 13px;margin-bottom:8px">' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
         '<span style="width:8px;height:8px;border-radius:50%;background:' + co.dot + ';flex:none"></span>' +
-        '<span style="flex:1;font-size:13.5px;font-weight:600;color:#f2f2f4;line-height:1.3">' + esc(L.titulo) + '</span>' +
-        (L.venda ? '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:#8a909c">' + reais(L.venda) + '</span>' : '') +
+        '<span style="flex:1;font-size:13.5px;font-weight:600;color:var(--t0);line-height:1.3">' + esc(L.titulo) + '</span>' +
+        (L.venda ? '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2)">' + reais(L.venda) + '</span>' : '') +
         '</div>' +
-        '<div style="font-size:12.5px;color:#9aa0ac;margin-bottom:5px">' + esc(String(L.nome).slice(0, 54)) + '</div>' +
-        '<div style="font-size:13px;color:#c8ccd4;line-height:1.5">' + esc(L.texto) + '</div>' +
+        '<div style="font-size:12.5px;color:var(--t2);margin-bottom:5px">' + esc(String(L.nome).slice(0, 54)) + '</div>' +
+        '<div style="font-size:13px;color:var(--t1);line-height:1.5">' + esc(L.texto) + '</div>' +
         '<div style="font-size:13px;color:' + co.dot + ';line-height:1.5;margin-top:5px">→ ' + esc(L.acao) + '</div>' +
         '</div>';
     }
@@ -3226,30 +3271,30 @@
       var dg = estado.diagnostico;
       var hd = '';
       hd += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">' +
-        '<button id="sia-coletar-tudo" style="background:linear-gradient(120deg,#ff4d1c,#7B2FFF);border:none;color:#fff;font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:' + (estado.coletaProgresso ? 'wait' : 'pointer') + '">' +
+        '<button id="sia-coletar-tudo" style="background:linear-gradient(120deg,var(--mk),var(--px));border:none;color:var(--t0);font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:' + (estado.coletaProgresso ? 'wait' : 'pointer') + '">' +
         (estado.coletaProgresso ? esc(estado.coletaProgresso) : 'Coletar conta completa + Analisar') + '</button>' +
-        '<button id="sia-analisar" style="background:#12151b;border:1px solid #2a2f3a;color:#fff;font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
+        '<button id="sia-analisar" style="background:var(--b2);border:1px solid var(--li2);color:var(--t0);font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
         (estado.analisando ? 'Analisando...' : 'So analisar o ja coletado') + '</button>' +
         '<span class="nota" style="margin:0">' + (dg && dg.rules_version ? 'Regras ' + esc(dg.rules_version) + ' · cerebro no servidor' : 'Envia a coleta ao Cerebro Seller.IA e recebe os vereditos do metodo.') + '</span></div>';
-      if (dg && dg.erro) hd += '<div class="nota" style="color:#e74c3c">Falha: ' + esc(dg.erro) + '</div>';
+      if (dg && dg.erro) hd += '<div class="nota" style="color:var(--rd)">Falha: ' + esc(dg.erro) + '</div>';
       if (dg && dg.vereditos && dg.vereditos.length) {
         hd += '<div class="nota" style="margin-top:0">Clique em um card para abrir os detalhes.</div>';
         for (var v = 0; v < dg.vereditos.length; v++) {
           var vd = dg.vereditos[v];
-          var cor = vd.status === 'forte' ? '#2ecc71' : (vd.status === 'critico' ? '#e74c3c' : '#f5b041');
-          hd += '<div class="sia-card-diag" style="border:1px solid #1d212a;border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;background:#12151b;padding:10px 14px;margin-bottom:8px;cursor:pointer">' +
+          var cor = vd.status === 'forte' ? 'var(--vd)' : (vd.status === 'critico' ? 'var(--rd)' : 'var(--am)');
+          hd += '<div class="sia-card-diag" style="border:1px solid var(--li);border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;background:var(--b2);padding:10px 14px;margin-bottom:8px;cursor:pointer">' +
             '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
               '<span style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid ' + cor + ';color:' + cor + ';border-radius:99px;padding:2px 8px">' + esc(vd.veredito) + '</span>' +
-              '<span style="font-size:10px;color:#7d8290">' + esc(vd.escopo) + (vd.nome ? ' · ' + esc(String(vd.nome).slice(0, 55)) : '') + (vd.id && vd.escopo !== 'conta' && vd.escopo !== 'grupo' ? ' · ID ' + esc(String(vd.id).split(':')[0]) : '') + '</span></div>' +
-            '<div style="font-weight:700;font-size:13px;margin:6px 0 0;color:#f2f2f4">' + esc(vd.manchete) + '</div>' +
+              '<span style="font-size:10px;color:var(--t2)">' + esc(vd.escopo) + (vd.nome ? ' · ' + esc(String(vd.nome).slice(0, 55)) : '') + (vd.id && vd.escopo !== 'conta' && vd.escopo !== 'grupo' ? ' · ID ' + esc(String(vd.id).split(':')[0]) : '') + '</span></div>' +
+            '<div style="font-weight:700;font-size:13px;margin:6px 0 0;color:var(--t0)">' + esc(vd.manchete) + '</div>' +
             '<div class="sia-detalhe" style="display:none;margin-top:6px">' +
-            '<div style="font-size:12px;color:#b8bcc6;line-height:1.5;white-space:pre-line">' + esc(vd.diagnostico) + '</div>' +
+            '<div style="font-size:12px;color:var(--t1);line-height:1.5;white-space:pre-line">' + esc(vd.diagnostico) + '</div>' +
             (vd.passos && vd.passos.length ? (function () {
-              var hp = '<div style="font-size:12px;margin-top:8px;color:#f2f2f4;font-weight:700">Faca assim:</div><ol style="margin:4px 0 0 18px;padding:0">';
-              for (var pz = 0; pz < vd.passos.length; pz++) hp += '<li style="font-size:12px;color:#b8bcc6;margin:3px 0;line-height:1.45">' + esc(vd.passos[pz]) + '</li>';
+              var hp = '<div style="font-size:12px;margin-top:8px;color:var(--t0);font-weight:700">Faca assim:</div><ol style="margin:4px 0 0 18px;padding:0">';
+              for (var pz = 0; pz < vd.passos.length; pz++) hp += '<li style="font-size:12px;color:var(--t1);margin:3px 0;line-height:1.45">' + esc(vd.passos[pz]) + '</li>';
               return hp + '</ol>';
-            })() : (vd.acao ? '<div style="font-size:12px;margin-top:8px;color:#b8bcc6"><b style="color:#f2f2f4">O que fazer:</b> ' + esc(vd.acao.fazer) + '</div>' : '')) +
-            (vd.impacto ? '<div style="font-size:12px;margin-top:7px;color:#7B2FFF"><b>Impacto:</b> <span style="color:#b8bcc6">' + esc(vd.impacto) + '</span></div>' : '') +
+            })() : (vd.acao ? '<div style="font-size:12px;margin-top:8px;color:var(--t1)"><b style="color:var(--t0)">O que fazer:</b> ' + esc(vd.acao.fazer) + '</div>' : '')) +
+            (vd.impacto ? '<div style="font-size:12px;margin-top:7px;color:var(--px)"><b>Impacto:</b> <span style="color:var(--t1)">' + esc(vd.impacto) + '</span></div>' : '') +
             '</div></div>';
         }
       } else if (dg && dg.vereditos) {
@@ -3321,7 +3366,7 @@
       if (chavesF.length) {
         var somaF = 0; for (var f2 = 0; f2 < chavesF.length; f2++) somaF += fontes[chavesF[f2]];
         chavesF.sort(function (a, b) { return fontes[b] - fontes[a]; });
-        h += '<div class="nota"><b style="color:#f2f2f4">Cruzamento de fontes de venda</b> (do painel da Shopee):</div><table><tr><th>Fonte</th><th class="num">Vendas</th><th class="num">%</th><th class="num">Pedidos</th><th class="num">Ticket</th></tr>';
+        h += '<div class="nota"><b style="color:var(--t0)">Cruzamento de fontes de venda</b> (do painel da Shopee):</div><table><tr><th>Fonte</th><th class="num">Vendas</th><th class="num">%</th><th class="num">Pedidos</th><th class="num">Ticket</th></tr>';
         for (var f3 = 0; f3 < chavesF.length; f3++) {
           var fk = chavesF[f3];
           var ped = pedidosPorFonte(fk);
@@ -3353,7 +3398,7 @@
         var ctrC = m.ctr !== undefined ? (m.ctr <= 1 ? m.ctr * 100 : m.ctr) : (m.impressoes ? (m.cliques || 0) / m.impressoes * 100 : null);
         var cpcC = m.gasto && m.cliques ? m.gasto / m.cliques : null;
         var estadoTxt = c.estado === 'ongoing' ? 'Ativa' : (c.estado === 'paused' ? 'Pausada' : (c.estado || '—'));
-        h2 += '<tr data-card="campanha:' + esc(idsC[j]) + '" style="cursor:pointer"><td class="nome">' + esc(c.nome || '(sem nome)') + ' <span style="color:#ff4d1c;font-family:monospace;font-size:9px">abrir ›</span></td>' +
+        h2 += '<tr data-card="campanha:' + esc(idsC[j]) + '" style="cursor:pointer"><td class="nome">' + esc(c.nome || '(sem nome)') + ' <span style="color:var(--mk);font-family:monospace;font-size:9px">abrir ›</span></td>' +
           '<td>' + esc(estadoTxt) + '</td><td>' + esc(c.estrategia || '—') + '</td>' +
           '<td class="num">' + (m.orcamento_dia === 0 ? 'Sem limite' : reais(m.orcamento_dia)) + '</td>' +
           '<td class="num">' + reais(m.gasto) + '</td><td class="num">' + reais(m.gmv) + '</td>' +
@@ -3427,7 +3472,7 @@
             '<div class="kpi"><div class="v">' + fmt(ap.vendidos) + '</div><div class="l">Vendidos</div></div>' +
             '<div class="kpi"><div class="v">' + ap.imagens.length + '</div><div class="l">Fotos no anuncio</div></div>' +
             '</div>' +
-            '<div class="nota"><b style="color:#f2f2f4">' + esc(ap.nome) + '</b><br>ID ' + esc(ap.id) + ' — visao do cliente (vitrine). E daqui que o ClipSeller vai ler as fotos para critica e geracao de criativos (Etapa 7).</div>';
+            '<div class="nota"><b style="color:var(--t0)">' + esc(ap.nome) + '</b><br>ID ' + esc(ap.id) + ' — visao do cliente (vitrine). E daqui que o ClipSeller vai ler as fotos para critica e geracao de criativos (Etapa 7).</div>';
           var pv = estado.produtos[ap.id];
           if (pv && (pv.metricas.gasto !== undefined || pv.metricas.roas !== undefined)) {
             h3 += '<table><tr><th>Ads deste produto</th><th class="num">Gasto</th><th class="num">GMV</th><th class="num">ROAS</th><th class="num">Impr.</th><th class="num">Cliques</th><th class="num">CTR</th><th class="num">Pedidos</th><th class="num">Pos.</th></tr>' +
@@ -3449,7 +3494,7 @@
             '<div class="kpi"><div class="v">' + cad.n_fotos + '</div><div class="l">Fotos</div></div>' +
             '<div class="kpi"><div class="v">' + cad.variacoes + '</div><div class="l">Variacoes</div></div>' +
             '</div>' +
-            '<div class="nota"><b style="color:#f2f2f4">' + esc(cad.nome) + '</b><br>ID ' + esc(cad.id) + ' · ' + esc(cad.categoria) + '</div>';
+            '<div class="nota"><b style="color:var(--t0)">' + esc(cad.nome) + '</b><br>ID ' + esc(cad.id) + ' · ' + esc(cad.categoria) + '</div>';
         } else {
           h3 += '<div class="kpis"><div class="kpi"><div class="v">' + esc(estado.paginaProduto) + '</div><div class="l">ID do produto (chave-mestra)</div></div></div>';
         }
@@ -3472,13 +3517,13 @@
       if (!D) { corpo.innerHTML = '<div class="vazio">Modulo de diamantes nao carregou. Recarregue a extensao.</div>'; }
       else {
         var R = window.SIA_Diamantes.resumo();
-        var hd = '<div class="nota">Ouro capturado nesta sessao. Navegue pelo Seller Centre (Ads, Produtos, criar campanha) e veja encher. <b style="color:#f2f2f4">' + R.capturas + '</b> capturas.</div>';
+        var hd = '<div class="nota">Ouro capturado nesta sessao. Navegue pelo Seller Centre (Ads, Produtos, criar campanha) e veja encher. <b style="color:var(--t0)">' + R.capturas + '</b> capturas.</div>';
 
         // bloco META ROAS
         hd += '<div class="bloco-d"><div class="td">META DE ROAS (SHOPEE)</div>';
         if (R.metaRoas) {
           hd += '<div class="ld">A Shopee recomenda <b>' + (R.metaRoas.exato != null ? R.metaRoas.exato.toFixed(1) + 'x' : '?') + '</b> para este produto</div>';
-          if (R.metaRoas.conservador != null) hd += '<div class="ld" style="color:#7d8290;font-size:11px">(ela entrega bem de ' + R.metaRoas.conservador.toFixed(1) + 'x ate ' + (R.metaRoas.agressivo != null ? R.metaRoas.agressivo.toFixed(1) + 'x' : '?') + ' — quanto mais alto o ROAS, menos ela entrega)</div>';
+          if (R.metaRoas.conservador != null) hd += '<div class="ld" style="color:var(--t2);font-size:11px">(ela entrega bem de ' + R.metaRoas.conservador.toFixed(1) + 'x ate ' + (R.metaRoas.agressivo != null ? R.metaRoas.agressivo.toFixed(1) + 'x' : '?') + ' — quanto mais alto o ROAS, menos ela entrega)</div>';
           if (R.projecao) hd += '<div class="ld">Nesse ritmo ela projeta <b>+' + (R.projecao.gmvUpliftPct != null ? R.projecao.gmvUpliftPct.toFixed(0) : '?') + '% em vendas</b></div>';
         } else hd += '<div class="ld vazio-d">abra "criar campanha" no Ads para capturar</div>';
         hd += '</div>';
@@ -3489,7 +3534,7 @@
           if (R.leilao && R.leilao.cpmReal != null) hd += '<div class="ld">CPM real: <b>R$ ' + R.leilao.cpmReal.toFixed(2) + '</b> por mil impressoes</div>';
           if (R.leilao && R.leilao.posicaoMedia != null) hd += '<div class="ld">Posicao media no leilao: <b>' + R.leilao.posicaoMedia + '</b></div>';
           if (R.gasto && R.gasto.hoje != null) hd += '<div class="ld">Gasto hoje: <b>R$ ' + R.gasto.hoje.toFixed(2) + '</b>' + (R.gasto.mediaSeteDias != null ? ' · media 7d R$ ' + R.gasto.mediaSeteDias.toFixed(2) : '') + '</div>';
-          if (R.lancePorPrecoLiberado !== undefined) hd += '<div class="ld" style="color:#7d8290;font-size:11px">Lance manual por preco: ' + (R.lancePorPrecoLiberado ? 'liberado' : '<b style="color:#f5b041">desligado</b> (oCPM: a alavanca agora e preco competitivo + Meta de ROAS)') + '</div>';
+          if (R.lancePorPrecoLiberado !== undefined) hd += '<div class="ld" style="color:var(--t2);font-size:11px">Lance manual por preco: ' + (R.lancePorPrecoLiberado ? 'liberado' : '<b style="color:var(--am)">desligado</b> (oCPM: a alavanca agora e preco competitivo + Meta de ROAS)') + '</div>';
         } else hd += '<div class="ld vazio-d">abra o grafico de desempenho de uma campanha no Ads para capturar</div>';
         hd += '</div>';
 
@@ -3501,7 +3546,7 @@
           hd += '<div class="ld">Meta de ROAS muda no maximo <b>' + a.metaRoas.mudancaMaxPct + '%</b> por vez, <b>' + a.metaRoas.mudancasPorDia + 'x ao dia</b></div>';
           hd += '<div class="ld">Bloqueio de campanha: <b>' + a.metaRoas.bloqueioDias + ' dias</b> · teto do lance: <b>' + a.metaRoas.tetoMultiplicador + 'x</b></div>';
           if (a.lanceMinimo) hd += '<div class="ld">Lance minimo: busca produto <b>R$ ' + a.lanceMinimo.buscaProduto.toFixed(2) + '</b> · loja R$ ' + (a.lanceMinimo.buscaLoja != null ? a.lanceMinimo.buscaLoja.toFixed(2) : '?') + '</div>';
-          if (a.notaMinimaAuto != null) hd += '<div class="ld" style="color:#7d8290;font-size:11px">Precisa nota &ge; ' + a.notaMinimaAuto + ' para o modo automatico</div>';
+          if (a.notaMinimaAuto != null) hd += '<div class="ld" style="color:var(--t2);font-size:11px">Precisa nota &ge; ' + a.notaMinimaAuto + ' para o modo automatico</div>';
           hd += '</div>';
         }
 
@@ -3512,18 +3557,18 @@
           campsMeta.slice(0, 6).forEach(function (k) {
             var ms = D.porCampanha[k].metaShopee;
             var seta = (ms.sugerida < ms.atual) ? 'baixar' : 'subir';
-            hd += '<div class="ld">Campanha ' + k + ': voce em <b>' + (ms.atual != null ? ms.atual.toFixed(1) + 'x' : '?') + '</b>, Shopee sugere <b style="color:#f5b041">' + (ms.sugerida != null ? ms.sugerida.toFixed(1) + 'x' : '?') + '</b> (' + seta + ')' + (ms.ganhoGmvPct ? ' · +' + ms.ganhoGmvPct + '% vendas' : '') + '</div>';
+            hd += '<div class="ld">Campanha ' + k + ': voce em <b>' + (ms.atual != null ? ms.atual.toFixed(1) + 'x' : '?') + '</b>, Shopee sugere <b style="color:var(--am)">' + (ms.sugerida != null ? ms.sugerida.toFixed(1) + 'x' : '?') + '</b> (' + seta + ')' + (ms.ganhoGmvPct ? ' · +' + ms.ganhoGmvPct + '% vendas' : '') + '</div>';
           });
-          if (campsMeta.length > 6) hd += '<div class="ld" style="color:#5a5f6a;font-size:11px">+ ' + (campsMeta.length - 6) + ' outras</div>';
+          if (campsMeta.length > 6) hd += '<div class="ld" style="color:var(--t3);font-size:11px">+ ' + (campsMeta.length - 6) + ' outras</div>';
           hd += '</div>';
         }
 
         // bloco CREDITOS E INCENTIVOS (dinheiro de ads)
         if (R.creditos || (R.incentivos && Object.keys(R.incentivos).length)) {
           hd += '<div class="bloco-d"><div class="td">CREDITOS E INCENTIVOS</div>';
-          if (R.creditos && R.creditos.total != null) hd += '<div class="ld">Credito de ads: <b>R$ ' + R.creditos.total.toFixed(2) + '</b>' + (R.creditos.vencendo30d ? ' · <span style="color:#f5b041">R$ ' + R.creditos.vencendo30d.toFixed(2) + ' vence em 30d</span>' : '') + '</div>';
+          if (R.creditos && R.creditos.total != null) hd += '<div class="ld">Credito de ads: <b>R$ ' + R.creditos.total.toFixed(2) + '</b>' + (R.creditos.vencendo30d ? ' · <span style="color:var(--am)">R$ ' + R.creditos.vencendo30d.toFixed(2) + ' vence em 30d</span>' : '') + '</div>';
           if (R.incentivos && R.incentivos.metaGasto) hd += '<div class="ld">Gaste <b>R$ ' + R.incentivos.metaGasto.gasteParaGanhar.toFixed(2) + '</b> e ganhe <b>R$ ' + R.incentivos.metaGasto.recompensa.toFixed(2) + '</b> de credito</div>';
-          if (R.incentivos && R.incentivos.surge) hd += '<div class="ld" style="color:#7d8290;font-size:11px">Impulso ativo pode elevar vendas em ~' + R.incentivos.surge.upliftGmvPct + '%</div>';
+          if (R.incentivos && R.incentivos.surge) hd += '<div class="ld" style="color:var(--t2);font-size:11px">Impulso ativo pode elevar vendas em ~' + R.incentivos.surge.upliftGmvPct + '%</div>';
           hd += '</div>';
         }
 
@@ -3551,12 +3596,12 @@
           for (var pi = 0; pi < Math.min(prods.length, 12); pi++) {
             var pid = prods[pi], pp = D.porProduto[pid];
             var partes = [];
-            if (pp.status) partes.push(pp.status === 'deboost' ? '<span style="color:#e74c3c">LIMITADO</span>' : 'normal');
+            if (pp.status) partes.push(pp.status === 'deboost' ? '<span style="color:var(--rd)">LIMITADO</span>' : 'normal');
             if (pp.posicaoLeilao != null) partes.push('leilao ' + pp.posicaoLeilao);
             if (pp.competitividade != null) partes.push('comp ' + pp.competitividade);
             if (pp.emAprendizado) partes.push('aprendizado');
             if (pp.janelaNovoDias != null) partes.push('novo ' + pp.janelaNovoDias + 'd');
-            hd += '<div class="ld"><span style="color:#7d8290">' + pid + '</span> ' + partes.join(' · ') + '</div>';
+            hd += '<div class="ld"><span style="color:var(--t2)">' + pid + '</span> ' + partes.join(' · ') + '</div>';
           }
         } else hd += '<div class="ld vazio-d">abra a lista de Produtos no Ads para capturar</div>';
         hd += '</div>';
@@ -3567,7 +3612,7 @@
         if (camps.length) {
           var contaNota = { good: 0, fair: 0, poor: 0 };
           camps.forEach(function (ci) { var nt = D.porCampanha[ci].nota; if (contaNota[nt] != null) contaNota[nt]++; });
-          hd += '<div class="ld">Boas: <b style="color:#2ecc71">' + contaNota.good + '</b> · Medianas: <b style="color:#f5b041">' + contaNota.fair + '</b> · Ruins: <b style="color:#e74c3c">' + contaNota.poor + '</b></div>';
+          hd += '<div class="ld">Boas: <b style="color:var(--vd)">' + contaNota.good + '</b> · Medianas: <b style="color:var(--am)">' + contaNota.fair + '</b> · Ruins: <b style="color:var(--rd)">' + contaNota.poor + '</b></div>';
         } else hd += '<div class="ld vazio-d">navegue pelo Ads para capturar os vereditos</div>';
         hd += '</div>';
 
@@ -3590,7 +3635,7 @@
       var pj = estado.periodoAds ? (estado.periodoAds.dias + ' dia(s)') : 'nao capturado';
       var h4pre = estado.modoPagina === 'publico' ? '<div class="nota">Pagina publica: ' + esc(estado.debugPublico || 'aguardando leitura...') + '</div>' : '';
       var lj = estado.loja ? (estado.loja.shop_id + (estado.loja.nome ? ' · ' + estado.loja.nome : '')) : 'nao capturada';
-      var h4 = h4pre + '<div class="nota">Loja: <b style="color:#f2f2f4">' + esc(lj) + '</b> · Janela do Ads: <b style="color:#f2f2f4">' + esc(pj) + '</b></div>' +
+      var h4 = h4pre + '<div class="nota">Loja: <b style="color:var(--t0)">' + esc(lj) + '</b> · Janela do Ads: <b style="color:var(--t0)">' + esc(pj) + '</b></div>' +
         '<div class="nota">Interceptor' +
         '<span class="selo ' + (okInterceptor ? 'ok' : 'off') + '">' + (okInterceptor ? 'ativo v' + esc(estado.interceptorVersao) : 'sem resposta') + '</span>' +
         ' · coletor v' + VERSAO + ' · pagina: ' + esc(location.pathname) + '</div>';
@@ -3612,6 +3657,13 @@
 
   carregarCofre();
   setTimeout(carregarCofre, 4000); // a loja so e identificada apos as primeiras chamadas
+  ligarTema();
+  try {
+    chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'temaClaro' }, function (r) {
+      void chrome.runtime.lastError;
+      if (r && r.valor) aplicarTema(true);
+    });
+  } catch (e) { /* noop */ }
   try {
     chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'autoColeta' }, function (r) {
       void chrome.runtime.lastError;
