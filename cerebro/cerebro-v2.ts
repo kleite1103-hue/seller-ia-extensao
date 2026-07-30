@@ -171,7 +171,7 @@ function julgarProdutos(K: any, snap: any, saida: Veredito[]) {
     if (!casou) {
       saida.push({
         escopo: "produto", id, nivel: "verde", titulo: "Sem alerta",
-        texto: conv !== null ? `De cada 100 que entram, ${fmt(conv, 1)} compram.` : "Nenhum degrau do funil chamou atencao.",
+        texto: conv !== null ? `De cada 100 que entram, ${fmt(conv, 1)} compram.` : "Nenhum degrau do funil chamou atenção.",
         passos: ["Nada urgente aqui."], dinheiro: venda, fonte: "seller.ia",
       });
     }
@@ -188,8 +188,8 @@ function julgarProdutos(K: any, snap: any, saida: Veredito[]) {
         saida.push({
           escopo: "produto", id, nivel: "vermelho",
           titulo: `Margem de ${fmt(margem, 1)}% neste produto`,
-          texto: `Cada pedido de ${dinheiro(ticket)} deixa ${dinheiro(liq)} depois de comissao, custo, embalagem e imposto. Isso e antes do anuncio.`,
-          passos: ["Com margem abaixo de 10% o anuncio precisa de ROAS muito alto para dar lucro", "Rever preco ou custo antes de investir mais"],
+          texto: `Cada pedido de ${dinheiro(ticket)} deixa ${dinheiro(liq)} depois de comissão, custo, embalagem e imposto. Isso é antes do anúncio.`,
+          passos: ["Com margem abaixo de 10% o anúncio precisa de ROAS muito alto para dar lucro", "Rever preço ou custo antes de investir mais"],
           dinheiro: venda, fonte: "seller.ia",
         });
       }
@@ -259,14 +259,14 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
         // a plataforma otimiza GMV, a conta otimiza lucro. Nomear a diferenca.
         saida.push({
           escopo: "campanha", id, nivel: "amarelo", fonte: "seller.ia",
-          titulo: "Nao siga a meta que a Shopee sugere aqui",
+          titulo: "Não siga a meta que a Shopee sugere aqui",
           texto: `Ela recomenda ${fmt(metaSug, 1)}x, e o seu ponto de equilibrio e ${fmt(piso.valor, 1)}x` +
-            (piso.origem === "margem" ? " pela sua margem." : " pelo padrao, ja que a margem deste produto nao esta cadastrada.") +
-            ` Abaixo do equilibrio cada real investido volta menos que um real. A recomendacao dela otimiza faturamento; a sua conta precisa otimizar lucro.`,
+            (piso.origem === "margem" ? " pela sua margem." : " pelo padrão, já que a margem deste produto não está cadastrada.") +
+            ` Abaixo do equilíbrio cada real investido volta menos que um real. A recomendação dela otimiza faturamento; a sua conta precisa otimizar lucro.`,
           passos: [
-            `Nao descer abaixo de ${fmt(piso.valor * 1.2, 1)}x`,
-            piso.origem === "padrao" ? "Cadastre o custo deste produto no Cofre para o equilibrio virar exato" : "Desca em degraus de 20% e meca 7 dias",
-            "Pare quando o lucro em reais parar de crescer, nao quando o ROAS parar de cair",
+            `Não descer abaixo de ${fmt(piso.valor * 1.2, 1)}x`,
+            piso.origem === "padrao" ? "Cadastre o custo deste produto no Cofre para o equilíbrio virar exato" : "Desça em degraus de 20% e meça 7 dias",
+            "Pare quando o lucro em reais parar de crescer, não quando o ROAS parar de cair",
           ],
           dinheiro: gasto || 0,
         });
@@ -277,12 +277,12 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
           titulo: "A Shopee considera sua meta alta demais",
           texto: `Sua meta e ${fmt(metaAtual, 1)}x e ela recomenda ${fmt(metaSug, 1)}x` +
             (ganho !== null ? `, projetando ${fmt(ganho, 0)}% mais faturamento` : "") +
-            `. Meta alta te tira dos leiloes: economiza por impressao e perde volume.` +
+            `. Meta alta te tira dos leilões: economiza por impressão e perde volume.` +
             (lucroHoje !== null ? ` Hoje esta campanha deixa ${dinheiro(lucroHoje)} de lucro.` : ""),
           passos: [
-            `Seu equilibrio e ${fmt(piso.valor, 1)}x, entao ha espaco entre ${fmt(metaSug, 1)}x e ${fmt(metaAtual, 1)}x`,
-            "Desca em degraus de ate 20% por vez",
-            "Meca 7 dias antes do proximo degrau",
+            `Seu equilíbrio é ${fmt(piso.valor, 1)}x, então há espaço entre ${fmt(metaSug, 1)}x e ${fmt(metaAtual, 1)}x`,
+            "Desça em degraus de até 20% por vez",
+            "Meça 7 dias antes do próximo degrau",
             "Pare quando o lucro em reais parar de crescer",
           ],
           dinheiro: gasto || 0,
@@ -296,12 +296,12 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
       if (dist >= 2) {
         saida.push({
           escopo: "campanha", id, nivel: "amarelo", fonte: "seller.ia",
-          titulo: "Este grupo esta vendendo outros produtos",
-          texto: `O retorno amplo e ${fmt(roas, 1)}x e o direto e ${fmt(roasDireto, 1)}x. A maior parte da venda atribuida a este grupo nao e dos produtos que estao dentro dele.`,
+          titulo: "Este grupo está vendendo outros produtos",
+          texto: `O retorno amplo é ${fmt(roas, 1)}x e o direto é ${fmt(roasDireto, 1)}x. A maior parte da venda atribuída a este grupo não é dos produtos que estão dentro dele.`,
           passos: [
-            "Se o faturamento total da loja cresceu no periodo, o grupo esta gerando descoberta e vale manter",
-            "Se nao cresceu, o grupo esta pagando por venda que o organico ja faria",
-            "Nao existe custo por produto dentro do grupo: para decidir quem sai, use o retorno de cada item",
+            "Se o faturamento total da loja cresceu no período, o grupo está gerando descoberta e vale manter",
+            "Se não cresceu, o grupo está pagando por venda que o orgânico já faria",
+            "Não existe custo por produto dentro do grupo: para decidir quem sai, use o retorno de cada item",
           ],
           dinheiro: gasto || 0,
         });
@@ -315,10 +315,10 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
       if (dias && dias > 60) {
         saida.push({
           escopo: "campanha", id, nivel: "amarelo", fonte: "seller.ia",
-          titulo: "Anuncio de loja rodando ha meses sem meta",
-          texto: `Este formato nao tem meta de ROAS: o unico controle e o orcamento. Esta ativo ha ${dias} dias` +
+          titulo: "Anúncio de loja rodando há meses sem meta",
+          texto: `Este formato não tem meta de ROAS: o único controle é o orçamento. Está ativo há ${dias} dias` +
             (gasto ? `, com ${dinheiro(gasto)} no periodo.` : "."),
-          passos: ["Confira se o retorno justifica", "Se nao houver leitura de resultado, reduza o orcamento ao piso ou pause"],
+          passos: ["Confira se o retorno justifica", "Se não houver leitura de resultado, reduza o orçamento ao piso ou pause"],
           dinheiro: gasto || 0,
         });
       }
@@ -333,7 +333,7 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
           texto: `Gastou ${dinheiro(gasto)} e devolveu ${fmt(roas, 2)}x` +
             (cpa ? `. Cada pedido custou ${dinheiro(cpa)}` : "") +
             (cpcReal ? ` e cada clique ${dinheiro(cpcReal)}.` : "."),
-          passos: ["Antes de mexer em meta, confirme se o produto converte", "Se a pagina nao vende, mais trafego so aumenta o prejuizo"],
+          passos: ["Antes de mexer em meta, confirme se o produto converte", "Se a página não vende, mais tráfego só aumenta o prejuízo"],
           dinheiro: gasto,
         });
       }
@@ -356,11 +356,11 @@ function julgarConta(K: any, snap: any, saida: Veredito[]) {
       escopo: "conta", nivel: adsPct >= severo ? "vermelho" : "amarelo", fonte: "seller.ia",
       titulo: `${fmt(adsPct, 0)}% do faturamento vem de Shopee Ads`,
       texto: adsPct >= severo
-        ? "Praticamente toda a venda depende de anuncio. Se o investimento parar, a loja para."
-        : "Mais da metade da venda depende de anuncio. O organico nao sustenta a loja hoje.",
+        ? "Praticamente toda a venda depende de anúncio. Se o investimento parar, a loja para."
+        : "Mais da metade da venda depende de anúncio. O orgânico não sustenta a loja hoje.",
       passos: [
-        "Escolha os produtos que ja convertem e trabalhe a ficha deles para ganhar organico",
-        "Nao reduza o anuncio antes de o organico crescer",
+        "Escolha os produtos que já convertem e trabalhe a ficha deles para ganhar orgânico",
+        "Não reduza o anúncio antes de o orgânico crescer",
       ],
       dinheiro: num(c.gmv) || 0,
     });
@@ -371,7 +371,7 @@ function julgarConta(K: any, snap: any, saida: Veredito[]) {
     saida.push({
       escopo: "conta", nivel: "vermelho", fonte: "shopee",
       titulo: `A conta tem ${fmt(pen, 0)} ponto(s) de penalidade`,
-      texto: "Conta penalizada tem alcance reduzido. Otimizar anuncio antes de resolver isso e investir num teto mais baixo.",
+      texto: "Conta penalizada tem alcance reduzido. Otimizar anúncio antes de resolver isso é investir num teto mais baixo.",
       passos: ["Resolva a penalidade antes de escalar investimento"],
       dinheiro: (num(c.gmv) || 0) + 1e9, // sobe para o topo da fila
     });
