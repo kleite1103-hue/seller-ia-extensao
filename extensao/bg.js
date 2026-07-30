@@ -218,6 +218,18 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
     return true;
   }
 
+  // ---- PREFERENCIAS ----
+  if (msg.tipo === 'sia:pref-salvar') {
+    var op = {}; op['sia_pref_' + msg.chave] = msg.valor;
+    gravar(op).then(function () { responder({ ok: true }); });
+    return true;
+  }
+  if (msg.tipo === 'sia:pref-carregar') {
+    var ck = 'sia_pref_' + msg.chave;
+    ler([ck]).then(function (v) { responder({ ok: true, valor: v[ck] }); });
+    return true;
+  }
+
   // ---- COFRE DE CUSTOS (por loja) ----
   if (msg.tipo === 'sia:cofre-salvar') {
     var ch = 'sia_cofre_' + (msg.loja || 'sem_loja');

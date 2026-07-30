@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.30.1';
+  var VERSAO = '0.31.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -49,6 +49,10 @@
     loja: null,              // shop_id + nome (selleraccount/shop_info)
     espiao: { termo: '', buscando: false, erro: null, res: null, radar: null },  // Espiao de Busca
     cofre: { custos: {}, embalagem: 0, imposto: 0 },  // Cofre de Custos (por loja)
+    contas: {},              // snapshot por shop_id — isola conta de conta
+    trocou: null,            // ultima troca de conta detectada
+    lidoEm: null,            // quando esta conta foi lida
+    autoColeta: false,       // coletar sozinho ao trocar de conta
     spc: null,               // chave de sessao SPC_CDS (colhida das chamadas)
     coletaProgresso: null,   // texto de progresso da coleta completa
     periodoAds: null,        // janela selecionada na tela do Ads (start/end)
@@ -519,17 +523,19 @@
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); /* sem garimpo: micro proprio, tratado na v0.6 */ }
     else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
     else if (tag === 'outra') {
-      if (pacote.url.indexOf('shop_info') >= 0 && !estado.loja) {
+      if (pacote.url.indexOf('shop_info') >= 0) {
+        // NUNCA travar na primeira leitura. Agencia troca de conta o dia todo
+        // na mesma guia: se a identidade nao acompanhar, o dado da conta A
+        // aparece rotulado como conta B. Isso e pior que nao coletar.
+        var achado = null;
         (function cacar(no, prof) {
-          if (estado.loja || !no || typeof no !== 'object' || prof > 4) return;
+          if (achado || !no || typeof no !== 'object' || prof > 4) return;
           if (Array.isArray(no)) { for (var i = 0; i < no.length; i++) cacar(no[i], prof + 1); return; }
           var sid = no.shop_id !== undefined ? no.shop_id : no.shopid;
-          if (sid) {
-            estado.loja = { shop_id: String(sid), nome: no.shop_name || no.name || no.username || '' };
-            estado.sujo = true; return;
-          }
+          if (sid) { achado = { shop_id: String(sid), nome: no.shop_name || no.name || no.username || '' }; return; }
           for (var k in no) { if (no[k] && typeof no[k] === 'object') cacar(no[k], prof + 1); }
         })(pacote.dados, 0);
+        if (achado) aplicarLoja(achado);
       }
     }
     else if (tag === 'performance') { if (!parseMydataProdutos(pacote.url, pacote.dados, pacote.corpo)) garimpar(pacote.dados, { tag: tag }); }
@@ -1312,7 +1318,11 @@
   function coletaCompleta(aoProgresso) {
     return new Promise(function (resolver) {
       (async function () {
-        function prog(t) { estado.coletaProgresso = t; estado.sujo = true; if (aoProgresso) aoProgresso(t); }
+        function prog(t) {
+          estado.coletaProgresso = t; estado.sujo = true;
+          if (t === null) estado.lidoEm = Date.now();   // terminou: marca a leitura DESTA conta
+          if (aoProgresso) aoProgresso(t);
+        }
         if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina do Seller Centre e tente de novo (chave de sessao ainda nao capturada).' }); return; }
         // A Shopee EXIGE datas alinhadas ao dia no fuso do Brasil (UTC-3),
         // senao retorna code 10006 "invalid param". Calculamos inicio do dia
@@ -2805,6 +2815,78 @@
     return 'Leitura desta campanha.';
   }
 
+  /* ==================== MULTICONTA ====================
+     Uma agencia com 170 contas troca de loja dezenas de vezes por dia na
+     mesma guia. Duas coisas precisam ser verdade sempre:
+     1. o dado de uma conta NUNCA aparece sob o nome de outra;
+     2. voltar para uma conta ja lida nao obriga a coletar de novo. */
+  function contaVazia() {
+    return { campanhas: {}, produtos: {}, conta: { campos: {}, atualizadoEm: null }, diagnostico: null, lidoEm: null };
+  }
+  function guardarConta(id) {
+    if (!id) return;
+    estado.contas[id] = {
+      campanhas: estado.campanhas, produtos: estado.produtos,
+      conta: estado.conta, diagnostico: estado.diagnostico, lidoEm: estado.lidoEm || null
+    };
+  }
+  function restaurarConta(id) {
+    var g = estado.contas[id] || contaVazia();
+    estado.campanhas = g.campanhas; estado.produtos = g.produtos;
+    estado.conta = g.conta; estado.diagnostico = g.diagnostico; estado.lidoEm = g.lidoEm;
+    estado.espiao = { termo: '', buscando: false, erro: null, res: null, radar: null };
+    estado.card = null; estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
+  }
+  function aplicarLoja(nova) {
+    var antigo = estado.loja ? estado.loja.shop_id : null;
+    if (antigo === nova.shop_id) {
+      if (nova.nome && !estado.loja.nome) { estado.loja.nome = nova.nome; estado.sujo = true; }
+      return;
+    }
+    if (antigo) guardarConta(antigo);           // congela o que ja foi lido
+    estado.loja = nova;
+    restaurarConta(nova.shop_id);               // traz o que existia, ou zera
+    carregarCofre();                            // o cofre e por loja
+    estado.trocou = { de: antigo, para: nova.shop_id, nome: nova.nome, em: Date.now() };
+    estado.sujo = true;
+    log('conta', 'trocou para ' + nova.shop_id + (nova.nome ? ' (' + nova.nome + ')' : ''));
+    if (estado.autoColeta && antigo) setTimeout(function () { try { coletaCompleta(); } catch (e) { /* noop */ } }, 1200);
+  }
+  function lidoHa() {
+    if (!estado.lidoEm) return null;
+    var m = Math.round((Date.now() - estado.lidoEm) / 60000);
+    if (m < 1) return 'agora';
+    if (m < 60) return 'ha ' + m + ' min';
+    var h = Math.round(m / 60);
+    return h < 24 ? 'ha ' + h + 'h' : 'ha ' + Math.round(h / 24) + 'd';
+  }
+  function renderBannerConta() {
+    if (!estado.loja) {
+      return '<div style="background:#12151b;border-left:3px solid #f5b041;border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:#b8bcc6">Identificando a loja... navegue uma vez no painel para a Seller.IA reconhecer a conta.</div>';
+    }
+    var n = Object.keys(estado.campanhas).length, p = Object.keys(estado.produtos).length;
+    var vazio = (n + p) === 0;
+    var trocouAgora = estado.trocou && (Date.now() - estado.trocou.em) < 600000;
+    if (!vazio && !trocouAgora) return '';
+    var cor = vazio ? '#f5b041' : '#2ecc71';
+    var txt = vazio
+      ? '<b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> ainda nao foi lida nesta sessao.'
+      : '<b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> — dado desta conta, lido ' + (lidoHa() || 'agora') + '.';
+    return '<div style="background:#12151b;border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:#b8bcc6;line-height:1.5">' + txt +
+      (vazio ? ' <button id="sia-coletar-agora" style="background:#ff4d1c;border:none;color:#fff;font-weight:600;font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;margin-left:6px">Coletar esta conta</button>' : '') +
+      '<div style="font-family:Space Mono,monospace;font-size:10.5px;color:#7d8290;margin-top:6px">' +
+      '<label style="cursor:pointer"><input type="checkbox" id="sia-auto-troca"' + (estado.autoColeta ? ' checked' : '') + '> coletar automaticamente ao trocar de conta</label></div></div>';
+  }
+  function ligarBannerConta() {
+    var b = $('sia-coletar-agora');
+    if (b) b.addEventListener('click', function () { try { coletaCompleta(); } catch (e) { /* noop */ } });
+    var c = $('sia-auto-troca');
+    if (c) c.addEventListener('change', function () {
+      estado.autoColeta = c.checked;
+      try { chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'autoColeta', valor: c.checked }, function () { void chrome.runtime.lastError; }); } catch (e) { /* noop */ }
+    });
+  }
+
   /* ===================== COFRE DE CUSTOS =====================
      Regra de velocidade: 1 campo por produto (o custo), e mais nada.
      Embalagem e imposto sao da LOJA, cadastrados uma vez so e valendo
@@ -3072,10 +3154,11 @@
     var nC = Object.keys(estado.campanhas).length;
     var nP = Object.keys(estado.produtos).length;
     var lojaTxt = estado.loja ? (estado.loja.nome || ('loja ' + estado.loja.shop_id)) : 'identificando a loja...';
-    $('sia-info').textContent = lojaTxt + ' · ' + nC + ' campanhas · ' + nP + ' produtos';
+    $('sia-info').textContent = lojaTxt + ' · ' + nC + ' campanhas · ' + nP + ' produtos' + (lidoHa() ? ' · lido ' + lidoHa() : '');
 
     if (abaAtiva === 'semaforo') {
-      corpo.innerHTML = renderSemaforo();
+      corpo.innerHTML = renderBannerConta() + renderSemaforo();
+      ligarBannerConta();
       return;
     }
 
@@ -3498,6 +3581,12 @@
 
   carregarCofre();
   setTimeout(carregarCofre, 4000); // a loja so e identificada apos as primeiras chamadas
+  try {
+    chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'autoColeta' }, function (r) {
+      void chrome.runtime.lastError;
+      if (r && r.valor) { estado.autoColeta = true; estado.sujo = true; }
+    });
+  } catch (e) { /* noop */ }
 
   setInterval(function () {
     if (estado.sujo && $('sia-painel').classList.contains('aberto')) { estado.sujo = false; render(); }
