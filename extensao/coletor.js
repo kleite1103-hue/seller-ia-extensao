@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.35.0';
+  var VERSAO = '0.36.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2093,6 +2093,69 @@
   // CONTA 360 — as 6 inteligencias do cerebro geral (visual)
   // So MOSTRA o que a coleta capturou. A analise vem depois.
   // ==========================================================
+  /* ============ FUNIL DA LOJA ============
+     Quatro degraus, com a queda de cada um e o pior nomeado. Nada de
+     metafora: dizer quantas pessoas passaram e quantas ficaram. */
+  function valCampo(id) {
+    var c = (estado.conta && estado.conta.campos) || {};
+    var v = c[id];
+    if (v && typeof v === 'object') v = v.valor !== undefined ? v.valor : v.v;
+    var n = typeof v === 'number' ? v : parseFloat(String(v == null ? '' : v).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.'));
+    return isFinite(n) ? n : null;
+  }
+  function renderFunilLoja() {
+    var uv = valCampo('uv');
+    var atc = valCampo('atc');
+    var ped = valCampo('pedidos');
+    if (ped == null) ped = valCampo('ped');
+    if (ped == null) ped = valCampo('pedidos_pagos');
+    var buscas = valCampo('buscas') != null ? valCampo('buscas') : valCampo('cliques_prod');
+    var impr = valCampo('impr');
+    var etapas = [
+      { r: 'IMPRESSOES', v: impr, ex: 'Quantas vezes seus produtos apareceram.' },
+      { r: 'CLIQUES NA BUSCA', v: buscas, ex: 'Pessoas que clicaram no seu card dentro da busca da Shopee.' },
+      { r: 'VISITANTES', v: uv, ex: 'Pessoas diferentes que abriram alguma pagina de produto seu.' },
+      { r: 'ADICIONARAM AO CARRINHO', v: atc, ex: 'Quantas guardaram algum produto no carrinho.' },
+      { r: 'PEDIDOS PAGOS', v: ped, ex: 'Quantas fecharam e pagaram.' }
+    ].filter(function (e) { return e.v != null; });
+    if (etapas.length < 2) return '';
+
+    var quedas = [], i;
+    for (i = 1; i < etapas.length; i++) {
+      var ant = etapas[i - 1].v, at = etapas[i].v;
+      quedas.push({ de: etapas[i - 1].r, para: etapas[i].r, pct: ant ? (1 - at / ant) * 100 : null, i: i });
+    }
+    var pior = null;
+    for (i = 0; i < quedas.length; i++) if (quedas[i].pct != null && (!pior || quedas[i].pct > pior.pct)) pior = quedas[i];
+
+    var h = '<div style="font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.06em;margin-bottom:9px">O CAMINHO ATE A VENDA' + dica('<b>O funil da loja inteira.</b> Cada degrau mostra quantas pessoas passaram para a etapa seguinte. A queda entre dois degraus e onde voce perde gente. O degrau com a maior queda e onde vale colocar esforco primeiro — melhorar um degrau que ja esta bom rende pouco.') + '</div>';
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:14px 10px;display:flex;align-items:flex-end;gap:3px;margin-bottom:11px">';
+    for (i = 0; i < etapas.length; i++) {
+      if (i > 0) {
+        var q = quedas[i - 1];
+        var ruim = pior && q.i === pior.i;
+        h += '<div style="flex:none;text-align:center;font-family:Space Mono,monospace;font-size:9px;color:' + (ruim ? 'var(--rd)' : 'var(--t2)') + ';padding-bottom:16px">\u203a<br>' + (q.pct != null ? '\u2212' + fmt(q.pct, 0) + '%' : '') + '</div>';
+      }
+      h += '<div style="flex:1;text-align:center"><div style="font-family:Bebas Neue,sans-serif;font-size:22px;line-height:1;color:var(--t0)">' + fmt(etapas[i].v, 0) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:7.5px;color:var(--t2);margin-top:3px;line-height:1.3">' + etapas[i].r + '</div></div>';
+    }
+    h += '</div>';
+
+    if (pior) {
+      var deTxt = pior.de.toLowerCase(), paraTxt = pior.para.toLowerCase();
+      var idx = pior.i;
+      var quantosAntes = etapas[idx - 1].v, quantosDepois = etapas[idx].v;
+      var conselho = '';
+      if (paraTxt.indexOf('visitantes') >= 0) conselho = 'Quem ve o card nao entra. O que decide isso e a primeira foto, o preco no card e o comeco do titulo.';
+      else if (paraTxt.indexOf('carrinho') >= 0) conselho = 'Quem entra na pagina nao se convence. Preco contra o concorrente, variacao sem estoque e avaliacoes sem resposta sao as causas mais comuns.';
+      else conselho = 'Quem guardou no carrinho nao fechou. Frete, prazo de entrega e o preco final na hora de pagar sao o que costuma travar.';
+      h += '<div style="background:var(--b2);border-left:3px solid var(--rd);border-radius:0 10px 10px 0;padding:12px 14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">A maior perda esta aqui:</b> de ' + fmt(quantosAntes, 0) + ' que chegaram em ' + deTxt + ', ' + fmt(quantosDepois, 0) + ' seguiram para ' + paraTxt + '. ' +
+        '<span style="color:var(--rd)">Perde ' + fmt(pior.pct, 0) + '% neste degrau.</span><br>' + conselho + '</div>';
+    }
+    return h;
+  }
+
   function renderConta360() {
     var D = null;
     try { if (window.SIA_Diamantes) D = window.SIA_Diamantes.resumo(); } catch (e) { }
@@ -2284,6 +2347,8 @@
         pos: i + 1,
         nome: asset.name || '',
         shopid: d.shopid != null ? String(d.shopid) : null,
+        link: (d.shopid != null && d.itemid != null)
+          ? 'https://shopee.com.br/product/' + d.shopid + '/' + d.itemid : null,
         itemid: d.itemid != null ? String(d.itemid) : null,
         preco: preco,
         desconto: dp.discount != null ? Number(dp.discount) : null,
@@ -2298,6 +2363,44 @@
       });
     }
     return lista;
+  }
+
+  /* ---- PALAVRAS QUE OS PRIMEIROS USAM E VOCE NAO ----
+     Agora e comparacao de verdade: quebra o titulo de cada um dos primeiros
+     colocados, quebra o seu, e devolve o que aparece neles e falta no seu.
+     Antes eu mostrava a lista da rota de keywords sem confrontar com o
+     titulo — parecia analise e nao era. */
+  var ESP_IGNORA = { 'para': 1, 'com': 1, 'sem': 1, 'de': 1, 'da': 1, 'do': 1, 'das': 1, 'dos': 1, 'em': 1, 'no': 1, 'na': 1, 'e': 1, 'ou': 1, 'kit': 1, 'un': 1, 'pcs': 1, 'unidades': 1, 'novo': 1, 'promocao': 1, 'frete': 1, 'gratis': 1, 'envio': 1, 'rapido': 1, 'pronta': 1, 'entrega': 1, 'qualidade': 1, 'melhor': 1, 'top': 1 };
+  function espPalavras(nome) {
+    var s = String(nome || '').toLowerCase();
+    s = s.normalize ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : s;
+    s = s.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    var out = {}, p = s.split(' ');
+    for (var i = 0; i < p.length; i++) {
+      if (p[i].length < 3 || ESP_IGNORA[p[i]] || /^\d+$/.test(p[i])) continue;
+      out[p[i]] = true;
+    }
+    return out;
+  }
+  function espDiffPalavras(lista) {
+    var meus = {}, deles = {}, i, k;
+    for (i = 0; i < lista.length; i++) {
+      var pal = espPalavras(lista[i].nome);
+      if (lista[i].eu) { for (k in pal) meus[k] = true; }
+    }
+    var top = lista.filter(function (x) { return !x.eu; }).slice(0, 5);
+    for (i = 0; i < top.length; i++) {
+      var pd = espPalavras(top[i].nome);
+      for (k in pd) deles[k] = (deles[k] || 0) + 1;
+    }
+    var faltando = [];
+    for (k in deles) {
+      if (meus[k]) continue;
+      if (deles[k] < 2) continue;              // so o que repete em 2+ dos primeiros
+      faltando.push({ p: k, n: deles[k] });
+    }
+    faltando.sort(function (a, b) { return b.n - a.n; });
+    return { faltando: faltando.slice(0, 8), temMeu: Object.keys(meus).length > 0 };
   }
 
   function espBarreira(lista) {
@@ -2472,7 +2575,16 @@
         if (m.preco != null && b.preco != null && m.preco > b.preco * 1.15) h += ' Voce esta ' + fmt((m.preco / b.preco - 1) * 100, 0) + '% mais caro que o padrao do topo.';
         if (!m.cupom && b.comCupom >= 2) h += ' E e o unico sem cupom entre os primeiros — cupom vira selo na busca e custa menos que cortar preco.';
         h += '<br><br><b style="color:var(--t0)">Antes de mexer no preco:</b> abra a Margem e veja seu liquido de hoje. Preco e o ultimo passo, e so se a margem aguentar.</div>';
-      } else if (b) {
+      }
+      var dp = espDiffPalavras(lista);
+      if (dp.temMeu && dp.faltando.length) {
+        h += '<div style="font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.06em;margin:18px 0 8px">PALAVRAS QUE OS PRIMEIROS USAM E VOCE NAO' + dica('<b>Como isto e calculado:</b> quebramos o titulo dos cinco primeiros colocados desta busca e o seu, e listamos as palavras que aparecem em pelo menos dois deles e faltam no seu titulo. Palavras muito genericas ficam de fora. <b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego, onde nao ha historico a proteger.') + '</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
+        for (var w = 0; w < dp.faltando.length; w++) {
+          h += '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--px);background:rgba(150,100,255,.09);border:1px solid var(--px);border-radius:99px;padding:4px 11px">' + esc(dp.faltando[w].p) + ' <span style="color:var(--t2)">' + dp.faltando[w].n + '/5</span></span>';
+        }
+        h += '</div>';
+      }
+      if (!meus.length && b) {
         h += '<div class="nota" style="color:var(--am);margin-top:12px">Nenhum produto seu apareceu nesta busca. Quando o titulo nao carrega o termo que o comprador digita, voce nem entra na disputa — nem paga, nem organica.</div>';
       }
     }
@@ -3341,7 +3453,7 @@
     }
 
     if (abaAtiva === 'conta360') {
-      corpo.innerHTML = renderConta360();
+      corpo.innerHTML = renderFunilLoja() + renderConta360();
       ligarBotaoColeta();
       return;
     }
