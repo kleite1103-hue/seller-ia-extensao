@@ -260,7 +260,7 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
         saida.push({
           escopo: "campanha", id, nivel: "amarelo", fonte: "seller.ia",
           titulo: "Não siga a meta que a Shopee sugere aqui",
-          texto: `Ela recomenda ${fmt(metaSug, 1)}x, e o seu ponto de equilibrio e ${fmt(piso.valor, 1)}x` +
+          texto: `Ela recomenda ${fmt(metaSug, 1)}x, e o seu ponto de equilíbrio é ${fmt(piso.valor, 1)}x` +
             (piso.origem === "margem" ? " pela sua margem." : " pelo padrão, já que a margem deste produto não está cadastrada.") +
             ` Abaixo do equilíbrio cada real investido volta menos que um real. A recomendação dela otimiza faturamento; a sua conta precisa otimizar lucro.`,
           passos: [
@@ -317,7 +317,7 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
           escopo: "campanha", id, nivel: "amarelo", fonte: "seller.ia",
           titulo: "Anúncio de loja rodando há meses sem meta",
           texto: `Este formato não tem meta de ROAS: o único controle é o orçamento. Está ativo há ${dias} dias` +
-            (gasto ? `, com ${dinheiro(gasto)} no periodo.` : "."),
+            (gasto ? `, com ${dinheiro(gasto)} no período.` : "."),
           passos: ["Confira se o retorno justifica", "Se não houver leitura de resultado, reduza o orçamento ao piso ou pause"],
           dinheiro: gasto || 0,
         });
