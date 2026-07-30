@@ -29,6 +29,11 @@ create table if not exists conhecimento (
 
 create index if not exists conhecimento_busca on conhecimento (dominio, ativo, prioridade);
 
+-- Mesma politica das outras tabelas: RLS ligado, sem policy publica.
+-- Somente a service_role (usada pela Edge Function) le e escreve.
+-- O metodo NUNCA pode ser lido pela chave anon que vive na extensao.
+alter table conhecimento enable row level security;
+
 -- ============================================================
 -- LIMIARES — os numeros do Metodo Efeito Vendas
 -- ============================================================
