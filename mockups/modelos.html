@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Modelos de Layout</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --b0:#07080a;--b1:#0c0e12;--b2:#12151b;--li:#1d212a;--li2:#2a2f3a;
+  --t0:#f2f2f4;--t1:#b8bcc6;--t2:#8a909c;--t3:#5a5f6a;
+  --mk:#ff4d1c;--vd:#2ecc71;--rd:#e74c3c;--am:#f5b041;--px:#c08bff;
+  --sh:rgba(0,0,0,.55);
+}
+body.claro{
+  --b0:#ffffff;--b1:#fbfaf8;--b2:#f5f3ef;--li:#e5e1d8;--li2:#d4cec1;
+  --t0:#1b1b1e;--t1:#4d5057;--t2:#7c818a;--t3:#a4a8b0;
+  --mk:#e0400f;--vd:#1c8a52;--rd:#c42a2f;--am:#a8700a;--px:#6b28d9;
+  --sh:rgba(60,50,40,.16);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--b0);color:var(--t0);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.55;-webkit-font-smoothing:antialiased;transition:background .2s}
+.pag{max-width:560px;margin:0 auto;padding:22px 14px 70px}
+
+.topo{position:sticky;top:0;z-index:9;background:var(--b0);padding:14px 0 12px;border-bottom:1px solid var(--li);margin-bottom:20px}
+.topo h1{font-family:'Bebas Neue';font-size:30px;letter-spacing:.02em;line-height:1}
+.topo h1 em{font-style:normal;color:var(--mk)}
+.topo p{font-size:13px;color:var(--t2);margin-top:3px}
+.tema{position:fixed;right:14px;bottom:18px;z-index:20;background:var(--mk);color:#fff;border:none;border-radius:99px;padding:13px 20px;font-family:'Outfit';font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 6px 20px var(--sh)}
+
+.bloco{border:1px solid var(--li);border-radius:16px;overflow:hidden;margin-bottom:26px;background:var(--b1)}
+.bloco > .cab{padding:12px 15px;background:var(--b2);border-bottom:1px solid var(--li);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.bloco > .cab .n{font-family:'Space Mono';font-size:10px;color:var(--mk);letter-spacing:.06em}
+.bloco > .cab .q{font-family:'Bebas Neue';font-size:19px;letter-spacing:.03em;flex:1;line-height:1.1}
+.bloco > .corpo{padding:20px}
+.bloco > .pe{padding:12px 15px;border-top:1px solid var(--li);background:var(--b2);font-size:12.5px;color:var(--t2);line-height:1.5}
+.bloco > .pe b{color:var(--t1)}
+
+/* ---- componentes reais da extensao ---- */
+.olho{display:flex;align-items:center;gap:9px;font-family:'Space Mono';font-size:10.5px;color:var(--t2);letter-spacing:.12em;margin:26px 0 12px}
+.olho:first-child{margin-top:0}
+.olho::before{content:"";width:16px;height:1px;background:var(--mk);flex:none}
+.dica{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--li2);background:var(--b2);color:var(--t2);font-family:'Space Mono';font-size:10px;cursor:pointer;padding:0;margin-left:5px;line-height:1}
+
+.leitura{margin-bottom:20px}
+.leitura .fr{font-size:20px;font-weight:500;line-height:1.35;color:var(--t0);letter-spacing:-.015em}
+.leitura .fr .d{color:var(--rd)}.leitura .fr .w{color:var(--am)}.leitura .fr .u{color:var(--vd)}
+.leitura .ex{font-size:14px;color:var(--t1);margin-top:9px;line-height:1.55}
+
+.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--li);border:1px solid var(--li);border-radius:13px;overflow:hidden;margin-bottom:18px}
+.tres>div{background:var(--b2);padding:14px 10px;text-align:center}
+.tres .v{font-family:'Bebas Neue';font-size:29px;line-height:1}
+.tres .l{font-family:'Space Mono';font-size:9px;color:var(--t2);letter-spacing:.06em;margin-top:5px}
+.tres .s{font-size:11.5px;color:var(--t2);margin-top:2px}
+
+.nota{font-size:13px;color:var(--t2);margin:10px 0;line-height:1.55}
+.nota b{color:var(--t1)}
+
+.fila{background:var(--b2);border:1px solid var(--li);border-left:3px solid var(--li2);border-radius:12px;padding:15px 16px;margin-bottom:10px}
+.fila.rd{background:color-mix(in srgb, var(--rd) 9%, var(--b2));border-color:color-mix(in srgb, var(--rd) 32%, var(--li));border-left-color:var(--rd)}
+.fila.am{background:color-mix(in srgb, var(--am) 9%, var(--b2));border-color:color-mix(in srgb, var(--am) 32%, var(--li));border-left-color:var(--am)}
+.fila.vd{background:color-mix(in srgb, var(--vd) 9%, var(--b2));border-color:color-mix(in srgb, var(--vd) 32%, var(--li));border-left-color:var(--vd)}
+.fila .l1{display:flex;align-items:baseline;gap:9px;margin-bottom:6px}
+.fila .tt{flex:1;font-size:15px;font-weight:600;color:var(--t0);line-height:1.3;letter-spacing:-.01em}
+.fila .vl{font-family:'Space Mono';font-size:12px;color:var(--t2);flex:none}
+.fila .sub{font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4}
+.fila .sub span{font-family:'Space Mono';color:var(--t3)}
+.fila .tx{font-size:13.5px;color:var(--t1);line-height:1.55}
+
+.funil{background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:14px 10px;display:flex;align-items:flex-end;gap:3px}
+.funil .et{flex:1;text-align:center}
+.funil .et .v{font-family:'Bebas Neue';font-size:22px;line-height:1;color:var(--t0)}
+.funil .et .l{font-family:'Space Mono';font-size:7.5px;color:var(--t2);margin-top:3px;line-height:1.3}
+.funil .qd{flex:none;font-family:'Space Mono';font-size:9px;color:var(--t2);padding-bottom:16px}
+.funil .qd.mal{color:var(--rd)}
+.perda{background:var(--b2);border-left:3px solid var(--rd);border-radius:0 10px 10px 0;padding:12px 14px;font-size:13.5px;color:var(--t1);line-height:1.55;margin-top:11px}
+.perda b{color:var(--t0)}
+
+.selo{font-family:'Space Mono';font-size:9.5px;border-radius:99px;padding:3px 9px;display:inline-block}
+.selo.ce{color:var(--vd);border:1px solid var(--vd)}
+.selo.lo{color:var(--am);border:1px solid var(--am)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:'Space Mono';font-size:11.5px;color:var(--px);background:color-mix(in srgb,var(--px) 12%,transparent);border:1px solid var(--px);border-radius:99px;padding:4px 11px}
+.chip span{color:var(--t2)}
+
+.faixa{background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:14px}
+.trilho{position:relative;height:36px;margin:14px 4px 0}
+.trilho .bg{position:absolute;top:15px;left:0;right:0;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--vd) 0%,var(--vd) 26%,var(--am) 26%,var(--am) 62%,var(--rd) 62%)}
+.trilho .mc{position:absolute;top:7px;width:2px;height:21px;background:var(--t0)}
+.trilho .mc::after{content:attr(data-l);position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-family:'Space Mono';font-size:9px;color:var(--t0);white-space:nowrap}
+.trilho .pt{position:absolute;top:27px;font-family:'Space Mono';font-size:8.5px;color:var(--t2);transform:translateX(-50%);white-space:nowrap}
+
+.linha{display:flex;justify-content:space-between;font-size:14px;padding:5px 0;color:var(--t1)}
+.linha span:last-child{font-family:'Space Mono'}
+.total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--li);margin-top:8px;padding-top:9px}
+.total .r{font-size:14px;font-weight:600;color:var(--t0)}
+.total .v{font-family:'Bebas Neue';font-size:28px;color:var(--vd)}
+.aviso{background:var(--b2);border-left:3px solid var(--px);border-radius:0 9px 9px 0;padding:10px 13px;font-size:13px;color:var(--t1);margin-top:11px;line-height:1.5}
+.aviso b{color:var(--t0)}
+</style>
+</head>
+<body>
+<button class="tema" id="tema">Ver no claro</button>
+<div class="pag">
+
+<div class="topo">
+  <h1>MODELOS DE <em>LAYOUT</em></h1>
+  <p>O que está no código hoje, na v0.38.0 — troque o tema no botão</p>
+</div>
+
+<!-- ============ 1 ============ -->
+<div class="bloco">
+  <div class="cab"><span class="n">01</span><span class="q">TELA INÍCIO</span><span class="selo lo">leitura local</span></div>
+  <div class="corpo">
+    <div class="leitura">
+      <div class="fr">Você tem <span class="d">20 campanhas devolvendo menos do que custa</span>.</div>
+      <div class="ex">Somadas, elas consumiram R$ 1.240,80 no período. Enquanto o retorno estiver abaixo do seu piso, cada venda que elas trazem sai no prejuízo.</div>
+    </div>
+    <div class="tres">
+      <div><div class="v" style="color:var(--rd)">20</div><div class="l">NO PREJUÍZO</div><div class="s">R$ 1.240,80</div></div>
+      <div><div class="v" style="color:var(--am)">9</div><div class="l">SUFOCADAS</div><div class="s">meta apertada</div></div>
+      <div><div class="v" style="color:var(--vd)">17</div><div class="l">ESCALANDO</div><div class="s">com folga</div></div>
+    </div>
+    <div class="nota">301 campanhas lidas · R$ 1.763,48 no período · 255 em aprendizado, fora da fila<button class="dica">?</button><br>
+      <span style="color:var(--am)">Margem assumida de 25% (piso 4x).</span> Cadastre o custo no Cofre e o piso vira o seu número real.</div>
+
+    <div class="olho">FILA DE AÇÃO (46)<button class="dica">?</button></div>
+
+    <div class="fila rd">
+      <div class="l1"><span class="tt">Cada real investido aqui volta menos que um real</span><span class="vl">R$ 69,26</span></div>
+      <div class="sub">EF - Cápsulas <span>ROAS 0.7x&nbsp; pos 65</span></div>
+      <div class="tx">Está em 0,7x, abaixo do seu piso de 4,0x. Nesse ritmo, cada venda sai no prejuízo.</div>
+    </div>
+    <div class="fila am">
+      <div class="l1"><span class="tt">Meta apertada demais para o volume que ela consegue</span><span class="vl">R$ 61,71</span></div>
+      <div class="sub">Porta Vinho Decorativo de Mesa <span>ROAS 2.9x&nbsp; pos 52</span></div>
+      <div class="tx">Entrega acima do piso, mas a meta a mantém fora dos leilões maiores.</div>
+    </div>
+    <div class="fila vd">
+      <div class="l1"><span class="tt">Tem folga para escalar</span><span class="vl">R$ 47,12</span></div>
+      <div class="sub">Comedouro para Gato Elevado <span>ROAS 8.4x&nbsp; pos 12</span></div>
+      <div class="tx">Entrega o dobro do seu piso. Subir orçamento em 20% aqui é o crescimento mais barato da conta.</div>
+    </div>
+  </div>
+  <div class="pe"><b>O que mudou:</b> a tela abre com uma frase, não com um título. Os quatro cartões viraram três — "aprendendo" não é veredito, desceu pro rodapé. O aviso da margem fica em âmbar enquanto o Cofre está vazio.</div>
+</div>
+
+<!-- ============ 2 ============ -->
+<div class="bloco">
+  <div class="cab"><span class="n">02</span><span class="q">PERFORMANCE DE PRODUTO</span><span class="selo ce">análise Seller.IA</span></div>
+  <div class="corpo">
+    <div class="leitura">
+      <div class="fr"><span class="d">6 produtos</span> recebem visita e não convertem.</div>
+      <div class="ex">Eles somam R$ 12.400 de venda no período. Trazer mais gente para uma página que não fecha só aumenta o custo — o gargalo está depois do clique.</div>
+    </div>
+    <div class="tres">
+      <div><div class="v" style="color:var(--rd)">6</div><div class="l">PERDENDO DINHEIRO</div></div>
+      <div><div class="v" style="color:var(--am)">9</div><div class="l">DÁ PRA MELHORAR</div></div>
+      <div><div class="v" style="color:var(--vd)">3</div><div class="l">VENDENDO BEM</div></div>
+    </div>
+    <div class="olho">ORDENADO POR DINHEIRO EM JOGO<button class="dica">?</button></div>
+    <div class="fila rd">
+      <div class="l1"><span class="tt">Recebe clique e não vende</span><span class="vl">R$ 8.240</span></div>
+      <div class="sub">Vaso Decorativo Moderno Preto Espiralado</div>
+      <div class="tx">O card funciona: 3,5 de cada 100 clicam. Mas de cada 100 que entram na página, menos de 1 compra.</div>
+      <div class="tx" style="color:var(--rd);margin-top:5px">→ Abra a página no celular · Compare o preço com o concorrente · Verifique variação sem estoque</div>
+    </div>
+    <div class="fila vd">
+      <div class="l1"><span class="tt">Vende bem sem nenhum anúncio</span><span class="vl">R$ 2.180</span></div>
+      <div class="sub">Comedouro Lento Interativo para Gatos</div>
+      <div class="tx">De cada 100 que entram, 2,4 compram, sem investimento nenhum.</div>
+      <div class="tx" style="color:var(--vd);margin-top:5px">→ É o produto mais barato para começar a anunciar: você paga por visita que já sabe converter</div>
+    </div>
+  </div>
+  <div class="pe"><b>O selo verde</b> aparece quando o veredito veio do cérebro. Em âmbar, quando é a leitura local — e o <b>?</b> explica o que a completa traz a mais.</div>
+</div>
+
+<!-- ============ 3 ============ -->
+<div class="bloco">
+  <div class="cab"><span class="n">03</span><span class="q">FUNIL DA LOJA</span></div>
+  <div class="corpo">
+    <div class="olho">O CAMINHO ATÉ A VENDA<button class="dica">?</button></div>
+    <div class="funil">
+      <div class="et"><div class="v">66.150</div><div class="l">IMPRESSÕES</div></div>
+      <div class="qd">›<br>−96%</div>
+      <div class="et"><div class="v">2.488</div><div class="l">VISITANTES</div></div>
+      <div class="qd mal">›<br>−91%</div>
+      <div class="et"><div class="v">225</div><div class="l">CARRINHO</div></div>
+      <div class="qd">›<br>−98%</div>
+      <div class="et"><div class="v" style="color:var(--rd)">3</div><div class="l">PEDIDOS</div></div>
+    </div>
+    <div class="perda"><b>A maior perda está aqui:</b> de 2.488 que chegaram em visitantes, 225 seguiram para carrinho. <span style="color:var(--rd)">Perde 91% neste degrau.</span><br>Quem entra na página não se convence. Preço contra o concorrente, variação sem estoque e avaliações sem resposta são as causas mais comuns.</div>
+  </div>
+  <div class="pe"><b>Por que nomear o pior degrau:</b> melhorar um degrau que já está bom rende quase nada. Sem essa leitura, o funil vira quatro números que não dizem onde agir.</div>
+</div>
+
+<!-- ============ 4 ============ -->
+<div class="bloco">
+  <div class="cab"><span class="n">04</span><span class="q">CARD DO PRODUTO — ainda não portado</span></div>
+  <div class="corpo">
+    <div class="olho">A CONTA DE UM PEDIDO<button class="dica">?</button></div>
+    <div style="border:1px solid var(--li);border-radius:12px;padding:15px">
+      <div class="linha"><span>Ticket médio</span><span>R$ 48,18</span></div>
+      <div class="linha"><span>− Comissão Shopee (20% + R$ 4)</span><span>− R$ 13,64</span></div>
+      <div class="linha"><span>− Ads por pedido</span><span>− R$ 2,39</span></div>
+      <div class="total"><span class="r">Sobra antes do custo</span><span class="v">R$ 32,15</span></div>
+      <div class="aviso"><b>Falta o custo deste produto.</b> Cadastre na aba Cofre e esta sobra vira lucro de verdade.</div>
+    </div>
+
+    <div class="olho">POR QUE ESTE ROAS</div>
+    <div class="faixa">
+      <div style="font-family:'Space Mono';font-size:9.5px;color:var(--t2);letter-spacing:.08em">A FAIXA DA SUA CATEGORIA</div>
+      <div class="trilho">
+        <div class="bg"></div>
+        <div class="pt" style="left:4%">2,4x</div>
+        <div class="pt" style="left:35%">5,1x</div>
+        <div class="pt" style="left:96%">10x</div>
+        <div class="mc" style="left:78%" data-l="você 8,4x"></div>
+      </div>
+      <div style="font-size:13.5px;color:var(--t1);margin-top:16px;line-height:1.55">Você pede <b style="color:var(--t0)">8,4x</b> e entrega <b style="color:var(--t0)">9,14x</b>. A Shopee sugere <b style="color:var(--vd)">5,1x</b> e projeta <b style="color:var(--vd)">+30%</b> de faturamento.</div>
+    </div>
+  </div>
+  <div class="pe">Esta tela <b>ainda está no formato antigo</b> dentro da extensão. Isto é como ela ficaria no padrão novo.</div>
+</div>
+
+<!-- ============ 5 ============ -->
+<div class="bloco">
+  <div class="cab"><span class="n">05</span><span class="q">ESPIÃO — palavras dos primeiros</span></div>
+  <div class="corpo">
+    <div class="olho">PALAVRAS QUE OS PRIMEIROS USAM E VOCÊ NÃO<button class="dica">?</button></div>
+    <div class="chips">
+      <span class="chip">antiderrapante <span>4/5</span></span>
+      <span class="chip">absorvente <span>3/5</span></span>
+      <span class="chip">mármore <span>3/5</span></span>
+      <span class="chip">cortiça <span>2/5</span></span>
+      <span class="chip">mesa <span>2/5</span></span>
+    </div>
+    <div class="nota">Agora é comparação real: quebra o título dos cinco primeiros e o seu, e mostra só o que aparece em pelo menos dois deles e falta no seu. <b>Antes eu listava palavras sem confrontar nada.</b></div>
+  </div>
+  <div class="pe">Cada concorrente da busca ganhou uma seta <b>↗</b> que abre o anúncio dele em aba nova.</div>
+</div>
+
+<!-- ============ 6 ============ -->
+<div class="bloco">
+  <div class="cab"><span class="n">06</span><span class="q">AS PEÇAS</span></div>
+  <div class="corpo">
+    <div class="olho">ASSIM SE ESCREVE UMA SEÇÃO</div>
+    <div class="nota">Traço laranja curto, mono pequeno, muito respiro acima. Substituiu os cabeçalhos que estavam cada um com um espaçamento diferente.</div>
+
+    <div class="olho">A REGRA DA COR</div>
+    <div class="nota">Base cinza-neutra. <b style="color:var(--rd)">Vermelho</b> é dinheiro saindo, <b style="color:var(--am)">âmbar</b> é folga, <b style="color:var(--vd)">verde</b> é saudável. O laranja da marca fica no logo e na ação principal — <b>quando a cor está em tudo, ela para de significar</b>.</div>
+
+    <div class="olho">O QUE O "?" FAZ</div>
+    <div class="nota">Abre a explicação numa faixa no pé da gaveta, uma por vez. Não empilha texto na tela e não depende de passar o mouse — funciona no celular.</div>
+  </div>
+</div>
+
+</div>
+<script>
+var b = document.getElementById('tema');
+b.addEventListener('click', function () {
+  document.body.classList.toggle('claro');
+  b.textContent = document.body.classList.contains('claro') ? 'Ver no escuro' : 'Ver no claro';
+});
+</script>
+</body>
+</html>
