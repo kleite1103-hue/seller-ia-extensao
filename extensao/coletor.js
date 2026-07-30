@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.33.0';
+  var VERSAO = '0.34.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -54,6 +54,9 @@
     lidoEm: null,            // quando esta conta foi lida
     autoColeta: false,       // coletar sozinho ao trocar de conta
     temaClaro: false,        // tema claro (nude) ou escuro
+    vereditos: null,         // vereditos vindos do cerebro
+    fonteVeredito: 'local',  // 'cerebro' | 'local'
+    versaoRegras: null,
     spc: null,               // chave de sessao SPC_CDS (colhida das chamadas)
     coletaProgresso: null,   // texto de progresso da coleta completa
     periodoAds: null,        // janela selecionada na tela do Ads (start/end)
@@ -1284,10 +1287,9 @@
           try {
             chrome.runtime.sendMessage({ tipo: 'sia:salvar', coleta: foto }, function () {
               void chrome.runtime.lastError;
-              var payload = { loja: estado.loja ? estado.loja.shop_id : 'desconhecida', snapshot: foto };
-              chrome.runtime.sendMessage({ tipo: 'sia:analisar', payload: payload }, function (resp) {
+              chrome.runtime.sendMessage({ tipo: 'sia:analisar', payload: payloadCerebro(foto) }, function (resp) {
                 void chrome.runtime.lastError;
-                if (resp) { estado.diagnostico = resp; estado.sujo = true; }
+                guardarVereditos(resp);
               });
             });
           } catch (e) { /* noop */ }
@@ -2863,6 +2865,58 @@
     });
   }
 
+  /* ============ CONVERSA COM O CEREBRO ============
+     A extensao manda fatos e recebe vereditos prontos. Ela nao sabe as
+     regras — de proposito. Enquanto o cerebro nao responde, o julgamento
+     local roda como apoio e o rotulo diz isso na cara. */
+  function margemMediaCofre() {
+    var cf = estado.cofre || {};
+    var ids = Object.keys(cf.custos || {});
+    if (!ids.length) return null;
+    var soma = 0, n = 0;
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i], custo = cf.custos[id];
+      var pr = estado.produtos[id] && estado.produtos[id].metricas;
+      var ticket = pr && (pr.ticket_pedido || (pr.vendas_pagas && pr.pedidos_pagos ? pr.vendas_pagas / pr.pedidos_pagos : null));
+      if (!ticket || !custo) continue;
+      var com = ticket < 80 ? ticket * 0.20 + 4 : (ticket < 100 ? ticket * 0.14 + 16 : (ticket < 200 ? ticket * 0.14 + 20 : ticket * 0.14 + 26));
+      var liq = ticket - com - custo - (cf.embalagem || 0) - (ticket * (cf.imposto || 0) / 100);
+      soma += (liq / ticket) * 100; n++;
+    }
+    return n ? Math.round((soma / n) * 10) / 10 : null;
+  }
+  function payloadCerebro(foto) {
+    var f = foto || fotoDoEstado();
+    f.cofre = estado.cofre || null;
+    f.margemMediaPct = margemMediaCofre();
+    return { loja: estado.loja ? estado.loja.shop_id : 'desconhecida', snapshot: f };
+  }
+  function guardarVereditos(resp) {
+    estado.diagnostico = resp;
+    if (resp && resp.ok && resp.vereditos && resp.vereditos.length) {
+      estado.vereditos = resp.vereditos;
+      estado.fonteVeredito = 'cerebro';
+      estado.versaoRegras = resp.rules_version || null;
+    }
+    estado.sujo = true;
+  }
+  function vereditosDe(escopo, id) {
+    var out = [];
+    var v = estado.vereditos || [];
+    for (var i = 0; i < v.length; i++) {
+      if (v[i].escopo !== escopo) continue;
+      if (id !== undefined && String(v[i].id) !== String(id)) continue;
+      out.push(v[i]);
+    }
+    return out;
+  }
+  function seloFonte() {
+    if (estado.fonteVeredito === 'cerebro') {
+      return '<span style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--vd);border:1px solid var(--vd);border-radius:99px;padding:2px 8px">analise Seller.IA' + (estado.versaoRegras ? ' \u00b7 ' + esc(estado.versaoRegras) : '') + '</span>';
+    }
+    return '<span style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--am);border:1px solid var(--am);border-radius:99px;padding:2px 8px">leitura local' + dica('<b>Leitura local:</b> esta analise foi feita dentro do navegador, com as regras basicas. A analise completa roda no servidor da Seller.IA e traz o diagnostico da propria Shopee, o piso de ROAS pela sua margem e a leitura por formato de anuncio. Clique em Analisar na aba Especialista para trazer.') + '</span>';
+  }
+
   /* ==================== MULTICONTA ====================
      Uma agencia com 170 contas troca de loja dezenas de vezes por dia na
      mesma guia. Duas coisas precisam ser verdade sempre:
@@ -2890,6 +2944,7 @@
     estado.conta = g.conta; estado.diagnostico = g.diagnostico; estado.lidoEm = g.lidoEm;
     estado.espiao = { termo: '', buscando: false, erro: null, res: null, radar: null };
     estado.card = null; estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
+    estado.vereditos = null; estado.fonteVeredito = 'local'; estado.versaoRegras = null;
     if (estado.contas[id]) return;   // memoria da guia tinha, nao precisa do disco
     try {
       chrome.runtime.sendMessage({ tipo: 'sia:conta-carregar', loja: id }, function (r) {
@@ -2928,6 +2983,32 @@
     if (m < 60) return 'ha ' + m + ' min';
     var h = Math.round(m / 60);
     return h < 24 ? 'ha ' + h + 'h' : 'ha ' + Math.round(h / 24) + 'd';
+  }
+  function renderChamadaCerebro() {
+    if (estado.fonteVeredito === 'cerebro') return '';
+    if (!Object.keys(estado.campanhas).length && !Object.keys(estado.produtos).length) return '';
+    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:11px;padding:13px;margin-top:14px">' +
+      '<div style="font-size:14px;color:var(--t0);font-weight:500;margin-bottom:4px">A analise completa ainda nao rodou</div>' +
+      '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:10px">O que esta na tela e a leitura local. A completa traz o diagnostico da propria Shopee, o piso de ROAS pela sua margem e a leitura por formato de anuncio.</div>' +
+      '<button id="sia-analisar-agora" style="background:var(--mk);border:none;color:#fff;font-weight:600;font-size:13px;padding:9px 16px;border-radius:8px;cursor:pointer">' +
+      (estado.analisando ? 'Analisando...' : 'Analisar esta conta') + '</button></div>';
+  }
+  function ligarChamadaCerebro() {
+    var b = $('sia-analisar-agora');
+    if (!b) return;
+    b.addEventListener('click', function () {
+      if (estado.analisando) return;
+      estado.analisando = true; render();
+      try {
+        chrome.runtime.sendMessage({ tipo: 'sia:analisar', payload: payloadCerebro() }, function (resp) {
+          void chrome.runtime.lastError;
+          estado.analisando = false;
+          guardarVereditos(resp);
+          if (!resp || !resp.ok) mostrarExpl('<b>Nao consegui falar com a analise completa.</b> ' + esc((resp && resp.erro) || 'Sem resposta.') + ' A leitura local continua valendo.');
+          render();
+        });
+      } catch (e) { estado.analisando = false; render(); }
+    });
   }
   function renderBannerConta() {
     if (!estado.loja) {
@@ -3177,7 +3258,23 @@
       return '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
     }
     var lidos = [];
-    for (var i = 0; i < ids.length; i++) lidos.push(diagProduto(ids[i]));
+    var doCerebro = vereditosDe('produto');
+    if (doCerebro.length) {
+      // o cerebro julgou: a extensao so desenha
+      for (var c = 0; c < doCerebro.length; c++) {
+        var vv = doCerebro[c];
+        var pr = estado.produtos[vv.id] || {};
+        var mm = pr.metricas || {};
+        lidos.push({
+          id: vv.id, nome: pr.nome || ('Produto ' + vv.id),
+          venda: (mm.vendas_pagas !== undefined ? mm.vendas_pagas : (vv.dinheiro || 0)) || 0,
+          nivel: vv.nivel, titulo: vv.titulo, texto: vv.texto,
+          acao: (vv.passos && vv.passos.length) ? vv.passos.join(' \u00b7 ') : ''
+        });
+      }
+    } else {
+      for (var i = 0; i < ids.length; i++) lidos.push(diagProduto(ids[i]));
+    }
     // ordem = dinheiro em jogo, nao gravidade. Problema em produto que vende
     // R$8 mil vale mais atencao que problema em produto que vende R$80.
     var peso = { vermelho: 3, amarelo: 2, verde: 1, cinza: 0 };
@@ -3194,7 +3291,8 @@
       verde: { dot: 'var(--vd)', bg: 'rgba(46,204,113,.07)', bd: 'rgba(46,204,113,.25)' },
       cinza: { dot: 'var(--t3)', bg: 'transparent', bd: 'var(--li)' }
     };
-    var h = '<div class="kpis">' +
+    var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' + seloFonte() + '</div>' +
+      '<div class="kpis">' +
       '<div class="kpi"><div class="v" style="color:var(--rd)">' + cont.vermelho + '</div><div class="l">Perdendo dinheiro' + dica('<b>Perdendo dinheiro:</b> produtos que recebem visita e quase nao vendem, ou que tiveram queda forte. Cada real gasto neles rende menos que a media da loja. Sao os primeiros a mexer.') + '</div></div>' +
       '<div class="kpi"><div class="v" style="color:var(--am)">' + cont.amarelo + '</div><div class="l">Da pra melhorar' + dica('<b>Da pra melhorar:</b> vendem, mas tem um gargalo identificado — preco na faixa de comissao errada, muita gente saindo sem olhar, ou concentracao de risco. Nao e urgente, e e onde tem ganho facil.') + '</div></div>' +
       '<div class="kpi"><div class="v" style="color:var(--vd)">' + cont.verde + '</div><div class="l">Vendendo bem' + dica('<b>Vendendo bem:</b> convertem acima da media da loja. A regra aqui e nao mexer sem motivo — e proteger, nao otimizar. Se algum deles nao tem anuncio, e por ele que se comeca.') + '</div></div>' +
@@ -3215,6 +3313,7 @@
         '<div style="font-size:13px;color:' + co.dot + ';line-height:1.5;margin-top:5px">→ ' + esc(L.acao) + '</div>' +
         '</div>';
     }
+    h += renderChamadaCerebro();
     h += '<div class="nota">A leitura usa o funil que a Shopee entrega por produto. Produtos com menos de 100 visitantes ficam de fora do julgamento de proposito — abaixo disso, taxa e ruido.</div>';
     return h;
   }
@@ -3233,8 +3332,11 @@
     $('sia-info').textContent = lojaTxt + ' · ' + nC + ' campanhas · ' + nP + ' produtos' + (lidoHa() ? ' · lido ' + lidoHa() : '');
 
     if (abaAtiva === 'semaforo') {
-      corpo.innerHTML = renderBannerConta() + renderSemaforo();
+      corpo.innerHTML = renderBannerConta() +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' + seloFonte() + '</div>' +
+        renderSemaforo() + renderChamadaCerebro();
       ligarBannerConta();
+      ligarChamadaCerebro();
       return;
     }
 
@@ -3336,7 +3438,7 @@
             chrome.runtime.sendMessage({ tipo: 'sia:carregar', }, function (r2) {
               void chrome.runtime.lastError;
               var fotoGlobal = (r2 && r2.coleta) ? r2.coleta : fotoDoEstado();
-              var payload = { loja: (fotoGlobal.loja && fotoGlobal.loja.shop_id) || (estado.loja ? estado.loja.shop_id : 'desconhecida'), snapshot: fotoGlobal };
+              var payload = payloadCerebro(fotoGlobal);
           chrome.runtime.sendMessage({ tipo: 'sia:analisar', payload: payload }, function (resp) {
             void chrome.runtime.lastError;
             estado.analisando = false;
@@ -3446,6 +3548,7 @@
 
     } else if (abaAtiva === 'performance') {
       corpo.innerHTML = renderSubAbas('gprod') + renderPerformanceIA();
+      ligarChamadaCerebro();
 
     } else if (abaAtiva === 'afiliados') {
       var brutosAf = estado.afiliados.campos || {};
