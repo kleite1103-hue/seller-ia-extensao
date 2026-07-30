@@ -238,9 +238,15 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
 
     // --- veredito da propria Shopee, quando existir
     const vd = c.verdict || c.metaShopee || null;
-    const metaAtual = num(vd?.atual ?? vd?.current_roi_two_target ? reais(vd.current_roi_two_target) : vd?.atual);
-    const metaSug = num(vd?.sugerida ?? (vd?.suggested_roi_two_target ? reais(vd.suggested_roi_two_target) : null));
-    const ganho = pct(vd?.ganhoGmvPct ?? (vd?.estimate_gmv_pct ? vd.estimate_gmv_pct / 100 : null));
+    // A meta pode chegar ja em "x" (metaShopee.atual) ou crua em micro
+    // (current_roi_two_target). Ler na ordem certa evita 1.060.000x na tela.
+    const metaAtual = vd == null ? null
+      : (num(vd.atual) ?? (vd.current_roi_two_target != null ? reais(vd.current_roi_two_target) : null));
+    const metaSug = vd == null ? null
+      : (num(vd.sugerida) ?? (vd.suggested_roi_two_target != null ? reais(vd.suggested_roi_two_target) : null));
+    // estimate_gmv_pct vem inflado por 100 (3000 = 30%)
+    const ganho = vd == null ? null
+      : (num(vd.ganhoGmvPct) ?? (vd.estimate_gmv_pct != null ? vd.estimate_gmv_pct / 100 : null));
 
     if (metaSug !== null && !proibe(fmtRegra, "meta")) {
       if (metaSug < piso.valor) {
