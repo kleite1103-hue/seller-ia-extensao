@@ -218,6 +218,57 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
     return true;
   }
 
+  // ---- SNAPSHOT POR CONTA (multiconta de agencia) ----
+  // Tres travas: so a camada compacta, no maximo MAX_CONTAS lojas, e expira
+  // em DIAS_VALIDADE. Dado da Shopee e D-1: passou de uma semana ninguem quer
+  // o numero velho de volta, quer coletar de novo.
+  var MAX_CONTAS = 40;
+  var DIAS_VALIDADE = 7;
+
+  if (msg.tipo === 'sia:conta-salvar') {
+    (async function () {
+      var chave = 'sia_conta_' + msg.loja;
+      var pacote = {}; pacote[chave] = { em: Date.now(), dados: msg.dados || {} };
+      await gravar(pacote);
+      // limpeza: derruba expirado e o excedente mais antigo
+      try {
+        var tudo = await ler(null);
+        var lojas = [];
+        var limite = Date.now() - DIAS_VALIDADE * 86400000;
+        var apagar = [];
+        for (var k in tudo) {
+          if (k.indexOf('sia_conta_') !== 0) continue;
+          var em = (tudo[k] && tudo[k].em) || 0;
+          if (em < limite) apagar.push(k); else lojas.push({ k: k, em: em });
+        }
+        lojas.sort(function (a, b) { return b.em - a.em; });
+        for (var i = MAX_CONTAS; i < lojas.length; i++) apagar.push(lojas[i].k);
+        if (apagar.length) await new Promise(function (r) { chrome.storage.local.remove(apagar, r); });
+      } catch (_e) { /* noop */ }
+      responder({ ok: true });
+    })();
+    return true;
+  }
+  if (msg.tipo === 'sia:conta-carregar') {
+    (async function () {
+      var chave = 'sia_conta_' + msg.loja;
+      var v = await ler([chave]);
+      var g = v[chave];
+      if (!g || (Date.now() - (g.em || 0)) > DIAS_VALIDADE * 86400000) { responder({ ok: true, dados: null }); return; }
+      responder({ ok: true, dados: g.dados, em: g.em });
+    })();
+    return true;
+  }
+  if (msg.tipo === 'sia:contas-limpar') {
+    (async function () {
+      var tudo = await ler(null), apagar = [];
+      for (var k in tudo) if (k.indexOf('sia_conta_') === 0 || k.indexOf('sia_cofre_') === 0) apagar.push(k);
+      await new Promise(function (r) { chrome.storage.local.remove(apagar, r); });
+      responder({ ok: true, apagadas: apagar.length });
+    })();
+    return true;
+  }
+
   // ---- PREFERENCIAS ----
   if (msg.tipo === 'sia:pref-salvar') {
     var op = {}; op['sia_pref_' + msg.chave] = msg.valor;

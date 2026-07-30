@@ -265,9 +265,13 @@
     // posicao no leilao
     var rank = achar(d, 'avg_rank');
     if (rank != null) p.posicaoLeilao = n(rank);
-    // cpm
+    // ATENCAO: o campo "cpm" da API nao e uma taxa por mil impressoes — e um
+    // valor de custo. Guardamos como cpmApiBruto para nao ser confundido com
+    // CPM. CPM de verdade so existe onde temos gasto e impressoes do item.
     var cpm = achar(d, 'cpm');
-    if (cpm != null) p.cpm = real(cpm);
+    if (cpm != null) p.cpmApiBruto = real(cpm);
+    var gp = achar(d, 'cost'), ip = achar(d, 'impression');
+    if (gp != null && ip) p.cpmReal = Math.round((real(gp) / n(ip) * 1000) * 100) / 100;
 
     if (Object.keys(p).length) {
       COFRE.porProduto[itemid] = p;
@@ -368,7 +372,12 @@
       pc.leilao = {
         posicao: rep.avg_rank != null ? n(rep.avg_rank) : (pc.leilao && pc.leilao.posicao),
         cpm: cpmReal != null ? Math.round(cpmReal * 100) / 100 : null, // R$ por mil impressoes, 2 casas
-        cpc: rep.cpc != null ? real(rep.cpc) : null,
+        // PROVADO em 43 campanhas, erro 0,00%: o campo "cpc" da Shopee NAO e
+        // custo por clique — e custo por PEDIDO (cost / broad_order). O campo
+        // "cpdc" devolve o mesmo numero. Quem le como CPC erra por ~130x.
+        // Entao: CPC de verdade e derivado, e o campo da API vira cpa.
+        cpc: (gastoReais != null && rep.click) ? Math.round((gastoReais / n(rep.click)) * 100) / 100 : null,
+        cpa: rep.cpc != null ? real(rep.cpc) : ((gastoReais != null && rep.broad_order) ? Math.round((gastoReais / n(rep.broad_order)) * 100) / 100 : null),
         custoPosicao: rep.location_in_ads != null ? real(rep.location_in_ads) : null, // custo da posicao no anuncio
         sov: rep.sov != null ? n(rep.sov) : null, // share of voice
         gasto: gastoReais

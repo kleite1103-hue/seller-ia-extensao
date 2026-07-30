@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.31.0';
+  var VERSAO = '0.32.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1320,7 +1320,10 @@
       (async function () {
         function prog(t) {
           estado.coletaProgresso = t; estado.sujo = true;
-          if (t === null) estado.lidoEm = Date.now();   // terminou: marca a leitura DESTA conta
+          if (t === null) {
+            estado.lidoEm = Date.now();               // terminou: marca a leitura DESTA conta
+            if (estado.loja) guardarConta(estado.loja.shop_id);
+          }
           if (aoProgresso) aoProgresso(t);
         }
         if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina do Seller Centre e tente de novo (chave de sessao ainda nao capturada).' }); return; }
@@ -2825,10 +2828,16 @@
   }
   function guardarConta(id) {
     if (!id) return;
-    estado.contas[id] = {
+    var foto = {
       campanhas: estado.campanhas, produtos: estado.produtos,
       conta: estado.conta, diagnostico: estado.diagnostico, lidoEm: estado.lidoEm || null
     };
+    estado.contas[id] = foto;
+    // persiste em disco: trocar de conta no Seller Center recarrega a pagina,
+    // e sem disco a memoria da guia morre e o time recoleta tudo de novo.
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:conta-salvar', loja: id, dados: foto }, function () { void chrome.runtime.lastError; });
+    } catch (e) { /* noop */ }
   }
   function restaurarConta(id) {
     var g = estado.contas[id] || contaVazia();
@@ -2836,6 +2845,21 @@
     estado.conta = g.conta; estado.diagnostico = g.diagnostico; estado.lidoEm = g.lidoEm;
     estado.espiao = { termo: '', buscando: false, erro: null, res: null, radar: null };
     estado.card = null; estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
+    if (estado.contas[id]) return;   // memoria da guia tinha, nao precisa do disco
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:conta-carregar', loja: id }, function (r) {
+        void chrome.runtime.lastError;
+        if (!r || !r.dados) return;
+        if (!estado.loja || estado.loja.shop_id !== id) return;  // trocou de novo no meio
+        var d = r.dados;
+        estado.campanhas = d.campanhas || {}; estado.produtos = d.produtos || {};
+        estado.conta = d.conta || { campos: {}, atualizadoEm: null };
+        estado.diagnostico = d.diagnostico || null;
+        estado.lidoEm = d.lidoEm || r.em || null;
+        estado.contas[id] = d;
+        estado.sujo = true;
+      });
+    } catch (e) { /* noop */ }
   }
   function aplicarLoja(nova) {
     var antigo = estado.loja ? estado.loja.shop_id : null;
@@ -2875,11 +2899,18 @@
     return '<div style="background:#12151b;border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:#b8bcc6;line-height:1.5">' + txt +
       (vazio ? ' <button id="sia-coletar-agora" style="background:#ff4d1c;border:none;color:#fff;font-weight:600;font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;margin-left:6px">Coletar esta conta</button>' : '') +
       '<div style="font-family:Space Mono,monospace;font-size:10.5px;color:#7d8290;margin-top:6px">' +
-      '<label style="cursor:pointer"><input type="checkbox" id="sia-auto-troca"' + (estado.autoColeta ? ' checked' : '') + '> coletar automaticamente ao trocar de conta</label></div></div>';
+      '<label style="cursor:pointer"><input type="checkbox" id="sia-auto-troca"' + (estado.autoColeta ? ' checked' : '') + '> coletar automaticamente ao trocar de conta</label>' +
+      ' &nbsp;·&nbsp; <a href="#" id="sia-limpar-contas" style="color:#7d8290;text-decoration:underline">apagar dados de todas as contas</a></div></div>';
   }
   function ligarBannerConta() {
     var b = $('sia-coletar-agora');
     if (b) b.addEventListener('click', function () { try { coletaCompleta(); } catch (e) { /* noop */ } });
+    var lc = $('sia-limpar-contas');
+    if (lc) lc.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      if (!confirm('Apagar os dados guardados de TODAS as contas nesta maquina? A coleta atual continua.')) return;
+      try { chrome.runtime.sendMessage({ tipo: 'sia:contas-limpar' }, function (r) { void chrome.runtime.lastError; estado.contas = {}; alert('Apagado. ' + ((r && r.apagadas) || 0) + ' registros removidos.'); }); } catch (e) { /* noop */ }
+    });
     var c = $('sia-auto-troca');
     if (c) c.addEventListener('change', function () {
       estado.autoColeta = c.checked;
