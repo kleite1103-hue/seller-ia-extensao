@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.37.0';
+  var VERSAO = '0.38.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1554,6 +1554,15 @@
     '.olho{display:flex;align-items:center;gap:9px;font-family:"Space Mono";font-size:10.5px;color:var(--t2);letter-spacing:.12em;margin:26px 0 12px}' +
     '.olho:first-child{margin-top:0}' +
     '.olho::before{content:"";width:16px;height:1px;background:var(--mk);flex:none}' +
+    '.leitura{margin-bottom:20px}' +
+    '.leitura .fr{font-size:20px;font-weight:500;line-height:1.35;color:var(--t0);letter-spacing:-.015em}' +
+    '.leitura .fr .d{color:var(--rd)}.leitura .fr .w{color:var(--am)}.leitura .fr .u{color:var(--vd)}' +
+    '.leitura .ex{font-size:14px;color:var(--t1);margin-top:9px;line-height:1.55}' +
+    '.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--li);border:1px solid var(--li);border-radius:13px;overflow:hidden;margin-bottom:18px}' +
+    '.tres>div{background:var(--b2);padding:14px 10px;text-align:center}' +
+    '.tres .v{font-family:"Bebas Neue";font-size:29px;line-height:1}' +
+    '.tres .l{font-family:"Space Mono";font-size:9px;color:var(--t2);letter-spacing:.06em;margin-top:5px}' +
+    '.tres .s{font-size:11.5px;color:var(--t2);margin-top:2px}' +
     '.tit{font-family:"Bebas Neue";font-size:27px;letter-spacing:.02em;line-height:1.05;color:var(--t0);margin-bottom:6px}' +
     '.lead{font-size:14px;color:var(--t1);line-height:1.55;margin-bottom:4px}' +
     '.corpo table{display:block;overflow-x:auto;white-space:nowrap}' +
@@ -1879,28 +1888,46 @@
 
     var R = window.SIA_Triagem.triar(cofre, { margemPct: 0.25 });
 
-    // cabecalho com contagem
-    var h = '<div style="padding:4px 2px 14px">';
-    h += '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">' +
-      '<div style="font-size:15px;font-weight:700;color:var(--t0)">Semaforo de campanhas</div>' +
-      '<div class="nota" style="margin:0">' + R.total + ' lidas · R$ ' + R.gastoTotal.toFixed(2).replace('.', ',') + ' no periodo</div></div>';
-    h += '<div class="nota" style="margin:0 0 12px">Margem assumida: 25% (piso ROAS 4x). Com o Cofre de Custos, vira seu numero real.</div>';
+    // ---- A LEITURA: uma frase que responde "o que eu faco agora" ----
+    var gastoRuim = 0, iF;
+    for (iF = 0; iF < R.fila.length; iF++) if (R.fila[iF].nivel === 'vermelho') gastoRuim += (R.fila[iF].gasto || 0);
+    var temCofre = Object.keys((estado.cofre && estado.cofre.custos) || {}).length > 0;
 
-    // 4 cartoes de contagem
-    h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:16px">';
-    ['vermelho', 'amarelo', 'verde', 'cinza'].forEach(function (nv) {
-      var c = CORES_SEM[nv];
-      h += '<div style="background:' + c.bg + ';border:1px solid ' + c.bd + ';border-radius:10px;padding:11px 8px;text-align:center">' +
-        '<div style="font-size:24px;font-weight:800;color:' + c.dot + ';line-height:1">' + R.contagem[nv] + '</div>' +
-        '<div style="font-size:10px;color:var(--t1);margin-top:3px;font-weight:600">' + c.nome + '</div></div>';
-    });
-    h += '</div>';
+    var frase, expl;
+    if (R.contagem.vermelho > 0) {
+      frase = 'Voce tem <span class="d">' + R.contagem.vermelho + ' campanha' + (R.contagem.vermelho > 1 ? 's' : '') + ' devolvendo menos do que custa</span>.';
+      expl = 'Somadas, elas consumiram ' + reais(gastoRuim) + ' no periodo. Enquanto o retorno estiver abaixo do seu piso, cada venda que elas trazem sai no prejuizo.';
+    } else if (R.contagem.amarelo > 0) {
+      frase = 'Nenhuma campanha no prejuizo, mas <span class="w">' + R.contagem.amarelo + (R.contagem.amarelo > 1 ? ' estao sufocadas' : ' esta sufocada') + '</span>.';
+      expl = 'Elas entregam acima do piso, porem com meta apertada demais para ganhar volume. E onde esta o crescimento mais barato da conta.';
+    } else if (R.contagem.verde > 0) {
+      frase = '<span class="u">Nenhuma campanha abaixo do seu piso</span>.';
+      expl = R.contagem.verde + (R.contagem.verde > 1 ? ' campanhas estao' : ' campanha esta') + ' com folga para escalar. A conta esta saudavel para receber mais investimento.';
+    } else {
+      frase = 'Todas as campanhas ainda estao aprendendo.';
+      expl = 'Mexer antes do fim do aprendizado reinicia a contagem do algoritmo. O melhor a fazer agora e nao fazer nada.';
+    }
+
+    var h = '<div class="leitura"><div class="fr">' + frase + '</div><div class="ex">' + expl + '</div></div>';
+
+    h += '<div class="tres">' +
+      '<div><div class="v" style="color:var(--rd)">' + R.contagem.vermelho + '</div><div class="l">NO PREJUIZO</div><div class="s">' + reais(gastoRuim) + '</div></div>' +
+      '<div><div class="v" style="color:var(--am)">' + R.contagem.amarelo + '</div><div class="l">SUFOCADAS</div><div class="s">meta apertada</div></div>' +
+      '<div><div class="v" style="color:var(--vd)">' + R.contagem.verde + '</div><div class="l">ESCALANDO</div><div class="s">com folga</div></div></div>';
+
+    h += '<div class="nota">' + R.total + ' campanhas lidas &middot; ' + reais(R.gastoTotal) + ' no periodo &middot; ' +
+      R.contagem.cinza + ' em aprendizado, fora da fila' +
+      dica('<b>Por que aprendizado fica de fora:</b> campanha nova precisa de 7 dias em Meta de ROAS ou 14 em Lance Automatico para o algoritmo entender o publico. Mexer antes reinicia a contagem, entao julgar agora so levaria a decisao errada.') + '<br>' +
+      (temCofre
+        ? 'Piso de ROAS calculado com a margem do seu Cofre de Custos.'
+        : '<span style="color:var(--am)">Margem assumida de 25% (piso 4x).</span> Cadastre o custo no Cofre e o piso vira o seu numero real.') +
+      '</div>';
 
     // fila de acao
     if (R.fila.length === 0) {
       h += '<div style="background:#0f2a17;border:1px solid #1f5a30;border-radius:10px;padding:16px;text-align:center;color:var(--vd);font-size:13px">Tudo sob controle. Nenhuma campanha pedindo acao agora.</div>';
     } else {
-      h += '<div style="font-size:11px;color:var(--mk);font-family:monospace;letter-spacing:.06em;margin-bottom:9px">FILA DE ACAO (' + R.fila.length + ') — clique para abrir o card</div>';
+      h += olho('FILA DE ACAO (' + R.fila.length + ')', 'A fila ordena por dinheiro em jogo, nao por gravidade. Um problema numa campanha que gasta R$ 800 vem antes de um problema em campanha que gasta R$ 8 — mesmo que a segunda esteja mais quebrada. Clique em qualquer linha para abrir o card completo.');
       R.fila.forEach(function (c) {
         var co = CORES_SEM[c.nivel];
         h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:12px;padding:15px 16px;margin-bottom:10px;transition:border-color .15s">';
@@ -1912,9 +1939,7 @@
         h += '<div style="font-size:13.5px;color:var(--t1);line-height:1.55">' + esc(c.texto) + '</div>';
         h += '</div>';
       });
-      h += '<div class="nota" style="margin-top:10px">As <b>' + R.contagem.cinza + '</b> campanhas em aprendizado ficam fora da fila de proposito: mexer nelas antes de 7 dias atrapalha o algoritmo.</div>';
     }
-    h += '</div>';
     return h;
   }
 
@@ -3414,7 +3439,22 @@
       verde: { dot: 'var(--vd)', bg: 'rgba(46,204,113,.07)', bd: 'rgba(46,204,113,.25)' },
       cinza: { dot: 'var(--t3)', bg: 'transparent', bd: 'var(--li)' }
     };
-    var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' + seloFonte() + '</div>' +
+    var travados = cont.vermelho, folga = cont.amarelo, bons = cont.verde;
+    var dinheiroTravado = 0;
+    for (var dz = 0; dz < lidos.length; dz++) if (lidos[dz].nivel === 'vermelho') dinheiroTravado += (lidos[dz].venda || 0);
+    var fr, ex;
+    if (travados > 0) {
+      fr = '<span class="d">' + travados + ' produto' + (travados > 1 ? 's' : '') + '</span> recebe' + (travados > 1 ? 'm' : '') + ' visita e nao converte.';
+      ex = 'Eles somam ' + reais(dinheiroTravado) + ' de venda no periodo. Trazer mais gente para uma pagina que nao fecha so aumenta o custo — o gargalo esta depois do clique.';
+    } else if (folga > 0) {
+      fr = 'Nenhum produto travado, mas <span class="w">' + folga + '</span> tem gargalo identificado.';
+      ex = 'Sao ganhos faceis: faixa de comissao, gente saindo sem olhar ou concentracao de risco.';
+    } else {
+      fr = '<span class="u">Seu catalogo esta convertendo bem</span>.';
+      ex = bons + ' produto' + (bons > 1 ? 's convertem' : ' converte') + ' acima da media da loja. A regra aqui e proteger, nao otimizar.';
+    }
+    var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">' + seloFonte() + '</div>' +
+      '<div class="leitura"><div class="fr">' + fr + '</div><div class="ex">' + ex + '</div></div>' +
       '<div class="kpis">' +
       '<div class="kpi"><div class="v" style="color:var(--rd)">' + cont.vermelho + '</div><div class="l">Perdendo dinheiro' + dica('<b>Perdendo dinheiro:</b> produtos que recebem visita e quase nao vendem, ou que tiveram queda forte. Cada real gasto neles rende menos que a media da loja. Sao os primeiros a mexer.') + '</div></div>' +
       '<div class="kpi"><div class="v" style="color:var(--am)">' + cont.amarelo + '</div><div class="l">Da pra melhorar' + dica('<b>Da pra melhorar:</b> vendem, mas tem um gargalo identificado — preco na faixa de comissao errada, muita gente saindo sem olhar, ou concentracao de risco. Nao e urgente, e e onde tem ganho facil.') + '</div></div>' +
