@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.38.0';
+  var VERSAO = '0.39.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1507,6 +1507,18 @@
   }
 
   /* ================================ UI ================================= */
+  // As fontes precisam viver no DOCUMENTO. @font-face declarado dentro de um
+  // shadow root nao e aplicado ao conteudo dele no Chrome — era por isso que
+  // Bebas Neue e Outfit nunca carregavam e tudo caia em Arial.
+  (function carregarFontes() {
+    if (document.getElementById('sia-fontes')) return;
+    var l = document.createElement('link');
+    l.id = 'sia-fontes';
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap';
+    (document.head || document.documentElement).appendChild(l);
+  })();
+
   var host = document.createElement('div');
   host.id = 'seller-ia-host';
   host.style.cssText = 'all:initial;position:fixed;z-index:2147483000;bottom:0;right:0;';
@@ -1517,7 +1529,6 @@
 
   raiz.innerHTML =
     '<style>' +
-    '@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap");' +
     ':host{all:initial;' +
     '--b0:#07080a;--b1:#0c0e12;--b2:#12151b;--li:#1d212a;--li2:#2a2f3a;' +
     '--t0:#f2f2f4;--t1:#b8bcc6;--t2:#8a909c;--t3:#5a5f6a;' +
@@ -1532,14 +1543,14 @@
     '.botao{position:fixed;bottom:22px;right:22px;width:54px;height:54px;z-index:2147483001;border-radius:50%;cursor:pointer;box-shadow:0 4px 18px var(--shb);transition:transform .15s;background:var(--b0);border:none;padding:6px}' +
     '.botao:hover{transform:scale(1.08)}' +
     '.botao svg{width:100%;height:100%}' +
-    '.painel{position:fixed;top:0;right:0;height:100vh;width:min(520px,100vw);background:var(--b1);border-left:1px solid var(--li);box-shadow:-18px 0 50px var(--sh);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
+    '.painel{position:fixed;top:0;right:0;height:100vh;width:min(640px,100vw);background:var(--b1);border-left:1px solid var(--li);box-shadow:-18px 0 50px var(--sh);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
     '.painel.aberto{transform:translateX(0)}' +
     '@media(prefers-reduced-motion:reduce){.painel{transition:none}}' +
     '.cab{display:flex;align-items:center;gap:11px;padding:16px 20px 14px;border-bottom:1px solid var(--li);background:var(--b0);flex-wrap:wrap}' +
     '.cab svg{width:28px;height:28px;flex:none}' +
-    '.cab .titulo{font-family:"Bebas Neue";font-weight:400;font-size:24px;letter-spacing:.05em;line-height:1}' +
+    '.cab .titulo{font-family:"Bebas Neue";font-weight:400;font-size:29px;letter-spacing:.05em;line-height:1}' +
     '.cab .titulo em{font-style:normal;color:var(--mk)}' +
-    '.cab .info{font-family:"Space Mono";font-size:10.5px;color:var(--t2);width:100%;order:3;margin-top:2px}' +
+    '.cab .info{font-family:"Space Mono";font-size:11.5px;color:var(--t2);width:100%;order:3;margin-top:2px}' +
     '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
     '.cab button{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:"Space Mono";font-size:11px;padding:7px 11px;border-radius:7px;cursor:pointer}' +
     '.cab button:hover{border-color:var(--mk);color:var(--t0)}' +
@@ -1547,36 +1558,43 @@
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
     '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:"Space Mono";font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
     '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
-    '.aba{background:none;border:none;color:var(--t2);font-family:"Space Mono";font-size:12px;letter-spacing:.03em;padding:11px 11px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
+    '.aba{background:none;border:none;color:var(--t2);font-family:"Space Mono";font-size:13px;letter-spacing:.03em;padding:13px 13px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
-    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:22px 20px 30px}' +
+    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:26px 26px 40px}' +
     /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
-    '.olho{display:flex;align-items:center;gap:9px;font-family:"Space Mono";font-size:10.5px;color:var(--t2);letter-spacing:.12em;margin:26px 0 12px}' +
+    '.olho{display:flex;align-items:center;gap:10px;font-family:"Space Mono";font-size:11.5px;color:var(--t2);letter-spacing:.14em;margin:32px 0 14px}' +
     '.olho:first-child{margin-top:0}' +
-    '.olho::before{content:"";width:16px;height:1px;background:var(--mk);flex:none}' +
+    '.olho::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
     '.leitura{margin-bottom:20px}' +
-    '.leitura .fr{font-size:20px;font-weight:500;line-height:1.35;color:var(--t0);letter-spacing:-.015em}' +
+    '.leitura .fr{font-size:26px;font-weight:500;line-height:1.28;color:var(--t0);letter-spacing:-.02em}' +
     '.leitura .fr .d{color:var(--rd)}.leitura .fr .w{color:var(--am)}.leitura .fr .u{color:var(--vd)}' +
-    '.leitura .ex{font-size:14px;color:var(--t1);margin-top:9px;line-height:1.55}' +
+    '.leitura .ex{font-size:15.5px;color:var(--t1);margin-top:11px;line-height:1.6}' +
     '.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--li);border:1px solid var(--li);border-radius:13px;overflow:hidden;margin-bottom:18px}' +
-    '.tres>div{background:var(--b2);padding:14px 10px;text-align:center}' +
-    '.tres .v{font-family:"Bebas Neue";font-size:29px;line-height:1}' +
-    '.tres .l{font-family:"Space Mono";font-size:9px;color:var(--t2);letter-spacing:.06em;margin-top:5px}' +
-    '.tres .s{font-size:11.5px;color:var(--t2);margin-top:2px}' +
-    '.tit{font-family:"Bebas Neue";font-size:27px;letter-spacing:.02em;line-height:1.05;color:var(--t0);margin-bottom:6px}' +
+    '.tres>div{background:var(--b2);padding:19px 12px;text-align:center}' +
+    '.tres .v{font-family:"Bebas Neue";font-size:40px;line-height:1}' +
+    '.tres .l{font-family:"Space Mono";font-size:10px;color:var(--t2);letter-spacing:.07em;margin-top:7px}' +
+    '.tres .s{font-size:12.5px;color:var(--t2);margin-top:3px}' +
+    /* cabecalho de tela: olho + display + numero fantasma, como no Club */
+    '.capa{position:relative;padding:4px 0 20px;margin-bottom:6px;border-bottom:1px solid var(--li)}' +
+    '.capa .ol{display:flex;align-items:center;gap:10px;font-family:"Space Mono";font-size:11px;color:var(--mk);letter-spacing:.14em;margin-bottom:9px}' +
+    '.capa .ol::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
+    '.capa .dp{font-family:"Bebas Neue";font-size:44px;line-height:.92;letter-spacing:.01em;color:var(--t0)}' +
+    '.capa .dp small{display:block;font-family:"Bebas Neue";font-size:44px;color:var(--t2)}' +
+    '.capa .gh{position:absolute;top:-6px;right:0;font-family:"Bebas Neue";font-size:72px;line-height:1;color:var(--li);pointer-events:none;user-select:none}' +
+    '.tit{font-family:"Bebas Neue";font-size:34px;letter-spacing:.02em;line-height:1.05;color:var(--t0);margin-bottom:6px}' +
     '.lead{font-size:14px;color:var(--t1);line-height:1.55;margin-bottom:4px}' +
     '.corpo table{display:block;overflow-x:auto;white-space:nowrap}' +
-    'table{width:100%;border-collapse:collapse;font-size:13.5px}' +
+    'table{width:100%;border-collapse:collapse;font-size:14.5px}' +
     'th{text-align:left;color:var(--t2);font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid var(--mk);position:sticky;top:-14px;background:var(--b1)}' +
-    'td{padding:9px 8px;border-bottom:1px solid var(--li);color:var(--t1);white-space:nowrap}' +
+    'td{padding:11px 9px;border-bottom:1px solid var(--li);color:var(--t1);white-space:nowrap}' +
     'td.nome{white-space:normal;min-width:160px;color:var(--t0)}' +
     'tr:hover td{background:var(--b2)}' +
     '.num{text-align:right;font-variant-numeric:tabular-nums}' +
     '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:9px;margin-bottom:20px}' +
     '.kpi{background:var(--b2);border:1px solid var(--li);border-radius:13px;padding:15px 13px}' +
-    '.kpi .v{font-family:"Bebas Neue";font-size:32px;line-height:1;color:var(--mk)}' +
+    '.kpi .v{font-family:"Bebas Neue";font-size:38px;line-height:1;color:var(--mk)}' +
     '.kpi .l{font-family:"Space Mono";font-size:9.5px;color:var(--t2);margin-top:6px;text-transform:uppercase;letter-spacing:.07em;line-height:1.35}' +
-    '.vazio{color:var(--t2);font-size:14.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
+    '.vazio{color:var(--t2);font-size:15.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
     '.selo{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--li);border-radius:99px;padding:2px 8px;color:var(--t2);margin-left:8px}' +
     '.selo.ok{border-color:var(--vd);color:var(--vd)}' +
     '.selo.off{border-color:var(--rd);color:var(--rd)}' +
@@ -1586,7 +1604,7 @@
     '.expl.on{display:block}' +
     '.expl b{color:var(--t0)}' +
     '.expl .x{float:right;background:none;border:none;color:var(--t2);cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 10px}' +
-    '.nota{font-size:13px;color:var(--t2);margin:10px 0;line-height:1.55}' +
+    '.nota{font-size:14px;color:var(--t2);margin:12px 0;line-height:1.6}' +
     '.bloco-d{background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:10px 12px;margin-bottom:9px}' +
     '.bloco-d .td{font-family:"Space Mono";font-size:11px;letter-spacing:.06em;color:var(--mk);margin-bottom:7px}' +
     '.bloco-d .ld{font-size:13.5px;color:var(--t1);line-height:1.65;padding:2px 0}' +
@@ -1930,13 +1948,13 @@
       h += olho('FILA DE ACAO (' + R.fila.length + ')', 'A fila ordena por dinheiro em jogo, nao por gravidade. Um problema numa campanha que gasta R$ 800 vem antes de um problema em campanha que gasta R$ 8 — mesmo que a segunda esteja mais quebrada. Clique em qualquer linha para abrir o card completo.');
       R.fila.forEach(function (c) {
         var co = CORES_SEM[c.nivel];
-        h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:12px;padding:15px 16px;margin-bottom:10px;transition:border-color .15s">';
+        h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:18px 19px;margin-bottom:12px;transition:border-color .15s">';
         h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
-          '<span style="flex:1;font-size:15px;font-weight:600;color:var(--t0);line-height:1.3;letter-spacing:-.01em">' + esc(c.titulo) + '</span>' +
+          '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.3;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
           '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
         if (c.campanha) h += '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + esc(c.campanha) +
           '<span style="font-family:Space Mono,monospace;color:var(--t3)">' + (c.roas ? '  ROAS ' + c.roas.toFixed(1) + 'x' : '') + (c.posicao ? '  pos ' + c.posicao : '') + '</span></div>';
-        h += '<div style="font-size:13.5px;color:var(--t1);line-height:1.55">' + esc(c.texto) + '</div>';
+        h += '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(c.texto) + '</div>';
         h += '</div>';
       });
     }
@@ -2515,7 +2533,7 @@
   function renderEspiao() {
     if (!estado.espiao) estado.espiao = { termo: '', res: null, radar: null };
     var e = estado.espiao;
-    var h = '';
+    var h = capa('COMO ESTOU CONTRA OS OUTROS', 'O', 'ESPIAO', '03');
 
     h += '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
       '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="digite o termo que o comprador pesquisa" ' +
@@ -2986,6 +3004,11 @@
   /* ============ EXPLICACOES SOB DEMANDA ============
      Todo rotulo que nao se explica sozinho ganha um "?". A explicacao abre
      numa faixa no pe da gaveta, uma por vez — nao empilha texto na tela. */
+  function capa(olhoTxt, linha1, linha2, num) {
+    return '<div class="capa">' + (num ? '<div class="gh">' + num + '</div>' : '') +
+      '<div class="ol">' + olhoTxt + '</div>' +
+      '<div class="dp">' + linha1 + (linha2 ? '<small>' + linha2 + '</small>' : '') + '</div></div>';
+  }
   function olho(rot, txtDica) {
     return '<div class="olho">' + rot + (txtDica ? dica(txtDica) : '') + '</div>';
   }
@@ -3453,7 +3476,8 @@
       fr = '<span class="u">Seu catalogo esta convertendo bem</span>.';
       ex = bons + ' produto' + (bons > 1 ? 's convertem' : ' converte') + ' acima da media da loja. A regra aqui e proteger, nao otimizar.';
     }
-    var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">' + seloFonte() + '</div>' +
+    var h = capa('O QUE ESTA ME CUSTANDO', 'SEUS', 'PRODUTOS', '02') +
+      '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 18px">' + seloFonte() + '</div>' +
       '<div class="leitura"><div class="fr">' + fr + '</div><div class="ex">' + ex + '</div></div>' +
       '<div class="kpis">' +
       '<div class="kpi"><div class="v" style="color:var(--rd)">' + cont.vermelho + '</div><div class="l">Perdendo dinheiro' + dica('<b>Perdendo dinheiro:</b> produtos que recebem visita e quase nao vendem, ou que tiveram queda forte. Cada real gasto neles rende menos que a media da loja. Sao os primeiros a mexer.') + '</div></div>' +
@@ -3495,8 +3519,9 @@
     $('sia-info').textContent = lojaTxt + ' · ' + nC + ' campanhas · ' + nP + ' produtos' + (lidoHa() ? ' · lido ' + lidoHa() : '');
 
     if (abaAtiva === 'semaforo') {
-      corpo.innerHTML = renderBannerConta() +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' + seloFonte() + '</div>' +
+      corpo.innerHTML = capa('O QUE FAZER AGORA', 'SEU', 'DIA', '01') +
+        renderBannerConta() +
+        '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 18px">' + seloFonte() + '</div>' +
         renderSemaforo() + renderChamadaCerebro();
       ligarBannerConta();
       ligarChamadaCerebro();
