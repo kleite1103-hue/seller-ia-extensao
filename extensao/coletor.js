@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.41.0';
+  var VERSAO = '0.42.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1397,6 +1397,37 @@
         }
 
         // C) Funil de todos os produtos (Central de Dados, paginado)
+        // B') O QUE A SHOPEE SABE E NAO MOSTRA
+        // Posicao no leilao, competitividade de preco, status e o diagnostico
+        // dela so vinham quando o analista abria campanha por campanha. Numa
+        // conta com 300 campanhas isso nunca acontecia — a coluna ficava vazia
+        // para sempre. Agora a coleta busca de uma vez para as que mais gastam.
+        var idsGasto = Object.keys(estado.campanhas).sort(function (a, b) {
+          var ma = (estado.campanhas[a] && estado.campanhas[a].metricas) || {};
+          var mb = (estado.campanhas[b] && estado.campanhas[b].metricas) || {};
+          return (mb.gasto || 0) - (ma.gasto || 0);
+        });
+        var alvoLeilao = idsGasto.slice(0, 60);
+        if (alvoLeilao.length) {
+          prog('Lendo posicao no leilao e diagnostico da Shopee...');
+          for (var lv = 0; lv < alvoLeilao.length; lv += 20) {
+            var lote20 = alvoLeilao.slice(lv, lv + 20).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return !!x; });
+            if (!lote20.length) continue;
+            var corpoV = JSON.stringify({ campaign_id_list: lote20, start_time: ini, end_time: fimAds });
+            var rv = await buscar('/api/pas/v1/diagnosis/homepage_batch_list_verdict/?' + spcQ, 'POST', corpoV);
+            totalChamadas++;
+            if (rv.ok && rv.dados) {
+              processarPacote({ url: '/api/pas/v1/diagnosis/homepage_batch_list_verdict/', metodo: 'POST', corpo: corpoV, dados: rv.dados, ts: Date.now() });
+            }
+            var corpoPI = JSON.stringify({ campaign_id_list: lote20, start_time: ini, end_time: fimAds });
+            var rpi = await buscar('/api/pas/v1/campaign/get_product_performance_info/?' + spcQ, 'POST', corpoPI);
+            totalChamadas++;
+            if (rpi.ok && rpi.dados) {
+              processarPacote({ url: '/api/pas/v1/campaign/get_product_performance_info/', metodo: 'POST', corpo: corpoPI, dados: rpi.dados, ts: Date.now() });
+            }
+          }
+        }
+
         prog('Lendo o funil dos produtos...');
         for (var pg = 1; pg <= 12; pg++) {
           var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&category_type=shopee&category_id=-1&page_size=10&page_num=' + pg + '&order_type=paid&order_by=paid_sales.desc';
@@ -1634,28 +1665,32 @@
 
   var $ = function (id) { return raiz.getElementById(id); };
   var abaAtiva = 'semaforo';
+  // Uma aba por PERGUNTA que o analista faz, na ordem em que ele pergunta.
+  // 'Ferramentas' saiu: era caixa sem dono. A Margem virou parte do Cofre,
+  // que e onde ela e usada, e Performance ganhou tela propria porque e
+  // leitura de FUNIL, nao de Ads — estava enterrada dentro de Produtos.
   var ABAS = [
     { id: 'semaforo', rotulo: 'Inicio' },
     { id: 'conta360', rotulo: 'Conta 360' },
-    { id: 'gprod', rotulo: 'Produtos' },
+    { id: 'performance', rotulo: 'Funil de Produto' },
+    { id: 'gprod', rotulo: 'Shopee Ads' },
     { id: 'espiao', rotulo: 'Espiao' },
-    { id: 'ferramentas', rotulo: 'Ferramentas' },
-    { id: 'diagnostico', rotulo: 'Especialista' },
+    { id: 'cofre', rotulo: 'Cofre' },
     { id: 'relatorio', rotulo: 'Relatorio' },
+    { id: 'diagnostico', rotulo: 'Especialista' },
     { id: 'debug', rotulo: 'Debug', tecnica: true }
   ];
   // grupos: uma aba de cima abre varias telas por dentro
   var SUB = {
-    ferramentas: [
-      { id: 'calc', rotulo: 'Margem' },
-      { id: 'cofre', rotulo: 'Cofre de Custos' }
+    cofre: [
+      { id: 'cofre', rotulo: 'Custos por produto' },
+      { id: 'calc', rotulo: 'Calculadora de margem' }
     ],
     gprod: [
-      { id: 'campanhas', rotulo: 'Campanhas' },
-      { id: 'performance', rotulo: 'Performance de Produto' }
+      { id: 'campanhas', rotulo: 'Campanhas' }
     ]
   };
-  var subAtiva = { ferramentas: 'calc', gprod: 'campanhas' };
+  var subAtiva = { cofre: 'cofre', gprod: 'campanhas' };
   function grupoDe(id) {
     for (var g in SUB) for (var i = 0; i < SUB[g].length; i++) if (SUB[g][i].id === id) return g;
     return null;
@@ -1685,12 +1720,28 @@
     while (el && el !== this) {
       if (el.getAttribute) {
         if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
+        var tr = el.getAttribute && el.getAttribute('data-trocar');
+        if (tr) {
+          var novo = prompt('Qual termo o Radar deve buscar para este produto?\n\n' + tr.slice(0, 70), '');
+          if (novo && novo.trim()) {
+            abaAtiva = 'espiao';
+            estado.espiao.meuProduto = { nome: tr };
+            estado.espiao.termo = novo.trim(); estado.espiao.buscando = true; estado.espiao.volumes = null; render();
+            espBuscar(novo.trim(), function (resp) {
+              estado.espiao.buscando = false;
+              if (!resp || !resp.ok) { estado.espiao.erro = (resp && resp.erro) || 'Falhou.'; estado.espiao.res = null; }
+              else { var l2 = espMapear(resp.itens); estado.espiao.res = { termo: resp.termo, lista: l2, barreira: espBarreira(l2) }; }
+              render();
+            });
+          }
+          return;
+        }
         var esp = el.getAttribute && el.getAttribute('data-espiar');
         if (esp) {
           abaAtiva = 'espiao';
           var prodOrigem = el.getAttribute('data-prod') || null;
           estado.espiao.meuProduto = prodOrigem ? { nome: prodOrigem } : null;
-          estado.espiao.termo = esp; estado.espiao.buscando = true; estado.espiao.erro = null; render();
+          estado.espiao.termo = esp; estado.espiao.buscando = true; estado.espiao.erro = null; estado.espiao.volumes = null; render();
           espBuscar(esp, function (resp) {
             estado.espiao.buscando = false;
             if (!resp || !resp.ok) { estado.espiao.erro = (resp && resp.erro) || 'Falhou.'; estado.espiao.res = null; }
@@ -2463,6 +2514,31 @@
     }
     return out;
   }
+  /* ---- VOLUME DE BUSCA POR PALAVRA ----
+     A rota de recomendacao de palavra devolve o volume mensal real. Nao
+     serve para configurar lance (no oCPM nao existe lance de produto), mas
+     responde a pergunta que importa: essa palavra que falta no meu titulo
+     tem gente procurando? */
+  function espVolume(termos, aoPronto) {
+    if (!termos.length) { aoPronto({}); return; }
+    var corpo = JSON.stringify({ campaign_type: 'shop', keyword_list: termos.slice(0, 12), limit: 40 });
+    chrome.runtime.sendMessage({
+      tipo: 'sia:buscar',
+      url: '/api/pas/v1/setup_helper/list_recommended_keyword/?SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2',
+      metodo: 'POST', corpo: corpo
+    }, function (r) {
+      void chrome.runtime.lastError;
+      var mapa = {};
+      try {
+        var lista = (((r || {}).dados || {}).data || {}).keyword_list || [];
+        for (var i = 0; i < lista.length; i++) {
+          var k = lista[i];
+          if (k && k.keyword != null && k.search_volume != null) mapa[String(k.keyword).toLowerCase()] = k.search_volume;
+        }
+      } catch (e) { /* noop */ }
+      aoPronto(mapa);
+    });
+  }
   function espDiffPalavras(lista, nomeMeu) {
     var meus = {}, deles = {}, i, k;
     for (i = 0; i < lista.length; i++) {
@@ -2574,7 +2650,7 @@
   function renderEspiao() {
     if (!estado.espiao) estado.espiao = { termo: '', res: null, radar: null };
     var e = estado.espiao;
-    var h = capa('COMO ESTOU CONTRA OS OUTROS', 'O', 'ESPIAO', '03');
+    var h = capa('COMO ESTOU CONTRA OS OUTROS', 'O', 'ESPIAO', '04');
 
     h += '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
       '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="digite o termo que o comprador pesquisa" ' +
@@ -2612,7 +2688,10 @@
           '<span style="color:var(--t2)">→</span> ' +
           '<span style="color:var(--vd)">TOP 5 ' + espDinheiro(L.barreira) + '</span> ' +
           '<span style="color:' + cor + '">· ' + txt + '</span></div>' +
-          '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--mk);margin-top:8px">ver comparativo completo &rsaquo;</div></button>';
+          '<div style="display:flex;align-items:center;gap:10px;margin-top:9px">' +
+          '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--mk)">ver comparativo completo &rsaquo;</span>' +
+          '<span data-trocar="' + esc(L.produto) + '" style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);text-decoration:underline;margin-left:auto">trocar o termo</span>' +
+          '</div></button>';
       }
     }
 
@@ -2677,10 +2756,19 @@
         h += '<br><br><b style="color:var(--t0)">Antes de mexer no preco:</b> abra a Margem e veja seu liquido de hoje. Preco e o ultimo passo, e so se a margem aguentar.</div>';
       }
       var dp = espDiffPalavras(lista, estado.espiao.meuProduto ? estado.espiao.meuProduto.nome : null);
+      if (dp.faltando.length && !estado.espiao.volumes) {
+        estado.espiao.volumes = {};
+        espVolume(dp.faltando.map(function (x) { return x.p; }), function (mapa) {
+          estado.espiao.volumes = mapa; estado.sujo = true;
+        });
+      }
       if (dp.temMeu && dp.faltando.length) {
         h += '<div style="font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.06em;margin:18px 0 8px">PALAVRAS QUE OS PRIMEIROS USAM E VOCE NAO' + dica('<b>Como isto e calculado:</b> quebramos o titulo dos cinco primeiros colocados desta busca e o seu, e listamos as palavras que aparecem em pelo menos dois deles e faltam no seu titulo. Palavras muito genericas ficam de fora. <b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego, onde nao ha historico a proteger.') + '</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
         for (var w = 0; w < dp.faltando.length; w++) {
-          h += '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--px);background:rgba(150,100,255,.09);border:1px solid var(--px);border-radius:99px;padding:4px 11px">' + esc(dp.faltando[w].p) + ' <span style="color:var(--t2)">' + dp.faltando[w].n + '/5</span></span>';
+          var vol = (estado.espiao.volumes || {})[dp.faltando[w].p];
+          h += '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--px);background:color-mix(in srgb,var(--px) 10%,transparent);border:1px solid var(--px);border-radius:99px;padding:4px 11px">' +
+            esc(dp.faltando[w].p) + ' <span style="color:var(--t2)">' + dp.faltando[w].n + '/5</span>' +
+            (vol ? ' <b style="color:var(--vd);font-weight:400">' + fmt(vol, 0) + '/mes</b>' : '') + '</span>';
         }
         h += '</div>';
       }
@@ -3229,7 +3317,7 @@
   }
   function renderRelatorio() {
     var R = estado.rel;
-    var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '04');
+    var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '06');
 
     if (R.markdown) {
       h += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
@@ -3751,7 +3839,7 @@
       fr = '<span class="u">Seu catalogo esta convertendo bem</span>.';
       ex = bons + ' produto' + (bons > 1 ? 's convertem' : ' converte') + ' acima da media da loja. A regra aqui e proteger, nao otimizar.';
     }
-    var h = capa('O QUE ESTA ME CUSTANDO', 'SEUS', 'PRODUTOS', '02') +
+    var h = capa('ONDE ESTA O GARGALO', 'FUNIL DE', 'PRODUTO', '02') +
       '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 18px">' + seloFonte() + '</div>' +
       '<div class="leitura"><div class="fr">' + fr + '</div><div class="ex">' + ex + '</div></div>' +
       '<div class="kpis">' +
@@ -3806,19 +3894,19 @@
       return;
     }
     if (abaAtiva === 'conta360') {
-      corpo.innerHTML = renderFunilLoja() + renderConta360();
+      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderFunilLoja() + renderConta360();
       ligarBotaoColeta();
       return;
     }
 
     if (abaAtiva === 'calc') {
-      corpo.innerHTML = renderSubAbas('ferramentas') + renderCalculadora();
+      corpo.innerHTML = capa('QUANTO SOBRA', 'O', 'COFRE', '05') + renderSubAbas('cofre') + renderCalculadora();
       ligarCalculadora();
       return;
     }
 
     if (abaAtiva === 'cofre') {
-      corpo.innerHTML = renderSubAbas('ferramentas') + renderCofre();
+      corpo.innerHTML = capa('QUANTO SOBRA', 'O', 'COFRE', '05') + renderSubAbas('cofre') + renderCofre();
       ligarCofre();
       return;
     }
@@ -3951,7 +4039,7 @@
     } else if (abaAtiva === 'campanhas') {
       var idsC = Object.keys(estado.campanhas);
       if (!idsC.length) {
-        corpo.innerHTML = renderSubAbas('gprod') + '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>.</div>';
+        corpo.innerHTML = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>.</div>';
         return;
       }
       idsC.sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); });
@@ -3975,7 +4063,7 @@
           '<td class="num">' + fmt(m.pedidos) + '</td>' +
           '<td class="num">' + (m.posicao === undefined ? '—' : fmt(m.posicao, 0)) + '</td></tr>';
       }
-      h2 = renderSubAbas('gprod') + h2;
+      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + h2;
       h2 += '</table><div class="nota">CPC derivado (gasto ÷ cliques) — os campos cpc/cpm da API interna nao batem com a tela e foram descartados. ROAS = broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
 
@@ -4012,7 +4100,7 @@
       corpo.innerHTML = renderSubAbas('gprod') + h2b;
 
     } else if (abaAtiva === 'performance') {
-      corpo.innerHTML = renderSubAbas('gprod') + renderPerformanceIA();
+      corpo.innerHTML = renderPerformanceIA();
       ligarChamadaCerebro();
 
     } else if (abaAtiva === 'afiliados') {
