@@ -272,6 +272,22 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
     return true;
   }
 
+  // ---- RELATORIO ----
+  if (msg.tipo === 'sia:relatorio') {
+    (async function () {
+      try {
+        var r = await fetch(SIA_CEREBRO_URL.replace(/\/cerebro(-v2)?$/, '/relatorio'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SIA_ANON, 'apikey': SIA_ANON },
+          body: JSON.stringify(msg.payload)
+        });
+        var j = await r.json();
+        responder(j);
+      } catch (e) { responder({ ok: false, erro: String(e) }); }
+    })();
+    return true;
+  }
+
   // ---- PREFERENCIAS ----
   if (msg.tipo === 'sia:pref-salvar') {
     var op = {}; op['sia_pref_' + msg.chave] = msg.valor;

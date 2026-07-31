@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.40.0';
+  var VERSAO = '0.41.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -54,6 +54,7 @@
     lidoEm: null,            // quando esta conta foi lida
     autoColeta: false,       // coletar sozinho ao trocar de conta
     filaCompleta: false,     // Inicio mostra 5; o resto atras de um clique
+    rel: { mes: null, gerando: false, markdown: null, erro: null, etapa: '' },
     modoTecnico: false,      // mostra a aba Debug (duplo clique no logo)
     temaClaro: false,        // tema claro (nude) ou escuro
     vereditos: null,         // vereditos vindos do cerebro
@@ -1640,6 +1641,7 @@
     { id: 'espiao', rotulo: 'Espiao' },
     { id: 'ferramentas', rotulo: 'Ferramentas' },
     { id: 'diagnostico', rotulo: 'Especialista' },
+    { id: 'relatorio', rotulo: 'Relatorio' },
     { id: 'debug', rotulo: 'Debug', tecnica: true }
   ];
   // grupos: uma aba de cima abre varias telas por dentro
@@ -3135,6 +3137,232 @@
     return '<span style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--am);border:1px solid var(--am);border-radius:99px;padding:2px 8px">leitura local' + dica('<b>Leitura local:</b> esta analise foi feita dentro do navegador, com as regras basicas. A analise completa roda no servidor da Seller.IA e traz o diagnostico da propria Shopee, o piso de ROAS pela sua margem e a leitura por formato de anuncio. Clique em Analisar na aba Especialista para trazer.') + '</span>';
   }
 
+  /* ==================== RELATORIO ====================
+     Junta os dois periodos, manda para o cerebro e recebe o relatorio
+     pronto. O prompt e a chave da API ficam no servidor. */
+  function mesesDisponiveis() {
+    var out = [], hoje = new Date();
+    for (var i = 0; i < 12; i++) {
+      var d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+      out.push({
+        v: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
+        r: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][d.getMonth()] + '/' + d.getFullYear()
+      });
+    }
+    return out;
+  }
+  function faixaDoMes(v) {
+    var p = String(v).split('-'), y = +p[0], m = +p[1];
+    var ini = new Date(y, m - 1, 1), fim = new Date(y, m, 0);
+    function f(d) { return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); }
+    return { de: f(ini), ate: f(fim), rotulo: f(ini) + ' - ' + f(fim) };
+  }
+  function mesAnterior(v) {
+    var p = String(v).split('-'), d = new Date(+p[0], +p[1] - 2, 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function numeroPuro(x) {
+    if (x == null) return null;
+    if (typeof x === 'number') return isFinite(x) ? x : null;
+    var s = String(x).replace(/[R$\s%x]/gi, '').replace(/\./g, '').replace(',', '.');
+    var n = parseFloat(s);
+    return isFinite(n) ? n : null;
+  }
+  function blocoPeriodo(rotulo) {
+    // usa o que esta coletado no estado atual
+    var c = (estado.conta && estado.conta.campos) || {};
+    var prods = [], id;
+    for (id in estado.produtos) {
+      var p = estado.produtos[id], m = (p && p.metricas) || {};
+      if (!p || !p.nome) continue;
+      prods.push({
+        nome: String(p.nome).slice(0, 80), id: id,
+        visitantes: numeroPuro(m.visitantes), cliques: numeroPuro(m.cliques),
+        carrinho: numeroPuro(m.carrinho), unidades: numeroPuro(m.pedidos_pagos),
+        vendas: numeroPuro(m.vendas_pagas), conversao: numeroPuro(m.conversao_pago)
+      });
+    }
+    prods.sort(function (a, b) { return (b.vendas || 0) - (a.vendas || 0); });
+
+    var camps = [], k, fmtCont = {};
+    for (k in estado.campanhas) {
+      var cp = estado.campanhas[k], rp = (cp && cp.report) || {};
+      if (!cp) continue;
+      var g = numeroPuro(rp.gasto), ped = numeroPuro(rp.broad_order), ro = numeroPuro(rp.broad_roi);
+      var fm = cp.type === 'product_mpd' ? 'Grupo de Anuncios'
+        : cp.type === 'shop_auto' ? 'Anuncio Automatico de Loja'
+        : cp.type === 'shop_manual' ? 'Busca de Loja'
+        : (cp.subtype ? 'GMV Max Meta de ROAS' : 'GMV Max Automatico');
+      if (!fmtCont[fm]) fmtCont[fm] = { rotulo: fm, qtd: 0, gasto: 0, gmvS: 0 };
+      fmtCont[fm].qtd++; fmtCont[fm].gasto += (g || 0); fmtCont[fm].gmvS += (g || 0) * (ro || 0);
+      camps.push({
+        nome: String(cp.nome || cp.titulo || k).slice(0, 70), produtoId: cp.produtoId || null, formato: fm,
+        gasto: g, gmv: (g != null && ro != null) ? g * ro : null, roas: ro,
+        roasDireto: numeroPuro(rp.direct_roi), pedidos: ped,
+        cpa: (g != null && ped) ? g / ped : null,
+        metaAtual: numeroPuro(cp.metaAtual), metaSugerida: numeroPuro(cp.metaSugerida)
+      });
+    }
+    camps.sort(function (a, b) { return (b.gasto || 0) - (a.gasto || 0); });
+    var formatos = []; for (k in fmtCont) { var f = fmtCont[k]; formatos.push({ rotulo: f.rotulo, qtd: f.qtd, gasto: f.gasto, roas: f.gasto ? f.gmvS / f.gasto : null }); }
+
+    var inv = numeroPuro(c.ads_invest), pedAds = numeroPuro(c.ads_pedidos), gmvAds = numeroPuro(c.ads_gmv);
+    return {
+      periodo: rotulo,
+      conta: {
+        gmvPago: numeroPuro(c.vendas), pedidosPagos: numeroPuro(c.pedidos), visitantes: numeroPuro(c.uv),
+        conversaoPaga: numeroPuro(c.conv), ticketMedio: numeroPuro(c.ticket), cancelamentos: numeroPuro(c.cancelados),
+        visualizacoes: numeroPuro(c.pv), carrinho: numeroPuro(c.atc)
+      },
+      ads: {
+        investimento: inv, impressoes: numeroPuro(c.impr), cliques: numeroPuro(c.cliques_ads),
+        ctr: numeroPuro(c.ctr), gmvPainel: gmvAds, gmvReal: numeroPuro(c.ads_gmv_real),
+        pedidos: pedAds, roasPainel: numeroPuro(c.roas), roasReal: numeroPuro(c.roas_real),
+        cpa: (inv != null && pedAds) ? inv / pedAds : null
+      },
+      afiliados: {
+        gmv: numeroPuro(c.afil_vendas), comissao: numeroPuro(c.afil_comissao),
+        pedidos: numeroPuro(c.afil_pedidos), novosCompradores: numeroPuro(c.afil_novos), roi: numeroPuro(c.afil_roi)
+      },
+      produtos: prods, campanhas: camps, formatos: formatos
+    };
+  }
+  function renderRelatorio() {
+    var R = estado.rel;
+    var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '04');
+
+    if (R.markdown) {
+      h += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
+        '<button id="sia-rel-pdf" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:9px;cursor:pointer">Salvar em PDF</button>' +
+        '<button id="sia-rel-copiar" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:9px;cursor:pointer">Copiar texto</button>' +
+        '<button id="sia-rel-novo" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:9px;cursor:pointer">Gerar outro</button></div>';
+      h += '<div id="sia-rel-corpo" style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:18px;font-size:14px;line-height:1.65;color:var(--t1);max-height:62vh;overflow:auto">' + mdParaHtml(R.markdown) + '</div>';
+      return h;
+    }
+
+    var meses = mesesDisponiveis();
+    var sel = R.mes || meses[1].v;
+    var fa = faixaDoMes(sel), fp = faixaDoMes(mesAnterior(sel));
+
+    h += '<div class="leitura"><div class="fr">Relatorio completo da conta.</div>' +
+      '<div class="ex">Compara o mes escolhido com o anterior e devolve o diagnostico no formato dos seus relatorios, com plano tatico de 30 dias e projecao com lucro.</div></div>';
+
+    h += olho('MES DO RELATORIO');
+    h += '<select id="sia-rel-mes" style="width:100%;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:10px">';
+    for (var i = 0; i < meses.length; i++) h += '<option value="' + meses[i].v + '"' + (meses[i].v === sel ? ' selected' : '') + '>' + meses[i].r + '</option>';
+    h += '</select>';
+    h += '<div class="nota">Atual: <b>' + fa.rotulo + '</b><br>Anterior: <b>' + fp.rotulo + '</b></div>';
+
+    var nC = Object.keys(estado.campanhas).length, nP = Object.keys(estado.produtos).length;
+    if (!nC && !nP) {
+      h += '<div class="nota" style="color:var(--am)">Colete a conta antes de gerar o relatorio.</div>';
+      return h;
+    }
+
+    h += '<div style="background:var(--b2);border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin:14px 0;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      '<b style="color:var(--t0)">Como funciona hoje:</b> o relatorio usa os numeros que estao coletados agora nesta conta — ' + nP + ' produtos e ' + nC + ' campanhas. ' +
+      'A troca automatica de periodo dentro do painel da Shopee ainda nao esta ligada, entao <b>selecione o mes no painel da Shopee antes de coletar</b>, e o relatorio vai usar esse recorte.</div>';
+
+    h += '<button id="sia-rel-gerar" ' + (R.gerando ? 'disabled ' : '') +
+      'style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer' + (R.gerando ? ';opacity:.6' : '') + '">' +
+      (R.gerando ? (R.etapa || 'Gerando...') : 'Gerar relatorio') + '</button>';
+    if (R.erro) h += '<div class="nota" style="color:var(--rd)">' + esc(R.erro) + '</div>';
+    if (R.gerando) h += '<div class="nota">O relatorio leva de 30 a 90 segundos. Pode deixar a gaveta aberta.</div>';
+    return h;
+  }
+  function mdParaHtml(md) {
+    var s = esc(md);
+    s = s.replace(/^#### (.*)$/gm, '<div style="font-size:14px;font-weight:600;color:var(--t0);margin:14px 0 5px">$1</div>');
+    s = s.replace(/^### (.*)$/gm, '<div style="font-size:16px;font-weight:600;color:var(--t0);margin:18px 0 6px">$1</div>');
+    s = s.replace(/^## (.*)$/gm, '<div style="font-family:Bebas Neue,sans-serif;font-size:24px;color:var(--t0);margin:22px 0 8px;letter-spacing:.02em">$1</div>');
+    s = s.replace(/\*\*(.+?)\*\*/g, '<b style="color:var(--t0)">$1</b>');
+    s = s.replace(/^\s*[-*] (.*)$/gm, '<div style="padding-left:14px;position:relative;margin:3px 0">&bull; $1</div>');
+    // tabelas markdown
+    s = s.replace(/(^\|.*\|\s*$\n?)+/gm, function (bloco) {
+      var linhas = bloco.trim().split('\n').filter(function (l) { return !/^\s*\|[\s|:-]+\|\s*$/.test(l); });
+      var out = '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0">';
+      linhas.forEach(function (l, i) {
+        var cels = l.replace(/^\||\|$/g, '').split('|');
+        out += '<tr>';
+        cels.forEach(function (c) {
+          out += i === 0
+            ? '<th style="text-align:left;padding:7px 6px;border-bottom:1px solid var(--li);color:var(--t2);font-family:Space Mono,monospace;font-size:9.5px;font-weight:400">' + c.trim() + '</th>'
+            : '<td style="padding:7px 6px;border-bottom:1px solid var(--li);color:var(--t1)">' + c.trim() + '</td>';
+        });
+        out += '</tr>';
+      });
+      return out + '</table>';
+    });
+    s = s.replace(/\n{2,}/g, '<div style="height:9px"></div>');
+    return s;
+  }
+  function ligarRelatorio() {
+    var m = $('sia-rel-mes');
+    if (m) m.addEventListener('change', function () { estado.rel.mes = m.value; render(); });
+
+    var g = $('sia-rel-gerar');
+    if (g) g.addEventListener('click', function () {
+      var meses = mesesDisponiveis();
+      var sel = estado.rel.mes || meses[1].v;
+      var fa = faixaDoMes(sel), fp = faixaDoMes(mesAnterior(sel));
+      estado.rel.gerando = true; estado.rel.erro = null; estado.rel.etapa = 'Montando os numeros...'; render();
+
+      var payload = {
+        loja: estado.loja ? estado.loja.shop_id : 'desconhecida',
+        loja_nome: estado.loja ? estado.loja.nome : '',
+        margemMediaPct: margemMediaCofre(),
+        atual: blocoPeriodo(fa.rotulo),
+        anterior: blocoPeriodo(fp.rotulo)
+      };
+      estado.rel.etapa = 'O consultor esta escrevendo...'; render();
+      try {
+        chrome.runtime.sendMessage({ tipo: 'sia:relatorio', payload: payload }, function (resp) {
+          void chrome.runtime.lastError;
+          estado.rel.gerando = false; estado.rel.etapa = '';
+          if (!resp || !resp.ok) { estado.rel.erro = (resp && (resp.erro || resp.detalhe)) || 'Nao consegui gerar.'; }
+          else { estado.rel.markdown = resp.markdown; }
+          render();
+        });
+      } catch (e) { estado.rel.gerando = false; estado.rel.erro = String(e); render(); }
+    });
+
+    var pdf = $('sia-rel-pdf');
+    if (pdf) pdf.addEventListener('click', function () { imprimirRelatorio(); });
+    var cp = $('sia-rel-copiar');
+    if (cp) cp.addEventListener('click', function () {
+      try { navigator.clipboard.writeText(estado.rel.markdown || ''); cp.textContent = 'Copiado'; setTimeout(function () { cp.textContent = 'Copiar texto'; }, 1800); } catch (e) { /* noop */ }
+    });
+    var nv = $('sia-rel-novo');
+    if (nv) nv.addEventListener('click', function () { estado.rel.markdown = null; render(); });
+  }
+  function imprimirRelatorio() {
+    var w = window.open('', '_blank');
+    if (!w) { mostrarExpl('<b>O navegador bloqueou a janela.</b> Libere pop-ups para este site e tente de novo.'); return; }
+    var nome = (estado.loja && estado.loja.nome) || 'Loja';
+    w.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatorio ' + esc(nome) + '</title>' +
+      '<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">' +
+      '<style>@page{margin:16mm}body{font-family:Outfit,Arial,sans-serif;font-weight:300;color:#15161a;line-height:1.6;max-width:820px;margin:0 auto;padding:24px;font-size:12pt}' +
+      'h1{font-family:Bebas Neue;font-size:30pt;letter-spacing:.02em;margin:0 0 4px}' +
+      'table{width:100%;border-collapse:collapse;margin:10px 0;font-size:10pt}' +
+      'th{text-align:left;padding:7px 6px;border-bottom:2px solid #15161a;font-size:8.5pt;text-transform:uppercase;letter-spacing:.05em;font-weight:600}' +
+      'td{padding:7px 6px;border-bottom:1px solid #ddd}' +
+      'b{font-weight:600}.cab{border-bottom:3px solid #ff4d1c;padding-bottom:10px;margin-bottom:18px}' +
+      '.mk{color:#ff4d1c}.rod{margin-top:26px;padding-top:10px;border-top:1px solid #ddd;font-size:8.5pt;color:#777}' +
+      '@media print{.noprint{display:none}}</style></head><body>' +
+      '<div class="cab"><h1>SELLER<span class="mk">.IA</span></h1><div style="font-size:10pt;color:#666">Relatorio de analise de conta &middot; ' + esc(nome) + ' &middot; gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div></div>' +
+      '<div class="noprint" style="background:#f4f2ee;border-radius:8px;padding:11px 14px;margin-bottom:18px;font-size:10pt">Use <b>Imprimir &rarr; Salvar como PDF</b>. Esta faixa nao sai na impressao.</div>' +
+      mdParaHtmlImpressao(estado.rel.markdown || '') +
+      '<div class="rod">Seller.IA &middot; Efeito Vendas</div></body></html>');
+    w.document.close();
+    setTimeout(function () { try { w.print(); } catch (e) { /* noop */ } }, 700);
+  }
+  function mdParaHtmlImpressao(md) {
+    return mdParaHtml(md)
+      .replace(/var\(--t0\)/g, '#15161a').replace(/var\(--t1\)/g, '#333')
+      .replace(/var\(--t2\)/g, '#777').replace(/var\(--li\)/g, '#ddd')
+      .replace(/Bebas Neue,sans-serif/g, 'Bebas Neue');
+  }
+
   /* ==================== MULTICONTA ====================
      Uma agencia com 170 contas troca de loja dezenas de vezes por dia na
      mesma guia. Duas coisas precisam ser verdade sempre:
@@ -3572,6 +3800,11 @@
       return;
     }
 
+    if (abaAtiva === 'relatorio') {
+      corpo.innerHTML = renderRelatorio();
+      ligarRelatorio();
+      return;
+    }
     if (abaAtiva === 'conta360') {
       corpo.innerHTML = renderFunilLoja() + renderConta360();
       ligarBotaoColeta();
