@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.39.0';
+  var VERSAO = '0.39.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -53,6 +53,7 @@
     trocou: null,            // ultima troca de conta detectada
     lidoEm: null,            // quando esta conta foi lida
     autoColeta: false,       // coletar sozinho ao trocar de conta
+    modoTecnico: false,      // mostra a aba Debug (duplo clique no logo)
     temaClaro: false,        // tema claro (nude) ou escuro
     vereditos: null,         // vereditos vindos do cerebro
     fonteVeredito: 'local',  // 'cerebro' | 'local'
@@ -1554,7 +1555,7 @@
     '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
     '.cab button{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:"Space Mono";font-size:11px;padding:7px 11px;border-radius:7px;cursor:pointer}' +
     '.cab button:hover{border-color:var(--mk);color:var(--t0)}' +
-    '.abas{display:flex;flex-wrap:wrap;gap:1px;background:var(--b0);padding:0 14px;border-bottom:1px solid var(--li)}' +
+    '.abas{display:flex;flex-wrap:nowrap;gap:1px;background:var(--b0);padding:0 14px;border-bottom:1px solid var(--li);overflow-x:auto;scrollbar-width:none}' + '.abas::-webkit-scrollbar{display:none}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
     '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:"Space Mono";font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
     '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
@@ -1575,12 +1576,12 @@
     '.tres .l{font-family:"Space Mono";font-size:10px;color:var(--t2);letter-spacing:.07em;margin-top:7px}' +
     '.tres .s{font-size:12.5px;color:var(--t2);margin-top:3px}' +
     /* cabecalho de tela: olho + display + numero fantasma, como no Club */
-    '.capa{position:relative;padding:4px 0 20px;margin-bottom:6px;border-bottom:1px solid var(--li)}' +
+    '.capa{position:relative;padding:0 0 14px;margin-bottom:14px;border-bottom:1px solid var(--li)}' +
     '.capa .ol{display:flex;align-items:center;gap:10px;font-family:"Space Mono";font-size:11px;color:var(--mk);letter-spacing:.14em;margin-bottom:9px}' +
     '.capa .ol::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
-    '.capa .dp{font-family:"Bebas Neue";font-size:44px;line-height:.92;letter-spacing:.01em;color:var(--t0)}' +
-    '.capa .dp small{display:block;font-family:"Bebas Neue";font-size:44px;color:var(--t2)}' +
-    '.capa .gh{position:absolute;top:-6px;right:0;font-family:"Bebas Neue";font-size:72px;line-height:1;color:var(--li);pointer-events:none;user-select:none}' +
+    '.capa .dp{font-family:"Bebas Neue";font-size:30px;line-height:1;letter-spacing:.02em;color:var(--t0)}' +
+    '.capa .dp small{font-family:"Bebas Neue";font-size:30px;color:var(--t2);margin-left:7px}' +
+    '.capa .gh{position:absolute;top:-2px;right:0;font-family:"Bebas Neue";font-size:38px;line-height:1;color:var(--li);pointer-events:none;user-select:none}' +
     '.tit{font-family:"Bebas Neue";font-size:34px;letter-spacing:.02em;line-height:1.05;color:var(--t0);margin-bottom:6px}' +
     '.lead{font-size:14px;color:var(--t1);line-height:1.55;margin-bottom:4px}' +
     '.corpo table{display:block;overflow-x:auto;white-space:nowrap}' +
@@ -1638,7 +1639,7 @@
     { id: 'espiao', rotulo: 'Espiao' },
     { id: 'ferramentas', rotulo: 'Ferramentas' },
     { id: 'diagnostico', rotulo: 'Especialista' },
-    { id: 'debug', rotulo: 'Debug' }
+    { id: 'debug', rotulo: 'Debug', tecnica: true }
   ];
   // grupos: uma aba de cima abre varias telas por dentro
   var SUB = {
@@ -1673,10 +1674,28 @@
   }
 
   $('sia-abrir').addEventListener('click', function () { $('sia-painel').classList.toggle('aberto'); render(); });
+  $('sia-abrir').addEventListener('dblclick', function (ev) {
+    ev.preventDefault(); estado.modoTecnico = !estado.modoTecnico; render();
+  });
   $('sia-corpo').addEventListener('click', function (ev) {
     var el = ev.target;
     while (el && el !== this) {
       if (el.getAttribute) {
+        var esp = el.getAttribute && el.getAttribute('data-espiar');
+        if (esp) {
+          abaAtiva = 'espiao';
+          estado.espiao.termo = esp; estado.espiao.buscando = true; estado.espiao.erro = null; render();
+          espBuscar(esp, function (resp) {
+            estado.espiao.buscando = false;
+            if (!resp || !resp.ok) { estado.espiao.erro = (resp && resp.erro) || 'Falhou.'; estado.espiao.res = null; }
+            else {
+              var lst = espMapear(resp.itens);
+              estado.espiao.res = { termo: resp.termo, lista: lst, barreira: espBarreira(lst) };
+            }
+            render();
+          });
+          return;
+        }
         var sb = el.getAttribute && el.getAttribute('data-sub');
         if (sb) { var pr = sb.split(':'); subAtiva[pr[0]] = pr[1]; abaAtiva = pr[1]; render(); return; }
         if (el.id === 'sia-vinc-ok') {
@@ -1738,6 +1757,7 @@
     var h = '';
     for (var i = 0; i < ABAS.length; i++) {
       var a = ABAS[i];
+      if (a.tecnica && !estado.modoTecnico) continue;
       var ativo = (a.id === abaAtiva) || (SUB[a.id] && grupoDe(abaAtiva) === a.id) || (a.id === 'gprod' && abaAtiva === 'card');
       h += '<button class="aba' + (ativo ? ' ativa' : '') + '" data-aba="' + a.id + '">' + a.rotulo + '</button>';
     }
@@ -2488,6 +2508,10 @@
     for (id in estado.produtos) {
       var p = estado.produtos[id];
       if (!p || !p.nome) continue;
+      // linhas que nao sao produto entram na lista de "produtos" da coleta
+      // (credito de Ads, saldo, ajuste). Buscar isso na vitrine e ruido.
+      if (/cr[eé]dito|saldo|recarga|ajuste|reembolso|taxa|cupom da loja/i.test(p.nome)) continue;
+      if (!/[a-zA-Zà-ú]{4}/.test(p.nome)) continue;
       var m = p.metricas || {};
       arr.push({ id: id, nome: p.nome, gmv: m.gmv || 0 });
     }
@@ -2559,7 +2583,7 @@
           else if (L.barreira && L.meuFat >= L.barreira) { txt = 'voce vende mais que eles'; cor = 'var(--vd)'; }
           else if (L.barreira) { txt = 'eles vendem ' + fmt(L.barreira / L.meuFat, 1) + 'x mais que voce'; cor = L.barreira / L.meuFat > 2 ? 'var(--rd)' : 'var(--am)'; }
         }
-        h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:10px 12px;margin-bottom:7px">' +
+        h += '<button data-espiar="' + esc(L.termo) + '" style="display:block;width:100%;text-align:left;cursor:pointer;font-family:inherit;background:var(--b2);border:1px solid var(--li);border-left:3px solid ' + cor + ';border-radius:12px;padding:14px 15px;margin-bottom:9px">' +
           '<div style="display:flex;gap:8px;align-items:center">' +
           '<span style="font-family:monospace;font-size:15px;color:' + cor + ';width:26px">' + posTxt + '</span>' +
           '<span style="flex:1;font-size:12.5px">' + esc(String(L.produto).slice(0, 52)) + '</span>' +
@@ -2570,7 +2594,8 @@
           '<span style="color:var(--t1)">voce ' + espDinheiro(L.meuFat) + '/mes</span> ' +
           '<span style="color:var(--t2)">→</span> ' +
           '<span style="color:var(--vd)">TOP 5 ' + espDinheiro(L.barreira) + '</span> ' +
-          '<span style="color:' + cor + '">· ' + txt + '</span></div></div>';
+          '<span style="color:' + cor + '">· ' + txt + '</span></div>' +
+          '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--mk);margin-top:8px">ver comparativo completo &rsaquo;</div></button>';
       }
     }
 
@@ -2600,9 +2625,9 @@
         var m = meus[0], lid = b.lider;
         h += '<div style="font-family:monospace;font-size:10px;color:var(--t2);letter-spacing:.06em;margin:18px 0 8px">VOCE · MEDIA DOS 5 PRIMEIROS · O PRIMEIRO</div>';
         h += '<table style="width:100%;border-collapse:collapse;font-size:11.5px">' +
-          '<tr><th></th><th style="font-family:monospace;font-size:9px;color:var(--mk);padding:6px">VOCE</th><th style="font-family:monospace;font-size:9px;color:var(--vd);padding:6px">MEDIA DOS 5</th><th style="font-family:"Space Mono";font-size:10.5px;color:var(--t2);padding:6px">O PRIMEIRO</th></tr>';
+          '<tr><th></th><th style="font-family:monospace;font-size:9px;color:var(--mk);padding:6px">VOCE</th><th style="font-family:monospace;font-size:9px;color:var(--vd);padding:6px">MEDIA DOS 5</th><th style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2);padding:6px">O PRIMEIRO</th></tr>';
         function linha(rot, a, c, d) {
-          return '<tr><td style="font-family:"Space Mono";font-size:10.5px;color:var(--t2);padding:6px 4px">' + rot + '</td>' +
+          return '<tr><td style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2);padding:6px 4px">' + rot + '</td>' +
             '<td style="text-align:center;padding:6px;font-family:monospace;background:rgba(255,77,28,.05)">' + a + '</td>' +
             '<td style="text-align:center;padding:6px;color:var(--t1)">' + c + '</td>' +
             '<td style="text-align:center;padding:6px;color:var(--t2)">' + d + '</td></tr>';
@@ -3007,7 +3032,7 @@
   function capa(olhoTxt, linha1, linha2, num) {
     return '<div class="capa">' + (num ? '<div class="gh">' + num + '</div>' : '') +
       '<div class="ol">' + olhoTxt + '</div>' +
-      '<div class="dp">' + linha1 + (linha2 ? '<small>' + linha2 + '</small>' : '') + '</div></div>';
+      '<div class="dp">' + linha1 + (linha2 ? ' <small>' + linha2 + '</small>' : '') + '</div></div>';
   }
   function olho(rot, txtDica) {
     return '<div class="olho">' + rot + (txtDica ? dica(txtDica) : '') + '</div>';
