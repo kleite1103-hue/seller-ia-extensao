@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.39.1';
+  var VERSAO = '0.40.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -53,6 +53,7 @@
     trocou: null,            // ultima troca de conta detectada
     lidoEm: null,            // quando esta conta foi lida
     autoColeta: false,       // coletar sozinho ao trocar de conta
+    filaCompleta: false,     // Inicio mostra 5; o resto atras de um clique
     modoTecnico: false,      // mostra a aba Debug (duplo clique no logo)
     temaClaro: false,        // tema claro (nude) ou escuro
     vereditos: null,         // vereditos vindos do cerebro
@@ -1681,9 +1682,12 @@
     var el = ev.target;
     while (el && el !== this) {
       if (el.getAttribute) {
+        if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
         var esp = el.getAttribute && el.getAttribute('data-espiar');
         if (esp) {
           abaAtiva = 'espiao';
+          var prodOrigem = el.getAttribute('data-prod') || null;
+          estado.espiao.meuProduto = prodOrigem ? { nome: prodOrigem } : null;
           estado.espiao.termo = esp; estado.espiao.buscando = true; estado.espiao.erro = null; render();
           espBuscar(esp, function (resp) {
             estado.espiao.buscando = false;
@@ -1953,20 +1957,24 @@
       '<div><div class="v" style="color:var(--am)">' + R.contagem.amarelo + '</div><div class="l">SUFOCADAS</div><div class="s">meta apertada</div></div>' +
       '<div><div class="v" style="color:var(--vd)">' + R.contagem.verde + '</div><div class="l">ESCALANDO</div><div class="s">com folga</div></div></div>';
 
-    h += '<div class="nota">' + R.total + ' campanhas lidas &middot; ' + reais(R.gastoTotal) + ' no periodo &middot; ' +
-      R.contagem.cinza + ' em aprendizado, fora da fila' +
-      dica('<b>Por que aprendizado fica de fora:</b> campanha nova precisa de 7 dias em Meta de ROAS ou 14 em Lance Automatico para o algoritmo entender o publico. Mexer antes reinicia a contagem, entao julgar agora so levaria a decisao errada.') + '<br>' +
-      (temCofre
-        ? 'Piso de ROAS calculado com a margem do seu Cofre de Custos.'
-        : '<span style="color:var(--am)">Margem assumida de 25% (piso 4x).</span> Cadastre o custo no Cofre e o piso vira o seu numero real.') +
+    h += '<div class="nota" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">' +
+      seloFonte() +
+      '<span>' + R.total + ' campanhas &middot; ' + reais(R.gastoTotal) + '</span>' +
+      (temCofre ? '' : '<span style="color:var(--am)">margem assumida 25%</span>') +
+      dica('<b>De onde vem esta leitura.</b> Foram lidas ' + R.total + ' campanhas, com ' + reais(R.gastoTotal) + ' investidos no periodo. ' +
+        R.contagem.cinza + ' estao em aprendizado e ficam fora da fila de proposito: campanha nova precisa de 7 dias em Meta de ROAS ou 14 em Lance Automatico para o algoritmo entender o publico, e mexer antes reinicia a contagem. ' +
+        (temCofre ? 'O piso de ROAS usa a margem real do seu Cofre de Custos.'
+                  : '<b>O piso de 4x esta assumindo margem de 25%</b>, porque o Cofre de Custos esta vazio. Cadastre o custo dos produtos e o piso vira o seu numero real.')) +
       '</div>';
 
     // fila de acao
     if (R.fila.length === 0) {
       h += '<div style="background:#0f2a17;border:1px solid #1f5a30;border-radius:10px;padding:16px;text-align:center;color:var(--vd);font-size:13px">Tudo sob controle. Nenhuma campanha pedindo acao agora.</div>';
     } else {
-      h += olho('FILA DE ACAO (' + R.fila.length + ')', 'A fila ordena por dinheiro em jogo, nao por gravidade. Um problema numa campanha que gasta R$ 800 vem antes de um problema em campanha que gasta R$ 8 — mesmo que a segunda esteja mais quebrada. Clique em qualquer linha para abrir o card completo.');
-      R.fila.forEach(function (c) {
+      h += olho('O QUE FAZER PRIMEIRO', 'A fila ordena por dinheiro em jogo, nao por gravidade. Um problema numa campanha que gasta R$ 800 vem antes de um problema em campanha que gasta R$ 8 — mesmo que a segunda esteja mais quebrada. Clique em qualquer linha para abrir o card completo.');
+      var LIMITE = 5;
+      var mostrar = estado.filaCompleta ? R.fila : R.fila.slice(0, LIMITE);
+      mostrar.forEach(function (c) {
         var co = CORES_SEM[c.nivel];
         h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:18px 19px;margin-bottom:12px;transition:border-color .15s">';
         h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
@@ -2453,11 +2461,18 @@
     }
     return out;
   }
-  function espDiffPalavras(lista) {
+  function espDiffPalavras(lista, nomeMeu) {
     var meus = {}, deles = {}, i, k;
     for (i = 0; i < lista.length; i++) {
       var pal = espPalavras(lista[i].nome);
       if (lista[i].eu) { for (k in pal) meus[k] = true; }
+    }
+    // Se eu nao apareco no top 60, ainda quero saber quais palavras eles usam
+    // e faltam no MEU titulo. Antes o bloco simplesmente sumia — que era o
+    // caso mais importante, porque nao aparecer e o pior cenario.
+    if (!Object.keys(meus).length && nomeMeu) {
+      var pm = espPalavras(nomeMeu);
+      for (k in pm) meus[k] = true;
     }
     var top = lista.filter(function (x) { return !x.eu; }).slice(0, 5);
     for (i = 0; i < top.length; i++) {
@@ -2583,7 +2598,7 @@
           else if (L.barreira && L.meuFat >= L.barreira) { txt = 'voce vende mais que eles'; cor = 'var(--vd)'; }
           else if (L.barreira) { txt = 'eles vendem ' + fmt(L.barreira / L.meuFat, 1) + 'x mais que voce'; cor = L.barreira / L.meuFat > 2 ? 'var(--rd)' : 'var(--am)'; }
         }
-        h += '<button data-espiar="' + esc(L.termo) + '" style="display:block;width:100%;text-align:left;cursor:pointer;font-family:inherit;background:var(--b2);border:1px solid var(--li);border-left:3px solid ' + cor + ';border-radius:12px;padding:14px 15px;margin-bottom:9px">' +
+        h += '<button data-espiar="' + esc(L.termo) + '" data-prod="' + esc(L.produto) + '" style="display:block;width:100%;text-align:left;cursor:pointer;font-family:inherit;background:var(--b2);border:1px solid var(--li);border-left:3px solid ' + cor + ';border-radius:12px;padding:14px 15px;margin-bottom:9px">' +
           '<div style="display:flex;gap:8px;align-items:center">' +
           '<span style="font-family:monospace;font-size:15px;color:' + cor + ';width:26px">' + posTxt + '</span>' +
           '<span style="flex:1;font-size:12.5px">' + esc(String(L.produto).slice(0, 52)) + '</span>' +
@@ -2621,6 +2636,13 @@
       }
 
       var meus = lista.filter(function (z) { return z.eu; });
+      var meuFora = (!meus.length && b && estado.espiao.meuProduto);
+      if (meuFora) {
+        var mp = estado.espiao.meuProduto;
+        h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-radius:12px;padding:15px 16px;margin:16px 0 4px">' +
+          '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">Voce nao aparece nesta busca</div>' +
+          '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(String(mp.nome).slice(0, 60)) + ' nao esta entre os ' + lista.length + ' primeiros de <b>' + esc(e.res.termo) + '</b>. Os cinco primeiros faturam ' + espDinheiro(b.faturamentoMes) + ' por mes cada, na media — esse mercado passa longe de voce.</div></div>';
+      }
       if (meus.length && b) {
         var m = meus[0], lid = b.lider;
         h += '<div style="font-family:monospace;font-size:10px;color:var(--t2);letter-spacing:.06em;margin:18px 0 8px">VOCE · MEDIA DOS 5 PRIMEIROS · O PRIMEIRO</div>';
@@ -2652,7 +2674,7 @@
         if (!m.cupom && b.comCupom >= 2) h += ' E e o unico sem cupom entre os primeiros — cupom vira selo na busca e custa menos que cortar preco.';
         h += '<br><br><b style="color:var(--t0)">Antes de mexer no preco:</b> abra a Margem e veja seu liquido de hoje. Preco e o ultimo passo, e so se a margem aguentar.</div>';
       }
-      var dp = espDiffPalavras(lista);
+      var dp = espDiffPalavras(lista, estado.espiao.meuProduto ? estado.espiao.meuProduto.nome : null);
       if (dp.temMeu && dp.faltando.length) {
         h += '<div style="font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.06em;margin:18px 0 8px">PALAVRAS QUE OS PRIMEIROS USAM E VOCE NAO' + dica('<b>Como isto e calculado:</b> quebramos o titulo dos cinco primeiros colocados desta busca e o seu, e listamos as palavras que aparecem em pelo menos dois deles e faltam no seu titulo. Palavras muito genericas ficam de fora. <b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego, onde nao ha historico a proteger.') + '</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
         for (var w = 0; w < dp.faltando.length; w++) {
@@ -3544,10 +3566,7 @@
     $('sia-info').textContent = lojaTxt + ' · ' + nC + ' campanhas · ' + nP + ' produtos' + (lidoHa() ? ' · lido ' + lidoHa() : '');
 
     if (abaAtiva === 'semaforo') {
-      corpo.innerHTML = capa('O QUE FAZER AGORA', 'SEU', 'DIA', '01') +
-        renderBannerConta() +
-        '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 18px">' + seloFonte() + '</div>' +
-        renderSemaforo() + renderChamadaCerebro();
+      corpo.innerHTML = renderBannerConta() + renderSemaforo() + renderChamadaCerebro();
       ligarBannerConta();
       ligarChamadaCerebro();
       return;
