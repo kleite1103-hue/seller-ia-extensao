@@ -378,6 +378,89 @@ function julgarConta(K: any, snap: any, saida: Veredito[]) {
   }
 }
 
+
+/* ==================== HISTORICO ====================
+   Uma linha por loja por dia. O dia gravado e o dia dos DADOS (D-1),
+   nao o da coleta: reabrir a mesma conta tres vezes no dia atualiza a
+   mesma linha em vez de criar tres. */
+
+function resumoDiario(snap: any, loja: string, vereditos: Veredito[]) {
+  const c = snap?.conta?.campos || snap?.conta || {};
+  const num = (v: any) => (typeof v === "number" && isFinite(v) ? v : null);
+  const camps = snap?.campanhas || {};
+  const prods = snap?.produtos || {};
+
+  let inv = 0, impr = 0, cliq = 0, pedAds = 0, gmvAds = 0, nCamp = 0;
+  for (const k of Object.keys(camps)) {
+    const r = camps[k]?.report || camps[k]?.metricas || {};
+    const g = num(r.gasto) ?? (num(r.cost) !== null ? Number(r.cost) / 100000 : null);
+    const ro = num(r.roas ?? r.broad_roi);
+    if (g !== null) inv += g;
+    if (g !== null && ro !== null) gmvAds += g * ro;
+    impr += num(r.impressoes ?? r.impression) || 0;
+    cliq += num(r.cliques ?? r.click) || 0;
+    pedAds += num(r.pedidos ?? r.broad_order) || 0;
+    nCamp++;
+  }
+
+  const cont = { vermelho: 0, amarelo: 0, verde: 0, cinza: 0 };
+  let cVerm = 0, cAmar = 0, cVerd = 0;
+  for (const v of vereditos) {
+    if (v.escopo === "produto") (cont as any)[v.nivel] = ((cont as any)[v.nivel] || 0) + 1;
+    if (v.escopo === "campanha") {
+      if (v.nivel === "vermelho") cVerm++;
+      else if (v.nivel === "amarelo") cAmar++;
+      else if (v.nivel === "verde") cVerd++;
+    }
+  }
+
+  const gmv = num(c.vendas ?? c.gmvPago);
+  const margem = num(snap?.margemMediaPct);
+
+  // o dia dos dados e D-1 em BRT
+  const d = new Date(Date.now() - 24 * 3600 * 1000 - 3 * 3600 * 1000);
+  const dia = d.toISOString().slice(0, 10);
+
+  return {
+    shop_id: loja,
+    loja_nome: snap?.loja?.nome || null,
+    dia,
+    gmv_pago: gmv,
+    pedidos_pagos: num(c.pedidos),
+    visitantes: num(c.uv ?? c.visitantes),
+    visualizacoes: num(c.pv),
+    carrinho: num(c.atc),
+    conversao_pct: pct(c.conv ?? c.conversaoPaga),
+    ticket_medio: num(c.ticket),
+    cancelamentos: num(c.cancelados),
+    nota_loja: num(c.nota),
+    penalidade: num(c.pontosPenalidade),
+    ads_investido: inv || null,
+    ads_impressoes: impr || null,
+    ads_cliques: cliq || null,
+    ads_pedidos: pedAds || null,
+    ads_gmv: gmvAds || null,
+    ads_roas: inv ? gmvAds / inv : null,
+    ads_ctr_pct: impr ? (cliq / impr) * 100 : null,
+    ads_cpa: pedAds ? inv / pedAds : null,
+    ads_campanhas: nCamp || null,
+    afil_gmv: num(c.afil_vendas),
+    afil_comissao: num(c.afil_comissao),
+    afil_pedidos: num(c.afil_pedidos),
+    tacos_pct: (gmv && inv) ? (inv / gmv) * 100 : null,
+    dependencia_ads_pct: (gmv && gmvAds) ? (gmvAds / gmv) * 100 : null,
+    margem_media_pct: margem,
+    piso_roas: margem ? 100 / margem : null,
+    prod_total: Object.keys(prods).length || null,
+    prod_ruins: cont.vermelho || null,
+    prod_atencao: cont.amarelo || null,
+    prod_bons: cont.verde || null,
+    camp_prejuizo: cVerm || null,
+    camp_sufocadas: cAmar || null,
+    camp_escalando: cVerd || null,
+  };
+}
+
 /* ==================== ORQUESTRACAO ==================== */
 
 function ordenar(v: Veredito[]) {
@@ -419,6 +502,11 @@ Deno.serve(async (req) => {
   try { julgarCampanhas(K, snap, vereditos); } catch (_e) { /* idem */ }
   try { julgarProdutos(K, snap, vereditos); } catch (_e) { /* idem */ }
   ordenar(vereditos);
+
+  // historico: nunca deixa o relatorio ou o veredito falharem por causa dele
+  try {
+    await supa.rpc("gravar_historico", { p: resumoDiario(snap, loja, vereditos) });
+  } catch (_e) { /* noop */ }
 
   try {
     await supa.from("diagnosticos").insert({

@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.43.1';
+  var VERSAO = '0.44.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3858,6 +3858,18 @@
     return r;
   }
 
+  function cartaoProduto(c) {
+    var co = CORES_SEM[c.nivel] || CORES_SEM.cinza;
+    return '<div data-card="produto:' + esc(c.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:18px 19px;margin-bottom:12px">' +
+      '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
+      '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.3;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
+      (c.venda ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(c.venda) + '</span>' : '') +
+      '</div>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + esc(String(c.nome).slice(0, 70)) + '</div>' +
+      '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(c.texto) + '</div>' +
+      (c.acao ? '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:7px;line-height:1.5">\u2192 ' + esc(c.acao) + '</div>' : '') +
+      '</div>';
+  }
   function renderPerformanceIA() {
     var ids = Object.keys(estado.produtos).filter(function (id) {
       var mm = estado.produtos[id].metricas || {};
@@ -3923,20 +3935,35 @@
       '<div class="kpi"><div class="v" style="color:var(--vd)">' + cont.verde + '</div><div class="l">Vendendo bem' + dica('<b>Vendendo bem:</b> convertem acima da media da loja. A regra aqui e nao mexer sem motivo — e proteger, nao otimizar. Se algum deles nao tem anuncio, e por ele que se comeca.') + '</div></div>' +
       '<div class="kpi"><div class="v" style="color:var(--t2)">' + cont.cinza + '</div><div class="l">Sem visita' + dica('<b>Sem visita:</b> menos de 100 visitantes no periodo. Ficam de fora do julgamento de proposito, porque com pouca visita qualquer percentual engana — 1 venda em 3 visitas daria 33% de conversao e nao significa nada.') + '</div></div></div>';
 
-    h += '<div style="font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.06em;margin-bottom:9px">ORDENADO POR DINHEIRO EM JOGO' + dica('<b>Por que esta ordem:</b> a lista nao ordena por gravidade, e por quanto dinheiro esta em jogo. Um problema num produto que fatura R$8 mil vem antes de um problema em produto que fatura R$80 — mesmo que o segundo esteja mais quebrado. Gravidade sem valor e distracao.') + ' &middot; clique para abrir</div>';
+    // Top 3 piores e top 3 melhores na tela; o resto atras de um seletor.
+    // Despejar 23 produtos de uma vez nao e informacao, e ruido — o analista
+    // nao consegue decidir o que olhar primeiro.
+    var piores = lidos.filter(function (x) { return x.nivel === 'vermelho' || x.nivel === 'amarelo'; }).slice(0, 3);
+    var melhores = lidos.filter(function (x) { return x.nivel === 'verde'; }).slice(0, 3);
+    var vistos = {};
+    piores.concat(melhores).forEach(function (x) { vistos[x.id] = true; });
+    var resto = lidos.filter(function (x) { return !vistos[x.id]; });
 
-    for (i = 0; i < lidos.length; i++) {
-      var L = lidos[i], co = CORES[L.nivel];
-      h += '<div data-card="produto:' + esc(L.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:9px;padding:11px 13px;margin-bottom:8px">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
-        '<span style="width:8px;height:8px;border-radius:50%;background:' + co.dot + ';flex:none"></span>' +
-        '<span style="flex:1;font-size:13.5px;font-weight:600;color:var(--t0);line-height:1.3">' + esc(L.titulo) + '</span>' +
-        (L.venda ? '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2)">' + reais(L.venda) + '</span>' : '') +
-        '</div>' +
-        '<div style="font-size:12.5px;color:var(--t2);margin-bottom:5px">' + esc(String(L.nome).slice(0, 54)) + '</div>' +
-        '<div style="font-size:13px;color:var(--t1);line-height:1.5">' + esc(L.texto) + '</div>' +
-        '<div style="font-size:13px;color:' + co.dot + ';line-height:1.5;margin-top:5px">→ ' + esc(L.acao) + '</div>' +
-        '</div>';
+    if (piores.length) {
+      h += olho('OS QUE MAIS PRECISAM DE VOCE', '<b>Sao os tres com problema que tem mais dinheiro em jogo.</b> A ordem nao e por gravidade: um problema num produto que fatura R$ 8 mil vem antes de um problema em produto que fatura R$ 80, mesmo que o segundo esteja mais quebrado.');
+      piores.forEach(function (c) { h += cartaoProduto(c); });
+    }
+    if (melhores.length) {
+      h += olho('OS QUE ESTAO INDO BEM', 'Convertem acima da media da loja. A regra aqui e proteger, nao otimizar. Se algum deles nao tem Shopee Ads, e por ele que se comeca a investir.');
+      melhores.forEach(function (c) { h += cartaoProduto(c); });
+    }
+    if (resto.length) {
+      h += olho('VER UM PRODUTO ESPECIFICO');
+      h += '<select id="sia-prod-sel" style="width:100%;background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:13px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:11px">' +
+        '<option value="">Escolha entre os outros ' + resto.length + ' produtos...</option>';
+      resto.forEach(function (c) {
+        var marca = c.nivel === 'vermelho' ? '\u25cf ' : (c.nivel === 'amarelo' ? '\u25cb ' : '');
+        h += '<option value="' + esc(c.id) + '"' + (estado.prodSel === String(c.id) ? ' selected' : '') + '>' + marca + esc(String(c.nome).slice(0, 52)) + ' \u00b7 ' + reais(c.venda || 0) + '</option>';
+      });
+      h += '</select>';
+      for (var q = 0; q < resto.length; q++) {
+        if (String(resto[q].id) === estado.prodSel) h += cartaoProduto(resto[q]);
+      }
     }
     h += renderChamadaCerebro();
     h += '<div class="nota">A leitura usa o funil que a Shopee entrega por produto. Produtos com menos de 100 visitantes ficam de fora do julgamento de proposito — abaixo disso, taxa e ruido.</div>';
@@ -4177,6 +4204,8 @@
     } else if (abaAtiva === 'performance') {
       corpo.innerHTML = renderPerformanceIA();
       ligarChamadaCerebro();
+      var ps = $('sia-prod-sel');
+      if (ps) ps.addEventListener('change', function () { estado.prodSel = ps.value; render(); });
 
     } else if (abaAtiva === 'afiliados') {
       var brutosAf = estado.afiliados.campos || {};
