@@ -104,8 +104,17 @@ function proibe(fmtRegra: any, oque: string) {
 // que a leitura esta limitada.
 
 function pisoRoas(K: any, margemPct: number | null) {
+  // Margem NEGATIVA (produto vendido abaixo do custo) daria piso negativo,
+  // e ai qualquer sugestao da Shopee passaria no teste "abaixo do piso" —
+  // o cerebro aprovaria meta que da prejuizo. Sem piso possivel: nenhum
+  // ROAS salva quem perde dinheiro na venda em si.
+  if (margemPct !== null && margemPct <= 0) {
+    return { valor: Infinity, origem: "margem_negativa" as const };
+  }
+  // Margem muito baixa gera piso estratosferico (1% -> 100x). Teto no maximo
+  // configuravel da plataforma, senao o texto vira ficcao.
   if (margemPct && margemPct > 0) {
-    return { valor: 100 / margemPct, origem: "margem" as const };
+    return { valor: Math.min(100 / margemPct, 50), origem: "margem" as const };
   }
   return { valor: limiar(K, "roas_piso_padrao", "valor", 8), origem: "padrao" as const };
 }
@@ -255,7 +264,15 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
       : (num(vd.ganhoGmvPct) ?? (vd.estimate_gmv_pct != null ? vd.estimate_gmv_pct / 100 : null));
 
     if (metaSug !== null && !proibe(fmtRegra, "meta")) {
-      if (metaSug < piso.valor) {
+      if (piso.origem === "margem_negativa") {
+        saida.push({
+          escopo: "campanha", id, nivel: "vermelho", fonte: "seller.ia",
+          titulo: "Este produto perde dinheiro em cada venda",
+          texto: "Pelo custo cadastrado no Cofre, cada unidade vendida sai no prejuízo antes mesmo do anúncio. Nenhuma meta de ROAS resolve isso: mais tráfego só aumenta a perda.",
+          passos: ["Reveja preço ou custo antes de investir qualquer valor aqui", "Enquanto a conta não fechar, pausar é mais barato que otimizar"],
+          dinheiro: gasto || 0,
+        });
+      } else if (metaSug < piso.valor) {
         // a plataforma otimiza GMV, a conta otimiza lucro. Nomear a diferenca.
         saida.push({
           escopo: "campanha", id, nivel: "amarelo", fonte: "seller.ia",

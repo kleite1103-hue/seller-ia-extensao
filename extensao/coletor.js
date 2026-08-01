@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.44.0';
+  var VERSAO = '0.44.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -54,7 +54,7 @@
     lidoEm: null,            // quando esta conta foi lida
     autoColeta: false,       // coletar sozinho ao trocar de conta
     filaCompleta: false,     // Inicio mostra 5; o resto atras de um clique
-    rel: { mes: null, gerando: false, markdown: null, erro: null, etapa: '' },
+    rel: { mes: null, gerando: false, markdown: null, erro: null, etapa: '', loja: null },
     modoTecnico: false,      // mostra a aba Debug (duplo clique no logo)
     temaClaro: false,        // tema claro (nude) ou escuro
     vereditos: null,         // vereditos vindos do cerebro
@@ -2526,6 +2526,8 @@
      tem gente procurando? */
   function espVolume(termos, aoPronto) {
     if (!termos.length) { aoPronto({}); return; }
+    // sem a chave de sessao a URL sairia com "undefined" e a rota recusaria
+    if (!estado.spc) { aoPronto({}); return; }
     var corpo = JSON.stringify({ campaign_type: 'shop', keyword_list: termos.slice(0, 12), limit: 40 });
     chrome.runtime.sendMessage({
       tipo: 'sia:buscar',
@@ -3424,10 +3426,25 @@
       }, epochDoMes(sel));
 
       // a coleta avisa o fim passando null no progresso; encadeamos por espera
+      // TETO DE TEMPO: sem isto, coleta travada deixava o botao em "Gerando"
+      // para sempre e o snapshot da conta nunca voltava — o analista perdia
+      // o que estava vendo na tela.
+      var LIMITE_MS = 6 * 60 * 1000;
+      var t0 = Date.now();
+      function desistir(motivo) {
+        estado.rel.gerando = false; estado.rel.etapa = '';
+        estado.rel.erro = motivo;
+        restaurar(); render();
+      }
       var esperaA = setInterval(function () {
+        if (Date.now() - t0 > LIMITE_MS) { clearInterval(esperaA); desistir('A leitura do mes atual demorou demais e foi interrompida. Os dados da tela foram preservados.'); return; }
         if (estado.coletaProgresso !== null) return;
         clearInterval(esperaA);
         var blocoA = blocoPeriodo(fa.rotulo);
+        if (!Object.keys(estado.campanhas).length && !Object.keys(estado.produtos).length) {
+          desistir('Nao consegui ler dados de ' + fa.rotulo + '. Verifique se voce esta na conta certa e se ha movimento nesse mes.');
+          return;
+        }
 
         estado.rel.etapa = 'Lendo ' + faixaDoMes(mesAnterior(sel)).rotulo + '...'; render();
         zerar();
@@ -3435,7 +3452,9 @@
           if (p) { estado.rel.etapa = 'Mes anterior: ' + p; render(); }
         }, epochDoMes(mesAnterior(sel)));
 
+        var t1 = Date.now();
         var esperaB = setInterval(function () {
+          if (Date.now() - t1 > LIMITE_MS) { clearInterval(esperaB); desistir('A leitura do mes anterior demorou demais e foi interrompida. Os dados da tela foram preservados.'); return; }
           if (estado.coletaProgresso !== null) return;
           clearInterval(esperaB);
           var blocoB = blocoPeriodo(fp.rotulo);
@@ -3454,7 +3473,7 @@
               void chrome.runtime.lastError;
               estado.rel.gerando = false; estado.rel.etapa = '';
               if (!resp || !resp.ok) { estado.rel.erro = (resp && (resp.erro || resp.detalhe)) || 'Nao consegui gerar.'; }
-              else { estado.rel.markdown = resp.markdown; }
+              else { estado.rel.markdown = resp.markdown; estado.rel.loja = estado.loja ? estado.loja.shop_id : null; }
               render();
             });
           } catch (e) { estado.rel.gerando = false; estado.rel.erro = String(e); restaurar(); render(); }
@@ -3514,6 +3533,18 @@
       conta: estado.conta, diagnostico: estado.diagnostico, lidoEm: estado.lidoEm || null
     };
     estado.contas[id] = foto;
+    // TETO NA MEMORIA DA GUIA: os brutos ja tinham limite, os snapshots nao.
+    // Uma agencia trocando 40 contas num turno acumulava tudo na aba.
+    // O disco continua guardando 40; aqui basta o giro recente.
+    var idsMem = Object.keys(estado.contas);
+    if (idsMem.length > 8) {
+      idsMem.sort(function (a, b) {
+        return ((estado.contas[b] && estado.contas[b].lidoEm) || 0) - ((estado.contas[a] && estado.contas[a].lidoEm) || 0);
+      });
+      for (var dm = 8; dm < idsMem.length; dm++) {
+        if (idsMem[dm] !== id) delete estado.contas[idsMem[dm]];
+      }
+    }
     // persiste em disco: trocar de conta no Seller Center recarrega a pagina,
     // e sem disco a memoria da guia morre e o time recoleta tudo de novo.
     try {
@@ -3527,6 +3558,9 @@
     estado.espiao = { termo: '', buscando: false, erro: null, res: null, radar: null };
     estado.card = null; estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
     estado.vereditos = null; estado.fonteVeredito = 'local'; estado.versaoRegras = null;
+    if (estado.rel && estado.rel.loja && estado.rel.loja !== id) {
+      estado.rel.markdown = null; estado.rel.erro = null; estado.rel.loja = null;
+    }
     if (estado.contas[id]) return;   // memoria da guia tinha, nao precisa do disco
     try {
       chrome.runtime.sendMessage({ tipo: 'sia:conta-carregar', loja: id }, function (r) {
@@ -3546,6 +3580,13 @@
   }
   function aplicarLoja(nova) {
     var antigo = estado.loja ? estado.loja.shop_id : null;
+    // Se o relatorio esta lendo periodos e a conta muda, os dois blocos
+    // ficariam de lojas diferentes. Aborta com aviso em vez de gerar
+    // um relatorio que mistura clientes.
+    if (antigo && nova.shop_id !== antigo && estado.rel && estado.rel.gerando) {
+      estado.rel.gerando = false; estado.rel.etapa = '';
+      estado.rel.erro = 'A conta mudou no meio da leitura e o relatorio foi cancelado. Gere novamente na conta certa.';
+    }
     if (antigo === nova.shop_id) {
       if (nova.nome && !estado.loja.nome) { estado.loja.nome = nova.nome; estado.sujo = true; }
       return;
@@ -3556,7 +3597,7 @@
     carregarCofre();                            // o cofre e por loja
     estado.trocou = { de: antigo, para: nova.shop_id, nome: nova.nome, em: Date.now() };
     estado.sujo = true;
-    log('conta', 'trocou para ' + nova.shop_id + (nova.nome ? ' (' + nova.nome + ')' : ''));
+    try { console.debug('[Seller.IA] conta:', nova.shop_id, nova.nome || ''); } catch (e) { /* noop */ }
     // NAO exigir `antigo`: ao ENTRAR numa conta, antigo e null e a auto-coleta
     // nunca disparava — ela so funcionava trocando de uma conta para outra,
     // que e justamente o caso menos comum.
@@ -3571,6 +3612,9 @@
     var id = estado.loja.shop_id;
     if (autoColetaFeita[id]) return;                       // ja rodou nesta sessao
     if (estado.coletaProgresso !== null) return;           // ja tem coleta rodando
+    if (estado.rel && estado.rel.gerando) return;          // o relatorio zera o estado
+                                                           // entre os dois meses; disparar
+                                                           // aqui bagunçaria os periodos
     var temDado = Object.keys(estado.campanhas).length || Object.keys(estado.produtos).length;
     if (temDado) { autoColetaFeita[id] = true; return; }   // veio do disco, nao precisa
     autoColetaFeita[id] = true;
