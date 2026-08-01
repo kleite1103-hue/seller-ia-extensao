@@ -72,7 +72,12 @@ function limiar(K: any, chave: string, campo = "valor", padrao: any = null) {
 // vem em micro (x100.000). Nada entra no julgamento sem passar por aqui.
 
 const num = (v: any) => (typeof v === "number" && isFinite(v) ? v : null);
-const pct = (v: any) => { const n = num(v); return n === null ? null : (n <= 1 ? n * 100 : n); };
+// A API manda taxa como fracao (0,0414 = 4,14%). O corte em 1 e ambiguo:
+// conversao de exatamente 1,0% chegaria como 1 e viraria 100%. Um produto
+// com 1% de conversao apareceria como "de cada 100, 100 compram" e passaria
+// no filtro de vendendo bem. Corte em 0,999: acima disso ja esta em percentual,
+// porque taxa real de 100% nao existe em e-commerce.
+const pct = (v: any) => { const n = num(v); return n === null ? null : (n < 0.999 ? n * 100 : n); };
 const reais = (v: any) => { const n = num(v); return n === null ? null : n / 100000; };
 const fmt = (v: any, d = 1) => (num(v) === null ? "—" : Number(v).toFixed(d).replace(".", ","));
 const dinheiro = (v: any) => (num(v) === null ? "—" : "R$ " + Number(v).toFixed(2).replace(".", ","));
@@ -434,9 +439,14 @@ function resumoDiario(snap: any, loja: string, vereditos: Veredito[]) {
   const gmv = num(c.vendas ?? c.gmvPago);
   const margem = num(snap?.margemMediaPct);
 
-  // o dia dos dados e D-1 em BRT
+  // O dia dos dados e D-1 em BRT — MAS quando a leitura e de um periodo
+  // passado (o relatorio coleta meses anteriores), gravar como "ontem"
+  // sobrescreveria o dia de ontem com numeros de marco. Nesse caso a
+  // extensao manda o dia real do recorte.
   const d = new Date(Date.now() - 24 * 3600 * 1000 - 3 * 3600 * 1000);
-  const dia = d.toISOString().slice(0, 10);
+  const dia = (typeof snap?.diaReferencia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(snap.diaReferencia))
+    ? snap.diaReferencia
+    : d.toISOString().slice(0, 10);
 
   return {
     shop_id: loja,
@@ -520,10 +530,14 @@ Deno.serve(async (req) => {
   try { julgarProdutos(K, snap, vereditos); } catch (_e) { /* idem */ }
   ordenar(vereditos);
 
-  // historico: nunca deixa o relatorio ou o veredito falharem por causa dele
-  try {
-    await supa.rpc("gravar_historico", { p: resumoDiario(snap, loja, vereditos) });
-  } catch (_e) { /* noop */ }
+  // historico: nunca deixa o relatorio ou o veredito falharem por causa dele.
+  // `semHistorico` vem quando a leitura e de um periodo passado e nao
+  // representa o estado atual da conta.
+  if (!body.semHistorico) {
+    try {
+      await supa.rpc("gravar_historico", { p: resumoDiario(snap, loja, vereditos) });
+    } catch (_e) { /* noop */ }
+  }
 
   try {
     await supa.from("diagnosticos").insert({

@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.44.1';
+  var VERSAO = '0.44.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1323,6 +1323,8 @@
 
   function coletaCompleta(aoProgresso, periodoForcado) {
     estado.coletaProgresso = 'iniciando';
+    // leitura de periodo passado nao representa o estado atual da conta
+    estado.leituraHistorica = !!periodoForcado;
     return new Promise(function (resolver) {
       (async function () {
         function prog(t) {
@@ -3204,7 +3206,13 @@
     var f = foto || fotoDoEstado();
     f.cofre = estado.cofre || null;
     f.margemMediaPct = margemMediaCofre();
-    return { loja: estado.loja ? estado.loja.shop_id : 'desconhecida', snapshot: f };
+    return {
+      loja: estado.loja ? estado.loja.shop_id : 'desconhecida',
+      snapshot: f,
+      // impede que a leitura de um mes passado sobrescreva o dia de hoje
+      // no historico com numeros antigos
+      semHistorico: !!estado.leituraHistorica
+    };
   }
   function guardarVereditos(resp) {
     estado.diagnostico = resp;
@@ -3237,7 +3245,8 @@
      pronto. O prompt e a chave da API ficam no servidor. */
   function mesesDisponiveis() {
     var out = [], hoje = new Date();
-    for (var i = 0; i < 12; i++) {
+    // comeca em i=0 (mes corrente) so se ja houver ao menos um dia fechado
+    for (var i = (hoje.getDate() > 1 ? 0 : 1); i < 12; i++) {
       var d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
       out.push({
         v: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
@@ -3253,7 +3262,11 @@
     var fimMes = Date.UTC(y, m, 1, 3, 0, 0) / 1000;   // 00:00 do dia 1 do mes seguinte
     var hoje0 = inicioDoDiaBRT(Math.floor(Date.now() / 1000));
     // a Shopee so entrega ate D-1; nunca pedir alem disso
-    return { inicio: ini, fim: Math.min(fimMes, hoje0) };
+    var fim = Math.min(fimMes, hoje0);
+    // mes ainda nao comecado devolveria fim ANTES do inicio, e a rota
+    // responderia erro ou vazio sem dizer por que
+    if (fim <= ini) return null;
+    return { inicio: ini, fim: fim };
   }
   function faixaDoMes(v) {
     var p = String(v).split('-'), y = +p[0], m = +p[1];
@@ -3268,9 +3281,26 @@
   function numeroPuro(x) {
     if (x == null) return null;
     if (typeof x === 'number') return isFinite(x) ? x : null;
-    var s = String(x).replace(/[R$\s%x]/gi, '').replace(/\./g, '').replace(',', '.');
+    var bruto = String(x).trim();
+    // A Shopee abrevia numero grande na tela: "12,5 mil" e "1.2K". Sem tratar,
+    // 12,5 mil virava 12,5 e 1.2K virava 12 — o relatorio receberia doze reais
+    // onde sao mil e duzentos, sem nenhum erro aparecer.
+    var mult = 1;
+    if (/\bmi(l?h(o|õ)es?)?\b/i.test(bruto) && !/\bmil\b/i.test(bruto)) mult = 1000000;
+    else if (/\bmil\b/i.test(bruto)) mult = 1000;
+    else if (/\d\s*K\b/i.test(bruto)) mult = 1000;
+    else if (/\d\s*M\b/.test(bruto)) mult = 1000000;
+    var s = bruto.replace(/\b(mil|mi|milh(o|õ)es?|K|M)\b/gi, '').replace(/[R$\s%x]/gi, '');
+    if (mult > 1) {
+      // com multiplicador, o separador decimal e a virgula e o ponto tambem
+      s = s.replace(',', '.');
+      var partes = s.split('.');
+      if (partes.length === 2) s = partes[0] + '.' + partes[1];
+    } else {
+      s = s.replace(/\./g, '').replace(',', '.');
+    }
     var n = parseFloat(s);
-    return isFinite(n) ? n : null;
+    return isFinite(n) ? n * mult : null;
   }
   function blocoPeriodo(rotulo) {
     // usa o que esta coletado no estado atual
@@ -3406,9 +3436,18 @@
 
     var g = $('sia-rel-gerar');
     if (g) g.addEventListener('click', function () {
+      // sem esta trava, dois cliques rapidos disparam duas geracoes que
+      // competem pelo mesmo estado.campanhas e misturam os periodos
+      if (estado.rel.gerando) return;
+      if (estado.coletaProgresso !== null) {
+        estado.rel.erro = 'Ja existe uma leitura em andamento. Espere ela terminar.'; render(); return;
+      }
       var meses = mesesDisponiveis();
       var sel = estado.rel.mes || meses[1].v;
       var fa = faixaDoMes(sel), fp = faixaDoMes(mesAnterior(sel));
+      if (!epochDoMes(sel) || !epochDoMes(mesAnterior(sel))) {
+        estado.rel.erro = 'Este mes ainda nao tem dia fechado na Shopee. Escolha outro.'; render(); return;
+      }
       estado.rel.gerando = true; estado.rel.erro = null; render();
 
       // Coleta os DOIS meses sozinha, um de cada vez. Antes o seletor so

@@ -91,7 +91,9 @@
   function pctReal(v) { // TAXA: 0.0407 -> 4.07 ; se ja vier >1 assume que ja e %
     var x = n(v);
     if (x === null || x === -1000000) return null;
-    return x <= 1 ? x * 100 : x;
+    // corte em 0.999, nao em 1: conversao de exatamente 1,0% chega como 1 e
+    // viraria 100%. Taxa real de 100% nao existe em e-commerce.
+    return x < 0.999 ? x * 100 : x;
   }
   // VARIACAO (pct_diff): no funil vem em decimal (0.186 = +18,6%; -0.122 = -12,2%).
   // Diferente de taxa: variacao pode ser negativa e representar de -100% a +qualquer.
