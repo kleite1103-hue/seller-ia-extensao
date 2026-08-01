@@ -195,7 +195,7 @@ function julgarProdutos(K: any, snap: any, saida: Veredito[]) {
     if (custo && ticket) {
       const emb = num(cofre.embalagem) || 0;
       const imp = ticket * ((num(cofre.imposto) || 0) / 100);
-      const com = comissao(ticket);
+      const com = comissao(ticket, K);
       const liq = ticket - com - custo - emb - imp;
       const margem = (liq / ticket) * 100;
       if (margem < 10) {
@@ -211,7 +211,20 @@ function julgarProdutos(K: any, snap: any, saida: Veredito[]) {
   }
 }
 
-function comissao(preco: number) {
+// A tabela de comissao vive na tabela `conhecimento` (limiar.degrau_comissao).
+// Estava escrita em codigo aqui e na extensao, com a versao em dado nunca
+// sendo lida — quando a Shopee mudar a comissao, e ela muda, seria preciso
+// republicar codigo, que e exatamente o que a arquitetura deveria evitar.
+function comissao(preco: number, K?: any) {
+  const faixas = K?.porChave?.["limiar.degrau_comissao"]?.condicao?.faixas;
+  if (Array.isArray(faixas) && faixas.length) {
+    for (const f of faixas) {
+      if (f.ate === null || f.ate === undefined || preco <= Number(f.ate)) {
+        return preco * (Number(f.pct) / 100) + Number(f.fixo);
+      }
+    }
+  }
+  // fallback: se a tabela nao carregou, usa a vigente para nao travar o julgamento
   if (preco < 80) return preco * 0.20 + 4;
   if (preco < 100) return preco * 0.14 + 16;
   if (preco < 200) return preco * 0.14 + 20;

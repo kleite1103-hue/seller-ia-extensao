@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.44.3';
+  var VERSAO = '0.44.4';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1426,12 +1426,14 @@
             if (rv.ok && rv.dados) {
               processarPacote({ url: '/api/pas/v1/diagnosis/homepage_batch_list_verdict/', metodo: 'POST', corpo: corpoV, dados: rv.dados, ts: Date.now() });
             }
+            await pausa(450);   // rajada sem intervalo e o padrao que dispara antifraude
             var corpoPI = JSON.stringify({ campaign_id_list: lote20, start_time: ini, end_time: fimAds });
             var rpi = await buscar('/api/pas/v1/campaign/get_product_performance_info/?' + spcQ, 'POST', corpoPI);
             totalChamadas++;
             if (rpi.ok && rpi.dados) {
               processarPacote({ url: '/api/pas/v1/campaign/get_product_performance_info/', metodo: 'POST', corpo: corpoPI, dados: rpi.dados, ts: Date.now() });
             }
+            await pausa(450);
           }
         }
 
@@ -3490,9 +3492,13 @@
 
         estado.rel.etapa = 'Lendo ' + faixaDoMes(mesAnterior(sel)).rotulo + '...'; render();
         zerar();
+        // respiro entre as duas leituras completas: sao ~60 chamadas seguidas
+        // e emendar uma na outra e o jeito mais rapido de tomar bloqueio
+        setTimeout(function () {
         coletaCompleta(function (p) {
           if (p) { estado.rel.etapa = 'Mes anterior: ' + p; render(); }
         }, epochDoMes(mesAnterior(sel)));
+        }, 3000);
 
         var t1 = Date.now();
         var esperaB = setInterval(function () {
