@@ -261,7 +261,11 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
     const impr = num(rep.impressoes ?? rep.impression);
     const cliques = num(rep.cliques ?? rep.click);
     const pedidos = num(rep.pedidos ?? rep.broad_order);
-    const roas = num(rep.roas ?? rep.broad_roi);
+    // ROAS acima de 1000x nao existe em e-commerce real: e escala errada ou
+    // campo trocado. Deixar entrar produz veredito "escalando" numa campanha
+    // que ninguem deveria escalar.
+    let roas = num(rep.roas ?? rep.broad_roi);
+    if (roas !== null && (roas > 1000 || roas < 0)) roas = null;
     const roasDireto = num(rep.direct_roi);
 
     // NUNCA usar os campos cpc/cpm da API como taxa
@@ -414,6 +418,75 @@ function julgarConta(K: any, snap: any, saida: Veredito[]) {
 }
 
 
+
+/* ==================== AUDITORIA DE ENTRADA ====================
+   O risco estrutural deste projeto: a API da Shopee nao e documentada e
+   pode mudar sem aviso. Se um campo for renomeado, as campanhas somem do
+   julgamento e a tela mostra ZERO problemas — uma falha silenciosa que se
+   parece com boa noticia, que e o pior tipo possivel numa ferramenta de
+   decisao. Isto conta o que chegou e denuncia quando o padrao quebra. */
+
+interface Auditoria {
+  campanhas_recebidas: number;
+  campanhas_com_roas: number;
+  campanhas_com_gasto: number;
+  produtos_recebidos: number;
+  produtos_com_funil: number;
+  alertas: string[];
+}
+
+function auditar(snap: any): Auditoria {
+  const camps = snap?.campanhas || {};
+  const prods = snap?.produtos || {};
+  const a: Auditoria = {
+    campanhas_recebidas: 0, campanhas_com_roas: 0, campanhas_com_gasto: 0,
+    produtos_recebidos: 0, produtos_com_funil: 0, alertas: [],
+  };
+
+  for (const k of Object.keys(camps)) {
+    a.campanhas_recebidas++;
+    const r = camps[k]?.report || camps[k]?.metricas || {};
+    if (num(r.roas ?? r.broad_roi) !== null) a.campanhas_com_roas++;
+    if (num(r.gasto) !== null || num(r.cost) !== null) a.campanhas_com_gasto++;
+  }
+  for (const k of Object.keys(prods)) {
+    a.produtos_recebidos++;
+    const m = prods[k]?.metricas || prods[k]?.perf || {};
+    if (num(m.visitantes ?? m.uv) !== null) a.produtos_com_funil++;
+  }
+
+  // ESCALA: a Shopee manda dinheiro em micro (x100.000). Se ela passar a
+  // mandar em unidade, nao ha erro nenhum — so numeros absurdamente pequenos.
+  // Um gasto medio abaixo de um centavo com dezenas de campanhas ativas nao
+  // e uma conta economica, e uma mudanca de escala.
+  let somaGasto = 0, comValor = 0;
+  for (const k of Object.keys(camps)) {
+    const r = camps[k]?.report || camps[k]?.metricas || {};
+    const g = num(r.gasto) ?? (num(r.cost) !== null ? Number(r.cost) / 100000 : null);
+    if (g !== null && g > 0) { somaGasto += g; comValor++; }
+  }
+  if (comValor >= 10 && somaGasto / comValor < 0.01) {
+    a.alertas.push("O valor investido veio numa escala improvavel (media de menos de um centavo por campanha). A Shopee pode ter mudado a unidade dos valores.");
+  }
+  if (comValor >= 10 && somaGasto / comValor > 500000) {
+    a.alertas.push("O valor investido veio numa escala improvavel (media acima de R$ 500 mil por campanha). A Shopee pode ter mudado a unidade dos valores.");
+  }
+
+  // as proporcoes sao o sinal: campanha sem ROAS e normal, TODAS sem ROAS nao e
+  if (a.campanhas_recebidas >= 5 && a.campanhas_com_roas === 0) {
+    a.alertas.push("Nenhuma das " + a.campanhas_recebidas + " campanhas trouxe retorno. O campo de ROAS pode ter mudado de nome na Shopee.");
+  } else if (a.campanhas_recebidas >= 10 && a.campanhas_com_roas / a.campanhas_recebidas < 0.3) {
+    a.alertas.push("Só " + a.campanhas_com_roas + " de " + a.campanhas_recebidas + " campanhas trouxeram retorno. A leitura pode estar incompleta.");
+  }
+  if (a.campanhas_recebidas >= 5 && a.campanhas_com_gasto === 0) {
+    a.alertas.push("Nenhuma campanha trouxe valor investido. O campo de gasto pode ter mudado.");
+  }
+  if (a.produtos_recebidos >= 5 && a.produtos_com_funil === 0) {
+    a.alertas.push("Nenhum dos " + a.produtos_recebidos + " produtos trouxe dado de visita. O funil de produto pode ter mudado.");
+  }
+  return a;
+}
+
 /* ==================== HISTORICO ====================
    Uma linha por loja por dia. O dia gravado e o dia dos DADOS (D-1),
    nao o da coleta: reabrir a mesma conta tres vezes no dia atualiza a
@@ -537,7 +610,20 @@ Deno.serve(async (req) => {
   const snap = body.snapshot || body.snap || {};
   const loja = String(body.loja || snap?.loja?.shop_id || "desconhecida");
 
+  const auditoria = auditar(snap);
   const vereditos: Veredito[] = [];
+
+  // o alerta entra como veredito no topo: o analista precisa saber que a
+  // tela pode estar mentindo, e nao descobrir isso semanas depois
+  for (const msg of auditoria.alertas) {
+    vereditos.push({
+      escopo: "conta", nivel: "vermelho", fonte: "seller.ia",
+      titulo: "A leitura desta conta pode estar incompleta",
+      texto: msg + " Enquanto isso nao for verificado, a ausencia de alertas nesta tela nao significa que esta tudo bem.",
+      passos: ["Avise o time da Seller.IA", "Nao tome decisao com base nesta leitura"],
+      dinheiro: 1e12,   // sempre no topo da fila
+    });
+  }
   try { julgarConta(K, snap, vereditos); } catch (_e) { /* nunca derruba a resposta */ }
   try { julgarCampanhas(K, snap, vereditos); } catch (_e) { /* idem */ }
   try { julgarProdutos(K, snap, vereditos); } catch (_e) { /* idem */ }
@@ -571,6 +657,7 @@ Deno.serve(async (req) => {
     code_version: CODE_VERSION,
     regras_carregadas: K.total,          // prova que a tabela foi lida
     regras_por_dominio: K.contagem,      // e quais dominios chegaram
+    auditoria,                            // o que chegou de verdade na entrada
     total: vereditos.length,
     vereditos,
   });

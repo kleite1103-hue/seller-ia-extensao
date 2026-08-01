@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.44.4';
+  var VERSAO = '0.45.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1309,8 +1309,15 @@
     try { r = JSON.parse(ev.detail); } catch (e) { return; }
     if (r && r.id && pendentesBusca[r.id]) { pendentesBusca[r.id](r); delete pendentesBusca[r.id]; }
   });
+  var CONTAGEM_BUSCA = { ok: 0, falhas: 0 };
   function buscar(url, metodo, corpo) {
-    return new Promise(function (resolve) {
+    return new Promise(function (resolveOriginal) {
+      function resolve(r) {
+        // coleta que termina dizendo "pronto" com metade das rotas quebradas
+        // e pior que uma que falha na cara: o analista confia no que ve
+        if (r && r.ok) CONTAGEM_BUSCA.ok++; else CONTAGEM_BUSCA.falhas++;
+        resolveOriginal(r);
+      }
       var id = 'b' + (++seqBusca) + '_' + Date.now();
       pendentesBusca[id] = resolve;
       try {
@@ -1331,6 +1338,7 @@
           estado.coletaProgresso = t; estado.sujo = true;
           if (t === null) {
             estado.lidoEm = Date.now();               // terminou: marca a leitura DESTA conta
+            estado.ultimaColeta = { ok: CONTAGEM_BUSCA.ok, falhas: CONTAGEM_BUSCA.falhas };
             if (estado.loja) guardarConta(estado.loja.shop_id);
           }
           if (aoProgresso) aoProgresso(t);
@@ -1372,6 +1380,7 @@
         if (mFrom && mTo && !periodoForcado) { ini = inicioDoDiaBRT(parseInt(mFrom[1], 10)); fim = inicioDoDiaBRT(parseInt(mTo[1], 10)); }
         var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
         var totalChamadas = 0;
+        CONTAGEM_BUSCA.ok = 0; CONTAGEM_BUSCA.falhas = 0;
         // o Ads (pas/) exige end_time no ULTIMO segundo do dia (23:59:59),
         // nao 00:00 do dia seguinte. Senao retorna code 5 "invalid request".
         var fimAds = fim - 1;
@@ -3706,6 +3715,42 @@
       } catch (e) { estado.analisando = false; render(); }
     });
   }
+  /* ---- AUDITORIA LOCAL DA COLETA ----
+     Mesma defesa do cerebro, para quando ele nao responde: se a coleta
+     terminou mas o que chegou nao tem os campos esperados, e mais provavel
+     que a Shopee tenha mudado algo do que a conta estar realmente vazia. */
+  function auditarColeta() {
+    var nC = 0, comRoas = 0, comGasto = 0, nP = 0, comFunil = 0, k;
+    for (k in estado.campanhas) {
+      nC++;
+      var m = estado.campanhas[k].metricas || {};
+      if (m.roas != null) comRoas++;
+      if (m.gasto != null) comGasto++;
+    }
+    for (k in estado.produtos) {
+      nP++;
+      var pm = estado.produtos[k].metricas || {};
+      if (pm.visitantes != null || pm.uv != null) comFunil++;
+    }
+    var av = [];
+    if (nC >= 5 && comRoas === 0) av.push('Nenhuma das ' + nC + ' campanhas trouxe retorno.');
+    if (nC >= 5 && comGasto === 0) av.push('Nenhuma campanha trouxe valor investido.');
+    if (nP >= 5 && comFunil === 0) av.push('Nenhum dos ' + nP + ' produtos trouxe dado de visita.');
+    return av;
+  }
+  function renderAvisoLeitura() {
+    var av = auditarColeta();
+    var uc = estado.ultimaColeta;
+    if (uc && uc.falhas > 0 && (uc.falhas / (uc.ok + uc.falhas)) > 0.25) {
+      av.unshift(uc.falhas + ' de ' + (uc.ok + uc.falhas) + ' consultas a Shopee falharam nesta leitura.');
+    }
+    if (!av.length) return '';
+    return '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:12px;padding:15px 16px;margin-bottom:14px">' +
+      '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">A leitura desta conta pode estar incompleta</div>' +
+      '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(av.join(' ')) +
+      ' A Shopee pode ter mudado algo no painel. <b>Enquanto isso nao for verificado, a ausencia de alertas nesta tela nao significa que esta tudo bem.</b></div></div>';
+  }
+
   function renderBannerConta() {
     if (!estado.loja) {
       return '<div style="background:var(--b2);border-left:3px solid var(--am);border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1)">Identificando a loja... navegue uma vez no painel para a Seller.IA reconhecer a conta.</div>';
@@ -4082,7 +4127,7 @@
     $('sia-info').textContent = lojaTxt + ' · ' + nC + ' campanhas · ' + nP + ' produtos' + (lidoHa() ? ' · lido ' + lidoHa() : '');
 
     if (abaAtiva === 'semaforo') {
-      corpo.innerHTML = renderBannerConta() + renderSemaforo() + renderChamadaCerebro();
+      corpo.innerHTML = renderAvisoLeitura() + renderBannerConta() + renderSemaforo() + renderChamadaCerebro();
       ligarBannerConta();
       ligarChamadaCerebro();
       return;
