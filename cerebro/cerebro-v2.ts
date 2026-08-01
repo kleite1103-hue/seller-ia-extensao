@@ -533,7 +533,10 @@ Deno.serve(async (req) => {
   // historico: nunca deixa o relatorio ou o veredito falharem por causa dele.
   // `semHistorico` vem quando a leitura e de um periodo passado e nao
   // representa o estado atual da conta.
-  if (!body.semHistorico) {
+  // shop_id invalido somaria contas diferentes numa linha so, misturando
+  // dado de clientes distintos. Melhor nao gravar do que gravar errado.
+  const lojaValida = loja && loja !== "desconhecida" && /^\d+$/.test(loja);
+  if (!body.semHistorico && lojaValida) {
     try {
       await supa.rpc("gravar_historico", { p: resumoDiario(snap, loja, vereditos) });
     } catch (_e) { /* noop */ }

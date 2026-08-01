@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.44.2';
+  var VERSAO = '0.44.3';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3448,6 +3448,9 @@
       if (!epochDoMes(sel) || !epochDoMes(mesAnterior(sel))) {
         estado.rel.erro = 'Este mes ainda nao tem dia fechado na Shopee. Escolha outro.'; render(); return;
       }
+      if (!estado.loja || !estado.loja.shop_id) {
+        estado.rel.erro = 'Ainda nao identifiquei a loja. Navegue uma vez pelo painel da Shopee e tente de novo.'; render(); return;
+      }
       estado.rel.gerando = true; estado.rel.erro = null; render();
 
       // Coleta os DOIS meses sozinha, um de cada vez. Antes o seletor so
@@ -3843,7 +3846,13 @@
     });
   }
 
-  var TELAS_VALIDAS = ['semaforo','conta360','calc','cofre','espiao','card','diagnostico','visao','campanhas','produtos','performance','afiliados','cadastro','diamantes','debug'];
+  // ATENCAO: toda aba nova precisa entrar aqui. Se abaAtiva nao estiver na
+  // lista, o render forca a volta para o Inicio — foi o que aconteceu com
+  // 'relatorio' e 'gprod' depois da reorganizacao das abas: a tela abria e
+  // fechava sozinha.
+  var TELAS_VALIDAS = ['semaforo','conta360','calc','cofre','espiao','card','diagnostico','visao',
+    'campanhas','produtos','performance','afiliados','cadastro','diamantes','debug',
+    'relatorio','gprod','ferramentas'];
   /* ============ INTELIGENCIA DE PRODUTO (Performance) ============
      Le o funil de cada produto e devolve um veredito, nao uma linha de
      tabela. A ordem das perguntas segue o metodo: primeiro o dinheiro
