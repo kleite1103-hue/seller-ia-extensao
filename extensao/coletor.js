@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.42.1';
+  var VERSAO = '0.43.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1321,7 +1321,8 @@
   }
   function pausa(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-  function coletaCompleta(aoProgresso) {
+  function coletaCompleta(aoProgresso, periodoForcado) {
+    estado.coletaProgresso = 'iniciando';
     return new Promise(function (resolver) {
       (async function () {
         function prog(t) {
@@ -1344,9 +1345,13 @@
           return Math.floor((ts - BRT) / 86400) * 86400 + BRT;
         }
         var ini, fim;
-        // PREFERIDO: reusa o periodo REAL que a Shopee ja validou (capturado
-        // quando voce navegou pela Central de Dados). Nunca erra o formato.
-        if (estado.periodoMydata && estado.periodoMydata.inicio && estado.periodoMydata.fim) {
+        // MAIS FORTE QUE TUDO: periodo escolhido no seletor de mes do Relatorio.
+        // Sem isto, o mes do relatorio era so um rotulo e os numeros continuavam
+        // sendo os do recorte que estivesse aberto no painel da Shopee.
+        if (periodoForcado && periodoForcado.inicio && periodoForcado.fim) {
+          ini = periodoForcado.inicio;
+          fim = periodoForcado.fim;
+        } else if (estado.periodoMydata && estado.periodoMydata.inicio && estado.periodoMydata.fim) {
           ini = estado.periodoMydata.inicio;
           fim = estado.periodoMydata.fim;
         } else {
@@ -1362,7 +1367,7 @@
         // se estiver na tela de Ads com janela selecionada, espelha (alinhado ao dia)
         var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
         var mTo = location.search.match(/[?&]to=(\d{9,11})/);
-        if (mFrom && mTo) { ini = inicioDoDiaBRT(parseInt(mFrom[1], 10)); fim = inicioDoDiaBRT(parseInt(mTo[1], 10)); }
+        if (mFrom && mTo && !periodoForcado) { ini = inicioDoDiaBRT(parseInt(mFrom[1], 10)); fim = inicioDoDiaBRT(parseInt(mTo[1], 10)); }
         var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
         var totalChamadas = 0;
         // o Ads (pas/) exige end_time no ULTIMO segundo do dia (23:59:59),
@@ -3239,6 +3244,15 @@
     }
     return out;
   }
+  function epochDoMes(v) {
+    var p = String(v).split('-'), y = +p[0], m = +p[1];
+    // BRT = UTC-3, entao 00:00 local e 03:00 UTC
+    var ini = Date.UTC(y, m - 1, 1, 3, 0, 0) / 1000;
+    var fimMes = Date.UTC(y, m, 1, 3, 0, 0) / 1000;   // 00:00 do dia 1 do mes seguinte
+    var hoje0 = inicioDoDiaBRT(Math.floor(Date.now() / 1000));
+    // a Shopee so entrega ate D-1; nunca pedir alem disso
+    return { inicio: ini, fim: Math.min(fimMes, hoje0) };
+  }
   function faixaDoMes(v) {
     var p = String(v).split('-'), y = +p[0], m = +p[1];
     var ini = new Date(y, m - 1, 1), fim = new Date(y, m, 0);
@@ -3347,9 +3361,9 @@
       return h;
     }
 
-    h += '<div style="background:var(--b2);border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin:14px 0;font-size:13.5px;color:var(--t1);line-height:1.55">' +
-      '<b style="color:var(--t0)">Como funciona hoje:</b> o relatorio usa os numeros que estao coletados agora nesta conta — ' + nP + ' produtos e ' + nC + ' campanhas. ' +
-      'A troca automatica de periodo dentro do painel da Shopee ainda nao esta ligada, entao <b>selecione o mes no painel da Shopee antes de coletar</b>, e o relatorio vai usar esse recorte.</div>';
+    h += '<div style="background:var(--b2);border-left:3px solid var(--vd);border-radius:0 11px 11px 0;padding:13px 15px;margin:14px 0;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      '<b style="color:var(--t0)">A coleta e automatica.</b> Ao gerar, a Seller.IA le os dois meses direto da Shopee, um de cada vez, sem voce precisar trocar nada no painel. ' +
+      'Leva alguns minutos porque sao duas leituras completas da conta.</div>';
 
     h += '<button id="sia-rel-gerar" ' + (R.gerando ? 'disabled ' : '') +
       'style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer' + (R.gerando ? ';opacity:.6' : '') + '">' +
@@ -3393,25 +3407,59 @@
       var meses = mesesDisponiveis();
       var sel = estado.rel.mes || meses[1].v;
       var fa = faixaDoMes(sel), fp = faixaDoMes(mesAnterior(sel));
-      estado.rel.gerando = true; estado.rel.erro = null; estado.rel.etapa = 'Montando os numeros...'; render();
+      estado.rel.gerando = true; estado.rel.erro = null; render();
 
-      var payload = {
-        loja: estado.loja ? estado.loja.shop_id : 'desconhecida',
-        loja_nome: estado.loja ? estado.loja.nome : '',
-        margemMediaPct: margemMediaCofre(),
-        atual: blocoPeriodo(fa.rotulo),
-        anterior: blocoPeriodo(fp.rotulo)
-      };
-      estado.rel.etapa = 'O consultor esta escrevendo...'; render();
-      try {
-        chrome.runtime.sendMessage({ tipo: 'sia:relatorio', payload: payload }, function (resp) {
-          void chrome.runtime.lastError;
-          estado.rel.gerando = false; estado.rel.etapa = '';
-          if (!resp || !resp.ok) { estado.rel.erro = (resp && (resp.erro || resp.detalhe)) || 'Nao consegui gerar.'; }
-          else { estado.rel.markdown = resp.markdown; }
-          render();
-        });
-      } catch (e) { estado.rel.gerando = false; estado.rel.erro = String(e); render(); }
+      // Coleta os DOIS meses sozinha, um de cada vez. Antes o seletor so
+      // rotulava o relatorio e os numeros vinham do recorte aberto no painel
+      // — o mesmo bloco ia como "atual" e como "anterior", e o comparativo
+      // era uma comparacao do mes com ele mesmo.
+      var guardaCampanhas = estado.campanhas, guardaProdutos = estado.produtos, guardaConta = estado.conta;
+      function restaurar() { estado.campanhas = guardaCampanhas; estado.produtos = guardaProdutos; estado.conta = guardaConta; }
+      function zerar() { estado.campanhas = {}; estado.produtos = {}; estado.conta = { campos: {}, atualizadoEm: null }; }
+
+      estado.rel.etapa = 'Lendo ' + faixaDoMes(sel).rotulo + '...'; render();
+      zerar();
+      coletaCompleta(function (p) {
+        if (p) { estado.rel.etapa = 'Mes atual: ' + p; render(); }
+      }, epochDoMes(sel));
+
+      // a coleta avisa o fim passando null no progresso; encadeamos por espera
+      var esperaA = setInterval(function () {
+        if (estado.coletaProgresso !== null) return;
+        clearInterval(esperaA);
+        var blocoA = blocoPeriodo(fa.rotulo);
+
+        estado.rel.etapa = 'Lendo ' + faixaDoMes(mesAnterior(sel)).rotulo + '...'; render();
+        zerar();
+        coletaCompleta(function (p) {
+          if (p) { estado.rel.etapa = 'Mes anterior: ' + p; render(); }
+        }, epochDoMes(mesAnterior(sel)));
+
+        var esperaB = setInterval(function () {
+          if (estado.coletaProgresso !== null) return;
+          clearInterval(esperaB);
+          var blocoB = blocoPeriodo(fp.rotulo);
+          restaurar();
+
+          estado.rel.etapa = 'O consultor esta escrevendo...'; render();
+          var payload = {
+            loja: estado.loja ? estado.loja.shop_id : 'desconhecida',
+            loja_nome: estado.loja ? estado.loja.nome : '',
+            margemMediaPct: margemMediaCofre(),
+            atual: blocoA,
+            anterior: blocoB
+          };
+          try {
+            chrome.runtime.sendMessage({ tipo: 'sia:relatorio', payload: payload }, function (resp) {
+              void chrome.runtime.lastError;
+              estado.rel.gerando = false; estado.rel.etapa = '';
+              if (!resp || !resp.ok) { estado.rel.erro = (resp && (resp.erro || resp.detalhe)) || 'Nao consegui gerar.'; }
+              else { estado.rel.markdown = resp.markdown; }
+              render();
+            });
+          } catch (e) { estado.rel.gerando = false; estado.rel.erro = String(e); restaurar(); render(); }
+        }, 900);
+      }, 900);
     });
 
     var pdf = $('sia-rel-pdf');
