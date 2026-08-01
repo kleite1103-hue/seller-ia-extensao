@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.43.0';
+  var VERSAO = '0.43.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3540,6 +3540,7 @@
         estado.lidoEm = d.lidoEm || r.em || null;
         estado.contas[id] = d;
         estado.sujo = true;
+        agendarAutoColeta();
       });
     } catch (e) { /* noop */ }
   }
@@ -3556,8 +3557,29 @@
     estado.trocou = { de: antigo, para: nova.shop_id, nome: nova.nome, em: Date.now() };
     estado.sujo = true;
     log('conta', 'trocou para ' + nova.shop_id + (nova.nome ? ' (' + nova.nome + ')' : ''));
-    if (estado.autoColeta && antigo) setTimeout(function () { try { coletaCompleta(); } catch (e) { /* noop */ } }, 1200);
+    // NAO exigir `antigo`: ao ENTRAR numa conta, antigo e null e a auto-coleta
+    // nunca disparava — ela so funcionava trocando de uma conta para outra,
+    // que e justamente o caso menos comum.
+    if (estado.autoColeta) agendarAutoColeta();
   }
+  /* ---- AUTO-COLETA ----
+     Dispara sozinha quando a conta e identificada, desde que ela ainda nao
+     tenha sido lida nesta sessao. Espera o painel assentar e nao repete. */
+  var autoColetaFeita = {};
+  function agendarAutoColeta() {
+    if (!estado.autoColeta || !estado.loja) return;
+    var id = estado.loja.shop_id;
+    if (autoColetaFeita[id]) return;                       // ja rodou nesta sessao
+    if (estado.coletaProgresso !== null) return;           // ja tem coleta rodando
+    var temDado = Object.keys(estado.campanhas).length || Object.keys(estado.produtos).length;
+    if (temDado) { autoColetaFeita[id] = true; return; }   // veio do disco, nao precisa
+    autoColetaFeita[id] = true;
+    setTimeout(function () {
+      if (!estado.loja || estado.loja.shop_id !== id) return;   // trocou no meio
+      try { coletaCompleta(); } catch (e) { /* noop */ }
+    }, 2500);
+  }
+
   function lidoHa() {
     if (!estado.lidoEm) return null;
     var m = Math.round((Date.now() - estado.lidoEm) / 60000);
@@ -3601,13 +3623,18 @@
     var trocouAgora = estado.trocou && (Date.now() - estado.trocou.em) < 600000;
     if (!vazio && !trocouAgora) return '';
     var cor = vazio ? 'var(--am)' : 'var(--vd)';
+    var rodando = estado.coletaProgresso !== null;
+    if (vazio && rodando) {
+      return '<div style="background:var(--b2);border-left:3px solid var(--mk);border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' +
+        'Lendo <b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> agora \u2014 ' + esc(String(estado.coletaProgresso)) + '</div>';
+    }
     var txt = vazio
       ? '<b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> ainda nao foi lida nesta sessao.'
       : '<b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> — dado desta conta, lido ' + (lidoHa() || 'agora') + '.';
     return '<div style="background:var(--b2);border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' + txt +
       (vazio ? ' <button id="sia-coletar-agora" style="background:var(--mk);border:none;color:var(--t0);font-weight:600;font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;margin-left:6px">Coletar esta conta</button>' : '') +
       '<div style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2);margin-top:6px">' +
-      '<label style="cursor:pointer"><input type="checkbox" id="sia-auto-troca"' + (estado.autoColeta ? ' checked' : '') + '> coletar automaticamente ao trocar de conta</label>' +
+      '<label style="cursor:pointer"><input type="checkbox" id="sia-auto-troca"' + (estado.autoColeta ? ' checked' : '') + '> ler a conta sozinha ao abrir</label>' +
       ' &nbsp;·&nbsp; <a href="#" id="sia-limpar-contas" style="color:var(--t2);text-decoration:underline">apagar dados de todas as contas</a></div></div>';
   }
   function ligarBannerConta() {
@@ -4371,7 +4398,12 @@
   try {
     chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'autoColeta' }, function (r) {
       void chrome.runtime.lastError;
-      if (r && r.valor) { estado.autoColeta = true; estado.sujo = true; }
+      if (r && r.valor) {
+        estado.autoColeta = true; estado.sujo = true;
+        // a loja pode ja ter sido identificada antes desta preferencia chegar
+        agendarAutoColeta();
+        setTimeout(agendarAutoColeta, 4000);
+      }
     });
   } catch (e) { /* noop */ }
 
