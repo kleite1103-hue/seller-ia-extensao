@@ -630,6 +630,18 @@
           if (pp.l30d_sales != null) p.perf.vendas30d = n(pp.l30d_sales);
           if (pp.l30d_impression != null) p.perf.impressoes30d = n(pp.l30d_impression);
           if (pp.l30d_conversion != null) p.perf.conversao30d = pctReal(pp.l30d_conversion);
+          // ESTES TRES eram o furo: a rota traz competitividade, posicao media
+          // e status, e o extrator saia antes de ler. O card mostrava
+          // "abra a campanha uma vez" para sempre.
+          var cmp = pp.competitiveness != null ? pp.competitiveness
+            : (pp.price_competitiveness != null ? pp.price_competitiveness
+            : (pp.competitiveness_score != null ? pp.competitiveness_score : null));
+          if (cmp != null) p.competitividade = n(cmp);
+          var rk = pp.avg_rank != null ? pp.avg_rank : (pp.rank != null ? pp.rank : null);
+          if (rk != null) p.posicao = n(rk);
+          var stt = pp.item_status != null ? pp.item_status : (pp.status != null ? pp.status : null);
+          if (stt != null) p.statusShopee = String(stt);
+          if (pp.listing_status != null) p.listing = String(pp.listing_status);
           COFRE.porProduto[String(id)] = p;
           c++;
         });
@@ -875,6 +887,9 @@
       if (/dashboard\/key-metrics|homepage\/key-metrics|dashboard\/order-performance/.test(url)) exGerenciais(url, dados);
       if (/traffic\/overview|dashboard\/traffic-sources/.test(url)) exFunil(url, dados);
       if (/product\/performance|product-rankings|traffic-sources\/product-contribution|traffic\/item-list|get_product_performance_info/.test(url)) exPerformanceProduto(url, dados);
+      // a mesma resposta ainda passa pela varredura ampla, que pesca
+      // competitiveness/avg_rank soltos em qualquer profundidade
+      if (/get_product_performance_info/.test(url)) exProduto(url, dados);
       if (/product\/overview\/metric-trends|product\/overview\/|product\/traffic\/overview/.test(url)) exTendenciaProduto(url, dados);
       if (/get_product_lock_info|item\/get_ratings/.test(url)) exSaudeProduto(url, dados);
       if (/accounthealth\/v1\/sc\/shops\/overview/.test(url)) exSaudeConta(url, dados);
