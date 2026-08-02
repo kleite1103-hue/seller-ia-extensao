@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.50.1';
+  var VERSAO = '0.50.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1783,6 +1783,7 @@
         // sem isto o clique e capturado pela linha e o href nunca e seguido
         if (el.getAttribute('data-link-externo')) return;
         if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
+        if (el.getAttribute('data-voltar-radar')) { estado.espiao.erro = null; estado.espiao.res = null; render(); return; }
         // Estes botoes eram ligados por addEventListener depois de cada render.
         // Qualquer render extra entre o desenho e a religacao deixava o botao
         // morto — clicava e nada acontecia, sem erro. Na delegacao global eles
@@ -2763,7 +2764,24 @@
 
     h += '<div class="nota" style="margin-top:0">A busca abre a vitrine numa aba em segundo plano e le a resposta que a propria Shopee entrega — nao fabricamos chamada, so escutamos. Cada termo leva alguns segundos. O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
 
-    if (e.erro) h += '<div class="nota" style="color:var(--rd)">' + esc(e.erro) + '</div>';
+    // ORDEM CORRETA: buscando e erro vem ANTES do Radar e cortam o render.
+    // Estavam num ponto do arquivo que nunca era alcancado, entao clicar numa
+    // linha do Radar parecia nao fazer nada: a tela voltava a desenhar o
+    // proprio Radar e o resultado nunca aparecia.
+    if (e.buscando) {
+      return h + '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:18px;margin-top:12px">' +
+        '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">' +
+        '<span style="width:9px;height:9px;border-radius:50%;background:var(--mk);display:inline-block"></span>' +
+        '<b style="font-size:15px;color:var(--t0)">Espiando "' + esc(e.termo || '') + '"</b></div>' +
+        '<div style="font-size:13.5px;color:var(--t2);line-height:1.55">A Seller.IA abre a vitrine da Shopee numa aba invisivel, le os resultados como um comprador veria e volta com o comparativo. Leva ate 40 segundos.</div></div>';
+    }
+    if (e.erro) {
+      return h + '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:12px;padding:16px;margin-top:12px">' +
+        '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:6px">Nao consegui espiar "' + esc(e.termo || '') + '"</div>' +
+        '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(e.erro) + '</div>' +
+        '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-top:9px">Confira se voce esta logada em <b>shopee.com.br</b>, nao so no Seller Centre, e recarregue esta pagina.</div>' +
+        '<button data-voltar-radar="1" style="margin-top:12px;background:var(--b2);border:1px solid var(--li2);color:var(--t0);font-family:inherit;font-size:13px;padding:9px 15px;border-radius:8px;cursor:pointer">Voltar ao Radar</button></div>';
+    }
 
     /* ---- RADAR ---- */
     if (e.radar && e.radar.length) {
