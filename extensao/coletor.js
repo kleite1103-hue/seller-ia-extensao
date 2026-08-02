@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.48.1';
+  var VERSAO = '0.49.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1647,11 +1647,13 @@
     '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
     '.cab button{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:"Space Mono";font-size:11px;padding:7px 11px;border-radius:7px;cursor:pointer}' +
     '.cab button:hover{border-color:var(--mk);color:var(--t0)}' +
-    '.abas{display:flex;flex-wrap:nowrap;gap:1px;background:var(--b0);padding:0 14px;border-bottom:1px solid var(--li);overflow-x:auto;scrollbar-width:none}' + '.abas::-webkit-scrollbar{display:none}' +
+    '.abas{display:flex;flex-wrap:wrap;gap:3px;background:var(--b0);padding:8px 14px 0;border-bottom:1px solid var(--li)}' +
+    '.aba{border-radius:8px 8px 0 0}' +
+    '.aba.ativa{background:var(--b2)}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
     '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:"Space Mono";font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
     '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
-    '.aba{background:none;border:none;color:var(--t2);font-family:"Space Mono";font-size:13px;letter-spacing:.03em;padding:13px 13px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
+    '.aba{background:none;border:none;color:var(--t2);font-family:"Space Mono";font-size:12.5px;letter-spacing:.02em;padding:10px 13px;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
     '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:26px 26px 40px}' +
     /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
@@ -3485,11 +3487,9 @@
     h += '</select>';
     h += '<div class="nota">Atual: <b>' + fa.rotulo + '</b><br>Anterior: <b>' + fp.rotulo + '</b></div>';
 
-    var nC = Object.keys(estado.campanhas).length, nP = Object.keys(estado.produtos).length;
-    if (!nC && !nP) {
-      h += '<div class="nota" style="color:var(--am)">Colete a conta antes de gerar o relatorio.</div>';
-      return h;
-    }
+    // O relatorio coleta os dois meses sozinho, entao exigir coleta previa era
+    // contraditorio — e pior: escondia o botao, e a pessoa clicava num lugar
+    // onde nao havia botao nenhum e nada acontecia.
 
     h += '<div style="background:var(--b2);border-left:3px solid var(--vd);border-radius:0 11px 11px 0;padding:13px 15px;margin:14px 0;font-size:13.5px;color:var(--t1);line-height:1.55">' +
       '<b style="color:var(--t0)">A coleta e automatica.</b> Ao gerar, a Seller.IA le os dois meses direto da Shopee, um de cada vez, sem voce precisar trocar nada no painel. ' +
@@ -3498,8 +3498,14 @@
     h += '<button id="sia-rel-gerar" ' + (R.gerando ? 'disabled ' : '') +
       'style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer' + (R.gerando ? ';opacity:.6' : '') + '">' +
       (R.gerando ? (R.etapa || 'Gerando...') : 'Gerar relatorio') + '</button>';
-    if (R.erro) h += '<div class="nota" style="color:var(--rd)">' + esc(R.erro) + '</div>';
-    if (R.gerando) h += '<div class="nota">O relatorio leva de 30 a 90 segundos. Pode deixar a gaveta aberta.</div>';
+    if (R.erro) h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 10px 10px 0;padding:12px 14px;margin-top:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' + esc(R.erro) + '</div>';
+    if (R.gerando) {
+      h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:11px;padding:14px;margin-top:12px">' +
+        '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">' +
+        '<span style="width:9px;height:9px;border-radius:50%;background:var(--mk);display:inline-block"></span>' +
+        '<b style="font-size:14px;color:var(--t0)">' + esc(R.etapa || 'Trabalhando...') + '</b></div>' +
+        '<div style="font-size:13px;color:var(--t2);line-height:1.5">Sao duas leituras completas da conta mais a analise. Leva alguns minutos. Pode deixar a gaveta aberta e continuar navegando.</div></div>';
+    }
     return h;
   }
   function mdParaHtml(md) {
@@ -3738,6 +3744,7 @@
       return;
     }
     if (antigo) guardarConta(antigo);           // congela o que ja foi lido
+    try { if (window.SIA_Diamantes && window.SIA_Diamantes.zerar) window.SIA_Diamantes.zerar('troca de conta'); } catch (e) { /* noop */ }
     lojaDoCiclo = nova.shop_id;                 // qualquer pacote em voo da
                                                 // conta anterior sera descartado
     if (estado.coletaProgresso !== null) {

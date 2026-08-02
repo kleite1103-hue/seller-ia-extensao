@@ -999,5 +999,23 @@
   }
   carregar(); // ao iniciar, recupera o que ja foi capturado em outras paginas
 
-  window.SIA_Diamantes = { versao: VERSAO, processar: processar, estado: estado, resumo: resumo, persistir: persistir, carregar: carregar };
+  // O COFRE e global e acumulava produto de todas as contas: a Conta 360 le
+  // dele, entao continuava mostrando produto da loja anterior mesmo depois de
+  // o coletor carimbar os pacotes. Zerar na troca e obrigatorio.
+  function zerar(motivo) {
+    COFRE.porProduto = {};
+    COFRE.porCampanha = {};
+    COFRE.conta = {};
+    COFRE.loja = {};
+    COFRE.ads = {};
+    COFRE.funil = {};
+    COFRE.afiliados = {};
+    COFRE.financeiro = {};
+    COFRE.gerenciais = {};
+    COFRE.incentivos = {};
+    COFRE.algoritmo = {};
+    COFRE.busca = {};
+    try { console.debug('[Seller.IA] cofre zerado:', motivo || ''); } catch (e) { /* noop */ }
+  }
+  window.SIA_Diamantes = { versao: VERSAO, processar: processar, estado: estado, resumo: resumo, persistir: persistir, carregar: carregar, zerar: zerar };
 })();

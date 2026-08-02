@@ -129,10 +129,64 @@ function lucroDe(gasto: number | null, roas: number | null, margemPct: number | 
   return gasto * (roas * (margemPct / 100) - 1);
 }
 
+
+/* ==================== A REGUA DA PROPRIA LOJA ====================
+   Julgar "37 cliques e nenhuma venda" contra um limiar fixo e errado: numa
+   loja que converte a cada 20 cliques isso e um problema real; numa que
+   converte a cada 200, e o comportamento normal e a sugestao seria ruido.
+   O certo e comparar cada produto com a MEDIA DA PROPRIA LOJA — e so
+   apontar problema quando ha volume suficiente para a leitura significar
+   alguma coisa. */
+
+interface Regua {
+  conversaoMedia: number | null;
+  ctrMedio: number | null;
+  ticketMedio: number | null;
+  cliquesPorVenda: number | null;   // quantos cliques esta loja gasta por venda
+  amostra: number;
+}
+
+function calcularRegua(snap: any): Regua {
+  const prods = snap?.produtos || {};
+  let somaConv = 0, nConv = 0, somaCtr = 0, nCtr = 0;
+  let totCliques = 0, totPedidos = 0, somaTicket = 0, nTicket = 0;
+
+  for (const k of Object.keys(prods)) {
+    const m = prods[k]?.metricas || prods[k]?.perf || {};
+    const visitas = num(m.visitantes ?? m.uv);
+    if (visitas === null || visitas < 30) continue;   // ruido nao entra na media
+    const cv = pct(m.conversao_pago ?? m.convPago);
+    if (cv !== null) { somaConv += cv; nConv++; }
+    const ct = pct(m.ctr_card ?? m.ctr);
+    if (ct !== null) { somaCtr += ct; nCtr++; }
+    const cl = num(m.cliques ?? m.click);
+    const pd = num(m.pedidos_pagos ?? m.pedidosPagos);
+    if (cl !== null) totCliques += cl;
+    if (pd !== null) totPedidos += pd;
+    const tk = num(m.ticket_pedido ?? m.ticket);
+    if (tk !== null && tk > 0) { somaTicket += tk; nTicket++; }
+  }
+  return {
+    conversaoMedia: nConv ? somaConv / nConv : null,
+    ctrMedio: nCtr ? somaCtr / nCtr : null,
+    ticketMedio: nTicket ? somaTicket / nTicket : null,
+    cliquesPorVenda: totPedidos > 0 ? totCliques / totPedidos : null,
+    amostra: nConv,
+  };
+}
+
+/* Quantos cliques esta loja precisa antes de "nao vendeu" significar algo.
+   Duas vezes a media da loja: abaixo disso e cedo demais para concluir. */
+function cliquesMinimosParaJulgar(r: Regua): number {
+  if (r.cliquesPorVenda && r.amostra >= 3) return Math.max(30, Math.ceil(r.cliquesPorVenda * 2));
+  return 100;   // sem regua propria, usa um piso conservador
+}
+
 /* ==================== PRODUTO ==================== */
 
 function julgarProdutos(K: any, snap: any, saida: Veredito[]) {
   const produtos = snap?.produtos || {};
+  const regua = calcularRegua(snap);
   const cofre = snap?.cofre || {};
   const pisoVisitas = limiar(K, "visitas_minimas_julgamento", "valor", 100);
   const regras = (K.porDominio["produto"] || []);
@@ -158,6 +212,22 @@ function julgarProdutos(K: any, snap: any, saida: Veredito[]) {
       fatia: fmt(fatia, 0), ticket: dinheiro(ticket),
     };
 
+    // A loja tem uma regua propria: um produto so e "ruim" comparado ao que
+    // esta loja costuma fazer, nunca contra um numero fixo.
+    const cliques = num(m.cliques ?? m.click);
+    const pedidos0 = num(m.pedidos_pagos ?? m.pedidosPagos) ?? 0;
+    const minCliques = cliquesMinimosParaJulgar(regua);
+    if (pedidos0 === 0 && cliques !== null && cliques < minCliques && (visitas ?? 0) >= pisoVisitas) {
+      saida.push({
+        escopo: "produto", id, nivel: "cinza", fonte: "seller.ia",
+        titulo: "Ainda cedo para julgar este produto",
+        texto: `Recebeu ${fmt(cliques, 0)} cliques e nenhuma venda. Nesta loja, cada venda custa em média ${regua.cliquesPorVenda ? fmt(regua.cliquesPorVenda, 0) : "—"} cliques, então esse volume ainda não diz nada.`,
+        passos: [`Reavalie quando passar de ${minCliques} cliques`],
+        dinheiro: venda,
+      });
+      continue;
+    }
+
     // sem volume corta tudo: percentual com pouca visita engana
     if (visitas === null || visitas < pisoVisitas) {
       const r = K.porChave["produto.sem_visita"];
@@ -171,7 +241,15 @@ function julgarProdutos(K: any, snap: any, saida: Veredito[]) {
       if (c.visitas_menor_que !== undefined) continue; // ja tratado acima
       if (c.ctr_menor_que !== undefined && !(ctr !== null && ctr < c.ctr_menor_que)) continue;
       if (c.ctr_maior_igual !== undefined && !(ctr !== null && ctr >= c.ctr_maior_igual)) continue;
-      if (c.conversao_menor_que !== undefined && !(conv !== null && conv < c.conversao_menor_que)) continue;
+      if (c.conversao_menor_que !== undefined) {
+        // limiar relativo: metade da media da loja, com o valor da regra como
+        // teto. Numa loja que converte 4%, um produto de 1,5% e ruim mesmo
+        // estando acima do limiar fixo de 1%.
+        const alvo = regua.conversaoMedia && regua.amostra >= 3
+          ? Math.min(c.conversao_menor_que, regua.conversaoMedia * 0.5)
+          : c.conversao_menor_que;
+        if (!(conv !== null && conv < alvo)) continue;
+      }
       if (c.conversao_maior_igual !== undefined && !(conv !== null && conv >= c.conversao_maior_igual)) continue;
       if (c.rejeicao_maior_igual !== undefined && !(rej !== null && rej >= c.rejeicao_maior_igual)) continue;
       if (c.fatia_maior_igual !== undefined && !(fatia !== null && fatia >= c.fatia_maior_igual)) continue;
@@ -378,6 +456,80 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
       }
     }
     void cpmReal; void rotulo;
+  }
+}
+
+
+/* ==================== OPORTUNIDADES ====================
+   Ate aqui o cerebro so apontava problema. Uma conta boa abria a extensao e
+   via uma lista vazia — ou pior, ruido. Consultor de verdade tambem diz onde
+   colocar mais dinheiro, nao so onde parar de perder. */
+
+function julgarOportunidades(K: any, snap: any, regua: Regua, saida: Veredito[]) {
+  const camps = snap?.campanhas || {};
+  const prods = snap?.produtos || {};
+  const margem = num(snap?.margemMediaPct);
+  const piso = pisoRoas(K, margem);
+
+  // 1) campanhas que batem com folga o piso: e onde escalar custa menos
+  const escalaveis: Array<{ id: string; roas: number; gasto: number; lucro: number | null }> = [];
+  for (const id of Object.keys(camps)) {
+    const r = camps[id]?.report || camps[id]?.metricas || {};
+    const g = num(r.gasto) ?? (num(r.cost) !== null ? Number(r.cost) / 100000 : null);
+    let ro = num(r.roas ?? r.broad_roi);
+    if (ro !== null && (ro > 1000 || ro < 0)) ro = null;
+    if (g === null || ro === null || g <= 0) continue;
+    if (piso.origem !== "margem_negativa" && ro >= piso.valor * 1.5) {
+      escalaveis.push({ id, roas: ro, gasto: g, lucro: lucroDe(g, ro, margem) });
+    }
+  }
+  escalaveis.sort((a, b) => (b.lucro ?? b.gasto) - (a.lucro ?? a.gasto));
+  for (const e of escalaveis.slice(0, 3)) {
+    const ganho = e.lucro !== null ? e.lucro * 0.2 : null;
+    saida.push({
+      escopo: "campanha", id: e.id, nivel: "verde", fonte: "seller.ia",
+      titulo: "Aqui cabe mais investimento",
+      texto: `Entrega ${fmt(e.roas, 1)}x com seu equilíbrio em ${fmt(piso.valor, 1)}x — sobra folga.` +
+        (e.lucro !== null ? ` Hoje deixa ${dinheiro(e.lucro)} de lucro com ${dinheiro(e.gasto)} investidos.` : "") +
+        (ganho !== null ? ` Subir 20% pode render cerca de ${dinheiro(ganho)} a mais.` : ""),
+      passos: [
+        "Suba o orçamento em 20%, não mais que isso de uma vez",
+        "Meça 7 dias antes do próximo aumento",
+        "Se o ROAS cair abaixo do equilíbrio, volte ao valor anterior",
+      ],
+      dinheiro: e.gasto,
+    });
+  }
+
+  // 2) produto que converte acima da media da loja e nao tem anuncio:
+  //    e o trafego mais barato que existe, porque a pagina ja sabe vender
+  if (regua.conversaoMedia && regua.amostra >= 3) {
+    const semAds: Array<{ id: string; conv: number; venda: number; nome: string }> = [];
+    for (const id of Object.keys(prods)) {
+      const p = prods[id] || {};
+      const m = p.metricas || p.perf || {};
+      const temAds = !!(p.campaignId || m.temAds);
+      if (temAds) continue;
+      const visitas = num(m.visitantes ?? m.uv);
+      const cv = pct(m.conversao_pago ?? m.convPago);
+      if (visitas === null || visitas < 100 || cv === null) continue;
+      if (cv >= regua.conversaoMedia * 1.3) {
+        semAds.push({ id, conv: cv, venda: num(m.vendas_pagas ?? m.vendaPaga) ?? 0, nome: p.nome || id });
+      }
+    }
+    semAds.sort((a, b) => b.venda - a.venda);
+    for (const s of semAds.slice(0, 3)) {
+      saida.push({
+        escopo: "produto", id: s.id, nivel: "verde", fonte: "seller.ia",
+        titulo: "Vende sozinho e ainda não tem anúncio",
+        texto: `Converte ${fmt(s.conv, 1)}% contra a média de ${fmt(regua.conversaoMedia, 1)}% da loja, sem nenhum investimento. É o tráfego mais barato que você pode comprar, porque a página já provou que vende.`,
+        passos: [
+          "Comece com orçamento pequeno e meta de ROAS igual ao seu equilíbrio",
+          "Este é o primeiro lugar para colocar dinheiro novo",
+        ],
+        dinheiro: s.venda,
+      });
+    }
   }
 }
 
@@ -627,6 +779,7 @@ Deno.serve(async (req) => {
   try { julgarConta(K, snap, vereditos); } catch (_e) { /* nunca derruba a resposta */ }
   try { julgarCampanhas(K, snap, vereditos); } catch (_e) { /* idem */ }
   try { julgarProdutos(K, snap, vereditos); } catch (_e) { /* idem */ }
+  try { julgarOportunidades(K, snap, calcularRegua(snap), vereditos); } catch (_e) { /* idem */ }
   ordenar(vereditos);
 
   // historico: nunca deixa o relatorio ou o veredito falharem por causa dele.
