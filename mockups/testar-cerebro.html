@@ -177,6 +177,15 @@ document.getElementById('ir').addEventListener('click', async function () {
         ? 'Com margem de 30% o piso é <b>3,33x</b>, e a Shopee sugere <b>3,0x</b> — abaixo do piso. O cérebro <b>recusou</b> a sugestão, como devia.'
         : 'O cérebro <b>não recusou</b> uma sugestão que dá prejuízo. Isso precisa ser corrigido antes de ligar na extensão.');
 
+    // A versao de 31/07 devolve o bloco `auditoria`. Sem esta checagem eu
+    // pedia para a Karina "procurar a auditoria" numa pagina que nunca a
+    // exibiu — nao dava para saber se o deploy tinha pegado.
+    h += checagem(!!d.auditoria,
+      'A versão nova do cérebro está no ar',
+      d.auditoria
+        ? 'Auditoria de entrada ativa: leu <b>' + (d.auditoria.campanhas_recebidas || 0) + ' campanhas</b> e <b>' + (d.auditoria.produtos_recebidos || 0) + ' produtos</b>, com ' + (d.auditoria.alertas || []).length + ' alerta(s). Também estão ativas a proteção de margem negativa e a comissão vinda da tabela.'
+        : 'Esta função ainda é a versão antiga. Republique o <b>cerebro-v2.ts</b> completo — sem ele faltam a auditoria de entrada e a proteção contra margem negativa.');
+
     var c888 = achar('campanha', '888');
     h += checagem(c888.length > 0,
       'Anúncio automático de loja rodando há meses foi sinalizado',
