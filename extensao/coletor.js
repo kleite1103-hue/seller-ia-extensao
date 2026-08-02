@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.50.2';
+  var VERSAO = '0.51.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1367,10 +1367,6 @@
         // BRT = UTC-3, entao o offset e 3*3600 = 10800s.
         var BRT = 3 * 3600;
         var agora = Math.floor(Date.now() / 1000);
-        function inicioDoDiaBRT(ts) {
-          // 00:00 BRT = 03:00 UTC. Vai pro dia UTC deslocado, arredonda, volta.
-          return Math.floor((ts - BRT) / 86400) * 86400 + BRT;
-        }
         var ini, fim;
         // MAIS FORTE QUE TUDO: periodo escolhido no seletor de mes do Relatorio.
         // Sem isto, o mes do relatorio era so um rotulo e os numeros continuavam
@@ -1789,7 +1785,19 @@
         // morto — clicava e nada acontecia, sem erro. Na delegacao global eles
         // funcionam sempre, porque o listener vive no container que nao e
         // recriado.
-        if (el.id === 'sia-rel-gerar') { gerarRelatorio(); return; }
+        if (el.id === 'sia-rel-gerar') {
+          // Sem este try, um ReferenceError dentro de gerarRelatorio morria no
+          // console e o botao "nao fazia nada" — que foi exatamente o caso do
+          // inicioDoDiaBRT. Agora o erro aparece na tela, com a linha.
+          try { gerarRelatorio(); }
+          catch (err) {
+            estado.rel.gerando = false; estado.rel.etapa = '';
+            estado.rel.erro = 'Erro interno ao gerar: ' + String((err && err.message) || err);
+            try { console.error('[Seller.IA] gerarRelatorio:', err); } catch (e2) { }
+            render();
+          }
+          return;
+        }
         if (el.id === 'sia-rel-pdf') { imprimirRelatorio(); return; }
         if (el.id === 'sia-rel-copiar') {
           try { navigator.clipboard.writeText(estado.rel.markdown || ''); mostrarExpl('<b>Relatorio copiado.</b> Cole onde precisar.'); } catch (e) { /* noop */ }
@@ -1818,6 +1826,7 @@
         if (dd) { mostrarExpl(DICAS[dd] || dd); return; }
         var esp = el.getAttribute && el.getAttribute('data-espiar');
         if (esp) {
+          try {
           abaAtiva = 'espiao';
           var prodOrigem = el.getAttribute('data-prod') || null;
           estado.espiao.meuProduto = prodOrigem ? { nome: prodOrigem } : null;
@@ -1832,6 +1841,12 @@
             }
             render();
           });
+          } catch (err) {
+            estado.espiao.buscando = false;
+            estado.espiao.erro = 'Erro interno ao espiar: ' + String((err && err.message) || err);
+            try { console.error('[Seller.IA] espiar:', err); } catch (e2) { }
+            render();
+          }
           return;
         }
         var sb = el.getAttribute && el.getAttribute('data-sub');
@@ -3396,6 +3411,14 @@
       });
     }
     return out;
+  }
+  // Estava declarada DENTRO de coletaCompleta e era chamada de fora por
+  // epochDoMes: ReferenceError na hora de gerar o relatorio, que e o motivo
+  // real do botao "nao fazer nada". Agora vive no escopo do modulo.
+  var BRT_OFFSET = 3 * 3600;
+  function inicioDoDiaBRT(ts) {
+    // 00:00 BRT = 03:00 UTC. Vai pro dia UTC deslocado, arredonda, volta.
+    return Math.floor((ts - BRT_OFFSET) / 86400) * 86400 + BRT_OFFSET;
   }
   function epochDoMes(v) {
     var p = String(v).split('-'), y = +p[0], m = +p[1];
