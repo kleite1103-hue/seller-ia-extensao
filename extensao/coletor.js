@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.49.0';
+  var VERSAO = '0.49.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1808,7 +1808,8 @@
           abaAtiva = 'espiao';
           var prodOrigem = el.getAttribute('data-prod') || null;
           estado.espiao.meuProduto = prodOrigem ? { nome: prodOrigem } : null;
-          estado.espiao.termo = esp; estado.espiao.buscando = true; estado.espiao.erro = null; estado.espiao.volumes = null; render();
+          estado.espiao.termo = esp; estado.espiao.buscando = true; estado.espiao.erro = null;
+          estado.espiao.volumes = null; estado.espiao.res = null; render();
           espBuscar(esp, function (resp) {
             estado.espiao.buscando = false;
             if (!resp || !resp.ok) { estado.espiao.erro = (resp && resp.erro) || 'Falhou.'; estado.espiao.res = null; }

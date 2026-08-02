@@ -78,7 +78,9 @@ async function buscaPublica(kw) {
   // So reaproveita a aba que NOS abrimos. Nunca sequestra aba da usuaria.
   var viva = await abaViva(SIA_ABA_BUSCA);
   if (viva) {
-    chrome.tabs.update(SIA_ABA_BUSCA, { url: alvo }, function () { void chrome.runtime.lastError; });
+    // sem active:false explicito, reutilizar a aba podia traze-la para a
+    // frente e a pessoa era jogada na vitrine da Shopee no meio do trabalho
+    chrome.tabs.update(SIA_ABA_BUSCA, { url: alvo, active: false }, function () { void chrome.runtime.lastError; });
   } else {
     var nova = await criarAba(alvo);
     if (!nova) {
@@ -87,7 +89,17 @@ async function buscaPublica(kw) {
     }
     SIA_ABA_BUSCA = nova.id;
   }
-  return espera;
+  // A aba da vitrine ficava aberta para sempre depois da busca: era ela que
+  // a Karina via aparecer no lugar do comparativo. Fecha assim que responde.
+  return espera.then(function (r) {
+    try {
+      if (SIA_ABA_BUSCA) {
+        var id = SIA_ABA_BUSCA; SIA_ABA_BUSCA = null;
+        setTimeout(function () { chrome.tabs.remove(id, function () { void chrome.runtime.lastError; }); }, 600);
+      }
+    } catch (e) { /* noop */ }
+    return r;
+  });
 }
 
 chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
