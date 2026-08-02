@@ -137,6 +137,14 @@
   // ----------------------------------------------------------
   // triar TODAS as campanhas do cofre -> resumo + fila priorizada
   // ----------------------------------------------------------
+  // Campanha pausada nao esta gastando agora: julgar como se estivesse
+  // enche a fila de acao com coisa que nao acontece mais. Ela so volta a
+  // aparecer se tiver gerado receita relevante no periodo — ai vira
+  // oportunidade ("isto vendia bem e esta parado"), nao problema.
+  function estaPausada(c) {
+    var e = String((c && (c.estado || c.state)) || '').toLowerCase();
+    return e === 'paused' || e === 'ended' || e === 'closed';
+  }
   function triar(cofre, opts) {
     opts = opts || {};
     var porCampanha = (cofre && cofre.porCampanha) || {};
@@ -149,16 +157,35 @@
       fila: []   // ordenada por impacto (gasto x urgencia)
     };
 
+    resultado.pausadas = { total: 0, comReceita: [] };
     ids.forEach(function (id) {
       var pc = porCampanha[id];
       var c = classificar(pc, opts);
       c.id = id;
+
+      // Pausada nao gasta agora: julgar como se gastasse enche a fila de
+      // acao com coisa que nao acontece mais. Ela sai da contagem e da fila,
+      // mas se vendeu bem no periodo vira OPORTUNIDADE, nao problema.
+      if (estaPausada(pc)) {
+        resultado.pausadas.total++;
+        var gmvP = (pc && pc.metricas && pc.metricas.gmv) || 0;
+        var roasP = (pc && pc.metricas && pc.metricas.roas) || 0;
+        if (gmvP >= 300 && roasP >= (opts.roasMinimo || 4)) {
+          c.pausadaBoa = true;
+          resultado.pausadas.comReceita.push(c);
+        }
+        return;
+      }
+
       resultado.contagem[c.nivel]++;
       resultado.gastoTotal += c.gasto;
       // so entra na fila de acao quem NAO e verde nem cinza sem acao
       if (c.nivel === 'vermelho' || c.nivel === 'amarelo' || (c.nivel === 'verde' && c.acao && c.acao.tipo === 'aumentar_orcamento')) {
         resultado.fila.push(c);
       }
+    });
+    resultado.pausadas.comReceita.sort(function (a, b) {
+      return ((b.gmv || 0) - (a.gmv || 0));
     });
 
     // PRIORIZACAO POR IMPACTO EM REAIS, nao por gravidade.

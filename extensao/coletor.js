@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.46.0';
+  var VERSAO = '0.47.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -485,8 +485,16 @@
   }
 
   /* ============================== RECEPCAO ============================== */
+  var lojaDoCiclo = null;   // de qual loja e a coleta em andamento
   function processarPacote(pacote) {
     if (!pacote || !pacote.url) return;
+    // CRITICO: ao trocar de conta, as respostas ainda em voo da conta anterior
+    // continuam chegando e eram gravadas na conta NOVA — as metricas da loja
+    // vinham certas e os produtos vinham da loja anterior. Numa agencia isso
+    // e decisao tomada com dado de outro cliente.
+    var lojaAgora = estado.loja ? estado.loja.shop_id : null;
+    if (pacote.loja && lojaAgora && String(pacote.loja) !== String(lojaAgora)) return;
+    if (lojaDoCiclo && lojaAgora && String(lojaDoCiclo) !== String(lojaAgora)) return;
     var mSpc = pacote.url.match(/SPC_CDS=([a-f0-9-]{20,})/i);
     if (mSpc) { estado.spc = mSpc[1]; try { window.SIA_ULTIMO_CDS = mSpc[1]; } catch (e) { } }
     // captura o start/end REAL das chamadas mydata (Central de Dados) que a
@@ -1330,6 +1338,7 @@
 
   function coletaCompleta(aoProgresso, periodoForcado) {
     estado.coletaProgresso = 'iniciando';
+    lojaDoCiclo = estado.loja ? estado.loja.shop_id : null;
     // leitura de periodo passado nao representa o estado atual da conta
     estado.leituraHistorica = !!periodoForcado;
     return new Promise(function (resolver) {
@@ -1429,7 +1438,7 @@
         var rt = await buscar('/api/pas/v1/todo/list_task/?' + spcQ, 'POST', '{}');
         totalChamadas++;
         if (rt.ok && rt.dados) {
-          processarPacote({ url: '/api/pas/v1/todo/list_task/', metodo: 'POST', corpo: '{}', dados: rt.dados, ts: Date.now() });
+          processarPacote({ url: '/api/pas/v1/todo/list_task/', metodo: 'POST', corpo: '{}', dados: rt.dados, ts: Date.now(), loja: lojaDoCiclo });
         }
         await pausa(450);
 
@@ -1441,14 +1450,14 @@
             var rv = await buscar('/api/pas/v1/diagnosis/homepage_batch_list_verdict/?' + spcQ, 'POST', corpoV);
             totalChamadas++;
             if (rv.ok && rv.dados) {
-              processarPacote({ url: '/api/pas/v1/diagnosis/homepage_batch_list_verdict/', metodo: 'POST', corpo: corpoV, dados: rv.dados, ts: Date.now() });
+              processarPacote({ url: '/api/pas/v1/diagnosis/homepage_batch_list_verdict/', metodo: 'POST', corpo: corpoV, dados: rv.dados, ts: Date.now(), loja: lojaDoCiclo });
             }
             await pausa(450);   // rajada sem intervalo e o padrao que dispara antifraude
             var corpoPI = JSON.stringify({ campaign_id_list: lote20, start_time: ini, end_time: fimAds });
             var rpi = await buscar('/api/pas/v1/campaign/get_product_performance_info/?' + spcQ, 'POST', corpoPI);
             totalChamadas++;
             if (rpi.ok && rpi.dados) {
-              processarPacote({ url: '/api/pas/v1/campaign/get_product_performance_info/', metodo: 'POST', corpo: corpoPI, dados: rpi.dados, ts: Date.now() });
+              processarPacote({ url: '/api/pas/v1/campaign/get_product_performance_info/', metodo: 'POST', corpo: corpoPI, dados: rpi.dados, ts: Date.now(), loja: lojaDoCiclo });
             }
             await pausa(450);
           }
@@ -1589,21 +1598,26 @@
 
   raiz.innerHTML =
     '<style>' +
-    ':host{all:initial;' +
+    ':host{all:initial;color:#f2f2f4;' +
     '--b0:#07080a;--b1:#0c0e12;--b2:#12151b;--li:#1d212a;--li2:#2a2f3a;' +
-    '--t0:#f2f2f4;--t1:#b8bcc6;--t2:#8a909c;--t3:#5a5f6a;' +
+    '--t0:#f2f2f4;--t1:#c5c9d2;--t2:#969ca8;--t3:#6b7280;' +
     '--mk:#ff4d1c;--mk2:#ff7a4d;--vd:#2ecc71;--rd:#e74c3c;--am:#f5b041;--px:#c08bff;' +
     '--sh:rgba(0,0,0,.55);--shb:rgba(0,0,0,.45)}' +
-    ':host(.claro){' +
-    '--b0:#ffffff;--b1:#fbfaf8;--b2:#f5f3ef;--li:#e5e1d8;--li2:#d4cec1;' +
-    '--t0:#1b1b1e;--t1:#4d5057;--t2:#7c818a;--t3:#a4a8b0;' +
+    ':host(.claro){color:#0d0d0f;' +
+    '--b0:#ffffff;--b1:#fbfaf8;--b2:#f4f2ee;--li:#ddd8cd;--li2:#c8c2b4;' +
+    '--t0:#0d0d0f;--t1:#33363d;--t2:#63676f;--t3:#8c9098;' +
     '--mk:#e0400f;--mk2:#f06a33;--vd:#1c8a52;--rd:#c42a2f;--am:#a8700a;--px:#6b28d9;' +
     '--sh:rgba(60,50,40,.16);--shb:rgba(60,50,40,.22)}' +
     '*{box-sizing:border-box;margin:0;padding:0;font-family:"Outfit",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-weight:300}' +
+    /* sem isto, elemento sem cor explicita herdava o preto do documento da
+       Shopee e sumia no tema escuro */
+    '.painel,.painel *{color:inherit}' +
+    'select,input,textarea,button{color:var(--t0);background-color:var(--b2)}' +
+    'option{background:var(--b2);color:var(--t0)}' +
     '.botao{position:fixed;bottom:22px;right:22px;width:54px;height:54px;z-index:2147483001;border-radius:50%;cursor:pointer;box-shadow:0 4px 18px var(--shb);transition:transform .15s;background:var(--b0);border:none;padding:6px}' +
     '.botao:hover{transform:scale(1.08)}' +
     '.botao svg{width:100%;height:100%}' +
-    '.painel{position:fixed;top:0;right:0;height:100vh;width:min(640px,100vw);background:var(--b1);border-left:1px solid var(--li);box-shadow:-18px 0 50px var(--sh);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
+    '.painel{position:fixed;top:0;right:0;height:100vh;width:min(760px,100vw);background:var(--b1);border-left:1px solid var(--li);box-shadow:-18px 0 50px var(--sh);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
     '.painel.aberto{transform:translateX(0)}' +
     '@media(prefers-reduced-motion:reduce){.painel{transition:none}}' +
     '.cab{display:flex;align-items:center;gap:11px;padding:16px 20px 14px;border-bottom:1px solid var(--li);background:var(--b0);flex-wrap:wrap}' +
@@ -1762,6 +1776,10 @@
           }
           return;
         }
+        // o handler do "?" sumiu numa das refatoracoes: o botao era desenhado
+        // mas nada escutava o clique
+        var dd = el.getAttribute && el.getAttribute('data-dica');
+        if (dd) { mostrarExpl(DICAS[dd] || dd); return; }
         var esp = el.getAttribute && el.getAttribute('data-espiar');
         if (esp) {
           abaAtiva = 'espiao';
@@ -2736,7 +2754,7 @@
 
       for (i = 0; i < lista.length; i++) {
         var x = lista[i];
-        h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-bottom:1px solid var(--li);font-size:11.5px' + (x.eu ? ';background:rgba(46,204,113,.06);border-radius:6px' : '') + '">' +
+        h += '<div style="display:flex;align-items:center;gap:9px;padding:10px 7px;border-bottom:1px solid var(--li);font-size:13.5px' + (x.eu ? ';background:rgba(46,204,113,.06);border-radius:6px' : '') + '">' +
           '<span style="font-family:monospace;font-size:13px;width:22px;color:' + (x.eu ? 'var(--vd)' : 'var(--t2)') + '">' + x.pos + '</span>' +
           '<span style="flex:1;color:' + (x.eu ? 'var(--vd)' : 'var(--t1)') + (x.eu ? ';font-weight:600' : '') + '">' + esc(x.nome.slice(0, 44)) + (x.eu ? ' (voce)' : '') + '</span>' +
           (x.ads ? '<span style="font-family:monospace;font-size:8px;color:var(--mk)">ADS</span>' : '') +
@@ -3192,8 +3210,13 @@
   function olho(rot, txtDica) {
     return '<div class="olho">' + rot + (txtDica ? dica(txtDica) : '') + '</div>';
   }
+  var DICAS = {};   // guarda o texto fora do atributo: assim ele pode ter
+                    // negrito sem quebrar o HTML e sem ser escapado duas vezes
+  var seqDica = 0;
   function dica(txt) {
-    return '<button class="dica" data-dica="' + esc(txt) + '" aria-label="explicar">?</button>';
+    var k = 'd' + (++seqDica);
+    DICAS[k] = txt;
+    return '<button class="dica" data-dica="' + k + '" aria-label="explicar">?</button>';
   }
   function mostrarExpl(txt) {
     var e = $('sia-expl');
@@ -3672,6 +3695,12 @@
       return;
     }
     if (antigo) guardarConta(antigo);           // congela o que ja foi lido
+    lojaDoCiclo = nova.shop_id;                 // qualquer pacote em voo da
+                                                // conta anterior sera descartado
+    if (estado.coletaProgresso !== null) {
+      estado.coletaAbortada = true;
+      estado.coletaProgresso = null;
+    }
     estado.loja = nova;
     restaurarConta(nova.shop_id);               // traz o que existia, ou zera
     carregarCofre();                            // o cofre e por loja
@@ -4137,6 +4166,7 @@
   }
 
   function render() {
+    DICAS = {}; seqDica = 0;
     if (!$('sia-painel').classList.contains('aberto')) return;
     // se por algum caminho a aba ativa virar um id de GRUPO (gprod, ferramentas)
     // ou um id desconhecido, nenhuma branch casa e a tela apaga. Cai no padrao.
@@ -4603,6 +4633,12 @@
   } catch (e) { /* noop */ }
 
   setInterval(function () {
+    // Nao re-renderizar enquanto a pessoa digita: o render recria o innerHTML
+    // e o campo perde o texto e o foco no meio da frase.
+    var focado = null;
+    try { focado = raiz.activeElement; } catch (e) { /* noop */ }
+    var digitando = focado && /^(INPUT|TEXTAREA|SELECT)$/.test(focado.tagName || '');
+    if (digitando) return;
     if (estado.sujo && $('sia-painel').classList.contains('aberto')) { estado.sujo = false; render(); }
   }, 900);
 })();
