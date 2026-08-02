@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.48.0';
+  var VERSAO = '0.48.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1441,14 +1441,23 @@
           return (mb.gasto || 0) - (ma.gasto || 0);
         });
         var alvoLeilao = idsGasto.slice(0, 60);
-        if (alvoLeilao.length) {
-          prog('Lendo o que a Shopee recomenda...');
+
+        // Esta rota e da LOJA INTEIRA e nao depende de campanha nenhuma, mas
+        // tinha ficado dentro do if de campanhas com gasto — numa conta sem
+        // gasto no periodo ela nunca era chamada, e a competitividade ficava
+        // vazia para sempre. Ela sai do if e roda sempre.
+        prog('Lendo o que a Shopee recomenda...');
         var rt = await buscar('/api/pas/v1/todo/list_task/?' + spcQ, 'POST', '{}');
         totalChamadas++;
         if (rt.ok && rt.dados) {
           processarPacote({ url: '/api/pas/v1/todo/list_task/', metodo: 'POST', corpo: '{}', dados: rt.dados, ts: Date.now(), loja: lojaDoCiclo });
+        } else {
+          estado.faltando = estado.faltando || [];
+          estado.faltando.push('recomendacoes da Shopee (competitividade)');
         }
         await pausa(450);
+
+        if (alvoLeilao.length) {
 
         prog('Lendo posicao no leilao e diagnostico da Shopee...');
           for (var lv = 0; lv < alvoLeilao.length; lv += 20) {
@@ -3158,8 +3167,8 @@
     h += olho('O QUE A SHOPEE SABE E NAO MOSTRA', '<b>Estes quatro numeros existem na API da Shopee e nao aparecem no painel dela.</b> Posicao no leilao e onde seu anuncio cai na disputa. Competitividade e como o seu preco esta contra a categoria, na regua dela. Status diz se o produto tem alcance limitado. Diagnostico e o problema que ela mesma aponta.') +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:11px">' +
       chip('POSICAO NO LEILAO', posLeilao != null ? fmt(posLeilao, 0) : '—', posLeilao == null ? 'sem dado' : (posLeilao <= 10 ? 'topo da vitrine' : (posLeilao <= 30 ? 'meio da vitrine' : 'fundo da vitrine')), posLeilao != null && posLeilao <= 10 ? 'var(--vd)' : (posLeilao > 30 ? 'var(--rd)' : 'var(--am)')) +
-      chip('COMPETITIVIDADE PRECO', comp != null ? fmt(comp, 0) + '<span style="font-size:11px;color:var(--t2)">/100</span>' : '—', comp == null ? 'abra a campanha uma vez' : (comp >= 70 ? 'acima da categoria' : (comp >= 40 ? 'na media' : 'caro pra categoria')), comp != null && comp >= 70 ? 'var(--vd)' : (comp != null && comp < 40 ? 'var(--rd)' : 'var(--am)')) +
-      chip('STATUS SHOPEE', st ? esc(st === 'normal' ? 'Normal' : st) : '—', st === 'normal' ? 'sem limitacao' : (st ? 'produto limitado' : 'abra a campanha uma vez'), st && st !== 'normal' ? 'var(--rd)' : 'var(--vd)') +
+      chip('COMPETITIVIDADE PRECO', comp != null ? fmt(comp, 0) + '<span style="font-size:11px;color:var(--t2)">/100</span>' : '—', comp == null ? 'a Shopee nao calculou para este produto' : (comp >= 70 ? 'acima da categoria' : (comp >= 40 ? 'na media' : 'caro pra categoria')), comp != null && comp >= 70 ? 'var(--vd)' : (comp != null && comp < 40 ? 'var(--rd)' : 'var(--am)')) +
+      chip('STATUS SHOPEE', st ? esc(st === 'normal' ? 'Normal' : st) : '—', st === 'normal' ? 'sem limitacao' : (st ? 'produto limitado' : 'nao informado nesta coleta'), st && st !== 'normal' ? 'var(--rd)' : 'var(--vd)') +
       chip('DIAGNOSTICO SHOPEE', diagRot, diagSub, diagCor) +
       '</div>';
 
