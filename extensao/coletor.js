@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.49.1';
+  var VERSAO = '0.49.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3644,10 +3644,33 @@
     if (nv) nv.addEventListener('click', function () { estado.rel.markdown = null; render(); });
   }
   function imprimirRelatorio() {
-    var w = window.open('', '_blank');
-    if (!w) { mostrarExpl('<b>O navegador bloqueou a janela.</b> Libere pop-ups para este site e tente de novo.'); return; }
+    // window.open('') dentro de content script e bloqueado em boa parte dos
+    // casos e a janela simplesmente nao aparece. Gerar um blob e abrir a URL
+    // dele funciona porque o navegador trata como navegacao normal, e ainda
+    // deixa o arquivo salvavel se o pop-up for barrado.
+    var html = __htmlRelatorio();
+    var w = null;
+    try {
+      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      w = window.open(url, '_blank');
+      if (w) { setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) { } }, 60000); return; }
+      // pop-up barrado: cai para download do arquivo, que nunca e bloqueado
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'relatorio-' + ((estado.loja && estado.loja.nome) || 'loja').replace(/[^\w-]/g, '-') + '.html';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      mostrarExpl('<b>O navegador bloqueou a janela, entao baixei o relatorio.</b> Abra o arquivo e use <b>Imprimir &rarr; Salvar como PDF</b>.');
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) { } }, 60000);
+      return;
+    } catch (e) {
+      mostrarExpl('<b>Nao consegui gerar o arquivo.</b> ' + esc(String(e)));
+      return;
+    }
+  }
+  function __htmlRelatorio() {
     var nome = (estado.loja && estado.loja.nome) || 'Loja';
-    w.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatorio ' + esc(nome) + '</title>' +
+    return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatorio ' + esc(nome) + '</title>' +
       '<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">' +
       '<style>@page{margin:16mm}body{font-family:Outfit,Arial,sans-serif;font-weight:300;color:#15161a;line-height:1.6;max-width:820px;margin:0 auto;padding:24px;font-size:12pt}' +
       'h1{font-family:Bebas Neue;font-size:30pt;letter-spacing:.02em;margin:0 0 4px}' +
@@ -3656,14 +3679,16 @@
       'td{padding:7px 6px;border-bottom:1px solid #ddd}' +
       'b{font-weight:600}.cab{border-bottom:3px solid #ff4d1c;padding-bottom:10px;margin-bottom:18px}' +
       '.mk{color:#ff4d1c}.rod{margin-top:26px;padding-top:10px;border-top:1px solid #ddd;font-size:8.5pt;color:#777}' +
+      '.aviso{background:#f4f2ee;border-radius:8px;padding:11px 14px;margin-bottom:18px;font-size:10pt}' +
       '@media print{.noprint{display:none}}</style></head><body>' +
       '<div class="cab"><h1>SELLER<span class="mk">.IA</span></h1><div style="font-size:10pt;color:#666">Relatorio de analise de conta &middot; ' + esc(nome) + ' &middot; gerado em ' + new Date().toLocaleDateString('pt-BR') + '</div></div>' +
-      '<div class="noprint" style="background:#f4f2ee;border-radius:8px;padding:11px 14px;margin-bottom:18px;font-size:10pt">Use <b>Imprimir &rarr; Salvar como PDF</b>. Esta faixa nao sai na impressao.</div>' +
+      '<div class="noprint aviso">Use <b>Imprimir &rarr; Salvar como PDF</b> (Ctrl+P). Esta faixa nao sai na impressao.</div>' +
       mdParaHtmlImpressao(estado.rel.markdown || '') +
-      '<div class="rod">Seller.IA &middot; Efeito Vendas</div></body></html>');
-    w.document.close();
-    setTimeout(function () { try { w.print(); } catch (e) { /* noop */ } }, 700);
+      '<div class="rod">Seller.IA &middot; Efeito Vendas</div>' +
+      '<script>setTimeout(function(){try{window.print()}catch(e){}},900)<\/script>' +
+      '</body></html>';
   }
+
   function mdParaHtmlImpressao(md) {
     return mdParaHtml(md)
       .replace(/var\(--t0\)/g, '#15161a').replace(/var\(--t1\)/g, '#333')
