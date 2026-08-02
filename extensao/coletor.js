@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.47.0';
+  var VERSAO = '0.48.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1337,7 +1337,14 @@
   function pausa(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
   function coletaCompleta(aoProgresso, periodoForcado) {
+    // Marcar 'iniciando' sem garantir a liberacao deixava coletaProgresso
+    // travado para sempre quando a coleta falhava antes do fim — e a trava
+    // do relatorio olha justamente esse campo. Era por isso que o botao
+    // Gerar relatorio nao fazia nada e nao dizia por que.
     estado.coletaProgresso = 'iniciando';
+    var travaSeguranca = setTimeout(function () {
+      if (estado.coletaProgresso !== null) { estado.coletaProgresso = null; estado.sujo = true; }
+    }, 8 * 60 * 1000);
     lojaDoCiclo = estado.loja ? estado.loja.shop_id : null;
     // leitura de periodo passado nao representa o estado atual da conta
     estado.leituraHistorica = !!periodoForcado;
@@ -1346,6 +1353,7 @@
         function prog(t) {
           estado.coletaProgresso = t; estado.sujo = true;
           if (t === null) {
+            clearTimeout(travaSeguranca);
             estado.lidoEm = Date.now();               // terminou: marca a leitura DESTA conta
             estado.ultimaColeta = { ok: CONTAGEM_BUSCA.ok, falhas: CONTAGEM_BUSCA.falhas };
             if (estado.loja) guardarConta(estado.loja.shop_id);
@@ -1514,6 +1522,7 @@
         if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now() });
 
         // E) Indicadores gerais da loja — key-metrics
+        estado.faltando = [];
         prog('Lendo os indicadores gerais...');
         var urlK = reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag');
         var rk = await buscar(urlK, 'GET', null);
@@ -1533,7 +1542,8 @@
         var urlH = '/api/accounthealth/v1/sc/shops/overview?' + spcQ;
         var rh = await buscar(urlH, 'GET', null);
         totalChamadas++;
-        if (rh.ok && rh.dados) processarPacote({ url: urlH, metodo: 'GET', corpo: null, dados: rh.dados, ts: Date.now() });
+        if (rh.ok && rh.dados) processarPacote({ url: urlH, metodo: 'GET', corpo: null, dados: rh.dados, ts: Date.now(), loja: lojaDoCiclo });
+        else estado.faltando.push('saude da conta');
         await pausa(150);
 
         // I) Afiliados (resumo do canal + top 5)
@@ -2191,7 +2201,7 @@
   function renderCalculadora() {
     var i = 'width:100%;box-sizing:border-box;background:var(--b1);border:1px solid #242630;border-radius:8px;padding:9px 11px;color:var(--t0);font-size:13px;margin-top:4px';
     var lbl = 'font-size:11px;color:var(--t2);font-weight:600';
-    var h = '<div style="padding:2px">';
+    var h = avisoFalta + '<div style="padding:2px">';
     h += '<div class="nota" style="margin:0 0 12px">Sua margem <b>real</b> cruzando custo, taxas da Shopee e o gasto de ads. Descobre se voce lucra de verdade.</div>';
 
     h += '<div class="bloco-d"><div class="td">O PRODUTO</div>';
@@ -2338,6 +2348,15 @@
     var D = null;
     try { if (window.SIA_Diamantes) D = window.SIA_Diamantes.resumo(); } catch (e) { }
     if (!D) return '<div class="nota" style="padding:20px">Cofre carregando…</div>';
+
+    // Sem isto a tela mostrava metade das metricas e a pessoa nao tinha como
+    // saber se a conta e assim ou se a leitura falhou.
+    var avisoFalta = '';
+    if (estado.faltando && estado.faltando.length) {
+      avisoFalta = '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:12px 14px;margin-bottom:14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">Esta leitura veio incompleta.</b> Nao consegui ler: ' + esc(estado.faltando.join(', ')) +
+        '. Rode a coleta de novo; se persistir, a Shopee pode ter mudado essas telas.</div>';
+    }
 
     // helpers visuais locais
     function fmtR(v) { return v == null ? '—' : 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -3129,6 +3148,13 @@
     var diagRot = dg ? dg[0] : (probl ? esc(String(probl).slice(0, 16)) : '—');
     var diagSub = dg ? dg[1] : (probl ? 'apontado pela propria Shopee' : 'sem apontamento');
     var diagCor = !probl ? 'var(--t2)' : (String(probl).toLowerCase() === 'na' || String(probl).toLowerCase() === 'good' ? 'var(--vd)' : (String(probl).toLowerCase() === 'room_more_traffic' ? 'var(--vd)' : 'var(--am)'));
+    // aviso de aprendizado antes de qualquer julgamento: se a campanha e nova,
+    // o resto da leitura precisa ser lido com essa ressalva
+    var fase = faseAprendizado(pc && pc.campanha ? pc.campanha : pc);
+    if (fase) {
+      h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">Ainda em aprendizado &mdash; faltam ' + fase.faltam + ' dia' + (fase.faltam === 1 ? '' : 's') + '</b><br>' + esc(fase.texto) + '</div>';
+    }
     h += olho('O QUE A SHOPEE SABE E NAO MOSTRA', '<b>Estes quatro numeros existem na API da Shopee e nao aparecem no painel dela.</b> Posicao no leilao e onde seu anuncio cai na disputa. Competitividade e como o seu preco esta contra a categoria, na regua dela. Status diz se o produto tem alcance limitado. Diagnostico e o problema que ela mesma aponta.') +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:11px">' +
       chip('POSICAO NO LEILAO', posLeilao != null ? fmt(posLeilao, 0) : '—', posLeilao == null ? 'sem dado' : (posLeilao <= 10 ? 'topo da vitrine' : (posLeilao <= 30 ? 'meio da vitrine' : 'fundo da vitrine')), posLeilao != null && posLeilao <= 10 ? 'var(--vd)' : (posLeilao > 30 ? 'var(--rd)' : 'var(--am)')) +
@@ -3503,7 +3529,8 @@
       // competem pelo mesmo estado.campanhas e misturam os periodos
       if (estado.rel.gerando) return;
       if (estado.coletaProgresso !== null) {
-        estado.rel.erro = 'Ja existe uma leitura em andamento. Espere ela terminar.'; render(); return;
+        estado.rel.erro = 'Ha uma leitura em andamento (' + esc(String(estado.coletaProgresso)) + '). Espere ela terminar e tente de novo.';
+        render(); return;
       }
       var meses = mesesDisponiveis();
       var sel = estado.rel.mes || meses[1].v;
@@ -3514,7 +3541,8 @@
       if (!estado.loja || !estado.loja.shop_id) {
         estado.rel.erro = 'Ainda nao identifiquei a loja. Navegue uma vez pelo painel da Shopee e tente de novo.'; render(); return;
       }
-      estado.rel.gerando = true; estado.rel.erro = null; render();
+      estado.rel.gerando = true; estado.rel.erro = null;
+      estado.rel.etapa = 'Preparando...'; render();
 
       // Coleta os DOIS meses sozinha, um de cada vez. Antes o seletor so
       // rotulava o relatorio e os numeros vinham do recorte aberto no painel
@@ -4059,6 +4087,25 @@
     return r;
   }
 
+  /* ---- FASE DE APRENDIZADO ----
+     A API nao entrega estado de aprendizado nem data da ultima alteracao:
+     so start_time. Entao da para saber a IDADE da campanha, nao se ela foi
+     mexida. Mesmo assim resolve o caso mais comum, que e campanha nova
+     sendo julgada cedo demais: 7 dias em Meta de ROAS, 14 em automatico. */
+  function faseAprendizado(c) {
+    var ini = c && (c.inicio || (c.campaign && c.campaign.start_time));
+    if (!ini) return null;
+    var dias = Math.floor((Date.now() / 1000 - ini) / 86400);
+    if (dias < 0) return null;
+    var tipo = (c && (c.type || c.tipo)) || '';
+    var sub = (c && (c.subtype || c.subtipo)) || null;
+    var janela = (tipo === 'product_manual' && sub) ? 7 : 14;
+    if (dias >= janela) return null;
+    return { dias: dias, janela: janela, faltam: janela - dias,
+      texto: 'Esta campanha tem ' + dias + ' dia' + (dias === 1 ? '' : 's') + ' e ainda esta em aprendizado. ' +
+        'O algoritmo precisa de ' + janela + ' dias para entender quem compra. ' +
+        'Faltam ' + (janela - dias) + '. Mexer agora reinicia a contagem e joga fora o que ela ja aprendeu.' };
+  }
   function cartaoProduto(c) {
     var co = CORES_SEM[c.nivel] || CORES_SEM.cinza;
     return '<div data-card="produto:' + esc(c.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:18px 19px;margin-bottom:12px">' +
