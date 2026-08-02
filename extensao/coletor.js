@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.51.0';
+  var VERSAO = '0.52.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1639,21 +1639,21 @@
     '.cab svg{width:28px;height:28px;flex:none}' +
     '.cab .titulo{font-family:"Bebas Neue";font-weight:400;font-size:29px;letter-spacing:.05em;line-height:1}' +
     '.cab .titulo em{font-style:normal;color:var(--mk)}' +
-    '.cab .info{font-family:"Space Mono";font-size:11.5px;color:var(--t2);width:100%;order:3;margin-top:2px}' +
+    '.cab .info{font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2);width:100%;order:3;margin-top:2px}' +
     '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
-    '.cab button{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:"Space Mono";font-size:11px;padding:7px 11px;border-radius:7px;cursor:pointer}' +
+    '.cab button{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:Space Mono,monospace;font-size:11px;padding:7px 11px;border-radius:7px;cursor:pointer}' +
     '.cab button:hover{border-color:var(--mk);color:var(--t0)}' +
     '.abas{display:flex;flex-wrap:wrap;gap:3px;background:var(--b0);padding:8px 14px 0;border-bottom:1px solid var(--li)}' +
     '.aba{border-radius:8px 8px 0 0}' +
     '.aba.ativa{background:var(--b2)}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
-    '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:"Space Mono";font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
+    '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:Space Mono,monospace;font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
     '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
-    '.aba{background:none;border:none;color:var(--t2);font-family:"Space Mono";font-size:12.5px;letter-spacing:.02em;padding:10px 13px;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
+    '.aba{background:none;border:none;color:var(--t2);font-family:Space Mono,monospace;font-size:12.5px;letter-spacing:.02em;padding:10px 13px;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
     '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:26px 26px 40px}' +
     /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
-    '.olho{display:flex;align-items:center;gap:10px;font-family:"Space Mono";font-size:11.5px;color:var(--t2);letter-spacing:.14em;margin:32px 0 14px}' +
+    '.olho{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2);letter-spacing:.14em;margin:32px 0 14px}' +
     '.olho:first-child{margin-top:0}' +
     '.olho::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
     '.leitura{margin-bottom:20px}' +
@@ -1663,11 +1663,11 @@
     '.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--li);border:1px solid var(--li);border-radius:13px;overflow:hidden;margin-bottom:18px}' +
     '.tres>div{background:var(--b2);padding:19px 12px;text-align:center}' +
     '.tres .v{font-family:"Bebas Neue";font-size:40px;line-height:1}' +
-    '.tres .l{font-family:"Space Mono";font-size:10px;color:var(--t2);letter-spacing:.07em;margin-top:7px}' +
+    '.tres .l{font-family:Space Mono,monospace;font-size:10px;color:var(--t2);letter-spacing:.07em;margin-top:7px}' +
     '.tres .s{font-size:12.5px;color:var(--t2);margin-top:3px}' +
     /* cabecalho de tela: olho + display + numero fantasma, como no Club */
     '.capa{position:relative;padding:0 0 14px;margin-bottom:14px;border-bottom:1px solid var(--li)}' +
-    '.capa .ol{display:flex;align-items:center;gap:10px;font-family:"Space Mono";font-size:11px;color:var(--mk);letter-spacing:.14em;margin-bottom:9px}' +
+    '.capa .ol{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:11px;color:var(--mk);letter-spacing:.14em;margin-bottom:9px}' +
     '.capa .ol::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
     '.capa .dp{font-family:"Bebas Neue";font-size:30px;line-height:1;letter-spacing:.02em;color:var(--t0)}' +
     '.capa .dp small{font-family:"Bebas Neue";font-size:30px;color:var(--t2);margin-left:7px}' +
@@ -1684,12 +1684,12 @@
     '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:9px;margin-bottom:20px}' +
     '.kpi{background:var(--b2);border:1px solid var(--li);border-radius:13px;padding:15px 13px}' +
     '.kpi .v{font-family:"Bebas Neue";font-size:38px;line-height:1;color:var(--mk)}' +
-    '.kpi .l{font-family:"Space Mono";font-size:9.5px;color:var(--t2);margin-top:6px;text-transform:uppercase;letter-spacing:.07em;line-height:1.35}' +
+    '.kpi .l{font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:6px;text-transform:uppercase;letter-spacing:.07em;line-height:1.35}' +
     '.vazio{color:var(--t2);font-size:15.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
     '.selo{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--li);border-radius:99px;padding:2px 8px;color:var(--t2);margin-left:8px}' +
     '.selo.ok{border-color:var(--vd);color:var(--vd)}' +
     '.selo.off{border-color:var(--rd);color:var(--rd)}' +
-    '.dica{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--li2);background:var(--b2);color:var(--t2);font-family:"Space Mono";font-size:10px;cursor:pointer;padding:0;margin-left:5px;vertical-align:middle;line-height:1}' +
+    '.dica{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--li2);background:var(--b2);color:var(--t2);font-family:Space Mono,monospace;font-size:10px;cursor:pointer;padding:0;margin-left:5px;vertical-align:middle;line-height:1}' +
     '.dica:hover{border-color:var(--mk);color:var(--mk)}' +
     '.expl{display:none;padding:12px 15px;border-top:1px solid var(--li);background:var(--b2);font-size:13.5px;color:var(--t1);line-height:1.55}' +
     '.expl.on{display:block}' +
@@ -1697,7 +1697,7 @@
     '.expl .x{float:right;background:none;border:none;color:var(--t2);cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 10px}' +
     '.nota{font-size:14px;color:var(--t2);margin:12px 0;line-height:1.6}' +
     '.bloco-d{background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:10px 12px;margin-bottom:9px}' +
-    '.bloco-d .td{font-family:"Space Mono";font-size:11px;letter-spacing:.06em;color:var(--mk);margin-bottom:7px}' +
+    '.bloco-d .td{font-family:Space Mono,monospace;font-size:11px;letter-spacing:.06em;color:var(--mk);margin-bottom:7px}' +
     '.bloco-d .ld{font-size:13.5px;color:var(--t1);line-height:1.65;padding:2px 0}' +
     '.bloco-d .ld b{color:var(--t0)}' +
     '.bloco-d .vazio-d{color:var(--t3);font-style:italic;font-size:12.5px}' +
@@ -1745,9 +1745,13 @@
     ],
     gprod: [
       { id: 'campanhas', rotulo: 'Campanhas' }
+    ],
+    espiao: [
+      { id: 'radar', rotulo: 'Meus produtos' },
+      { id: 'busca', rotulo: 'Buscar termo' }
     ]
   };
-  var subAtiva = { cofre: 'cofre', gprod: 'campanhas' };
+  var subAtiva = { cofre: 'cofre', gprod: 'campanhas', espiao: 'radar' };
   function grupoDe(id) {
     for (var g in SUB) for (var i = 0; i < SUB[g].length; i++) if (SUB[g][i].id === id) return g;
     return null;
@@ -1779,6 +1783,20 @@
         // sem isto o clique e capturado pela linha e o href nunca e seguido
         if (el.getAttribute('data-link-externo')) return;
         if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
+        if (el.id === 'sia-esp-analisar') {
+          try {
+            var sel = raiz.getElementById ? raiz.getElementById('sia-esp-prod') : $('sia-esp-prod');
+            var campo = $('sia-esp-termo');
+            estado.espiao.termoManual = (campo && campo.value.trim()) || null;
+            if (!sel || !sel.value) { estado.espiao.erro = 'Escolha um produto na lista primeiro.'; render(); return; }
+            espAnalisarProduto(sel.value);
+          } catch (err) {
+            estado.espiao.buscando = false;
+            estado.espiao.erro = 'Erro ao comparar: ' + String((err && err.message) || err);
+            render();
+          }
+          return;
+        }
         if (el.getAttribute('data-voltar-radar')) { estado.espiao.erro = null; estado.espiao.res = null; render(); return; }
         // Estes botoes eram ligados por addEventListener depois de cada render.
         // Qualquer render extra entre o desenho e a religacao deixava o botao
@@ -2730,39 +2748,49 @@
     return arr.slice(0, limite || 6);
   }
 
-  function espRodarRadar() {
-    var alvos = espMeusProdutos(6);
-    if (!alvos.length) { estado.espiao.erro = 'Colete a conta primeiro — o radar usa os seus produtos que mais vendem.'; render(); return; }
-    estado.espiao.radar = []; estado.espiao.radarRodando = 0; estado.espiao.radarTotal = alvos.length; estado.espiao.erro = null;
-    render();
-    (function proximo(i) {
-      if (i >= alvos.length) { estado.espiao.radarRodando = null; render(); return; }
-      estado.espiao.radarRodando = i + 1; render();
-      var termo = espTermo(alvos[i].nome);
-      espBuscar(termo, function (resp) {
-        var linha = { produto: alvos[i].nome, termo: termo };
-        if (resp && resp.ok) {
-          var lista = espMapear(resp.itens);
-          var b = espBarreira(lista);
-          var meu = null;
-          for (var k = 0; k < lista.length; k++) if (lista[k].eu) { meu = lista[k]; break; }
-          linha.total = lista.length;
-          linha.ads = lista.filter(function (x) { return x.ads; }).length;
-          linha.barreira = b ? b.faturamentoMes : null;
-          linha.meuFat = meu ? meu.faturamentoMes : null;
-          linha.pos = meu ? meu.pos : null;
-          linha.meuAds = meu ? meu.ads : null;
-        } else { linha.erro = (resp && resp.erro) || 'falhou'; }
-        estado.espiao.radar.push(linha);
-        setTimeout(function () { proximo(i + 1); }, 1200); // respeita a Shopee
-      });
-    })(0);
-  }
+  /* ---- RADAR: UM produto por vez, escolhido por voce ----
+     O lote de 6 buscas em sequencia era o bug: cada uma sobrescrevia
+     estado.espiao.res, entao clicar numa linha enquanto o radar rodava
+     fazia a busca da linha ser atropelada pela proxima do lote — e a aba
+     em segundo plano acabava pesquisando outra coisa. Agora e uma busca
+     por vez, disparada por voce, e o comparativo aparece na mesma tela. */
+  function espAnalisarProduto(idOuNome) {
+    var alvos = espMeusProdutos(60);
+    var alvo = null;
+    for (var i = 0; i < alvos.length; i++) {
+      if (String(alvos[i].id) === String(idOuNome) || alvos[i].nome === idOuNome) { alvo = alvos[i]; break; }
+    }
+    if (!alvo) { estado.espiao.erro = 'Nao encontrei esse produto na coleta.'; render(); return; }
 
-  function espDinheiro(v) {
-    if (v == null) return '—';
-    if (v >= 1000) return 'R$ ' + fmt(v / 1000, 1) + ' mil';
-    return 'R$ ' + fmt(v, 0);
+    var termo = estado.espiao.termoManual || espTermo(alvo.nome);
+    estado.espiao.meuProduto = { id: alvo.id, nome: alvo.nome };
+    estado.espiao.termo = termo;
+    estado.espiao.buscando = true;
+    estado.espiao.erro = null;
+    estado.espiao.res = null;
+    estado.espiao.volumes = null;
+    render();
+
+    espBuscar(termo, function (resp) {
+      estado.espiao.buscando = false;
+      if (!resp || !resp.ok) {
+        estado.espiao.erro = (resp && resp.erro) || 'A busca nao voltou.';
+      } else {
+        var lista = espMapear(resp.itens);
+        // ORDENA POR FATURAMENTO, nao por posicao na pagina: o que interessa
+        // e quem VENDE mais, nao quem aparece primeiro. Era isso que a Karina
+        // vinha pedindo e o Radar nunca fez.
+        var ordenada = lista.slice().sort(function (a, b) {
+          return (b.faturamentoMes || 0) - (a.faturamentoMes || 0);
+        });
+        for (var q = 0; q < ordenada.length; q++) ordenada[q].posVenda = q + 1;
+        estado.espiao.res = {
+          termo: resp.termo, lista: lista, ordenada: ordenada,
+          barreira: espBarreira(lista)
+        };
+      }
+      render();
+    });
   }
 
   function renderEspiao() {
@@ -2770,12 +2798,36 @@
     var e = estado.espiao;
     var h = capa('COMO ESTOU CONTRA OS OUTROS', 'O', 'ESPIAO', '04');
 
-    h += '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
-      '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="digite o termo que o comprador pesquisa" ' +
-      'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:8px;padding:10px 12px;color:var(--t0);font-size:13px">' +
-      '<button id="sia-esp-ir" style="background:var(--mk);border:none;color:var(--t0);font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:pointer">' + (e.buscando ? 'Espiando...' : 'Espiar') + '</button>' +
-      '<button id="sia-esp-radar" style="background:var(--b2);border:1px solid var(--li2);color:var(--t0);font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
-      (e.radarRodando ? 'Radar ' + e.radarRodando + '/' + e.radarTotal + '...' : 'Radar dos meus produtos') + '</button></div>';
+    var modo = subAtiva.espiao || 'radar';
+    h += renderSubAbas('espiao');
+
+    if (modo === 'radar') {
+      // UM produto por vez, escolhido por voce. O lote de 6 buscas atropelava
+      // a si mesmo e era a causa da aba abrir pesquisando outra coisa.
+      var meus = espMeusProdutos(60);
+      if (!meus.length) {
+        h += '<div class="nota" style="color:var(--am);margin-top:12px">Colete a conta primeiro — o Radar usa os seus produtos.</div>';
+        return h;
+      }
+      h += '<div style="margin-top:12px">' +
+        '<select id="sia-esp-prod" style="width:100%;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:9px">' +
+        '<option value="">Escolha o produto que quer comparar...</option>';
+      for (var mp = 0; mp < meus.length; mp++) {
+        var selMp = estado.espiao.meuProduto && String(estado.espiao.meuProduto.id) === String(meus[mp].id);
+        h += '<option value="' + esc(meus[mp].id) + '"' + (selMp ? ' selected' : '') + '>' + esc(String(meus[mp].nome).slice(0, 58)) + '</option>';
+      }
+      h += '</select>';
+      h += '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="termo da busca (deixe em branco para usar o titulo)" ' +
+        'style="flex:1;min-width:190px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px">' +
+        '<button id="sia-esp-analisar" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:9px;cursor:pointer">' +
+        (e.buscando ? 'Comparando...' : 'Comparar') + '</button></div></div>';
+    } else {
+      h += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
+        '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="digite o termo que o comprador pesquisa" ' +
+        'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px">' +
+        '<button id="sia-esp-ir" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:9px;cursor:pointer">' + (e.buscando ? 'Espiando...' : 'Espiar') + '</button></div>';
+    }
 
     h += '<div class="nota" style="margin-top:0">A busca abre a vitrine numa aba em segundo plano e le a resposta que a propria Shopee entrega — nao fabricamos chamada, so escutamos. Cada termo leva alguns segundos. O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
 
@@ -2798,8 +2850,8 @@
         '<button data-voltar-radar="1" style="margin-top:12px;background:var(--b2);border:1px solid var(--li2);color:var(--t0);font-family:inherit;font-size:13px;padding:9px 15px;border-radius:8px;cursor:pointer">Voltar ao Radar</button></div>';
     }
 
-    /* ---- RADAR ---- */
-    if (e.radar && e.radar.length) {
+    /* ---- RADAR EM LISTA (desativado: virou seletor) ---- */
+    if (false && e.radar && e.radar.length) {
       h += '<div style="font-family:monospace;font-size:10px;color:var(--t2);letter-spacing:.06em;margin:16px 0 8px">SEUS PRODUTOS NAS BUSCAS DELES</div>';
       for (var r = 0; r < e.radar.length; r++) {
         var L = e.radar[r];
@@ -2836,10 +2888,33 @@
       var nAds = 0, i;
       for (i = 0; i < lista.length; i++) if (lista[i].ads) nAds++;
 
+      // OS MAIS VENDIDOS, nao os primeiros da pagina. Quem aparece primeiro
+      // pode estar pagando por isso; quem vende mais e a referencia real.
+      var porVenda = (e.res.ordenada || lista.slice().sort(function (x, y) {
+        return (y.faturamentoMes || 0) - (x.faturamentoMes || 0);
+      })).filter(function (x) { return (x.faturamentoMes || 0) > 0; });
+      if (porVenda.length) {
+        h += olho('OS QUE MAIS VENDEM NESTA BUSCA', 'Ordenado por faturamento estimado no mes, nao pela posicao na pagina. Quem aparece primeiro pode estar pagando por isso; quem vende mais e a referencia que importa. O calculo usa o vendido dos ultimos 30 dias que a propria Shopee mostra no card, multiplicado pelo preco.');
+        for (var pv = 0; pv < Math.min(porVenda.length, 8); pv++) {
+          var it = porVenda[pv];
+          h += '<div style="display:flex;align-items:center;gap:10px;padding:11px 8px;border-bottom:1px solid var(--li);font-size:13.5px' +
+            (it.eu ? ';background:color-mix(in srgb,var(--vd) var(--tin,9%),transparent);border-radius:8px' : '') + '">' +
+            '<span style="font-family:Bebas Neue,sans-serif;font-size:19px;width:26px;color:' + (it.eu ? 'var(--vd)' : 'var(--t2)') + '">' + (pv + 1) + '</span>' +
+            '<span style="flex:1;min-width:0;line-height:1.35;color:' + (it.eu ? 'var(--vd)' : 'var(--t1)') + (it.eu ? ';font-weight:600' : '') + '">' +
+            esc(String(it.nome).slice(0, 46)) + (it.eu ? ' (voce)' : '') +
+            '<span style="display:block;font-family:Space Mono,monospace;font-size:10px;color:var(--t3)">pagina ' + it.pos + (it.ads ? ' · ADS' : ' · organico') + (it.cupom ? ' · cupom' : '') + '</span></span>' +
+            '<span style="text-align:right;flex:none">' +
+            '<span style="font-family:Space Mono,monospace;font-size:13px;display:block;color:var(--t0)">' + espDinheiro(it.faturamentoMes) + '</span>' +
+            '<span style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--vd)">' + (it.vendasMes != null ? it.vendasMes + ' vendas' : '—') + ' · R$' + fmt(it.preco, 2) + '</span></span>' +
+            (it.link && !it.eu ? '<a data-link-externo="1" href="' + esc(it.link) + '" target="_blank" rel="noopener" style="flex:none;color:var(--mk);text-decoration:none;font-size:18px;padding:0 4px">\u2197</a>' : '') +
+            '</div>';
+        }
+      }
+
       h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 10px">' +
-        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">ANUNCIOS</div><div style="font-size:20px;color:var(--mk)">' + nAds + '<span style="font-size:12px;color:var(--t2)">/' + lista.length + '</span></div></div>' +
-        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">PRECO TOP 5</div><div style="font-size:20px">' + (b && b.preco != null ? 'R$' + fmt(b.preco, 0) : '—') + '</div></div>' +
-        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">BARREIRA/MES</div><div style="font-size:20px;color:var(--vd)">' + (b ? espDinheiro(b.faturamentoMes) : '—') + '</div></div></div>';
+        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">ANUNCIOS</div><div style="font-size:20px;color:var(--mk)">' + nAds + '<span style="font-size:12px;color:var(--t2)">/' + lista.length + '</span></div></div>' +
+        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">PRECO TOP 5</div><div style="font-size:20px">' + (b && b.preco != null ? 'R$' + fmt(b.preco, 0) : '—') + '</div></div>' +
+        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">BARREIRA/MES</div><div style="font-size:20px;color:var(--vd)">' + (b ? espDinheiro(b.faturamentoMes) : '—') + '</div></div></div>';
 
       for (i = 0; i < lista.length; i++) {
         var x = lista[i];
@@ -3102,7 +3177,7 @@
       var lp = listaProdutos();
       if (lp.length) {
         h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:9px 11px;margin-top:9px">' +
-          '<div style="font-family:"Space Mono";font-size:10px;color:var(--t2);margin-bottom:6px">QUAL PRODUTO E ESTA CAMPANHA?</div>' +
+          '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);margin-bottom:6px">QUAL PRODUTO E ESTA CAMPANHA?</div>' +
           '<div style="display:flex;gap:6px"><select id="sia-vinc" style="flex:1;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:7px;color:var(--t0);font-size:11.5px"><option value="">escolha o produto...</option>';
         for (var vp = 0; vp < lp.length; vp++) {
           h += '<option value="' + esc(lp[vp].id) + '"' + (String(lp[vp].id) === String(R.idProduto) ? ' selected' : '') + '>' + esc(String(lp[vp].nome).slice(0, 40)) + (custoDe(lp[vp].id) ? ' · custo ok' : ' · sem custo') + '</option>';
@@ -3136,8 +3211,8 @@
     h += '<div style="border:1px solid var(--li);border-radius:12px;padding:12px;margin-bottom:11px">' +
       '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--px);letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;text-align:center">' +
-      '<div><div style="font-size:18px;color:var(--am)">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">VOCE PEDE</div></div>' +
-      '<div><div style="font-size:18px;color:var(--vd)">' + (meta.sugerida != null ? fmt(meta.sugerida, 1) + 'x' : '—') + '</div><div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">SHOPEE SUGERE</div></div>' +
+      '<div><div style="font-size:18px;color:var(--am)">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">VOCE PEDE</div></div>' +
+      '<div><div style="font-size:18px;color:var(--vd)">' + (meta.sugerida != null ? fmt(meta.sugerida, 1) + 'x' : '—') + '</div><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">SHOPEE SUGERE</div></div>' +
       '<div><div style="font-size:18px;color:' + (equil != null ? 'var(--mk)' : 'var(--t2)') + '">' + (equil != null ? fmt(equil, 1) + 'x' : (teto != null ? fmt(teto, 1) + 'x' : '—')) + '</div><div style="font-family:monospace;font-size:8px;color:' + (equil != null ? 'var(--t2)' : 'var(--am)') + '">' + (equil != null ? 'SEU EQUILIBRIO' : 'TETO · SEM CUSTO') + '</div></div></div>';
     // Uma ideia por linha. Nada de paragrafo com tres assuntos misturados,
     // nada de frase de efeito. Cada linha responde uma pergunta so.
@@ -4046,10 +4121,10 @@
 
     h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0">' +
       '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:10px">' +
-      '<div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">EMBALAGEM POR PEDIDO (R$)</div>' +
+      '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">EMBALAGEM POR PEDIDO (R$)</div>' +
       '<input id="sia-cf-emb" value="' + (cf.embalagem ? String(cf.embalagem).replace('.', ',') : '') + '" placeholder="0,00" style="width:100%;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:7px 9px;color:var(--t0);font-family:monospace;font-size:13px;margin-top:5px"></div>' +
       '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:10px">' +
-      '<div style="font-family:"Space Mono";font-size:10px;color:var(--t2)">IMPOSTO SOBRE A VENDA (%)</div>' +
+      '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">IMPOSTO SOBRE A VENDA (%)</div>' +
       '<input id="sia-cf-imp" value="' + (cf.imposto ? String(cf.imposto).replace('.', ',') : '') + '" placeholder="0" style="width:100%;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:7px 9px;color:var(--t0);font-family:monospace;font-size:13px;margin-top:5px"></div></div>';
 
     h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">' +
@@ -4064,7 +4139,7 @@
       h += '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--li)">' +
         '<span style="width:6px;height:6px;border-radius:50%;background:' + (cst ? 'var(--vd)' : 'var(--li2)') + ';flex:none"></span>' +
         '<span style="flex:1;font-size:12px;color:var(--t1);min-width:0">' + esc(String(it.nome).slice(0, 46)) + '</span>' +
-        (it.gmv ? '<span style="font-family:"Space Mono";font-size:10.5px;color:var(--t2)">' + reais(it.gmv) + '</span>' : '') +
+        (it.gmv ? '<span style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2)">' + reais(it.gmv) + '</span>' : '') +
         '<input data-custo="' + esc(it.id) + '" value="' + (cst ? String(cst).replace('.', ',') : '') + '" placeholder="custo" ' +
         'style="width:84px;background:var(--b1);border:1px solid ' + (cst ? 'var(--vd)' : 'var(--li)') + ';border-radius:7px;padding:6px 8px;color:var(--t0);font-family:monospace;font-size:12px;text-align:right"></div>';
     }
@@ -4101,7 +4176,7 @@
   // fechava sozinha.
   var TELAS_VALIDAS = ['semaforo','conta360','calc','cofre','espiao','card','diagnostico','visao',
     'campanhas','produtos','performance','afiliados','cadastro','diamantes','debug',
-    'relatorio','gprod','ferramentas'];
+    'relatorio','gprod','ferramentas','radar','busca'];
   /* ============ INTELIGENCIA DE PRODUTO (Performance) ============
      Le o funil de cada produto e devolve um veredito, nao uma linha de
      tabela. A ordem das perguntas segue o metodo: primeiro o dinheiro
