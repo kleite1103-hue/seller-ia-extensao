@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.50.0';
+  var VERSAO = '0.50.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3519,9 +3519,9 @@
       '<b style="color:var(--t0)">A coleta e automatica.</b> Ao gerar, a Seller.IA le os dois meses direto da Shopee, um de cada vez, sem voce precisar trocar nada no painel. ' +
       'Leva alguns minutos porque sao duas leituras completas da conta.</div>';
 
-    h += '<button id="sia-rel-gerar" ' + (R.gerando ? 'disabled ' : '') +
+    h += '<button id="sia-rel-gerar" ' +
       'style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer' + (R.gerando ? ';opacity:.6' : '') + '">' +
-      (R.gerando ? (R.etapa || 'Gerando...') : 'Gerar relatorio') + '</button>';
+      (R.gerando ? 'Cancelar (' + esc(R.etapa || 'trabalhando') + ')' : 'Gerar relatorio') + '</button>';
     if (R.erro) h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 10px 10px 0;padding:12px 14px;margin-top:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' + esc(R.erro) + '</div>';
     if (R.gerando) {
       h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:11px;padding:14px;margin-top:12px">' +
@@ -3559,6 +3559,16 @@
     return s;
   }
   function gerarRelatorio() {
+    // Se ja esta gerando, o clique vira CANCELAR. Antes o botao ficava
+    // disabled — e botao disabled nao propaga clique no shadow DOM, entao
+    // um estado preso deixava o botao morto sem a pessoa ter como sair.
+    if (estado.rel.gerando) {
+      estado.rel.gerando = false;
+      estado.rel.etapa = '';
+      estado.rel.erro = 'Geracao cancelada por voce.';
+      render();
+      return;
+    }
 
       // sem esta trava, dois cliques rapidos disparam duas geracoes que
       // competem pelo mesmo estado.campanhas e misturam os periodos
@@ -4301,6 +4311,8 @@
     }
 
     if (abaAtiva === 'relatorio') {
+      // estado orfao de uma tentativa anterior travava o botao para sempre
+      if (estado.rel.gerando && !estado.rel.etapa) estado.rel.gerando = false;
       corpo.innerHTML = renderRelatorio();
       ligarRelatorio();
       return;
