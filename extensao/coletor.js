@@ -1759,6 +1759,8 @@
     var el = ev.target;
     while (el && el !== this) {
       if (el.getAttribute) {
+        // sem isto o clique e capturado pela linha e o href nunca e seguido
+        if (el.getAttribute('data-link-externo')) return;
         if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
         var tr = el.getAttribute && el.getAttribute('data-trocar');
         if (tr) {
@@ -2757,9 +2759,13 @@
         h += '<div style="display:flex;align-items:center;gap:9px;padding:10px 7px;border-bottom:1px solid var(--li);font-size:13.5px' + (x.eu ? ';background:rgba(46,204,113,.06);border-radius:6px' : '') + '">' +
           '<span style="font-family:monospace;font-size:13px;width:22px;color:' + (x.eu ? 'var(--vd)' : 'var(--t2)') + '">' + x.pos + '</span>' +
           '<span style="flex:1;color:' + (x.eu ? 'var(--vd)' : 'var(--t1)') + (x.eu ? ';font-weight:600' : '') + '">' + esc(x.nome.slice(0, 44)) + (x.eu ? ' (voce)' : '') + '</span>' +
-          (x.ads ? '<span style="font-family:monospace;font-size:8px;color:var(--mk)">ADS</span>' : '') +
+          (x.ads ? '<span style="font-family:monospace;font-size:10px;color:var(--mk);border:1px solid var(--mk);border-radius:99px;padding:1px 6px">ADS</span>' : '') +
           '<span style="text-align:right"><span style="font-family:monospace;font-size:10.5px;display:block">' + (x.preco != null ? 'R$' + fmt(x.preco, 2) : '—') + '</span>' +
-          '<span style="font-family:monospace;font-size:8.5px;color:var(--vd)">' + (x.vendasMes != null ? x.vendasMes + '/mes · ' + espDinheiro(x.faturamentoMes) : 'sem dado') + '</span></span></div>';
+          '<span style="font-family:monospace;font-size:11px;color:var(--vd)">' + (x.vendasMes != null ? x.vendasMes + '/mes · ' + espDinheiro(x.faturamentoMes) : 'sem dado') + '</span></span>' +
+          // O link para o anuncio do concorrente foi perdido numa edicao
+          // anterior: por isso o Espiao nunca levava ate o campeao.
+          (x.link && !x.eu ? '<a data-link-externo="1" href="' + esc(x.link) + '" target="_blank" rel="noopener" title="abrir o anuncio dele" style="flex:none;color:var(--mk);text-decoration:none;font-size:18px;padding:0 4px">\u2197</a>' : '') +
+          '</div>';
       }
 
       var meus = lista.filter(function (z) { return z.eu; });
