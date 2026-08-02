@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.49.2';
+  var VERSAO = '0.50.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1783,6 +1783,18 @@
         // sem isto o clique e capturado pela linha e o href nunca e seguido
         if (el.getAttribute('data-link-externo')) return;
         if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
+        // Estes botoes eram ligados por addEventListener depois de cada render.
+        // Qualquer render extra entre o desenho e a religacao deixava o botao
+        // morto — clicava e nada acontecia, sem erro. Na delegacao global eles
+        // funcionam sempre, porque o listener vive no container que nao e
+        // recriado.
+        if (el.id === 'sia-rel-gerar') { gerarRelatorio(); return; }
+        if (el.id === 'sia-rel-pdf') { imprimirRelatorio(); return; }
+        if (el.id === 'sia-rel-copiar') {
+          try { navigator.clipboard.writeText(estado.rel.markdown || ''); mostrarExpl('<b>Relatorio copiado.</b> Cole onde precisar.'); } catch (e) { /* noop */ }
+          return;
+        }
+        if (el.id === 'sia-rel-novo') { estado.rel.markdown = null; render(); return; }
         var tr = el.getAttribute && el.getAttribute('data-trocar');
         if (tr) {
           var novo = prompt('Qual termo o Radar deve buscar para este produto?\n\n' + tr.slice(0, 70), '');
@@ -2672,7 +2684,12 @@
         void chrome.runtime.lastError;
         aoTerminar(resp || { ok: false, erro: 'Sem resposta do Seller.IA.' });
       });
-    } catch (e) { aoTerminar({ ok: false, erro: 'Extensao sem permissao para buscar.' }); }
+    } catch (e) {
+      // a mensagem antiga culpava permissao, que quase nunca e a causa real:
+      // o mais comum e o service worker ter hibernado e a extensao precisar
+      // ser recarregada, ou a aba ter sido descarregada pelo Chrome
+      aoTerminar({ ok: false, erro: 'Perdi a conexao com o Seller.IA. Recarregue a pagina (F5) e tente de novo. Detalhe: ' + String(e && e.message || e) });
+    }
   }
 
   function espMeusProdutos(limite) {
@@ -2684,6 +2701,12 @@
       // (credito de Ads, saldo, ajuste). Buscar isso na vitrine e ruido.
       if (/cr[eé]dito|saldo|recarga|ajuste|reembolso|taxa|cupom da loja/i.test(p.nome)) continue;
       if (!/[a-zA-Zà-ú]{4}/.test(p.nome)) continue;
+      // So entra produto com metrica DESTA coleta. Sem isto, nome que sobrou
+      // de leitura anterior virava linha no Radar e a busca era feita para
+      // produto que nao e da loja aberta.
+      var mm = p.metricas || {};
+      var temMetrica = (mm.visitantes != null) || (mm.vendas_pagas != null) || (mm.cliques != null) || (mm.pedidos_pagos != null);
+      if (!temMetrica) continue;
       var m = p.metricas || {};
       arr.push({ id: id, nome: p.nome, gmv: m.gmv || 0 });
     }
@@ -3535,12 +3558,8 @@
     s = s.replace(/\n{2,}/g, '<div style="height:9px"></div>');
     return s;
   }
-  function ligarRelatorio() {
-    var m = $('sia-rel-mes');
-    if (m) m.addEventListener('change', function () { estado.rel.mes = m.value; render(); });
+  function gerarRelatorio() {
 
-    var g = $('sia-rel-gerar');
-    if (g) g.addEventListener('click', function () {
       // sem esta trava, dois cliques rapidos disparam duas geracoes que
       // competem pelo mesmo estado.campanhas e misturam os periodos
       if (estado.rel.gerando) return;
@@ -3632,16 +3651,16 @@
           } catch (e) { estado.rel.gerando = false; estado.rel.erro = String(e); restaurar(); render(); }
         }, 900);
       }, 900);
-    });
 
-    var pdf = $('sia-rel-pdf');
-    if (pdf) pdf.addEventListener('click', function () { imprimirRelatorio(); });
-    var cp = $('sia-rel-copiar');
-    if (cp) cp.addEventListener('click', function () {
-      try { navigator.clipboard.writeText(estado.rel.markdown || ''); cp.textContent = 'Copiado'; setTimeout(function () { cp.textContent = 'Copiar texto'; }, 1800); } catch (e) { /* noop */ }
-    });
-    var nv = $('sia-rel-novo');
-    if (nv) nv.addEventListener('click', function () { estado.rel.markdown = null; render(); });
+  }
+
+  function ligarRelatorio() {
+    var m = $('sia-rel-mes');
+    if (m) m.addEventListener('change', function () { estado.rel.mes = m.value; render(); });
+
+
+
+
   }
   function imprimirRelatorio() {
     // window.open('') dentro de content script e bloqueado em boa parte dos

@@ -91,15 +91,10 @@ async function buscaPublica(kw) {
   }
   // A aba da vitrine ficava aberta para sempre depois da busca: era ela que
   // a Karina via aparecer no lugar do comparativo. Fecha assim que responde.
-  return espera.then(function (r) {
-    try {
-      if (SIA_ABA_BUSCA) {
-        var id = SIA_ABA_BUSCA; SIA_ABA_BUSCA = null;
-        setTimeout(function () { chrome.tabs.remove(id, function () { void chrome.runtime.lastError; }); }, 600);
-      }
-    } catch (e) { /* noop */ }
-    return r;
-  });
+  // NAO fechar a aba: reaproveitar a mesma em segundo plano e mais rapido e
+  // mais seguro. Fechar e recriar a cada busca fazia a referencia se perder
+  // e a busca seguinte falhar com "sem permissao".
+  return espera;
 }
 
 chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
