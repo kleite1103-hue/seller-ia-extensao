@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.45.0';
+  var VERSAO = '0.46.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1425,7 +1425,15 @@
         });
         var alvoLeilao = idsGasto.slice(0, 60);
         if (alvoLeilao.length) {
-          prog('Lendo posicao no leilao e diagnostico da Shopee...');
+          prog('Lendo o que a Shopee recomenda...');
+        var rt = await buscar('/api/pas/v1/todo/list_task/?' + spcQ, 'POST', '{}');
+        totalChamadas++;
+        if (rt.ok && rt.dados) {
+          processarPacote({ url: '/api/pas/v1/todo/list_task/', metodo: 'POST', corpo: '{}', dados: rt.dados, ts: Date.now() });
+        }
+        await pausa(450);
+
+        prog('Lendo posicao no leilao e diagnostico da Shopee...');
           for (var lv = 0; lv < alvoLeilao.length; lv += 20) {
             var lote20 = alvoLeilao.slice(lv, lv + 20).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return !!x; });
             if (!lote20.length) continue;
@@ -3104,6 +3112,21 @@
       chip('STATUS SHOPEE', st ? esc(st === 'normal' ? 'Normal' : st) : '—', st === 'normal' ? 'sem limitacao' : (st ? 'produto limitado' : 'abra a campanha uma vez'), st && st !== 'normal' ? 'var(--rd)' : 'var(--vd)') +
       chip('DIAGNOSTICO SHOPEE', diagRot, diagSub, diagCor) +
       '</div>';
+
+    // O ROAS que a propria Shopee recomenda para este produto, com a faixa
+    // estimada. Vem da mesma rota da competitividade e nunca foi mostrado.
+    var roasRec = pp && pp.roasRecomendado != null ? pp.roasRecomendado : null;
+    if (roasRec != null) {
+      var pisoAqui = (estado.cofre && margemMediaCofre()) ? 100 / margemMediaCofre() : null;
+      var abaixo = pisoAqui != null && roasRec < pisoAqui;
+      h += '<div style="background:color-mix(in srgb,' + (abaixo ? 'var(--rd)' : 'var(--px)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (abaixo ? 'var(--rd)' : 'var(--px)') + ';border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">A Shopee recomenda meta de ' + fmt(roasRec, 1) + 'x para este produto</b>' +
+        (pp.roiEstimadoMin != null && pp.roiEstimadoMax != null ? ', e estima retorno entre ' + fmt(pp.roiEstimadoMin, 1) + 'x e ' + fmt(pp.roiEstimadoMax, 1) + 'x' : '') + '.' +
+        (abaixo
+          ? '<br><span style="color:var(--rd)">Isso esta abaixo do seu ponto de equilibrio de ' + fmt(pisoAqui, 1) + 'x. Seguir essa recomendacao faria cada venda sair no prejuizo.</span>'
+          : (pisoAqui != null ? '<br>Seu ponto de equilibrio e ' + fmt(pisoAqui, 1) + 'x, entao ha espaco para trabalhar.' : '<br>Cadastre o custo no Cofre para saber se essa meta cabe na sua margem.')) +
+        '</div>';
+    }
 
     /* ---- 6. FUNIL ---- */
     var f = (pc && pc.funil) || {};

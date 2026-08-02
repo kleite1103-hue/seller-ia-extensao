@@ -618,6 +618,35 @@
   }
 
   // [3] PERFORMANCE DE PRODUTO — o funil de cada item (product/performance + rankings)
+
+  // ---- TODO/LIST_TASK: a rota que REALMENTE traz competitividade ----
+  // Eu tinha assumido que competitiveness vinha de get_product_performance_info.
+  // Nao vinha: essa rota nunca teve o campo. Ele vive aqui, junto com o ROAS
+  // que a Shopee recomenda para o produto e a faixa estimada de retorno.
+  // Valores de ROAS vem em micro (390000 = 3,9x).
+  function exTarefas(url, d) {
+    if (!/todo\/list_task/.test(url)) return 0;
+    var lista = ((d && d.data) || {}).task_list || [];
+    var c = 0;
+    for (var i = 0; i < lista.length; i++) {
+      var tk = lista[i] || {};
+      var g = tk.generic_data || {};
+      var si = g.integer_field || {}, ss = g.string_field || {};
+      var id = si.item_id;
+      if (!id) continue;
+      var p = COFRE.porProduto[String(id)] || {};
+      if (ss.name && !p.nome) p.nome = ss.name;
+      if (si.competitiveness != null) p.competitividade = n(si.competitiveness);
+      if (si.recommended_roas_target != null) p.roasRecomendado = real(si.recommended_roas_target);
+      if (si.estimated_roi__lower_bound != null) p.roiEstimadoMin = real(si.estimated_roi__lower_bound);
+      if (si.estimated_roi__upper_bound != null) p.roiEstimadoMax = real(si.estimated_roi__upper_bound);
+      if (tk.state) p.tarefaShopee = String(tk.state);
+      COFRE.porProduto[String(id)] = p;
+      c++;
+    }
+    return c;
+  }
+
   function exPerformanceProduto(url, d) {
     var r = raiz(d);
     // FORMATO EXTRA: get_product_performance_info traz l30d por item_id (mapa)
@@ -892,6 +921,7 @@
       // a mesma resposta ainda passa pela varredura ampla, que pesca
       // competitiveness/avg_rank soltos em qualquer profundidade
       if (/get_product_performance_info/.test(url)) exProduto(url, dados);
+      if (/todo\/list_task/.test(url)) exTarefas(url, dados);
       if (/product\/overview\/metric-trends|product\/overview\/|product\/traffic\/overview/.test(url)) exTendenciaProduto(url, dados);
       if (/get_product_lock_info|item\/get_ratings/.test(url)) exSaudeProduto(url, dados);
       if (/accounthealth\/v1\/sc\/shops\/overview/.test(url)) exSaudeConta(url, dados);
