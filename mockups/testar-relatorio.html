@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seller.IA — Testar o Relatório</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--b0:#07080a;--b1:#0c0e12;--b2:#12151b;--li:#1d212a;--t0:#f2f2f4;--t1:#b8bcc6;--t2:#8a909c;--mk:#ff4d1c;--vd:#2ecc71;--rd:#e74c3c;--am:#f5b041}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--b0);color:var(--t0);font-family:'Outfit',sans-serif;font-weight:300;line-height:1.55}
+.wrap{max-width:720px;margin:0 auto;padding:30px 16px 70px}
+h1{font-family:'Bebas Neue';font-size:clamp(28px,7vw,42px);line-height:1}
+h1 em{font-style:normal;color:var(--mk)}
+.sub{color:var(--t1);font-size:14px;margin-top:7px}
+.campo{margin:20px 0 10px}
+.campo label{display:block;font-family:'Space Mono';font-size:10.5px;color:var(--t2);letter-spacing:.06em;margin-bottom:6px}
+.campo input{width:100%;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px 13px;color:var(--t0);font-family:'Space Mono';font-size:12.5px}
+.ajuda{font-size:12.5px;color:var(--t2);margin-top:6px;line-height:1.5}
+.ajuda b{color:var(--t1)}
+button.ir{width:100%;background:var(--mk);border:none;color:#fff;font-family:'Outfit';font-weight:700;font-size:15px;padding:14px;border-radius:11px;cursor:pointer;margin-top:10px}
+button.ir:disabled{opacity:.5}
+.chk{display:flex;gap:11px;align-items:flex-start;background:var(--b2);border:1px solid var(--li);border-left:3px solid var(--li);border-radius:0 11px 11px 0;padding:13px 15px;margin:9px 0}
+.chk.ok{border-left-color:var(--vd)}.chk.fail{border-left-color:var(--rd)}
+.chk .ic{font-family:'Space Mono';font-size:15px;flex:none}
+.chk.ok .ic{color:var(--vd)}.chk.fail .ic{color:var(--rd)}
+.chk .t{font-size:14.5px;color:var(--t0);font-weight:500}
+.chk .d{font-size:13.5px;color:var(--t2);margin-top:4px;line-height:1.55}
+.chk .d b{color:var(--t1)}
+h2{font-family:'Bebas Neue';font-size:22px;margin:24px 0 8px}
+pre{background:var(--b2);border:1px solid var(--li);border-radius:11px;padding:14px;overflow-x:auto;font-family:'Space Mono';font-size:11.5px;color:var(--t1);line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow-y:auto}
+footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--li);font-family:'Space Mono';font-size:10.5px;color:var(--t2);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>TESTAR O <em>RELATÓRIO</em></h1>
+<p class="sub">Manda um cenário mínimo direto para a função e mostra a resposta crua.</p>
+
+<div class="campo">
+  <label>URL DA FUNÇÃO</label>
+  <input id="url" value="https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/relatorio">
+</div>
+
+<div class="campo">
+  <label>CHAVE ANON DO PROJETO</label>
+  <input id="chave" type="password" placeholder="cole aqui a anon key" autocomplete="off">
+  <div class="ajuda">Supabase → <b>Project Settings → API → anon public</b>.</div>
+</div>
+
+<button class="ir" id="ir">Rodar o teste</button>
+<div id="res"></div>
+
+<footer>SELLER.IA · EFEITO VENDAS<br>A chave não sai do seu navegador.</footer>
+</div>
+
+<script>
+var CENARIO = {
+  loja: "413140457",
+  loja_nome: "Loja de Teste",
+  margemMediaPct: 30,
+  atual: {
+    periodo: "01/06/2026 - 30/06/2026",
+    conta: { gmvPago: 52689.78, pedidosPagos: 1025, visitantes: 39781, conversaoPaga: 2.57, ticketMedio: 51.36, cancelamentos: 17, visualizacoes: 61200, carrinho: 2240 },
+    ads: { investimento: 1269.56, impressoes: 218786, cliques: 7218, ctr: 3.30, gmvPainel: 24886.68, gmvReal: 21780.03, pedidos: 440, roasPainel: 19.60, roasReal: 17.16, cpa: 2.89 },
+    afiliados: { gmv: 5945, comissao: 594, pedidos: 120, novosCompradores: 14, roi: 27.6 },
+    produtos: [{ nome: "Produto Teste A", id: "111", visitantes: 2000, cliques: 340, carrinho: 88, unidades: 51, vendas: 8240, conversao: 2.55 }],
+    campanhas: [{ nome: "Campanha Teste", produtoId: "111", formato: "GMV Max Meta de ROAS", gasto: 110.75, gmv: 1012, roas: 9.14, roasDireto: 5.25, pedidos: 21, cpa: 5.27, metaAtual: 10.6, metaSugerida: 3.0 }],
+    formatos: [{ rotulo: "GMV Max Meta de ROAS", qtd: 1, gasto: 110.75, roas: 9.14 }]
+  },
+  anterior: {
+    periodo: "01/05/2026 - 31/05/2026",
+    conta: { gmvPago: 41315.88, pedidosPagos: 777, visitantes: 27218, conversaoPaga: 2.28, ticketMedio: 53.11, cancelamentos: 13, visualizacoes: 48900, carrinho: 1810 },
+    ads: { investimento: 1316.23, impressoes: 260688, cliques: 9118, ctr: 3.50, gmvPainel: 26019.79, gmvReal: 22619.27, pedidos: 450, roasPainel: 19.77, roasReal: 17.18, cpa: 2.92 },
+    afiliados: { gmv: 4820, comissao: 512, pedidos: 98, novosCompradores: 11, roi: 24.1 },
+    produtos: [], campanhas: [], formatos: []
+  }
+};
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function chk(ok,t,d){return '<div class="chk '+(ok?'ok':'fail')+'"><span class="ic">'+(ok?'\u2713':'\u2715')+'</span><div><div class="t">'+esc(t)+'</div><div class="d">'+d+'</div></div></div>'}
+
+document.getElementById('ir').addEventListener('click', async function () {
+  var btn=this, res=document.getElementById('res');
+  var url=document.getElementById('url').value.trim();
+  var chave=document.getElementById('chave').value.trim();
+  if(!chave){res.innerHTML=chk(false,'Falta a chave','Cole a anon key.');return;}
+  btn.disabled=true; btn.textContent='Gerando... (pode levar 60s)';
+  res.innerHTML='<p class="ajuda">Chamando a função. O relatório completo leva de 30 a 90 segundos.</p>';
+  var t0=Date.now();
+  try{
+    var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+chave,'apikey':chave},body:JSON.stringify(CENARIO)});
+    var txt=await r.text(); var d=null;
+    try{d=JSON.parse(txt)}catch(e){}
+    var seg=Math.round((Date.now()-t0)/1000);
+    var h='';
+
+    if(!r.ok||!d||!d.ok){
+      var motivo=(d&&(d.erro||d.detalhe))||('HTTP '+r.status);
+      var causa='';
+      if(/ANTHROPIC_API_KEY/i.test(motivo)) causa='A secret <b>ANTHROPIC_API_KEY</b> não está visível para esta função. Mesmo que você tenha cadastrado, confira se ela aparece em <b>Edge Functions → Secrets</b> e <b>republique a função</b> depois de criar a secret — secrets criadas depois do deploy às vezes não são lidas até um novo deploy.';
+      else if(/prompt.*n[aã]o encontrado/i.test(motivo)) causa='O prompt não está na tabela. Rode o <b>prompt-relatorio.sql</b> e confira com: <code>select count(*) from conhecimento where dominio=\'prompt\';</code>';
+      else if(r.status===404) causa='A função <b>relatorio</b> não existe nesse endereço. Confira o nome exato no Supabase.';
+      else if(r.status===401||r.status===403) causa='Chave recusada. Use a <b>anon public</b>.';
+      else if(/api respondeu 4|api respondeu 5/i.test(motivo)) causa='A função falou com a API da Anthropic e ela recusou. Confira se a chave da Anthropic é válida e tem crédito.';
+      h+=chk(false,'A função respondeu com erro em '+seg+'s',esc(motivo)+(causa?'<br><br>'+causa:''));
+      h+='<h2>RESPOSTA CRUA</h2><pre>'+esc(txt.slice(0,2500))+'</pre>';
+      res.innerHTML=h; return;
+    }
+
+    h+=chk(true,'O relatório foi gerado em '+seg+'s','Versão <b>'+esc(d.code_version||'?')+'</b> · '+(d.dados_enviados||0)+' caracteres enviados ao modelo.');
+    h+=chk((d.markdown||'').length>500,'O relatório tem conteúdo','<b>'+(d.markdown||'').length+'</b> caracteres de texto.');
+    h+='<h2>O RELATÓRIO</h2><pre>'+esc(d.markdown||'(vazio)')+'</pre>';
+    res.innerHTML=h;
+  }catch(e){
+    res.innerHTML=chk(false,'Não consegui alcançar a função','Erro: <b>'+esc(e.message||e)+'</b>. Se falar em CORS, a função não subiu.');
+  }finally{ btn.disabled=false; btn.textContent='Rodar o teste'; }
+});
+</script>
+</body>
+</html>
