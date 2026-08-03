@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.59.0';
+  var VERSAO = '0.60.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2485,6 +2485,61 @@
     return h;
   }
 
+  /* ============ SELETOR DE PERIODO DA CONTA 360 ============
+     Antes a tela herdava o periodo que estivesse aberto no painel da Shopee,
+     entao o mesmo numero podia ser de 7, 30 ou 90 dias sem ninguem saber.
+     Agora a tela escolhe e diz qual recorte esta mostrando. */
+  var PERIODOS = [
+    { id: '7', rot: 'Ultimos 7 dias', dias: 7 },
+    { id: '30', rot: 'Ultimos 30 dias', dias: 30 },
+    { id: 'mes', rot: 'Este mes', dias: null },
+    { id: 'mesant', rot: 'Mes passado', dias: null }
+  ];
+  function faixaDoPeriodo(id) {
+    var hoje0 = inicioDoDiaBRT(Math.floor(Date.now() / 1000));
+    if (id === 'mes') {
+      var d = new Date();
+      return { inicio: Date.UTC(d.getFullYear(), d.getMonth(), 1, 3, 0, 0) / 1000, fim: hoje0 };
+    }
+    if (id === 'mesant') {
+      var d2 = new Date();
+      return {
+        inicio: Date.UTC(d2.getFullYear(), d2.getMonth() - 1, 1, 3, 0, 0) / 1000,
+        fim: Date.UTC(d2.getFullYear(), d2.getMonth(), 1, 3, 0, 0) / 1000
+      };
+    }
+    var n = parseInt(id, 10) || 30;
+    return { inicio: hoje0 - n * 86400, fim: hoje0 };
+  }
+  function renderSeletorPeriodo() {
+    var atual = estado.periodo360 || '30';
+    var h = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">';
+    for (var i = 0; i < PERIODOS.length; i++) {
+      var p = PERIODOS[i], on = p.id === atual;
+      h += '<button data-per360="' + p.id + '" style="background:' + (on ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (on ? 'var(--mk)' : 'var(--li)') + ';color:' + (on ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">' + p.rot + '</button>';
+    }
+    h += '</div>';
+    if (estado.coletaProgresso !== null) {
+      h += '<div class="nota" style="color:var(--mk)">Lendo: ' + esc(String(estado.coletaProgresso)) + '</div>';
+    }
+    return h;
+  }
+  function ligarSeletorPeriodo() {
+    var bs = corpoEl().querySelectorAll('[data-per360]');
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].addEventListener('click', function () {
+        if (estado.coletaProgresso !== null) return;
+        estado.periodo360 = this.getAttribute('data-per360');
+        var f = faixaDoPeriodo(estado.periodo360);
+        try { if (window.SIA_Diamantes && window.SIA_Diamantes.zerar) window.SIA_Diamantes.zerar('troca de periodo da Conta 360'); } catch (e) { /* noop */ }
+        estado.campanhas = {}; estado.produtos = {}; estado.conta = { campos: {}, atualizadoEm: null };
+        render();
+        coletaCompleta(function () { render(); }, f);
+      });
+    }
+  }
+  function corpoEl() { return $('sia-corpo'); }
+
   function renderConta360() {
     var D = null;
     try { if (window.SIA_Diamantes) D = window.SIA_Diamantes.resumo(); } catch (e) { }
@@ -2601,7 +2656,8 @@
       var sc = D.conta.saudeConta;
       var corRating = sc.ratingPerformance === 'excellent' ? 'var(--vd)' : (sc.ratingPerformance === 'good' ? 'var(--am)' : 'var(--rd)');
       var traduz = { excellent: 'Excelente', good: 'Boa', improvement_needed: 'Precisa melhorar', poor: 'Ruim' };
-      ca4 += '<div class="ld">Saude da conta: <b style="color:' + corRating + '">' + (traduz[sc.ratingPerformance] || sc.ratingPerformance) + '</b>';
+      ca4 += '<div class="ld">Saude da conta: <b style="color:' + corRating + '">' + (traduz[sc.ratingPerformance] || sc.ratingPerformance) + '</b>' +
+        dica('<b>Por que a saude da conta importa para o anuncio.</b> A Shopee pontua infracoes como atraso de envio, cancelamento por culpa do vendedor e produto irregular. Conta com pontos tem alcance reduzido na vitrine \u2014 entao otimizar campanha numa conta penalizada e investir num teto rebaixado. Resolver a penalidade vem antes de escalar orcamento.');
       if (sc.pontosPenalidade != null) ca4 += ' · ' + sc.pontosPenalidade + ' pts penalidade';
       ca4 += '</div>';
     }
@@ -2615,7 +2671,30 @@
       var travasSet = {};
       Object.keys(g.travasDetectadas).forEach(function (l) { (g.travasDetectadas[l] || []).forEach(function (t) { travasSet[t] = 1; }); });
       var listaT = Object.keys(travasSet);
-      if (listaT.length) ca4 += '<div class="ld" style="color:var(--am);font-size:11px">Travas de edicao detectadas: ' + listaT.slice(0, 4).join(', ') + '</div>';
+      if (listaT.length) {
+        // Jargao de API na tela nao ajuda ninguem. Traduz para o que a pessoa
+        // precisa saber: o que ela NAO consegue mudar agora, e por que.
+        var NOMES_TRAVA = {
+          min_purchase_limit: 'quantidade minima por pedido',
+          tier_variation_add: 'adicionar variacao',
+          tier_variation_delete: 'remover variacao',
+          tier_variation_edit: 'editar variacao',
+          model_level_dts_toggle: 'prazo de envio por variacao',
+          price_edit: 'preco',
+          stock_edit: 'estoque',
+          name_edit: 'titulo',
+          image_edit: 'fotos',
+          category_edit: 'categoria',
+          description_edit: 'descricao'
+        };
+        var legiveis = listaT.map(function (x) { return NOMES_TRAVA[x] || x; });
+        var temVariacao = listaT.some(function (x) { return x.indexOf('tier_variation') >= 0; });
+        ca4 += '<div class="ld" style="color:var(--am);font-size:12.5px;line-height:1.55;margin-top:6px">' +
+          '<b>A Shopee bloqueou algumas edicoes agora:</b> ' + legiveis.slice(0, 6).join(', ') + '.' +
+          ' Isso costuma acontecer quando ha campanha ativa, pedido em aberto ou o produto esta em analise.' +
+          (temVariacao ? ' <b>Enquanto durar, voce nao consegue tirar uma variacao problematica do ar</b> \u2014 e preciso pausar a campanha do produto antes.' : '') +
+          '</div>';
+      }
     }
     h += bloco('4 · SAUDE / AVALIACOES', ca4, 'abra Avaliacoes ou um Produto para capturar');
 
@@ -4106,7 +4185,15 @@
       // era uma comparacao do mes com ele mesmo.
       var guardaCampanhas = estado.campanhas, guardaProdutos = estado.produtos, guardaConta = estado.conta;
       function restaurar() { estado.campanhas = guardaCampanhas; estado.produtos = guardaProdutos; estado.conta = guardaConta; }
-      function zerar() { estado.campanhas = {}; estado.produtos = {}; estado.conta = { campos: {}, atualizadoEm: null }; }
+      function zerar() {
+        estado.campanhas = {}; estado.produtos = {}; estado.conta = { campos: {}, atualizadoEm: null };
+        // O COFRE tambem precisa ser zerado: blocoPeriodo le DELE, nao de
+        // estado.campanhas. Sem isto o segundo mes lia o COFRE ainda cheio
+        // do primeiro, e os dois periodos saiam identicos no relatorio —
+        // exatamente o que aconteceu: mesmo GMV, mesmos 24 pedidos, mesmos
+        // 999 visitantes, variacao 0,00% em tudo.
+        try { if (window.SIA_Diamantes && window.SIA_Diamantes.zerar) window.SIA_Diamantes.zerar('troca de periodo do relatorio'); } catch (e) { /* noop */ }
+      }
 
       estado.rel.etapa = 'Lendo ' + faixaDoMes(sel).rotulo + '...'; render();
       zerar();
@@ -4152,6 +4239,17 @@
           clearInterval(esperaB);
           var blocoB = blocoPeriodo(fp.rotulo);
           restaurar();
+
+          // se os dois periodos sairem identicos, algo nao trocou de verdade
+          var iguais = blocoA.conta && blocoB.conta &&
+            blocoA.conta.gmvPago === blocoB.conta.gmvPago &&
+            blocoA.conta.pedidosPagos === blocoB.conta.pedidosPagos &&
+            blocoA.conta.visitantes === blocoB.conta.visitantes &&
+            (blocoA.conta.gmvPago !== null && blocoA.conta.gmvPago !== undefined);
+          if (iguais) {
+            desistir('Os dois meses vieram com os mesmos numeros, o que significa que a leitura do periodo anterior nao trocou de verdade. Nao vou gerar um relatorio com comparacao falsa. Tente de novo; se repetir, me avise.');
+            return;
+          }
 
           estado.rel.etapa = 'O consultor esta escrevendo...'; render();
           var payload = {
@@ -4921,8 +5019,9 @@
       return;
     }
     if (abaAtiva === 'conta360') {
-      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderFunilLoja() + renderConta360();
+      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSeletorPeriodo() + renderFunilLoja() + renderConta360();
       ligarBotaoColeta();
+      ligarSeletorPeriodo();
       return;
     }
 
