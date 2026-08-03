@@ -89,7 +89,9 @@ document.getElementById('ir').addEventListener('click', async function () {
   res.innerHTML='<p class="ajuda">Chamando a função. O relatório completo leva de 30 a 90 segundos.</p>';
   var t0=Date.now();
   try{
-    var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+chave,'apikey':chave},body:JSON.stringify(CENARIO)});
+    // pede so a parte 1: e o suficiente para provar que a funcao responde
+    var corpo={}; for(var k in CENARIO) corpo[k]=CENARIO[k]; corpo.parte=1;
+    var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+chave,'apikey':chave},body:JSON.stringify(corpo)});
     var txt=await r.text(); var d=null;
     try{d=JSON.parse(txt)}catch(e){}
     var seg=Math.round((Date.now()-t0)/1000);
@@ -103,6 +105,7 @@ document.getElementById('ir').addEventListener('click', async function () {
       else if(r.status===404) causa='A função <b>relatorio</b> não existe nesse endereço. Confira o nome exato no Supabase.';
       else if(r.status===401||r.status===403) causa='Chave recusada. Use a <b>anon public</b>.';
       else if(/api respondeu 4|api respondeu 5/i.test(motivo)) causa='A função falou com a API da Anthropic e ela recusou. Confira se a chave da Anthropic é válida e tem crédito.';
+      else if(/IDLE_TIMEOUT/i.test(motivo)||r.status===504) causa='A função passou dos 150s do Supabase. <b>Republique o relatorio.ts atualizado</b>: ele agora usa streaming e gera em partes, o que mantém a função ativa e cabe no limite.';
       h+=chk(false,'A função respondeu com erro em '+seg+'s',esc(motivo)+(causa?'<br><br>'+causa:''));
       h+='<h2>RESPOSTA CRUA</h2><pre>'+esc(txt.slice(0,2500))+'</pre>';
       res.innerHTML=h; return;

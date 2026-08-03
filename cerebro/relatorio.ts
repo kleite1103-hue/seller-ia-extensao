@@ -12,7 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const CODE_VERSION = "relatorio-1.0.0";
+const CODE_VERSION = "relatorio-1.1.0";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -167,6 +167,25 @@ Deno.serve(async (req) => {
 
   const dados = montarDados(body);
 
+  // GERACAO EM DUAS PARTES: mesmo com stream, um relatorio inteiro pode
+  // encostar nos 150s. A extensao pede a parte 1 (diagnostico) e depois a
+  // parte 2 (plano e projecao), e junta. Cada chamada cabe folgado no limite.
+  const parte = Number(body.parte || 0);
+  let instrucao = "Gere o relatorio completo no formato definido, usando exclusivamente os dados abaixo.";
+  if (parte === 1) {
+    instrucao = "Gere APENAS as secoes 1 a 8 do relatorio (Identificacao, Snapshot Executivo, Visao Geral, Analise Detalhada de KPIs, Shopee Ads, Analise de Produtos, Pontos Positivos e Pontos de Atencao). NAO escreva as secoes 9 e 10 nem qualquer conclusao final: elas serao geradas em outra chamada. Use exclusivamente os dados abaixo.";
+  } else if (parte === 2) {
+    instrucao = "Gere APENAS as secoes 9 e 10 do relatorio: a Projecao de Crescimento para os proximos 30 dias (com a coluna de LUCRO e recomendando o cenario de maior lucro, nao de maior GMV) e o Plano Tatico de 30 dias dividido em quatro semanas. Nao repita as secoes anteriores nem escreva introducao. Use exclusivamente os dados abaixo.";
+  }
+
+  // ============================================================
+  // STREAMING E OBRIGATORIO AQUI.
+  // O Supabase mata a Edge Function com IDLE_TIMEOUT quando ela fica 150s
+  // sem enviar nada, e um relatorio completo leva mais que isso para ser
+  // escrito. Sem stream, a funcao SEMPRE morre em 150s — foi o que
+  // aconteceu no teste. Com stream, cada pedaco que chega da API conta
+  // como atividade e o relogio nao estoura.
+  // ============================================================
   let resposta: Response;
   try {
     resposta = await fetch("https://api.anthropic.com/v1/messages", {
@@ -178,11 +197,12 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: body.modelo || "claude-sonnet-4-5",
-        max_tokens: 16000,
+        max_tokens: parte ? 9000 : 16000,
+        stream: true,
         system: prompt,
         messages: [{
           role: "user",
-          content: "Gere o relatorio completo no formato definido, usando exclusivamente os dados abaixo.\n\n" + dados,
+          content: instrucao + "\n\n" + dados,
         }],
       }),
     });
@@ -190,19 +210,43 @@ Deno.serve(async (req) => {
     return json({ ok: false, erro: "falha ao chamar a API: " + String(e) }, 502);
   }
 
-  const txt = await resposta.text();
-  if (!resposta.ok) return json({ ok: false, erro: "API respondeu " + resposta.status, detalhe: txt.slice(0, 600) }, 502);
-
-  let markdown = "";
-  try {
-    const d = JSON.parse(txt);
-    markdown = (d.content || []).filter((x: any) => x.type === "text").map((x: any) => x.text).join("\n");
-  } catch {
-    return json({ ok: false, erro: "resposta da API ilegivel" }, 502);
+  if (!resposta.ok) {
+    const errTxt = await resposta.text();
+    return json({ ok: false, erro: "API respondeu " + resposta.status, detalhe: errTxt.slice(0, 600) }, 502);
   }
 
+  // le o stream e remonta o texto
+  let markdown = "";
   try {
-    await supa.from("relatorios").insert({
+    const reader = resposta.body!.getReader();
+    const dec = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += dec.decode(value, { stream: true });
+      const linhas = buffer.split("\n");
+      buffer = linhas.pop() || "";
+      for (const linha of linhas) {
+        if (!linha.startsWith("data:")) continue;
+        const payload = linha.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const ev = JSON.parse(payload);
+          if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+            markdown += ev.delta.text || "";
+          }
+        } catch { /* pedaco incompleto, continua */ }
+      }
+    }
+  } catch (e) {
+    return json({ ok: false, erro: "o stream da API foi interrompido: " + String(e) }, 502);
+  }
+
+  if (!markdown.trim()) return json({ ok: false, erro: "a API nao devolveu texto" }, 502);
+
+  try {
+    if (parte !== 1) await supa.from("relatorios").insert({
       shop_id: String(body.loja || "desconhecida"),
       periodo_atual: body?.atual?.periodo || null,
       periodo_anterior: body?.anterior?.periodo || null,
@@ -210,5 +254,5 @@ Deno.serve(async (req) => {
     });
   } catch (_e) { /* o log e opcional, o relatorio nao pode falhar por causa dele */ }
 
-  return json({ ok: true, code_version: CODE_VERSION, markdown, dados_enviados: dados.length });
+  return json({ ok: true, code_version: CODE_VERSION, parte, markdown, dados_enviados: dados.length });
 });

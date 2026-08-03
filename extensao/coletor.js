@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.53.1';
+  var VERSAO = '0.54.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3807,8 +3807,43 @@
             atual: blocoA,
             anterior: blocoB
           };
+          // Pede em duas partes: diagnostico e depois plano/projecao. Cada
+          // chamada cabe no limite de 150s da Edge Function; juntas fazem o
+          // relatorio inteiro sem estourar o tempo.
+          function pedir(parte, aoOk) {
+            var p2 = {}; for (var kk in payload) p2[kk] = payload[kk];
+            p2.parte = parte;
+            chrome.runtime.sendMessage({ tipo: 'sia:relatorio', payload: p2 }, function (resp) {
+              void chrome.runtime.lastError;
+              aoOk(resp);
+            });
+          }
+          estado.rel.etapa = 'Escrevendo o diagnostico...'; render();
+          pedir(1, function (r1) {
+            if (!r1 || !r1.ok) { falhouRelatorio(r1); return; }
+            estado.rel.etapa = 'Escrevendo o plano de 30 dias...'; render();
+            pedir(2, function (r2) {
+              estado.rel.gerando = false; estado.rel.etapa = '';
+              estado.rel.markdown = r1.markdown + '\n\n' + ((r2 && r2.ok && r2.markdown) || '');
+              estado.rel.loja = estado.loja ? estado.loja.shop_id : null;
+              if (!r2 || !r2.ok) estado.rel.erro = 'O diagnostico ficou pronto, mas o plano de 30 dias falhou: ' + ((r2 && (r2.erro || r2.detalhe)) || 'sem resposta');
+              render();
+            });
+          });
+          return;
+          function falhouRelatorio(resp) {
+            estado.rel.gerando = false; estado.rel.etapa = '';
+            var mot = (resp && (resp.erro || resp.detalhe)) || 'Sem resposta da funcao.';
+            var dica = '';
+            if (/IDLE_TIMEOUT|504/i.test(mot)) dica = ' A funcao passou do tempo limite do Supabase. Republique o relatorio.ts atualizado, que gera em partes.';
+            else if (/ANTHROPIC_API_KEY/i.test(mot)) dica = ' Falta a secret ANTHROPIC_API_KEY na funcao relatorio.';
+            else if (/prompt.*nao encontrado/i.test(mot)) dica = ' Rode o prompt-relatorio.sql.';
+            else if (/404/.test(mot)) dica = ' A funcao relatorio nao foi publicada.';
+            estado.rel.erro = mot + dica;
+            render();
+          }
           try {
-            chrome.runtime.sendMessage({ tipo: 'sia:relatorio', payload: payload }, function (resp) {
+            if (false) chrome.runtime.sendMessage({ tipo: 'sia:relatorio', payload: payload }, function (resp) {
               void chrome.runtime.lastError;
               estado.rel.gerando = false; estado.rel.etapa = '';
               if (!resp || !resp.ok) {
