@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.54.0';
+  var VERSAO = '0.54.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2827,6 +2827,20 @@
     });
   }
 
+  function telaDeErro(tela, err) {
+    var msg = String((err && err.message) || err);
+    var onde = '';
+    try {
+      var pilha = String(err && err.stack || '').split('\n')[1] || '';
+      var m = pilha.match(/coletor\.js:(\d+)/);
+      if (m) onde = ' (coletor.js linha ' + m[1] + ')';
+    } catch (e) { /* noop */ }
+    try { console.error('[Seller.IA] ' + tela + ':', err); } catch (e) { /* noop */ }
+    return '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:12px;padding:18px;margin-top:12px">' +
+      '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:6px">A aba ' + esc(tela) + ' nao conseguiu abrir</div>' +
+      '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(msg) + esc(onde) + '</div>' +
+      '<div style="font-size:13px;color:var(--t2);margin-top:9px;line-height:1.5">Manda esta mensagem que eu corrijo. As outras abas continuam funcionando.</div></div>';
+  }
   function renderEspiao() {
     if (!estado.espiao) estado.espiao = { termo: '', res: null, radar: null };
     var e = estado.espiao;
@@ -3035,7 +3049,7 @@
   }
 
   function ligarEspiao() {
-    var inp = $('sia-esp-termo'), bt = $('sia-esp-ir'), br = $('sia-esp-radar');
+    var inp = $('sia-esp-termo'), bt = $('sia-esp-ir');
     function ir() {
       var t = (inp && inp.value || '').trim();
       if (!t) return;
@@ -3052,7 +3066,9 @@
     }
     if (bt) bt.addEventListener('click', ir);
     if (inp) inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') ir(); });
-    if (br) br.addEventListener('click', function () { espRodarRadar(); });
+    // espRodarRadar foi removida quando o Radar virou seletor. A referencia
+    // ficou aqui e lancava ReferenceError, matando o render inteiro do Espiao
+    // — era por isso que a aba nao abria.
   }
 
   /* ===================== CARD DE 6 PARTES =====================
@@ -4543,17 +4559,26 @@
     }
 
     if (abaAtiva === 'performance') {
+      try {
       // Estava numa cadeia else-if la embaixo que nunca era alcancada, porque
       // todos os branches acima usam if + return. Aba abria em branco.
       corpo.innerHTML = renderPerformanceIA();
       ligarChamadaCerebro();
       var psSel = $('sia-prod-sel');
       if (psSel) psSel.addEventListener('change', function () { estado.prodSel = psSel.value; render(); });
+      } catch (err) { corpo.innerHTML = telaDeErro('Funil de Produto', err); }
       return;
     }
     if (abaAtiva === 'espiao') {
-      corpo.innerHTML = renderEspiao();
-      ligarEspiao();
+      // Uma excecao aqui deixava a aba TOTALMENTE em branco, sem pista
+      // nenhuma do motivo — foi assim com espRodarRadar. Agora o erro
+      // aparece na tela com o arquivo e a linha.
+      try {
+        corpo.innerHTML = renderEspiao();
+        ligarEspiao();
+      } catch (err) {
+        corpo.innerHTML = telaDeErro('Espiao', err);
+      }
       return;
     }
 
