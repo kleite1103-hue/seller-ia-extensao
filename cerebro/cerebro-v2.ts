@@ -599,7 +599,7 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
     const fmtRegra = formatoDe(K, c);
     const ehGrupo = fmtRegra?.chave === "grupo_de_anuncios";
     const avisoGrupo = ehGrupo
-      ? " Este e um Grupo de Anuncios: a Shopee nao entrega metrica por produto dentro dele, entao nao da para dizer qual item especifico responde por este resultado."
+      ? " Este e um Grupo de Anuncios: a Shopee nao entrega metrica por produto dentro dele. Para eu analisar item a item, abra o grupo no painel, exporte a planilha e suba na aba Cofre — com ela consigo dizer qual produto sustenta e qual parasita o grupo."
       : "";
 
     const gasto = num(rep.gasto) ?? (num(rep.cost) !== null ? Number(rep.cost) / 100000 : null);
@@ -622,18 +622,60 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
           dinheiro: gasto,
         });
       } else {
-        const cpmCamp = (gasto && num(rep.impressoes ?? rep.impression)) ? (gasto / Number(rep.impressoes ?? rep.impression)) * 1000 : null;
+        const impr = num(rep.impressoes ?? rep.impression);
+        const cpmCamp = (gasto && impr) ? (gasto / impr) * 1000 : null;
         const caro = (cpmCamp !== null && R.cpmMedio !== null && cpmCamp > R.cpmMedio * 1.3);
+
+        // NAO basta dizer que nao vendeu: e preciso dizer ONDE quebrou.
+        // O funil da campanha aponta o degrau, e o produto vinculado aponta
+        // o motivo provavel. Sem isso o veredito manda o analista procurar
+        // sozinho o que o dado ja responde.
+        const ctr = impr ? (Number(cliques) / impr) * 100 : null;
+        const prodV = c.produtoId ? (snap?.produtos || {})[String(c.produtoId)] : null;
+        const mp = (prodV && (prodV.metricas || prodV.perf)) || {};
+        const carrinho = num(mp.carrinho ?? mp.atc);
+        const convProd = pct(mp.conversao_pago ?? mp.convPago);
+        const preco = num(mp.ticket_pedido ?? mp.ticket);
+        const compet = num(prodV?.competitividade);
+
+        const diag: string[] = [];
+        let onde = "";
+        if (ctr !== null && ctr < 1.8) {
+          onde = "vitrine";
+          diag.push(`o card recebe pouco clique: ${fmt(ctr, 1)} de cada 100 que veem clicam, e o normal e ao menos 2`);
+        } else if (carrinho !== null && carrinho > 0) {
+          onde = "checkout";
+          diag.push(`${fmt(carrinho, 0)} pessoas colocaram no carrinho e nenhuma fechou — o freio esta no frete, no prazo ou no preco final`);
+        } else if (carrinho === 0 || carrinho === null) {
+          onde = "pagina";
+          diag.push("ninguem chegou a colocar no carrinho, entao a pagina nao convenceu antes disso");
+        }
+        if (convProd !== null && convProd > 0) diag.push(`no organico este produto converte ${fmt(convProd, 1)}%, entao a pagina vende — o problema pode ser o publico que o anuncio traz`);
+        if (compet !== null && compet < 40) diag.push(`a Shopee marca a competitividade de preco em ${fmt(compet, 0)} de 100, ou seja, caro para a categoria`);
+        if (preco !== null) diag.push(`o ticket deste produto e ${dinheiro(preco)}`);
+
+        const passos: string[] = [];
+        if (onde === "vitrine") {
+          passos.push("Troque a primeira foto e revise o comeco do titulo");
+          passos.push("Compare o preco no card com os primeiros da mesma busca");
+        } else if (onde === "checkout") {
+          passos.push("Confira frete e prazo — e onde a desistencia acontece");
+          passos.push("Teste um cupom pequeno em vez de baixar o preco");
+        } else {
+          passos.push("Abra a pagina no celular e compare com quem aparece na mesma busca");
+          passos.push("Verifique variacao sem estoque e avaliacoes sem resposta");
+        }
+        passos.push("Enquanto a pagina nao fechar venda, mais trafego so aumenta a perda");
+
         saida.push({
           escopo: "campanha", id, nivel: "vermelho", fonte: "seller.ia",
-          titulo: "Gastou o suficiente para vender e nao vendeu",
-          texto: `${dinheiro(gasto)} compraram ${fmt(cliques, 0)} cliques e nenhuma venda. Nesta conta, ${fmt(R.cliquesPorVenda, 0)} cliques normalmente viram um pedido — este produto ja teve a chance e nao converteu.` +
-            (caro ? ` E esta pagando caro para aparecer: ${dinheiro(cpmCamp)} por mil impressoes contra ${dinheiro(R.cpmMedio)} da media da conta.` : "") + avisoGrupo,
-          passos: [
-            "O problema esta depois do clique: abra a pagina no celular",
-            "Compare preco, avaliacoes e variacoes com quem aparece na mesma busca",
-            "Mais trafego aqui so aumenta a perda enquanto a pagina nao fechar venda",
-          ],
+          titulo: onde === "vitrine" ? "Paga para aparecer e nao recebe clique"
+            : onde === "checkout" ? "Enche o carrinho e nao fecha"
+            : "Gastou o suficiente para vender e nao vendeu",
+          texto: `${dinheiro(gasto)} compraram ${fmt(cliques, 0)} cliques e nenhuma venda. Nesta conta, ${fmt(R.cliquesPorVenda, 0)} cliques normalmente viram um pedido.` +
+            (diag.length ? ` ${diag.join("; ")}.` : "") +
+            (caro ? ` E paga caro para aparecer: ${dinheiro(cpmCamp)} por mil impressoes contra ${dinheiro(R.cpmMedio)} da media da conta.` : "") + avisoGrupo,
+          passos,
           dinheiro: gasto,
         });
       }
@@ -644,15 +686,49 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
     if (pausada && receita) {
       const part = pctDaConta(receita, R);
       if (part !== null && part >= 3) {
+        // O sistema TEM como conferir a cobertura e a substituta: mandar o
+        // analista fazer isso na mao e devolver trabalho que o dado responde.
+        let cobertura = "";
+        const passosP: string[] = [];
+        if (ehGrupo) {
+          cobertura = " Como e um Grupo de Anuncios, nao da para saber quais produtos ficaram descobertos sem a planilha do grupo.";
+          passosP.push("Exporte a planilha do grupo no painel e suba na Seller.IA para saber quais itens pararam");
+        } else if (c.produtoId) {
+          const outras = Object.keys(camps).filter((o) => {
+            if (o === id) return false;
+            const oc = camps[o] || {};
+            if (String(oc.produtoId || "") !== String(c.produtoId)) return false;
+            const oe = String(oc.estado || oc.state || "").toLowerCase();
+            return oe !== "paused" && oe !== "ended" && oe !== "closed";
+          });
+          if (!outras.length) {
+            cobertura = " Nenhuma outra campanha ativa esta anunciando este produto: ele ficou descoberto.";
+            passosP.push("Este produto nao tem cobertura: religar esta campanha ou criar uma nova recupera a fonte");
+          } else {
+            const sub = camps[outras[0]] || {};
+            const sr = sub.report || sub.metricas || {};
+            const sg = num(sr.gasto) ?? (num(sr.cost) !== null ? Number(sr.cost) / 100000 : null);
+            let sro = num(sr.roas ?? sr.broad_roi);
+            if (sro !== null && (sro > 1000 || sro < 0)) sro = null;
+            const sReceita = (sg !== null && sro !== null) ? sg * sro : null;
+            if (sReceita !== null && receita !== null) {
+              cobertura = sReceita >= receita
+                ? ` A campanha que ocupou o lugar dela rende mais: ${dinheiro(sReceita)} contra ${dinheiro(receita)}. A troca foi boa.`
+                : ` A campanha que ocupou o lugar dela rende MENOS: ${dinheiro(sReceita)} contra ${dinheiro(receita)}. A troca custou ${dinheiro(receita - sReceita)} no periodo.`;
+              if (sReceita < receita) passosP.push("A substituta rende menos: vale religar a antiga ou revisar a meta da nova");
+            } else {
+              cobertura = ` Ha ${outras.length} outra(s) campanha(s) ativa(s) para este produto.`;
+            }
+          }
+        } else {
+          cobertura = " Nao consegui identificar o produto desta campanha para checar se ficou descoberto.";
+        }
+
         saida.push({
           escopo: "campanha", id, nivel: "amarelo", fonte: "seller.ia",
           titulo: `Esta campanha parada respondia por ${fmt(part, 0)}% do que a loja vende`,
-          texto: `Ela gerou ${dinheiro(receita)} com ${dinheiro(gasto)} investidos, e hoje esta pausada.` + avisoGrupo,
-          passos: [
-            "Confira se o produto dela tem outra campanha cobrindo",
-            "Se nao tiver, esse faturamento saiu da conta e nao voltou por outro caminho",
-            "Compare com a campanha que ocupou o lugar dela: rendia mais ou menos?",
-          ],
+          texto: `Ela gerou ${dinheiro(receita)} com ${dinheiro(gasto)} investidos, e hoje esta pausada.` + cobertura + avisoGrupo,
+          passos: passosP.length ? passosP : ["Confirme se a pausa foi decisao sua e se o resultado dela foi substituido"],
           dinheiro: receita,
         });
       }

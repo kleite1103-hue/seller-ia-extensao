@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.57.0';
+  var VERSAO = '0.58.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3744,6 +3744,99 @@
     };
   }
 
+  /* ============ PLANILHA DO GRUPO DE ANUNCIOS ============
+     A API nao entrega metrica por produto dentro de Grupo de Anuncios — mas
+     a exportacao do painel entrega. Ideia da Karina: em vez de so declarar a
+     limitacao, pedir a planilha e analisar a partir dela. E o unico caminho
+     para saber qual item sustenta e qual parasita o grupo. */
+  function renderImportador() {
+    var g = estado.grupoImportado;
+    var h = olho('PLANILHA DO GRUPO DE ANUNCIOS', 'A Shopee nao entrega o desempenho por produto dentro de um Grupo de Anuncios pela API — so o total do grupo. A exportacao do painel entrega. Suba o arquivo aqui e a leitura passa a ser item a item.');
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:16px;margin-bottom:12px">' +
+      '<div style="font-size:13.5px;color:var(--t1);line-height:1.6;margin-bottom:12px">' +
+      '<b style="color:var(--t0)">Como pegar:</b> Shopee Ads &rsaquo; abra o Grupo de Anuncios &rsaquo; Exportar. ' +
+      'Aceita CSV ou XLSX salvo como CSV.</div>' +
+      '<input type="file" id="sia-grupo-arq" accept=".csv,.txt,.xlsx" style="width:100%;background:var(--b0);border:1px dashed var(--li2);border-radius:9px;padding:14px;color:var(--t1);font-family:inherit;font-size:13px">';
+    if (g && g.linhas && g.linhas.length) {
+      h += '<div class="nota" style="color:var(--vd);margin-top:10px">Li <b>' + g.linhas.length + '</b> produtos da planilha de <b>' + esc(g.nome || 'grupo') + '</b>.</div>';
+    }
+    h += '</div>';
+
+    if (g && g.linhas && g.linhas.length) {
+      var tot = 0, i;
+      for (i = 0; i < g.linhas.length; i++) tot += (g.linhas[i].gasto || 0);
+      h += olho('QUEM SUSTENTA E QUEM PARASITA');
+      h += '<table><tr><th>PRODUTO</th><th class="num">GASTO</th><th class="num">%</th><th class="num">ROAS</th><th class="num">PEDIDOS</th></tr>';
+      for (i = 0; i < g.linhas.length; i++) {
+        var L = g.linhas[i];
+        var fatia = tot ? (L.gasto || 0) / tot * 100 : 0;
+        var cor = (L.roas != null && L.roas >= 4) ? 'var(--vd)' : (L.roas != null && L.roas < 1 ? 'var(--rd)' : 'var(--am)');
+        h += '<tr><td>' + esc(String(L.nome).slice(0, 44)) + '</td>' +
+          '<td class="num">' + reais(L.gasto || 0) + '</td>' +
+          '<td class="num">' + fmt(fatia, 0) + '%</td>' +
+          '<td class="num" style="color:' + cor + '">' + (L.roas != null ? fmt(L.roas, 1) + 'x' : '—') + '</td>' +
+          '<td class="num">' + (L.pedidos != null ? fmt(L.pedidos, 0) : '—') + '</td></tr>';
+      }
+      h += '</table>';
+      var piores = g.linhas.filter(function (x) { return (x.gasto || 0) > tot * 0.1 && (x.pedidos || 0) === 0; });
+      if (piores.length) {
+        h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px 15px;margin-top:12px;font-size:14px;color:var(--t1);line-height:1.55">' +
+          '<b style="color:var(--t0)">' + piores.length + ' produto(s) consomem o grupo sem vender.</b> ' +
+          'Juntos levam ' + reais(piores.reduce(function (s2, x) { return s2 + (x.gasto || 0); }, 0)) + ' do orcamento e nao geraram pedido. ' +
+          'Tirar do grupo devolve essa verba para quem esta vendendo.</div>';
+      }
+    }
+    return h;
+  }
+  function ligarImportador() {
+    var inp = $('sia-grupo-arq');
+    if (!inp) return;
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      var fr = new FileReader();
+      fr.onload = function () {
+        try {
+          estado.grupoImportado = lerCsvGrupo(String(fr.result || ''), f.name);
+          estado.sujo = true; render();
+        } catch (e) {
+          mostrarExpl('<b>Nao consegui ler a planilha.</b> ' + esc(String(e && e.message || e)) + ' Se for XLSX, salve como CSV e tente de novo.');
+        }
+      };
+      fr.readAsText(f, 'utf-8');
+    });
+  }
+  function lerCsvGrupo(txt, nome) {
+    var sep = (txt.indexOf(';') >= 0 && txt.indexOf(';') < txt.indexOf('\n')) ? ';' : ',';
+    var linhas = txt.split(/\r?\n/).filter(function (l) { return l.trim(); });
+    if (linhas.length < 2) throw new Error('a planilha parece vazia');
+    var cab = linhas[0].split(sep).map(function (x) { return x.replace(/^"|"$/g, '').trim().toLowerCase(); });
+    function acha() {
+      for (var a = 0; a < arguments.length; a++) {
+        for (var i = 0; i < cab.length; i++) if (cab[i].indexOf(arguments[a]) >= 0) return i;
+      }
+      return -1;
+    }
+    var iNome = acha('produto', 'anúncio', 'anuncio', 'item', 'nome');
+    var iGasto = acha('despesa', 'gasto', 'investimento', 'custo');
+    var iRoas = acha('roas', 'retorno');
+    var iPed = acha('pedido', 'conversõ', 'conversao', 'vendas');
+    if (iNome < 0) throw new Error('nao achei a coluna de produto');
+    var out = [];
+    for (var l = 1; l < linhas.length; l++) {
+      var col = linhas[l].split(sep).map(function (x) { return x.replace(/^"|"$/g, '').trim(); });
+      if (!col[iNome]) continue;
+      out.push({
+        nome: col[iNome],
+        gasto: iGasto >= 0 ? numeroPuro(col[iGasto]) : null,
+        roas: iRoas >= 0 ? numeroPuro(col[iRoas]) : null,
+        pedidos: iPed >= 0 ? numeroPuro(col[iPed]) : null
+      });
+    }
+    out.sort(function (a, b) { return (b.gasto || 0) - (a.gasto || 0); });
+    return { nome: nome, linhas: out, em: Date.now() };
+  }
+
   function renderRelatorio() {
     var R = estado.rel;
     var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '06');
@@ -4681,7 +4774,8 @@
     }
 
     if (abaAtiva === 'cofre') {
-      corpo.innerHTML = capa('QUANTO SOBRA', 'O', 'COFRE', '05') + renderSubAbas('cofre') + renderCofre();
+      corpo.innerHTML = capa('QUANTO SOBRA', 'O', 'COFRE', '05') + renderSubAbas('cofre') + renderCofre() + renderImportador();
+      ligarImportador();
       ligarCofre();
       return;
     }
