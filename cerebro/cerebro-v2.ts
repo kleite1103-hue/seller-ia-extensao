@@ -108,6 +108,36 @@ function proibe(fmtRegra: any, oque: string) {
 // O piso real e 1/margem. Sem margem, cai no padrao (8x) e o texto avisa
 // que a leitura esta limitada.
 
+/* A margem media da conta serve para leitura geral, mas cada produto tem a
+   sua. Quando o Cofre traz o custo daquele item, o piso da campanha dele
+   passa a ser o piso REAL, nao a media — que e o que a Karina faz na
+   planilha de custo que a agencia manda ao cliente. */
+function margemDoProduto(snap: any, produtoId: any): number | null {
+  if (!produtoId) return null;
+  const cofre = snap?.cofre || {};
+  const custo = num((cofre.custos || {})[String(produtoId)]);
+  if (!custo) return null;
+  const p = (snap?.produtos || {})[String(produtoId)] || {};
+  const m = p.metricas || p.perf || {};
+  let ticket = num(m.ticket_pedido ?? m.ticket);
+  if (!ticket) {
+    const v = num(m.vendas_pagas ?? m.vendaPaga), pd = num(m.pedidos_pagos ?? m.pedidosPagos);
+    if (v && pd) ticket = v / pd;
+  }
+  if (!ticket || ticket <= 0) return null;
+  const emb = num(cofre.embalagem) || 0;
+  const imp = ticket * ((num(cofre.imposto) || 0) / 100);
+  const com = comissaoFaixa(ticket);
+  const liq = ticket - com - custo - emb - imp;
+  return (liq / ticket) * 100;
+}
+function comissaoFaixa(preco: number) {
+  if (preco < 80) return preco * 0.20 + 4;
+  if (preco < 100) return preco * 0.14 + 16;
+  if (preco < 200) return preco * 0.14 + 20;
+  return preco * 0.14 + 26;
+}
+
 function pisoRoas(K: any, margemPct: number | null) {
   // Margem NEGATIVA (produto vendido abaixo do custo) daria piso negativo,
   // e ai qualquer sugestao da Shopee passaria no teste "abaixo do piso" —
@@ -536,6 +566,63 @@ function julgarOportunidades(K: any, snap: any, regua: Regua, saida: Veredito[])
 }
 
 
+
+/* ==================== CPM — LEITURA CORRETA ====================
+   Correcao conceitual apontada pela Karina em 03/08/2026.
+   No oCPM o CPM NAO e uma taxa que voce paga: e o preco que o algoritmo
+   calculou que sua impressao vale. Pela lei do leilao:
+
+       eCPM = lance x CTR x 1000
+       CPM  = (Ticket x Conversao x CTR x 1000) / ROAS
+
+   Ou seja, CPM alto e CONSEQUENCIA de ticket bom, boa conversao e bom CTR.
+   E bonificacao por funil de qualidade, nao desperdicio. Eu tinha escrito
+   "esta pagando caro para aparecer" como se fosse defeito — errado.
+
+   O CPM so vira problema num caso: alto E sem venda. Ai o algoritmo previu
+   conversao que nao aconteceu, e voce paga premium por atencao que nao
+   converte. CPM sozinho nao diz nada; ele so tem leitura junto do resultado. */
+
+function cpmDe(rep: any): number | null {
+  const g = num(rep.gasto) ?? (num(rep.cost) !== null ? Number(rep.cost) / 100000 : null);
+  const i = num(rep.impressoes ?? rep.impression);
+  return (g && i) ? (g / i) * 1000 : null;
+}
+
+/* O CPM que a conta PRECISARIA entregar para bater a meta, pela lei do
+   leilao. Comparado com o real, mostra se o algoritmo esta cobrando acima
+   ou abaixo do que a matematica do produto sustenta. */
+function cpmAlvo(ticket: number | null, conv: number | null, ctr: number | null, metaRoas: number | null): number | null {
+  if (!ticket || !conv || !ctr || !metaRoas || metaRoas <= 0) return null;
+  return (ticket * (conv / 100) * (ctr / 100) * 1000) / metaRoas;
+}
+
+function lerCpm(rep: any, roas: number | null, pedidos: number, R: ReguaConta, ticket: number | null, conv: number | null, ctr: number | null, metaRoas: number | null) {
+  const cpm = cpmDe(rep);
+  if (cpm === null) return null;
+  const media = R.cpmMedio;
+  const acima = media !== null && cpm > media * 1.3;
+  const abaixo = media !== null && cpm < media * 0.7;
+  const alvo = cpmAlvo(ticket, conv, ctr, metaRoas);
+
+  let leitura = "";
+  if (acima && pedidos > 0) {
+    leitura = `Voce paga ${dinheiro(cpm)} por mil impressoes contra ${dinheiro(media)} da media da conta — e isso aqui e bom sinal: no oCPM o algoritmo cobra mais quando calcula que a impressao vale mais, e ele so calcula isso quando ticket, conversao e clique deste anuncio estao acima do resto. Voce esta comprando posicao melhor porque o funil merece.`;
+  } else if (acima && pedidos === 0) {
+    leitura = `Voce paga ${dinheiro(cpm)} por mil impressoes contra ${dinheiro(media)} da media da conta. O algoritmo previu que este anuncio converteria e cobrou premium por isso — mas a venda nao veio. Esse e o unico caso em que CPM alto e problema: premium pago por atencao que nao converte.`;
+  } else if (abaixo && pedidos === 0) {
+    leitura = `O CPM de ${dinheiro(cpm)} esta abaixo da media da conta (${dinheiro(media)}). O algoritmo esta entregando este anuncio em posicao barata, o que costuma significar que ele nao ve ticket, conversao ou clique suficientes para disputar as posicoes boas.`;
+  } else if (cpm !== null) {
+    leitura = `CPM de ${dinheiro(cpm)} por mil impressoes` + (media !== null ? `, na faixa da conta (${dinheiro(media)})` : "") + ".";
+  }
+  if (alvo !== null) {
+    leitura += ` Pela matematica deste produto, o CPM que sustenta a meta e ${dinheiro(alvo)}` +
+      (cpm > alvo * 1.2 ? " — voce esta pagando acima do que a conta deste produto aguenta." :
+       cpm < alvo * 0.8 ? " — ha espaco para disputar posicao melhor sem perder margem." : ", entao esta equilibrado.");
+  }
+  return { cpm, alvo, leitura, acima, abaixo };
+}
+
 /* ==================== REGUA DA CONTA PARA CAMPANHAS ====================
    Regras definidas pela Karina em 03/08/2026 (cerebro/regras-campanha.md).
    O principio: nenhum limiar e fixo. Uma campanha pausada que gerava R$300
@@ -602,6 +689,15 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
       ? " Este e um Grupo de Anuncios: a Shopee nao entrega metrica por produto dentro dele. Para eu analisar item a item, abra o grupo no painel, exporte a planilha e suba na aba Cofre — com ela consigo dizer qual produto sustenta e qual parasita o grupo."
       : "";
 
+    // piso do PRODUTO desta campanha quando o custo dele existe no Cofre;
+    // so cai para a media da conta quando nao existe
+    const margemProd = margemDoProduto(snap, c.produtoId);
+    const margemAqui = margemProd !== null ? margemProd : margem;
+    const pisoAqui = pisoRoas(K, margemAqui);
+    const notaAqui = margemProd !== null
+      ? ` O ponto de equilibrio de ${fmt(pisoAqui.valor, 1)}x usa o custo real deste produto, cadastrado no Cofre.`
+      : nota;
+
     const gasto = num(rep.gasto) ?? (num(rep.cost) !== null ? Number(rep.cost) / 100000 : null);
     const cliques = num(rep.cliques ?? rep.click);
     const pedidos = num(rep.pedidos ?? rep.broad_order) ?? 0;
@@ -623,8 +719,6 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
         });
       } else {
         const impr = num(rep.impressoes ?? rep.impression);
-        const cpmCamp = (gasto && impr) ? (gasto / impr) * 1000 : null;
-        const caro = (cpmCamp !== null && R.cpmMedio !== null && cpmCamp > R.cpmMedio * 1.3);
 
         // NAO basta dizer que nao vendeu: e preciso dizer ONDE quebrou.
         // O funil da campanha aponta o degrau, e o produto vinculado aponta
@@ -638,6 +732,8 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
         const preco = num(mp.ticket_pedido ?? mp.ticket);
         const compet = num(prodV?.competitividade);
 
+        const metaCamp = num(c.metaRoas ?? c.roi_two_target);
+        const leituraCpm = lerCpm(rep, roas, pedidos, R, preco, convProd, ctr, metaCamp);
         const diag: string[] = [];
         let onde = "";
         if (ctr !== null && ctr < 1.8) {
@@ -674,7 +770,7 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
             : "Gastou o suficiente para vender e nao vendeu",
           texto: `${dinheiro(gasto)} compraram ${fmt(cliques, 0)} cliques e nenhuma venda. Nesta conta, ${fmt(R.cliquesPorVenda, 0)} cliques normalmente viram um pedido.` +
             (diag.length ? ` ${diag.join("; ")}.` : "") +
-            (caro ? ` E paga caro para aparecer: ${dinheiro(cpmCamp)} por mil impressoes contra ${dinheiro(R.cpmMedio)} da media da conta.` : "") + avisoGrupo,
+            (leituraCpm ? ` ${leituraCpm.leitura}` : "") + avisoGrupo,
           passos,
           dinheiro: gasto,
         });
@@ -738,14 +834,14 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
     if (pausada) continue;   // pausada sem receita nao diz nada
 
     // ---- 3) ABAIXO DO PISO ----
-    if (roas !== null && gasto && piso.origem !== "margem_negativa" && roas < piso.valor) {
-      const lucro = lucroDe(gasto, roas, margem);
+    if (roas !== null && gasto && pisoAqui.origem !== "margem_negativa" && roas < pisoAqui.valor) {
+      const lucro = lucroDe(gasto, roas, margemAqui);
       saida.push({
         escopo: "campanha", id, nivel: "vermelho", fonte: "seller.ia",
         titulo: "Vende, mas cada venda sai no negativo",
-        texto: `Entrega ${fmt(roas, 1)}x e o seu ponto de equilibrio e ${fmt(piso.valor, 1)}x.` +
+        texto: `Entrega ${fmt(roas, 1)}x e o seu ponto de equilibrio e ${fmt(pisoAqui.valor, 1)}x.` +
           (lucro !== null ? ` Com ${dinheiro(gasto)} investidos, o resultado e ${dinheiro(lucro)}.` : "") +
-          nota + avisoGrupo,
+          notaAqui + avisoGrupo,
         passos: [
           "Suba a meta em degraus de 20% e meca 7 dias",
           "Se o volume cair sem o lucro subir, o problema e a pagina, nao a meta",
@@ -756,14 +852,14 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
     }
 
     // ---- 4) COM FOLGA ----
-    if (roas !== null && gasto && piso.origem !== "margem_negativa" && roas >= piso.valor * 1.5) {
-      const lucro = lucroDe(gasto, roas, margem);
+    if (roas !== null && gasto && pisoAqui.origem !== "margem_negativa" && roas >= pisoAqui.valor * 1.5) {
+      const lucro = lucroDe(gasto, roas, margemAqui);
       saida.push({
         escopo: "campanha", id, nivel: "verde", fonte: "seller.ia",
         titulo: "Aqui cabe mais investimento",
-        texto: `Entrega ${fmt(roas, 1)}x contra o equilibrio de ${fmt(piso.valor, 1)}x.` +
+        texto: `Entrega ${fmt(roas, 1)}x contra o equilibrio de ${fmt(pisoAqui.valor, 1)}x.` +
           (lucro !== null ? ` Deixa ${dinheiro(lucro)} de lucro com ${dinheiro(gasto)} investidos.` : "") +
-          nota + avisoGrupo,
+          notaAqui + avisoGrupo,
         passos: [
           "Suba o orcamento em 20%, nao mais que isso de uma vez",
           "Meca 7 dias antes do proximo aumento",
