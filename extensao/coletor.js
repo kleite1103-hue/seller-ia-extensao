@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.54.1';
+  var VERSAO = '0.54.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1343,13 +1343,27 @@
     // do relatorio olha justamente esse campo. Era por isso que o botao
     // Gerar relatorio nao fazia nada e nao dizia por que.
     estado.coletaProgresso = 'iniciando';
-    var travaSeguranca = setTimeout(function () {
-      if (estado.coletaProgresso !== null) { estado.coletaProgresso = null; estado.sujo = true; }
-    }, 8 * 60 * 1000);
+    var jaResolveu = false;
+    var travaSeguranca = null;
     lojaDoCiclo = estado.loja ? estado.loja.shop_id : null;
     // leitura de periodo passado nao representa o estado atual da conta
     estado.leituraHistorica = !!periodoForcado;
-    return new Promise(function (resolver) {
+    return new Promise(function (resolverOriginal) {
+      // Uma coleta que nunca resolve trava tudo que depende dela — foi o que
+      // aconteceu com o relatorio, que ficou esperando para sempre a leitura
+      // do mes anterior. Aqui ela SEMPRE termina: no maximo em 4 minutos.
+      function resolver(r) {
+        if (jaResolveu) return;
+        jaResolveu = true;
+        clearTimeout(travaSeguranca);
+        estado.coletaProgresso = null;
+        estado.sujo = true;
+        resolverOriginal(r);
+      }
+      travaSeguranca = setTimeout(function () {
+        resolver({ ok: false, erro: 'A leitura passou de 4 minutos e foi encerrada. O que ja tinha sido lido foi mantido.',
+          chamadas: 0, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
+      }, 4 * 60 * 1000);
       (async function () {
         function prog(t) {
           estado.coletaProgresso = t; estado.sujo = true;
@@ -1567,27 +1581,45 @@
 
         // J) Avaliacoes dos top produtos (1-2 estrelas = risco). Pega ate 6 produtos
         // com mais venda (ja temos no cofre pela performance).
+        // AVALIACOES — ultimo passo, e o mais fragil.
+        // A rota get_ratings e da vitrine publica e exige shopid junto do
+        // itemid; sem ele responde 404 (eram esses erros no console). E como
+        // e o passo final, qualquer travamento aqui deixava a coleta presa
+        // em "Lendo avaliacoes" para sempre — que e exatamente o que
+        // aconteceu na geracao do relatorio, porque a coleta nunca terminava
+        // e a segunda leitura nunca comecava.
+        // Agora: so roda com shopid conhecido, tem teto de tempo proprio e,
+        // acima de tudo, NUNCA impede a coleta de terminar.
         prog('Lendo avaliacoes dos produtos...');
         try {
+          var shopAv = estado.loja && estado.loja.shop_id ? estado.loja.shop_id : null;
           var cofreP = window.SIA_Diamantes ? window.SIA_Diamantes.estado().porProduto : null;
-          if (cofreP) {
+          if (shopAv && cofreP) {
             var idsAval = Object.keys(cofreP)
               .filter(function (k) { return cofreP[k].perf && cofreP[k].perf.vendaPaga; })
               .sort(function (a, b) { return (cofreP[b].perf.vendaPaga || 0) - (cofreP[a].perf.vendaPaga || 0); })
               .slice(0, 6);
+            var limiteAv = Date.now() + 25000;   // 25s no maximo para esta etapa
             for (var ia = 0; ia < idsAval.length; ia++) {
-              var urlAv = '/api/v2/item/get_ratings?itemid=' + idsAval[ia] + '&filter=0&flag=1&limit=6&offset=0&type=0&exclude_filter=1';
+              if (Date.now() > limiteAv) break;
+              var urlAv = '/api/v2/item/get_ratings?itemid=' + idsAval[ia] + '&shopid=' + shopAv +
+                '&filter=0&flag=1&limit=6&offset=0&type=0';
               var rav = await buscar(urlAv, 'GET', null);
               totalChamadas++;
-              if (rav.ok && rav.dados) processarPacote({ url: urlAv, metodo: 'GET', corpo: null, dados: rav.dados, ts: Date.now() });
+              if (rav.ok && rav.dados) processarPacote({ url: urlAv, metodo: 'GET', corpo: null, dados: rav.dados, ts: Date.now(), loja: lojaDoCiclo });
               await pausa(120);
             }
           }
-        } catch (eAv) { /* noop */ }
+        } catch (eAv) { /* avaliacoes sao complemento: nunca travam a coleta */ }
 
         prog(null);
         resolver({ ok: true, chamadas: totalChamadas, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
-      })();
+      })().catch(function (err) {
+        // sem este catch, uma excecao no meio deixava a Promise pendurada
+        try { console.error('[Seller.IA] coleta:', err); } catch (e) { }
+        resolver({ ok: false, erro: String((err && err.message) || err),
+          chamadas: 0, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
+      });
     });
   }
 
