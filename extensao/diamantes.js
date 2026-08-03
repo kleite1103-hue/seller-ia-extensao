@@ -555,12 +555,18 @@
     if (/dashboard\/key-metrics/.test(url)) {
       if (!r.paid_gmv && !r.shop_pv) return;
       var g = COFRE.gerenciais;
-      // se ja temos periodo, so troca por outro periodo de maior GMV (mes > semana).
-      // mas SEMPRE ganha do dado do dia (fonte 'dia').
-      var gmvNovo = (r.paid_gmv && r.paid_gmv.value != null) ? n(r.paid_gmv.value) : 0;
-      var gmvAtual = (g.gmvPago && g.gmvPago.valor) || 0;
-      if (g.fonte === 'periodo' && gmvNovo < gmvAtual) return;
+      // ANTES: "so troca por outro periodo de maior GMV". Isso fazia o sistema
+      // guardar o MAIOR valor que ja tinha visto — quem navegou em 90 dias
+      // antes de escolher o mes ficava com o numero de 90 dias na tela, maior
+      // que tudo que vendeu no mes. O criterio certo e o mais RECENTE, e o
+      // periodo pedido na URL manda em qualquer heuristica de tamanho.
+      var mIni = url.match(/start_time=(\d{9,11})/);
+      var mFim = url.match(/end_time=(\d{9,11})/);
+      var dias = (mIni && mFim) ? Math.round((parseInt(mFim[1], 10) - parseInt(mIni[1], 10)) / 86400) : null;
       g.fonte = 'periodo';
+      g.periodoDias = dias;
+      g.periodoIni = mIni ? parseInt(mIni[1], 10) : null;
+      g.periodoFim = mFim ? parseInt(mFim[1], 10) : null;
       if (r.shop_pv) g.pv = metrica(r.shop_pv);
       if (r.shop_uv) g.uv = metrica(r.shop_uv);
       if (r.product_clicks) g.cliquesProduto = metrica(r.product_clicks);
@@ -624,6 +630,57 @@
   // Nao vinha: essa rota nunca teve o campo. Ele vive aqui, junto com o ROAS
   // que a Shopee recomenda para o produto e a faixa estimada de retorno.
   // Valores de ROAS vem em micro (390000 = 3,9x).
+
+  // ---- SERIE TEMPORAL: aprendizado real, mudanca de meta e leilao ----
+  // is_cold_start e dito pela Shopee, nao estimado pela idade da campanha.
+  // O roi_target_setting hora a hora revela quando a meta foi alterada.
+  // sov, reach e location_in_ads sao as metricas de leilao que existiam e
+  // nunca foram lidas.
+  function exTempo(url, d) {
+    var m = String(url).match(/campaign_id=(\d+)/);
+    if (!m) return 0;
+    var id = m[1];
+    var rbt = ((d && d.data) || {}).report_by_time || [];
+    if (!rbt.length) return 0;
+    var pc = COFRE.porCampanha[id] || {};
+    var metas = [], frio = 0, boost = 0, sovS = 0, sovN = 0, reachMax = 0, rankS = 0, rankN = 0;
+    for (var i = 0; i < rbt.length; i++) {
+      var p = rbt[i] || {};
+      var rt = p.roi_target_setting || {};
+      var mt = rt.value != null ? real(rt.value) : null;
+      if (mt != null && mt > 0) metas.push({ t: n(p.key), meta: mt });
+      if (rt.is_cold_start) frio++;
+      if ((p.new_product_boost_setting || {}).is_boosting) boost++;
+      var mm = p.metrics || {};
+      if (mm.sov != null) { sovS += n(mm.sov) || 0; sovN++; }
+      if (mm.reach != null) reachMax = Math.max(reachMax, n(mm.reach) || 0);
+      if (mm.avg_rank != null) { rankS += n(mm.avg_rank) || 0; rankN++; }
+    }
+    // quando a meta mudou: compara valores consecutivos
+    var trocas = [];
+    for (var j = 1; j < metas.length; j++) {
+      if (Math.abs(metas[j].meta - metas[j - 1].meta) > 0.01) {
+        trocas.push({ em: metas[j].t, de: metas[j - 1].meta, para: metas[j].meta });
+      }
+    }
+    pc.aprendizado = {
+      emAprendizado: frio > 0,
+      horasEmAprendizado: frio,
+      impulsionando: boost > 0,
+      trocasDeMeta: trocas,
+      ultimaTroca: trocas.length ? trocas[trocas.length - 1] : null,
+      pontos: rbt.length
+    };
+    pc.leilaoSerie = {
+      sovMedio: sovN ? sovS / sovN : null,
+      alcanceMax: reachMax || null,
+      posicaoMedia: rankN ? rankS / rankN : null
+    };
+    COFRE.porCampanha[id] = pc;
+    logar('tempo', 'campanha ' + id + ': ' + (frio ? 'em aprendizado' : 'aprendizado concluido') + (trocas.length ? ' \u00b7 ' + trocas.length + ' troca(s) de meta' : ''), url);
+    return 1;
+  }
+
   function exTarefas(url, d) {
     if (!/todo\/list_task/.test(url)) return 0;
     var lista = ((d && d.data) || {}).task_list || [];
@@ -922,6 +979,7 @@
       // competitiveness/avg_rank soltos em qualquer profundidade
       if (/get_product_performance_info/.test(url)) exProduto(url, dados);
       if (/todo\/list_task/.test(url)) exTarefas(url, dados);
+      if (/report\/get_time_graph/.test(url)) exTempo(url, dados);
       if (/product\/overview\/metric-trends|product\/overview\/|product\/traffic\/overview/.test(url)) exTendenciaProduto(url, dados);
       if (/get_product_lock_info|item\/get_ratings/.test(url)) exSaudeProduto(url, dados);
       if (/accounthealth\/v1\/sc\/shops\/overview/.test(url)) exSaudeConta(url, dados);

@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.58.0';
+  var VERSAO = '0.59.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1473,6 +1473,26 @@
         }
         await pausa(450);
 
+        // APRENDIZADO REAL E MUDANCA DE META (itens 6 e 7)
+        // A rota report/get_time_graph devolve, por hora, o roi_target_setting
+        // com is_cold_start dito pela PROPRIA Shopee — nao estimado por idade —
+        // e o valor da meta em cada momento, o que revela QUANDO ela foi
+        // alterada. E a unica forma de responder "mexeram na campanha dentro
+        // da janela de aprendizado?".
+        var alvoTempo = idsGasto.slice(0, 12);
+        for (var tg = 0; tg < alvoTempo.length; tg++) {
+          var corpoTG = JSON.stringify({
+            start_time: ini, end_time: fimAds, campaign_id: parseInt(alvoTempo[tg], 10),
+            agg_interval: 'hour', campaign_type: 'product'
+          });
+          var rtg = await buscar('/api/pas/v1/report/get_time_graph/?' + spcQ, 'POST', corpoTG);
+          totalChamadas++;
+          if (rtg.ok && rtg.dados) {
+            processarPacote({ url: '/api/pas/v1/report/get_time_graph/?campaign_id=' + alvoTempo[tg], metodo: 'POST', corpo: corpoTG, dados: rtg.dados, ts: Date.now(), loja: lojaDoCiclo });
+          }
+          await pausa(300);
+        }
+
         if (alvoLeilao.length) {
 
         prog('Lendo posicao no leilao e diagnostico da Shopee...');
@@ -2089,7 +2109,16 @@
       var ta = TRADUCAO[a] ? 0 : 1, tb = TRADUCAO[b] ? 0 : 1;
       return ta !== tb ? ta - tb : a.localeCompare(b);
     });
-    var h = '<div class="nota">Informacoes Gerenciais (' + (atualizadoEm ? hora(atualizadoEm) : '') + ') — variacao vs periodo anterior fornecida pela propria Shopee:</div>';
+    var gg = null;
+    try { gg = window.SIA_Diamantes ? window.SIA_Diamantes.estado().gerenciais : null; } catch (e) { /* noop */ }
+    var perTxt = '';
+    if (gg && gg.periodoIni && gg.periodoFim) {
+      var dIni = new Date(gg.periodoIni * 1000), dFim = new Date(gg.periodoFim * 1000);
+      function dd(x) { return String(x.getUTCDate()).padStart(2, '0') + '/' + String(x.getUTCMonth() + 1).padStart(2, '0'); }
+      perTxt = ' &middot; periodo lido: <b>' + dd(dIni) + ' a ' + dd(dFim) + '</b>' + (gg.periodoDias ? ' (' + gg.periodoDias + ' dias)' : '');
+    }
+    // Sem dizer QUAL periodo esta na tela, um numero grande parecia erro.
+    var h = '<div class="nota">Informacoes Gerenciais (' + (atualizadoEm ? hora(atualizadoEm) : '') + ')' + perTxt + ' — variacao vs periodo anterior fornecida pela propria Shopee:</div>';
     h += '<table><tr><th>Indicador</th><th class="num">Valor</th><th class="num">Variacao</th></tr>';
     for (var i = 0; i < Math.min(bases.length, 70); i++) {
       var b = bases[i], p = pares[b];
@@ -2892,6 +2921,88 @@
       '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(msg) + esc(onde) + '</div>' +
       '<div style="font-size:13px;color:var(--t2);margin-top:9px;line-height:1.5">Manda esta mensagem que eu corrijo. As outras abas continuam funcionando.</div></div>';
   }
+  /* ============ O ESPECIALISTA ============
+     Le todos os vereditos e escreve a leitura da conta em ordem de decisao:
+     o que esta sangrando, o que esta travado, o que da para escalar. Nao e
+     lista de alertas — e o que um analista falaria abrindo a conta. */
+  function renderEspecialista() {
+    var V = estado.vereditos || [];
+    var nC = Object.keys(estado.campanhas).length, nP = Object.keys(estado.produtos).length;
+
+    var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">' + seloFonte() +
+      '<button id="sia-coletar-tudo" style="background:var(--mk);border:none;color:#fff;font-weight:600;font-size:13px;padding:9px 16px;border-radius:8px;cursor:pointer">' +
+      (estado.coletaProgresso !== null ? esc(String(estado.coletaProgresso)) : 'Ler a conta de novo') + '</button></div>';
+
+    if (!nC && !nP) {
+      return h + '<div class="nota" style="color:var(--am)">Ainda nao li esta conta. Clique em <b>Ler a conta de novo</b> — leva cerca de um minuto.</div>';
+    }
+    if (!V.length) {
+      return h + renderChamadaCerebro() +
+        '<div class="nota">Li ' + nP + ' produtos e ' + nC + ' campanhas, mas a analise completa ainda nao rodou. E ela que traz o diagnostico da Shopee, o piso de ROAS pela sua margem e a leitura por formato de anuncio.</div>';
+    }
+
+    var verm = V.filter(function (x) { return x.nivel === 'vermelho'; });
+    var amar = V.filter(function (x) { return x.nivel === 'amarelo'; });
+    var verd = V.filter(function (x) { return x.nivel === 'verde'; });
+    var dinVerm = 0, i;
+    for (i = 0; i < verm.length; i++) dinVerm += (verm[i].dinheiro || 0);
+
+    // ---- A LEITURA ----
+    var fr, ex;
+    if (verm.length) {
+      fr = '<span class="d">' + verm.length + ' ' + (verm.length > 1 ? 'coisas estao' : 'coisa esta') + ' custando dinheiro agora</span>.';
+      ex = 'Somadas, envolvem ' + reais(dinVerm) + '. A ordem abaixo e por dinheiro em jogo, nao por gravidade: resolver o primeiro item vale mais que resolver os tres ultimos juntos.';
+    } else if (amar.length) {
+      fr = 'Nada sangrando, mas <span class="w">' + amar.length + ' ' + (amar.length > 1 ? 'pontos pedem' : 'ponto pede') + ' atencao</span>.';
+      ex = 'Sao os ganhos mais baratos da conta: coisas que ja funcionam e estao sendo limitadas por algum detalhe.';
+    } else if (verd.length) {
+      fr = '<span class="u">A conta esta saudavel</span>.';
+      ex = 'Nada abaixo do seu piso. O trabalho aqui e escalar o que ja funciona, sem mexer no que nao pede para ser mexido.';
+    } else {
+      fr = 'Ainda nao ha o que julgar.';
+      ex = 'A conta foi lida, mas nao ha volume suficiente para conclusao. Traga visita antes de tirar conclusao.';
+    }
+    h += '<div class="leitura"><div class="fr">' + fr + '</div><div class="ex">' + ex + '</div></div>';
+
+    h += '<div class="tres">' +
+      '<div><div class="v" style="color:var(--rd)">' + verm.length + '</div><div class="l">CUSTANDO</div><div class="s">' + reais(dinVerm) + '</div></div>' +
+      '<div><div class="v" style="color:var(--am)">' + amar.length + '</div><div class="l">PEDEM ATENCAO</div></div>' +
+      '<div><div class="v" style="color:var(--vd)">' + verd.length + '</div><div class="l">PARA ESCALAR</div></div></div>';
+
+    function secao(rot, lista, dicaTxt) {
+      if (!lista.length) return '';
+      var s = olho(rot, dicaTxt);
+      for (var j = 0; j < Math.min(lista.length, 8); j++) {
+        var v = lista[j];
+        var co = CORES_SEM[v.nivel] || CORES_SEM.cinza;
+        var alvo = v.escopo === 'produto' ? (estado.produtos[v.id] && estado.produtos[v.id].nome)
+          : (estado.campanhas[v.id] && (estado.campanhas[v.id].nome || estado.campanhas[v.id].titulo));
+        s += '<div data-card="' + esc(v.escopo) + ':' + esc(v.id || '') + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:17px 18px;margin-bottom:11px">' +
+          '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">' +
+          '<span style="flex:1;font-size:16.5px;font-weight:600;color:var(--t0);line-height:1.3">' + esc(v.titulo) + '</span>' +
+          (v.dinheiro ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(v.dinheiro) + '</span>' : '') + '</div>' +
+          (alvo ? '<div style="font-size:12.5px;color:var(--t2);margin-bottom:6px">' + esc(String(alvo).slice(0, 66)) + '</div>' : '') +
+          '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(v.texto) + '</div>';
+        if (v.passos && v.passos.length) {
+          s += '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:8px;line-height:1.6">';
+          for (var k2 = 0; k2 < v.passos.length; k2++) s += '\u2192 ' + esc(v.passos[k2]) + '<br>';
+          s += '</div>';
+        }
+        s += '</div>';
+      }
+      if (lista.length > 8) s += '<div class="nota">e mais ' + (lista.length - 8) + ' nesta categoria.</div>';
+      return s;
+    }
+
+    h += secao('RESOLVA PRIMEIRO', verm, 'Ordenado por dinheiro em jogo. Um problema numa campanha que gasta R$ 800 vem antes de um problema em campanha que gasta R$ 8, mesmo que a segunda esteja mais quebrada.');
+    h += secao('DEPOIS DISSO', amar, 'Coisas que ja funcionam e estao sendo limitadas. Sao os ganhos mais baratos, porque nao exigem consertar nada — so destravar.');
+    h += secao('ONDE COLOCAR MAIS DINHEIRO', verd, 'O que ja entrega acima do seu ponto de equilibrio. Subir orcamento aqui e o crescimento mais barato que a conta tem.');
+
+    h += '<div class="nota" style="margin-top:16px">Leitura de ' + nP + ' produtos e ' + nC + ' campanhas' +
+      (estado.versaoRegras ? ' \u00b7 regras ' + esc(estado.versaoRegras) : '') + '. Clique em qualquer item para abrir o card completo.</div>';
+    return h;
+  }
+
   function renderEspiao() {
     if (!estado.espiao) estado.espiao = { termo: '', res: null, radar: null };
     var e = estado.espiao;
@@ -3399,9 +3510,57 @@
     var diagRot = dg ? dg[0] : (probl ? esc(String(probl).slice(0, 16)) : '—');
     var diagSub = dg ? dg[1] : (probl ? 'apontado pela propria Shopee' : 'sem apontamento');
     var diagCor = !probl ? 'var(--t2)' : (String(probl).toLowerCase() === 'na' || String(probl).toLowerCase() === 'good' ? 'var(--vd)' : (String(probl).toLowerCase() === 'room_more_traffic' ? 'var(--vd)' : 'var(--am)'));
-    // aviso de aprendizado antes de qualquer julgamento: se a campanha e nova,
-    // o resto da leitura precisa ser lido com essa ressalva
+    // ---- APRENDIZADO REAL, dito pela Shopee ----
+    // Substitui a estimativa por idade da campanha, que era um chute.
+    var apr = pc && pc.aprendizado;
+    if (apr) {
+      if (apr.emAprendizado) {
+        h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+          '<b style="color:var(--t0)">Em aprendizado agora</b> \u2014 a propria Shopee marca esta campanha como em fase de aprendizado. ' +
+          'Enquanto isso durar, o resultado dela ainda nao representa o que ela vai entregar. Mexer agora reinicia a contagem.</div>';
+      }
+      if (apr.ultimaTroca) {
+        var tt = apr.ultimaTroca;
+        var quando = tt.em ? new Date(tt.em * 1000) : null;
+        h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+          '<b style="color:var(--t0)">A meta foi alterada' + (quando ? ' em ' + quando.toLocaleDateString('pt-BR') : '') + '</b>: de ' +
+          fmt(tt.de, 1) + 'x para ' + fmt(tt.para, 1) + 'x' + (apr.trocasDeMeta.length > 1 ? ', e foram ' + apr.trocasDeMeta.length + ' mudancas no periodo' : '') + '. ' +
+          'Cada alteracao reinicia o aprendizado \u2014 o numero que voce esta vendo mistura o antes e o depois.</div>';
+      }
+      if (apr.impulsionando) {
+        h += '<div class="nota" style="color:var(--px)">Esta campanha esta sob <b>impulsionamento de produto novo</b>, o que altera a entrega e a meta efetiva.</div>';
+      }
+    }
+
+    // ---- CPM E FATIA DE LEILAO ----
+    var mrep = (pc && pc.metricas) || {};
+    var cpmReal = (mrep.gasto && mrep.impressoes) ? (mrep.gasto / mrep.impressoes) * 1000 : null;
+    var ls = pc && pc.leilaoSerie;
+    if (cpmReal != null || (ls && (ls.sovMedio != null || ls.alcanceMax != null))) {
+      h += olho('O QUE VOCE PAGA PARA APARECER', '<b>CPM e o preco que o algoritmo calculou que a sua impressao vale.</b> No oCPM ele nao e uma taxa: pela lei do leilao, CPM = (ticket x conversao x CTR x 1000) / ROAS. Entao CPM alto e consequencia de funil bom \u2014 e bonificacao, nao desperdicio. Ele so vira problema quando esta alto E a venda nao vem: ai o algoritmo previu conversao que nao aconteceu. <b>Fatia de voz</b> e quanto das impressoes disponiveis nessa disputa foram suas.');
+      h += '<div class="tres">' +
+        '<div><div class="v">' + (cpmReal != null ? 'R$' + fmt(cpmReal, 2) : '\u2014') + '</div><div class="l">CPM REAL</div><div class="s">por mil impressoes</div></div>' +
+        '<div><div class="v">' + (ls && ls.sovMedio != null ? fmt(ls.sovMedio, 1) + '%' : '\u2014') + '</div><div class="l">FATIA DE VOZ</div><div class="s">das impressoes</div></div>' +
+        '<div><div class="v">' + (ls && ls.alcanceMax != null ? fmt(ls.alcanceMax, 0) : '\u2014') + '</div><div class="l">ALCANCE</div><div class="s">pessoas unicas</div></div></div>';
+
+      // CPM que a matematica do produto sustenta
+      var tkt = pp && pp.perf && (pp.perf.ticket || (pp.perf.vendaPaga && pp.perf.pedidosPagos ? pp.perf.vendaPaga / pp.perf.pedidosPagos : null));
+      var cvv = pp && pp.perf && pp.perf.convPago;
+      var ctrv = mrep.impressoes ? (mrep.cliques || 0) / mrep.impressoes * 100 : null;
+      var metaV = pc && (pc.metaRoas || (pc.campanha && pc.campanha.roi_two_target));
+      if (tkt && cvv && ctrv && metaV) {
+        var alvo = (tkt * (cvv / 100) * (ctrv / 100) * 1000) / metaV;
+        var acimaAlvo = cpmReal != null && cpmReal > alvo * 1.2;
+        h += '<div style="background:var(--b2);border-left:3px solid ' + (acimaAlvo ? 'var(--am)' : 'var(--vd)') + ';border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+          '<b style="color:var(--t0)">Pela matematica deste produto, o CPM que sustenta a meta de ' + fmt(metaV, 1) + 'x e R$' + fmt(alvo, 2) + '.</b> ' +
+          (cpmReal == null ? '' : acimaAlvo
+            ? 'Voce esta pagando R$' + fmt(cpmReal, 2) + ' \u2014 acima do que ticket, conversao e clique deste produto aguentam nessa meta.'
+            : 'Voce esta pagando R$' + fmt(cpmReal, 2) + ' \u2014 dentro do que a conta deste produto sustenta.') + '</div>';
+      }
+    }
+
     var fase = faseAprendizado(pc && pc.campanha ? pc.campanha : pc);
+    if (apr) fase = null;   // dado real ganha da estimativa por idade
     if (fase) {
       h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">Ainda em aprendizado &mdash; faltam ' + fase.faltam + ' dia' + (fase.faltam === 1 ? '' : 's') + '</b><br>' + esc(fase.texto) + '</div>';
@@ -4810,91 +4969,19 @@
     }
 
     if (abaAtiva === 'diagnostico') {
-      var dg = estado.diagnostico;
-      var hd = '';
-      hd += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">' +
-        '<button id="sia-coletar-tudo" style="background:linear-gradient(120deg,var(--mk),var(--px));border:none;color:var(--t0);font-weight:700;font-size:13px;padding:10px 18px;border-radius:8px;cursor:' + (estado.coletaProgresso ? 'wait' : 'pointer') + '">' +
-        (estado.coletaProgresso ? esc(estado.coletaProgresso) : 'Coletar conta completa + Analisar') + '</button>' +
-        '<button id="sia-analisar" style="background:var(--b2);border:1px solid var(--li2);color:var(--t0);font-weight:600;font-size:12px;padding:10px 14px;border-radius:8px;cursor:pointer">' +
-        (estado.analisando ? 'Analisando...' : 'So analisar o ja coletado') + '</button>' +
-        '<span class="nota" style="margin:0">' + (dg && dg.rules_version ? 'Regras ' + esc(dg.rules_version) + ' · cerebro no servidor' : 'Envia a coleta ao Cerebro Seller.IA e recebe os vereditos do metodo.') + '</span></div>';
-      if (dg && dg.erro) hd += '<div class="nota" style="color:var(--rd)">Falha: ' + esc(dg.erro) + '</div>';
-      if (dg && dg.vereditos && dg.vereditos.length) {
-        hd += '<div class="nota" style="margin-top:0">Clique em um card para abrir os detalhes.</div>';
-        for (var v = 0; v < dg.vereditos.length; v++) {
-          var vd = dg.vereditos[v];
-          var cor = vd.status === 'forte' ? 'var(--vd)' : (vd.status === 'critico' ? 'var(--rd)' : 'var(--am)');
-          hd += '<div class="sia-card-diag" style="border:1px solid var(--li);border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;background:var(--b2);padding:10px 14px;margin-bottom:8px;cursor:pointer">' +
-            '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
-              '<span style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid ' + cor + ';color:' + cor + ';border-radius:99px;padding:2px 8px">' + esc(vd.veredito) + '</span>' +
-              '<span style="font-size:10px;color:var(--t2)">' + esc(vd.escopo) + (vd.nome ? ' · ' + esc(String(vd.nome).slice(0, 55)) : '') + (vd.id && vd.escopo !== 'conta' && vd.escopo !== 'grupo' ? ' · ID ' + esc(String(vd.id).split(':')[0]) : '') + '</span></div>' +
-            '<div style="font-weight:700;font-size:13px;margin:6px 0 0;color:var(--t0)">' + esc(vd.manchete) + '</div>' +
-            '<div class="sia-detalhe" style="display:none;margin-top:6px">' +
-            '<div style="font-size:12px;color:var(--t1);line-height:1.5;white-space:pre-line">' + esc(vd.diagnostico) + '</div>' +
-            (vd.passos && vd.passos.length ? (function () {
-              var hp = '<div style="font-size:12px;margin-top:8px;color:var(--t0);font-weight:700">Faca assim:</div><ol style="margin:4px 0 0 18px;padding:0">';
-              for (var pz = 0; pz < vd.passos.length; pz++) hp += '<li style="font-size:12px;color:var(--t1);margin:3px 0;line-height:1.45">' + esc(vd.passos[pz]) + '</li>';
-              return hp + '</ol>';
-            })() : (vd.acao ? '<div style="font-size:12px;margin-top:8px;color:var(--t1)"><b style="color:var(--t0)">O que fazer:</b> ' + esc(vd.acao.fazer) + '</div>' : '')) +
-            (vd.impacto ? '<div style="font-size:12px;margin-top:7px;color:var(--px)"><b>Impacto:</b> <span style="color:var(--t1)">' + esc(vd.impacto) + '</span></div>' : '') +
-            '</div></div>';
-        }
-      } else if (dg && dg.vereditos) {
-        hd += '<div class="vazio">O Cerebro nao encontrou nada para julgar ainda — navegue pelo Ads e pelas Informacoes Gerenciais e analise de novo.</div>';
-      } else if (!dg) {
-        hd += '<div class="vazio">Navegue pelas telas (Ads, Informacoes Gerenciais) e clique em <b>Analisar conta agora</b>.<br>Os vereditos do metodo aparecem aqui — manchete, diagnostico e acao.</div>';
-      }
-      corpo.innerHTML = hd;
-      var cardsD = corpo.querySelectorAll('.sia-card-diag');
-      for (var cd = 0; cd < cardsD.length; cd++) {
-        cardsD[cd].addEventListener('click', function () {
-          var det = this.querySelector('.sia-detalhe');
-          if (det) det.style.display = det.style.display === 'none' ? 'block' : 'none';
-        });
-      }
-      var btnTudo = raiz.getElementById('sia-coletar-tudo');
-      if (btnTudo) btnTudo.addEventListener('click', function () {
-        if (estado.coletaProgresso) return;
-        coletaCompleta(function () { render(); }).then(function (res) {
-          estado.sujo = true;
-          if (!res.ok) {
-            estado.diagnostico = { ok: false, erro: res.erro };
-            render();
-            return;
-          }
-          // salva e analisa automaticamente
-          var btnA = raiz.getElementById('sia-analisar');
-          if (btnA) btnA.click();
-        });
+      // A aba so despejava o JSON cru dos vereditos. Um especialista nao
+      // entrega o dado bruto: ele diz o que esta acontecendo, por que, e o
+      // que fazer primeiro. Agora ela ordena por dinheiro em jogo e escreve.
+      corpo.innerHTML = capa('A ANALISE COMPLETA', 'O', 'ESPECIALISTA', '07') + renderEspecialista();
+      ligarChamadaCerebro();
+      var be = $('sia-coletar-tudo');
+      if (be) be.addEventListener('click', function () {
+        if (estado.coletaProgresso !== null) return;
+        coletaCompleta(function () { render(); });
       });
-      var btn = raiz.getElementById('sia-analisar');
-      if (btn) btn.addEventListener('click', function () {
-        if (estado.analisando) return;
-        estado.analisando = true; estado.sujo = true; render();
-        try {
-          // primeiro salva a foto desta aba (fusao no bg), depois analisa com o estado global
-          chrome.runtime.sendMessage({ tipo: 'sia:salvar', coleta: fotoDoEstado() }, function () {
-            void chrome.runtime.lastError;
-            chrome.runtime.sendMessage({ tipo: 'sia:carregar', }, function (r2) {
-              void chrome.runtime.lastError;
-              var fotoGlobal = (r2 && r2.coleta) ? r2.coleta : fotoDoEstado();
-              var payload = payloadCerebro(fotoGlobal);
-          chrome.runtime.sendMessage({ tipo: 'sia:analisar', payload: payload }, function (resp) {
-            void chrome.runtime.lastError;
-            estado.analisando = false;
-            estado.diagnostico = resp || { ok: false, erro: 'sem resposta do servidor' };
-            estado.sujo = true; render();
-          });
-            });
-          });
-        } catch (e) {
-          estado.analisando = false;
-          estado.diagnostico = { ok: false, erro: 'extensao recarregada — atualize a pagina' };
-          estado.sujo = true; render();
-        }
-      });
-
-    } else if (abaAtiva === 'visao') {
+      return;
+    }
+    if (abaAtiva === 'visao') {
       var t = somaProdutos();
       var h = '<div class="kpis">' +
         '<div class="kpi"><div class="v">' + reais(t.gasto) + '</div><div class="l">Gasto (ads lidos)</div></div>' +
