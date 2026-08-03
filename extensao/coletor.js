@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.53.0';
+  var VERSAO = '0.53.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -55,6 +55,7 @@
     autoColeta: false,       // coletar sozinho ao trocar de conta
     filaCompleta: false,     // Inicio mostra 5; o resto atras de um clique
     rel: { mes: null, gerando: false, markdown: null, erro: null, etapa: '', loja: null },
+    espiaoModo: 'radar',     // 'radar' (meus produtos) | 'busca' (termo livre)
     modoTecnico: false,      // mostra a aba Debug (duplo clique no logo)
     temaClaro: false,        // tema claro (nude) ou escuro
     vereditos: null,         // vereditos vindos do cerebro
@@ -1746,12 +1747,9 @@
     gprod: [
       { id: 'campanhas', rotulo: 'Campanhas' }
     ],
-    espiao: [
-      { id: 'radar', rotulo: 'Meus produtos' },
-      { id: 'busca', rotulo: 'Buscar termo' }
-    ]
+    espiao: []   // modos internos, tratados dentro de renderEspiao
   };
-  var subAtiva = { cofre: 'cofre', gprod: 'campanhas', espiao: 'radar' };
+  var subAtiva = { cofre: 'cofre', gprod: 'campanhas' };
   function grupoDe(id) {
     for (var g in SUB) for (var i = 0; i < SUB[g].length; i++) if (SUB[g][i].id === id) return g;
     return null;
@@ -1761,6 +1759,17 @@
     // Anuncio so faz sentido (e so tem dado) dentro da pagina publica do produto
     if (grupo === 'gprod' && estado.modoPagina === 'publico') lista.push({ id: 'cadastro', rotulo: 'Anuncio' });
     return lista;
+  }
+  // As sub-abas do Espiao sao MODO, nao TELA: se entrarem em SUB, clicar em
+  // Espiao troca abaAtiva para 'radar', que nao tem branch de render, e a
+  // tela fica em branco. Elas sao desenhadas a mao dentro do renderEspiao.
+  function renderModoEspiao(atual) {
+    var opc = [{ id: 'radar', rot: 'Meus produtos' }, { id: 'busca', rot: 'Buscar termo' }];
+    var h = '<div class="subabas">';
+    for (var i = 0; i < opc.length; i++) {
+      h += '<button class="subaba' + (opc[i].id === atual ? ' ativa' : '') + '" data-modo-esp="' + opc[i].id + '">' + opc[i].rot + '</button>';
+    }
+    return h + '</div>';
   }
   function renderSubAbas(grupo) {
     var subs = subsDe(grupo);
@@ -1783,6 +1792,8 @@
         // sem isto o clique e capturado pela linha e o href nunca e seguido
         if (el.getAttribute('data-link-externo')) return;
         if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
+        var mde = el.getAttribute && el.getAttribute('data-modo-esp');
+        if (mde) { estado.espiaoModo = mde; render(); return; }
         if (el.id === 'sia-esp-analisar') {
           try {
             var sel = raiz.getElementById ? raiz.getElementById('sia-esp-prod') : $('sia-esp-prod');
@@ -2821,8 +2832,8 @@
     var e = estado.espiao;
     var h = capa('COMO ESTOU CONTRA OS OUTROS', 'O', 'ESPIAO', '04');
 
-    var modo = subAtiva.espiao || 'radar';
-    h += renderSubAbas('espiao');
+    var modo = estado.espiaoModo || 'radar';
+    h += renderModoEspiao(modo);
 
     if (modo === 'radar') {
       // UM produto por vez, escolhido por voce. O lote de 6 buscas atropelava
@@ -3800,7 +3811,17 @@
             chrome.runtime.sendMessage({ tipo: 'sia:relatorio', payload: payload }, function (resp) {
               void chrome.runtime.lastError;
               estado.rel.gerando = false; estado.rel.etapa = '';
-              if (!resp || !resp.ok) { estado.rel.erro = (resp && (resp.erro || resp.detalhe)) || 'Nao consegui gerar.'; }
+              if (!resp || !resp.ok) {
+                // "Nao consegui gerar" sozinho nao ajuda ninguem: mostra o
+                // motivo que a funcao devolveu e o que fazer com ele.
+                var mot = (resp && (resp.erro || resp.detalhe)) || 'Sem resposta da funcao.';
+                var dica = '';
+                if (/ANTHROPIC_API_KEY/i.test(mot)) dica = ' Falta cadastrar a secret ANTHROPIC_API_KEY na funcao relatorio, no Supabase.';
+                else if (/prompt.*nao encontrado|conhecimento/i.test(mot)) dica = ' O prompt nao esta na tabela conhecimento: rode o prompt-relatorio.sql.';
+                else if (/404|not found/i.test(mot)) dica = ' A funcao relatorio ainda nao foi publicada no Supabase.';
+                else if (/401|403/.test(mot)) dica = ' A chave de acesso foi recusada pelo Supabase.';
+                estado.rel.erro = mot + dica;
+              }
               else { estado.rel.markdown = resp.markdown; estado.rel.loja = estado.loja ? estado.loja.shop_id : null; }
               render();
             });
@@ -4486,6 +4507,15 @@
       return;
     }
 
+    if (abaAtiva === 'performance') {
+      // Estava numa cadeia else-if la embaixo que nunca era alcancada, porque
+      // todos os branches acima usam if + return. Aba abria em branco.
+      corpo.innerHTML = renderPerformanceIA();
+      ligarChamadaCerebro();
+      var psSel = $('sia-prod-sel');
+      if (psSel) psSel.addEventListener('change', function () { estado.prodSel = psSel.value; render(); });
+      return;
+    }
     if (abaAtiva === 'espiao') {
       corpo.innerHTML = renderEspiao();
       ligarEspiao();
