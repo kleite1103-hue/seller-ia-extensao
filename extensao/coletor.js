@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.54.2';
+  var VERSAO = '0.55.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -31,6 +31,11 @@
       chrome.runtime.sendMessage({ tipo: 'sia:busca-capturada', termo: kw, itens: itens }, function () { void chrome.runtime.lastError; });
     } catch (e) { /* noop */ }
   }
+
+  // A extensao fala direto com a funcao do relatorio: o service worker do
+  // Chrome nao sobrevive aos 60-90 segundos que ela leva para responder.
+  var SIA_URL_RELATORIO = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/relatorio';
+  var SIA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZnJlZXpsaXpkYmZwampweG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MTczMTcsImV4cCI6MjEwMDQ5MzMxN30.ZavM7iPnecJdIfEyUMfStcShUEMjlUZf5GKfDaQ7zxQ';
 
   /* =============================== ESTADO =============================== */
   var estado = {
@@ -1594,7 +1599,11 @@
         try {
           var shopAv = estado.loja && estado.loja.shop_id ? estado.loja.shop_id : null;
           var cofreP = window.SIA_Diamantes ? window.SIA_Diamantes.estado().porProduto : null;
-          if (shopAv && cofreP) {
+          // DESLIGADO: get_ratings e rota da vitrine publica (shopee.com.br) e
+          // recusa chamada originada do Seller Centre, respondendo 404 sempre.
+          // Enchia o console de erro sem entregar nada. As avaliacoes ja vem
+          // do Espiao, que le a vitrine de verdade.
+          if (false && shopAv && cofreP) {
             var idsAval = Object.keys(cofreP)
               .filter(function (k) { return cofreP[k].perf && cofreP[k].perf.vendaPaga; })
               .sort(function (a, b) { return (cofreP[b].perf.vendaPaga || 0) - (cofreP[a].perf.vendaPaga || 0); })
@@ -3858,12 +3867,30 @@
           // Pede em duas partes: diagnostico e depois plano/projecao. Cada
           // chamada cabe no limite de 150s da Edge Function; juntas fazem o
           // relatorio inteiro sem estourar o tempo.
+          // CHAMADA DIRETA, sem passar pelo service worker.
+          // O service worker do Chrome MV3 e encerrado apos ~30s de
+          // inatividade. O relatorio leva de 60 a 90 segundos, entao o worker
+          // morria ANTES da resposta chegar e o callback voltava vazio — era
+          // esse o "Sem resposta da funcao". A funcao no Supabase responde
+          // certo; quem sumia era o intermediario.
+          // A funcao tem CORS aberto e o dominio esta em host_permissions,
+          // entao o fetch daqui funciona e nao depende de worker nenhum.
           function pedir(parte, aoOk) {
             var p2 = {}; for (var kk in payload) p2[kk] = payload[kk];
             p2.parte = parte;
-            chrome.runtime.sendMessage({ tipo: 'sia:relatorio', payload: p2 }, function (resp) {
-              void chrome.runtime.lastError;
-              aoOk(resp);
+            fetch(SIA_URL_RELATORIO, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SIA_ANON_KEY, 'apikey': SIA_ANON_KEY },
+              body: JSON.stringify(p2)
+            }).then(function (r) {
+              return r.text().then(function (txt) {
+                var j = null;
+                try { j = JSON.parse(txt); } catch (e) { /* noop */ }
+                if (!j) { aoOk({ ok: false, erro: 'A funcao respondeu HTTP ' + r.status + ': ' + txt.slice(0, 200) }); return; }
+                aoOk(j);
+              });
+            }).catch(function (e) {
+              aoOk({ ok: false, erro: 'Nao consegui alcancar a funcao: ' + String((e && e.message) || e) });
             });
           }
           estado.rel.etapa = 'Escrevendo o diagnostico...'; render();
