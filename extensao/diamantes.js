@@ -804,12 +804,18 @@
       Object.keys(lock).forEach(function (k) {
         if (lock[k] && lock[k].is_locked === true) travas.push(k.replace(/_edit$/, ''));
       });
-      // guardamos no cofre geral (por enquanto sem itemid confiavel na resposta)
+      // O product_id vem na URL e estava sendo ignorado: as travas eram
+      // guardadas com chave 'lote_timestamp' e a tela mostrava uma lista solta
+      // sem dizer de qual produto. Sem o vinculo, o aviso e inutil.
+      var mId = String(url).match(/product_id=(\d+)/);
+      var idProd = mId ? mId[1] : null;
       COFRE.gerenciais.travasDetectadas = COFRE.gerenciais.travasDetectadas || {};
-      if (travas.length) {
-        var chave = 'lote_' + Date.now();
-        COFRE.gerenciais.travasDetectadas[chave] = travas;
-        logar('saude_travas', travas.length + ' travas: ' + travas.slice(0, 3).join(','), url);
+      if (travas.length && idProd) {
+        COFRE.gerenciais.travasDetectadas[idProd] = travas;
+        var pAlvo = COFRE.porProduto[idProd] || {};
+        pAlvo.travas = travas;
+        COFRE.porProduto[idProd] = pAlvo;
+        logar('saude_travas', 'produto ' + idProd + ': ' + travas.join(', '), url);
       }
     }
     // avaliacoes (get_ratings) — detecta notas baixas recentes

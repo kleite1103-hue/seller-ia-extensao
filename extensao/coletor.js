@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.60.0';
+  var VERSAO = '0.60.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2672,30 +2672,36 @@
       Object.keys(g.travasDetectadas).forEach(function (l) { (g.travasDetectadas[l] || []).forEach(function (t) { travasSet[t] = 1; }); });
       var listaT = Object.keys(travasSet);
       if (listaT.length) {
-        // Jargao de API na tela nao ajuda ninguem. Traduz para o que a pessoa
-        // precisa saber: o que ela NAO consegue mudar agora, e por que.
         var NOMES_TRAVA = {
           min_purchase_limit: 'quantidade minima por pedido',
           tier_variation_add: 'adicionar variacao',
           tier_variation_delete: 'remover variacao',
-          tier_variation_edit: 'editar variacao',
+          tier_variation_name: 'nome da variacao',
+          tier_option_add: 'adicionar opcao de variacao',
           model_level_dts_toggle: 'prazo de envio por variacao',
-          price_edit: 'preco',
-          stock_edit: 'estoque',
-          name_edit: 'titulo',
-          image_edit: 'fotos',
-          category_edit: 'categoria',
-          description_edit: 'descricao'
+          price: 'preco', stock: 'estoque', name: 'titulo',
+          image: 'fotos', category: 'categoria', description: 'descricao'
         };
-        var legiveis = listaT.map(function (x) { return NOMES_TRAVA[x] || x; });
-        var temVariacao = listaT.some(function (x) { return x.indexOf('tier_variation') >= 0; });
-        ca4 += '<div class="ld" style="color:var(--am);font-size:12.5px;line-height:1.55;margin-top:6px">' +
-          '<b>A Shopee bloqueou algumas edicoes agora:</b> ' + legiveis.slice(0, 6).join(', ') + '.' +
-          ' Isso costuma acontecer quando ha campanha ativa, pedido em aberto ou o produto esta em analise.' +
-          (temVariacao ? ' <b>Enquanto durar, voce nao consegue tirar uma variacao problematica do ar</b> \u2014 e preciso pausar a campanha do produto antes.' : '') +
-          '</div>';
-      }
-    }
+        // AGORA POR PRODUTO: antes era uma lista solta sem dizer onde.
+        var travasPorProd = (D.gerenciais && D.gerenciais.travasDetectadas) || {};
+        var linhasT = [];
+        for (var idT in travasPorProd) {
+          if (!/^\d+$/.test(idT)) continue;
+          var nomeT = (D.porProduto && D.porProduto[idT] && D.porProduto[idT].nome) || ('Produto ' + idT);
+          var legiveisT = travasPorProd[idT].map(function (x) { return NOMES_TRAVA[x] || x; });
+          linhasT.push({ nome: nomeT, itens: legiveisT, temVar: travasPorProd[idT].some(function (x) { return x.indexOf('tier_') >= 0; }) });
+        }
+        if (linhasT.length) {
+          ca4 += '<div style="margin-top:9px;font-size:12.5px;color:var(--t1);line-height:1.55">' +
+            '<b style="color:var(--am)">A Shopee bloqueou edicoes em ' + linhasT.length + ' produto' + (linhasT.length > 1 ? 's' : '') + ':</b>';
+          for (var lt = 0; lt < Math.min(linhasT.length, 6); lt++) {
+            ca4 += '<div style="margin-top:5px"><b style="color:var(--t0)">' + esc(String(linhasT[lt].nome).slice(0, 44)) + '</b>: nao da para mudar ' + esc(linhasT[lt].itens.join(', ')) + '.</div>';
+          }
+          var algumVar = linhasT.some(function (x) { return x.temVar; });
+          ca4 += '<div style="margin-top:7px;color:var(--t2)">Costuma ser campanha ativa, pedido em aberto ou produto em analise.' +
+            (algumVar ? ' <b style="color:var(--t1)">Como ha travas de variacao, nao da para tirar do ar uma grade problematica sem pausar a campanha do produto antes.</b>' : '') + '</div></div>';
+        }
+      }    }
     h += bloco('4 · SAUDE / AVALIACOES', ca4, 'abra Avaliacoes ou um Produto para capturar');
 
     // ---- 5) AFILIADOS ----
