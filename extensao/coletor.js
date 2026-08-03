@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.61.0';
+  var VERSAO = '0.62.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1784,6 +1784,12 @@
     '.selo{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--li);border-radius:99px;padding:2px 8px;color:var(--t2);margin-left:8px}' +
     '.selo.ok{border-color:var(--vd);color:var(--vd)}' +
     '.selo.off{border-color:var(--rd);color:var(--rd)}' +
+    /* MODO GRAVACAO: borra o que identifica a conta do cliente, e so isso.
+       Numero, veredito e o que vem do Espiao continuam legiveis, porque sao
+       o conteudo que se quer mostrar na gravacao. */
+    ':host(.gravando) .sigilo{filter:blur(5px);transition:filter .12s}' +
+    ':host(.gravando) .sigilo:hover{filter:blur(0)}' +
+    '.sigilo{border-radius:3px}' +
     '.dica{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--li2);background:var(--b2);color:var(--t2);font-family:Space Mono,monospace;font-size:10px;cursor:pointer;padding:0;margin-left:5px;vertical-align:middle;line-height:1}' +
     '.dica:hover{border-color:var(--mk);color:var(--mk)}' +
     '.expl{display:none;padding:12px 15px;border-top:1px solid var(--li);background:var(--b2);font-size:13.5px;color:var(--t1);line-height:1.55}' +
@@ -1804,6 +1810,7 @@
     '    <span class="titulo">SELLER<em>.IA</em></span>' +
     '    <span class="info" id="sia-info"></span>' +
     '    <div class="acoes">' +
+    '      <button id="sia-gravar" title="Modo gravacao: borra nomes da conta">gravar</button>' +
     '      <button id="sia-tema" title="Alternar claro e escuro">tema</button>' +
     '      <button id="sia-exportar" title="Exportar coleta">exportar</button>' +
     '      <button id="sia-limpar" title="Limpar coleta">limpar</button>' +
@@ -2264,7 +2271,7 @@
         h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
           '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.3;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
           '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
-        if (c.campanha) h += '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + esc(c.campanha) +
+        if (c.campanha) h += '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + sig(c.campanha) +
           '<span style="font-family:Space Mono,monospace;color:var(--t3)">' + (c.roas ? '  ROAS ' + c.roas.toFixed(1) + 'x' : '') + (c.posicao ? '  pos ' + c.posicao : '') + '</span></div>';
         h += '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(c.texto) + '</div>';
         h += '</div>';
@@ -2627,6 +2634,12 @@
      Pedido colocado que nao vira confirmado. E receita que aparece no
      painel e some do caixa — e ninguem audita isso. */
   function renderPerdaPosPedido() {
+    // CORRECAO: "confirmado" e identico a "pago" no dado da Shopee — verificado
+    // nas capturas. A perda real e colocado -> PAGO, ou seja PEDIDO NAO PAGO:
+    // boleto e Pix que o comprador gerou e nao pagou. Chamar de "nao
+    // confirmado" era jargao que ninguem usa. E vale a pena mostrar porque o
+    // painel so deixa filtrar pago ou nao pago, nunca a TAXA entre os dois
+    // ao longo dos dias.
     var D = null;
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
     var T = D && D.tendencia;
@@ -2635,16 +2648,17 @@
     if (P.perdaPct < 3) return '';
 
     var grave = P.perdaPct >= 15;
-    var h = olho('O QUE SOME DEPOIS DO PEDIDO', 'Nem todo pedido colocado vira pedido confirmado. A diferenca e cancelamento, falha de pagamento ou desistencia antes da confirmacao. Essa receita aparece no painel e nao entra no caixa \u2014 e quase ninguem olha.');
+    var naoPagos = P.totalColocado - P.totalConfirmado;
+    var h = olho('PEDIDOS QUE NAO FORAM PAGOS', 'O comprador finalizou o pedido e nao pagou: boleto vencido, Pix nao concluido ou cartao recusado. O painel da Shopee deixa filtrar pago ou nao pago, mas nao mostra a TAXA entre os dois ao longo dos dias \u2014 e e a taxa que revela se e normal da categoria ou se algo mudou no seu checkout.');
     h += '<div style="background:color-mix(in srgb,' + (grave ? 'var(--rd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (grave ? 'var(--rd)' : 'var(--am)') + ';border-radius:0 12px 12px 0;padding:15px 16px;margin-bottom:12px">' +
-      '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">' + fmt(P.perdaPct, 1) + '% dos pedidos colocados nao se confirmaram</div>' +
-      '<div style="font-size:14px;color:var(--t1);line-height:1.55">De ' + fmt(P.totalColocado, 0) + ' pedidos colocados no periodo, ' + fmt(P.totalConfirmado, 0) + ' foram confirmados. ' +
-      (P.diasRuins ? 'Em ' + P.diasRuins + ' dia' + (P.diasRuins > 1 ? 's' : '') + ' a perda passou de 10%.' : '') +
-      '</div>' +
+      '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">' + fmt(naoPagos, 0) + ' pedidos nao foram pagos (' + fmt(P.perdaPct, 1) + '%)</div>' +
+      '<div style="font-size:14px;color:var(--t1);line-height:1.55">De ' + fmt(P.totalColocado, 0) + ' pedidos feitos no periodo, ' + fmt(P.totalConfirmado, 0) + ' foram pagos. ' +
+      (P.diasRuins ? 'Em ' + P.diasRuins + ' dia' + (P.diasRuins > 1 ? 's' : '') + ' a taxa passou de 10%.' : '') +
+      ' Ate 10% e comum quando ha boleto; acima disso vale investigar.</div>' +
       '<div style="font-size:13.5px;color:' + (grave ? 'var(--rd)' : 'var(--am)') + ';margin-top:8px;line-height:1.55">' +
-      '\u2192 Confira falha de pagamento e boleto nao pago<br>' +
-      '\u2192 Veja se ha cancelamento por falta de estoque na variacao<br>' +
-      '\u2192 Prazo de envio longo faz o comprador desistir antes de confirmar</div></div>';
+      '\u2192 Boleto costuma ter a maior perda: veja se compensa desativar<br>' +
+      '\u2192 Cupom com valor minimo alto faz desistir na hora de pagar<br>' +
+      '\u2192 Frete que so aparece no fim do checkout derruba pedido pronto</div></div>';
     return h;
   }
 
@@ -2803,7 +2817,7 @@
           ca4 += '<div style="margin-top:9px;font-size:12.5px;color:var(--t1);line-height:1.55">' +
             '<b style="color:var(--am)">A Shopee bloqueou edicoes em ' + linhasT.length + ' produto' + (linhasT.length > 1 ? 's' : '') + ':</b>';
           for (var lt = 0; lt < Math.min(linhasT.length, 6); lt++) {
-            ca4 += '<div style="margin-top:5px"><b style="color:var(--t0)">' + esc(String(linhasT[lt].nome).slice(0, 44)) + '</b>: nao da para mudar ' + esc(linhasT[lt].itens.join(', ')) + '.</div>';
+            ca4 += '<div style="margin-top:5px"><b style="color:var(--t0)">' + sig(String(linhasT[lt].nome).slice(0, 44)) + '</b>: nao da para mudar ' + esc(linhasT[lt].itens.join(', ')) + '.</div>';
           }
           var algumVar = linhasT.some(function (x) { return x.temVar; });
           ca4 += '<div style="margin-top:7px;color:var(--t2)">Costuma ser campanha ativa, pedido em aberto ou produto em analise.' +
@@ -3174,7 +3188,7 @@
           '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">' +
           '<span style="flex:1;font-size:16.5px;font-weight:600;color:var(--t0);line-height:1.3">' + esc(v.titulo) + '</span>' +
           (v.dinheiro ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(v.dinheiro) + '</span>' : '') + '</div>' +
-          (alvo ? '<div style="font-size:12.5px;color:var(--t2);margin-bottom:6px">' + esc(String(alvo).slice(0, 66)) + '</div>' : '') +
+          (alvo ? '<div style="font-size:12.5px;color:var(--t2);margin-bottom:6px">' + sig(String(alvo).slice(0, 66)) + '</div>' : '') +
           '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(v.texto) + '</div>';
         if (v.passos && v.passos.length) {
           s += '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:8px;line-height:1.6">';
@@ -3304,7 +3318,7 @@
             (it.eu ? ';background:color-mix(in srgb,var(--vd) var(--tin,9%),transparent);border-radius:8px' : '') + '">' +
             '<span style="font-family:Bebas Neue,sans-serif;font-size:19px;width:26px;color:' + (it.eu ? 'var(--vd)' : 'var(--t2)') + '">' + (pv + 1) + '</span>' +
             '<span style="flex:1;min-width:0;line-height:1.35;color:' + (it.eu ? 'var(--vd)' : 'var(--t1)') + (it.eu ? ';font-weight:600' : '') + '">' +
-            esc(String(it.nome).slice(0, 46)) + (it.eu ? ' (voce)' : '') +
+            (it.eu ? sig(String(it.nome).slice(0, 46)) + ' (voce)' : esc(String(it.nome).slice(0, 46))) +
             '<span style="display:block;font-family:Space Mono,monospace;font-size:10px;color:var(--t3)">pagina ' + it.pos +
             (it.ads ? ' \u00b7 ADS' : ' \u00b7 organico') + (it.cupom ? ' \u00b7 cupom' : '') +
             (it.freteGratis ? ' \u00b7 frete gratis' : '') +
@@ -3330,7 +3344,7 @@
         var x = lista[i];
         h += '<div style="display:flex;align-items:center;gap:9px;padding:10px 7px;border-bottom:1px solid var(--li);font-size:13.5px' + (x.eu ? ';background:rgba(46,204,113,.06);border-radius:6px' : '') + '">' +
           '<span style="font-family:monospace;font-size:13px;width:22px;color:' + (x.eu ? 'var(--vd)' : 'var(--t2)') + '">' + x.pos + '</span>' +
-          '<span style="flex:1;color:' + (x.eu ? 'var(--vd)' : 'var(--t1)') + (x.eu ? ';font-weight:600' : '') + '">' + esc(x.nome.slice(0, 44)) + (x.eu ? ' (voce)' : '') + '</span>' +
+          '<span style="flex:1;color:' + (x.eu ? 'var(--vd)' : 'var(--t1)') + (x.eu ? ';font-weight:600' : '') + '">' + (x.eu ? sig(x.nome.slice(0, 44)) + ' (voce)' : esc(x.nome.slice(0, 44))) + '</span>' +
           (x.ads ? '<span style="font-family:monospace;font-size:10px;color:var(--mk);border:1px solid var(--mk);border-radius:99px;padding:1px 6px">ADS</span>' : '') +
           '<span style="text-align:right"><span style="font-family:monospace;font-size:10.5px;display:block">' + (x.preco != null ? 'R$' + fmt(x.preco, 2) : '—') + '</span>' +
           '<span style="font-family:monospace;font-size:11px;color:var(--vd)">' + (x.vendasMes != null ? x.vendasMes + '/mes · ' + espDinheiro(x.faturamentoMes) : 'sem dado') + '</span></span>' +
@@ -3848,6 +3862,10 @@
   var DICAS = {};   // guarda o texto fora do atributo: assim ele pode ter
                     // negrito sem quebrar o HTML e sem ser escapado duas vezes
   var seqDica = 0;
+  // Envolve texto que identifica a conta. So isso e borrado no modo gravacao.
+  function sig(txt) {
+    return '<span class="sigilo">' + esc(txt) + '</span>';
+  }
   function dica(txt) {
     var k = 'd' + (++seqDica);
     DICAS[k] = txt;
@@ -3864,6 +3882,21 @@
   function aplicarTema(claro) {
     estado.temaClaro = !!claro;
     try { host.classList.toggle('claro', !!claro); } catch (e) { /* noop */ }
+  }
+  function ligarGravacao() {
+    var b = $('sia-gravar');
+    if (!b) return;
+    b.addEventListener('click', function () {
+      estado.gravando = !estado.gravando;
+      try { host.classList.toggle('gravando', estado.gravando); } catch (e) { /* noop */ }
+      b.textContent = estado.gravando ? 'gravando' : 'gravar';
+      b.style.color = estado.gravando ? 'var(--mk)' : '';
+      b.style.borderColor = estado.gravando ? 'var(--mk)' : '';
+      if (estado.gravando) {
+        mostrarExpl('<b>Modo gravacao ligado.</b> O nome da loja e os nomes dos seus produtos ficam borrados. Numeros, vereditos e os dados do Espiao continuam visiveis, porque sao o que voce quer mostrar. Passe o mouse sobre um nome borrado para ver por um instante.');
+      }
+      render();
+    });
   }
   function ligarTema() {
     var b = $('sia-tema');
@@ -4802,8 +4835,8 @@
         'Lendo <b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> agora \u2014 ' + esc(String(estado.coletaProgresso)) + '</div>';
     }
     var txt = vazio
-      ? '<b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> ainda nao foi lida nesta sessao.'
-      : '<b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> — dado desta conta, lido ' + (lidoHa() || 'agora') + '.';
+      ? '<b>' + sig(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> ainda nao foi lida nesta sessao.'
+      : '<b>' + sig(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> — dado desta conta, lido ' + (lidoHa() || 'agora') + '.';
     return '<div style="background:var(--b2);border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' + txt +
       (vazio ? ' <button id="sia-coletar-agora" style="background:var(--mk);border:none;color:var(--t0);font-weight:600;font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;margin-left:6px">Coletar esta conta</button>' : '') +
       '<div style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2);margin-top:6px">' +
@@ -5063,7 +5096,7 @@
       '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.3;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
       (c.venda ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(c.venda) + '</span>' : '') +
       '</div>' +
-      '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + esc(String(c.nome).slice(0, 70)) + '</div>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + sig(String(c.nome).slice(0, 70)) + '</div>' +
       '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(c.texto) + '</div>' +
       (c.acao ? '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:7px;line-height:1.5">\u2192 ' + esc(c.acao) + '</div>' : '') +
       '</div>';
@@ -5186,7 +5219,7 @@
     var nC = Object.keys(estado.campanhas).length;
     var nP = Object.keys(estado.produtos).length;
     var lojaTxt = estado.loja ? (estado.loja.nome || ('loja ' + estado.loja.shop_id)) : 'identificando a loja...';
-    $('sia-info').textContent = lojaTxt + ' · ' + nC + ' campanhas · ' + nP + ' produtos' + (lidoHa() ? ' · lido ' + lidoHa() : '');
+    $('sia-info').innerHTML = '<span class="sigilo">' + esc(lojaTxt) + '</span>' + ' · ' + nC + ' campanhas · ' + nP + ' produtos' + (lidoHa() ? ' · lido ' + lidoHa() : '');
 
     if (abaAtiva === 'semaforo') {
       corpo.innerHTML = renderAvisoLeitura() + renderBannerConta() + renderSemaforo() + renderChamadaCerebro();
@@ -5579,6 +5612,7 @@
   carregarCofre();
   setTimeout(carregarCofre, 4000); // a loja so e identificada apos as primeiras chamadas
   ligarTema();
+  ligarGravacao();
   try {
     chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'temaClaro' }, function (r) {
       void chrome.runtime.lastError;

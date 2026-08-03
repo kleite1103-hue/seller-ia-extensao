@@ -726,7 +726,9 @@
       return (r[k] || []).map(function (x) { return (x && typeof x === 'object') ? n(x.value) : n(x); });
     }
     var dias = serie('uv').length;
-    var colocado = serie('placed_order'), confirmado = serie('confirmed_order');
+    // confirmed_order e IDENTICO a paid_order no dado da Shopee (verificado).
+    // O que importa e colocado -> pago: pedido feito e nao pago.
+    var colocado = serie('placed_order'), confirmado = serie('paid_order');
     var perdas = [];
     for (var i = 0; i < dias; i++) {
       var c = colocado[i], f = confirmado[i];
