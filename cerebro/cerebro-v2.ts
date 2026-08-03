@@ -441,9 +441,11 @@ function julgarCampanhas(K: any, snap: any, saida: Veredito[]) {
       }
     }
 
-    // --- eficiencia, sempre com metrica derivada
+    // --- eficiencia: SO o caso extremo de nao devolver nem o investido.
+    // O resto (abaixo do piso, com folga, gastou sem vender, pausada que
+    // rendia) agora e do julgarCampanhasNovo, que usa a regua da conta.
     if (roas !== null && gasto) {
-      if (roas < 1) {
+      if (false && roas < 1) {
         saida.push({
           escopo: "campanha", id, nivel: "vermelho", fonte: "seller.ia",
           titulo: "Cada real investido aqui volta menos que um real",
@@ -528,6 +530,169 @@ function julgarOportunidades(K: any, snap: any, regua: Regua, saida: Veredito[])
           "Este é o primeiro lugar para colocar dinheiro novo",
         ],
         dinheiro: s.venda,
+      });
+    }
+  }
+}
+
+
+/* ==================== REGUA DA CONTA PARA CAMPANHAS ====================
+   Regras definidas pela Karina em 03/08/2026 (cerebro/regras-campanha.md).
+   O principio: nenhum limiar e fixo. Uma campanha pausada que gerava R$300
+   e critica numa loja de R$1.000 e irrelevante numa de R$30.000 — mesmo
+   numero, diagnosticos opostos. Onde falta dado para calcular a regua, o
+   veredito DIZ qual padrao esta usando e por que. */
+
+interface ReguaConta {
+  gmvConta: number | null;
+  cliquesPorVenda: number | null;   // quantos cliques esta conta gasta por venda
+  cpmMedio: number | null;          // custo por mil impressoes medio da conta
+  investimentoTotal: number;
+  temCofre: boolean;
+}
+
+function reguaConta(snap: any, margem: number | null): ReguaConta {
+  const camps = snap?.campanhas || {};
+  let cliques = 0, pedidos = 0, gasto = 0, impressoes = 0;
+  for (const k of Object.keys(camps)) {
+    const r = camps[k]?.report || camps[k]?.metricas || {};
+    cliques += num(r.cliques ?? r.click) || 0;
+    pedidos += num(r.pedidos ?? r.broad_order) || 0;
+    impressoes += num(r.impressoes ?? r.impression) || 0;
+    gasto += num(r.gasto) ?? (num(r.cost) !== null ? Number(r.cost) / 100000 : 0);
+  }
+  const c = snap?.conta?.campos || snap?.conta || {};
+  return {
+    gmvConta: num(c.gmv ?? c.gmvPago ?? c.vendas),
+    cliquesPorVenda: pedidos > 0 ? cliques / pedidos : null,
+    cpmMedio: impressoes > 0 ? (gasto / impressoes) * 1000 : null,
+    investimentoTotal: gasto,
+    temCofre: margem !== null && margem > 0,
+  };
+}
+
+/* Uma campanha so pode ser julgada quando comprou cliques suficientes para
+   esta conta ter chance de vender. Menos que isso e cedo demais. */
+function teveChance(cliques: number | null, r: ReguaConta): boolean {
+  if (cliques === null) return false;
+  if (r.cliquesPorVenda && r.cliquesPorVenda > 0) return cliques >= r.cliquesPorVenda;
+  return cliques >= 50;   // sem regua propria, piso conservador
+}
+
+function pctDaConta(valor: number | null, r: ReguaConta): number | null {
+  if (valor === null || !r.gmvConta || r.gmvConta <= 0) return null;
+  return (valor / r.gmvConta) * 100;
+}
+
+function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
+  const camps = snap?.campanhas || {};
+  const margem = num(snap?.margemMediaPct);
+  const piso = pisoRoas(K, margem);
+  const R = reguaConta(snap, margem);
+  const nota = R.temCofre
+    ? ""
+    : " Estou usando margem assumida de 25% porque o custo destes produtos nao esta cadastrado no Cofre — cadastre e este numero vira o seu.";
+
+  for (const id of Object.keys(camps)) {
+    const c = camps[id] || {};
+    const rep = c.report || c.metricas || {};
+    const fmtRegra = formatoDe(K, c);
+    const ehGrupo = fmtRegra?.chave === "grupo_de_anuncios";
+    const avisoGrupo = ehGrupo
+      ? " Este e um Grupo de Anuncios: a Shopee nao entrega metrica por produto dentro dele, entao nao da para dizer qual item especifico responde por este resultado."
+      : "";
+
+    const gasto = num(rep.gasto) ?? (num(rep.cost) !== null ? Number(rep.cost) / 100000 : null);
+    const cliques = num(rep.cliques ?? rep.click);
+    const pedidos = num(rep.pedidos ?? rep.broad_order) ?? 0;
+    let roas = num(rep.roas ?? rep.broad_roi);
+    if (roas !== null && (roas > 1000 || roas < 0)) roas = null;
+    const receita = (gasto !== null && roas !== null) ? gasto * roas : null;
+    const estado = String(c.estado || c.state || "").toLowerCase();
+    const pausada = estado === "paused" || estado === "ended" || estado === "closed";
+
+    // ---- 1) GASTOU E NAO VENDEU ----
+    if (!pausada && gasto && pedidos === 0) {
+      if (!teveChance(cliques, R)) {
+        saida.push({
+          escopo: "campanha", id, nivel: "cinza", fonte: "seller.ia",
+          titulo: "Ainda cedo para julgar esta campanha",
+          texto: `Gastou ${dinheiro(gasto)} e comprou ${fmt(cliques, 0)} cliques. Nesta conta, cada venda custa em media ${R.cliquesPorVenda ? fmt(R.cliquesPorVenda, 0) : "—"} cliques, entao esse volume ainda nao permite concluir nada.` + avisoGrupo,
+          passos: [`Reavalie quando passar de ${R.cliquesPorVenda ? fmt(R.cliquesPorVenda, 0) : "50"} cliques`],
+          dinheiro: gasto,
+        });
+      } else {
+        const cpmCamp = (gasto && num(rep.impressoes ?? rep.impression)) ? (gasto / Number(rep.impressoes ?? rep.impression)) * 1000 : null;
+        const caro = (cpmCamp !== null && R.cpmMedio !== null && cpmCamp > R.cpmMedio * 1.3);
+        saida.push({
+          escopo: "campanha", id, nivel: "vermelho", fonte: "seller.ia",
+          titulo: "Gastou o suficiente para vender e nao vendeu",
+          texto: `${dinheiro(gasto)} compraram ${fmt(cliques, 0)} cliques e nenhuma venda. Nesta conta, ${fmt(R.cliquesPorVenda, 0)} cliques normalmente viram um pedido — este produto ja teve a chance e nao converteu.` +
+            (caro ? ` E esta pagando caro para aparecer: ${dinheiro(cpmCamp)} por mil impressoes contra ${dinheiro(R.cpmMedio)} da media da conta.` : "") + avisoGrupo,
+          passos: [
+            "O problema esta depois do clique: abra a pagina no celular",
+            "Compare preco, avaliacoes e variacoes com quem aparece na mesma busca",
+            "Mais trafego aqui so aumenta a perda enquanto a pagina nao fechar venda",
+          ],
+          dinheiro: gasto,
+        });
+      }
+      continue;
+    }
+
+    // ---- 2) PAUSADA QUE RENDIA ----
+    if (pausada && receita) {
+      const part = pctDaConta(receita, R);
+      if (part !== null && part >= 3) {
+        saida.push({
+          escopo: "campanha", id, nivel: "amarelo", fonte: "seller.ia",
+          titulo: `Esta campanha parada respondia por ${fmt(part, 0)}% do que a loja vende`,
+          texto: `Ela gerou ${dinheiro(receita)} com ${dinheiro(gasto)} investidos, e hoje esta pausada.` + avisoGrupo,
+          passos: [
+            "Confira se o produto dela tem outra campanha cobrindo",
+            "Se nao tiver, esse faturamento saiu da conta e nao voltou por outro caminho",
+            "Compare com a campanha que ocupou o lugar dela: rendia mais ou menos?",
+          ],
+          dinheiro: receita,
+        });
+      }
+      continue;
+    }
+
+    if (pausada) continue;   // pausada sem receita nao diz nada
+
+    // ---- 3) ABAIXO DO PISO ----
+    if (roas !== null && gasto && piso.origem !== "margem_negativa" && roas < piso.valor) {
+      const lucro = lucroDe(gasto, roas, margem);
+      saida.push({
+        escopo: "campanha", id, nivel: "vermelho", fonte: "seller.ia",
+        titulo: "Vende, mas cada venda sai no negativo",
+        texto: `Entrega ${fmt(roas, 1)}x e o seu ponto de equilibrio e ${fmt(piso.valor, 1)}x.` +
+          (lucro !== null ? ` Com ${dinheiro(gasto)} investidos, o resultado e ${dinheiro(lucro)}.` : "") +
+          nota + avisoGrupo,
+        passos: [
+          "Suba a meta em degraus de 20% e meca 7 dias",
+          "Se o volume cair sem o lucro subir, o problema e a pagina, nao a meta",
+        ],
+        dinheiro: gasto,
+      });
+      continue;
+    }
+
+    // ---- 4) COM FOLGA ----
+    if (roas !== null && gasto && piso.origem !== "margem_negativa" && roas >= piso.valor * 1.5) {
+      const lucro = lucroDe(gasto, roas, margem);
+      saida.push({
+        escopo: "campanha", id, nivel: "verde", fonte: "seller.ia",
+        titulo: "Aqui cabe mais investimento",
+        texto: `Entrega ${fmt(roas, 1)}x contra o equilibrio de ${fmt(piso.valor, 1)}x.` +
+          (lucro !== null ? ` Deixa ${dinheiro(lucro)} de lucro com ${dinheiro(gasto)} investidos.` : "") +
+          nota + avisoGrupo,
+        passos: [
+          "Suba o orcamento em 20%, nao mais que isso de uma vez",
+          "Meca 7 dias antes do proximo aumento",
+        ],
+        dinheiro: gasto,
       });
     }
   }
@@ -778,6 +943,7 @@ Deno.serve(async (req) => {
   }
   try { julgarConta(K, snap, vereditos); } catch (_e) { /* nunca derruba a resposta */ }
   try { julgarCampanhas(K, snap, vereditos); } catch (_e) { /* idem */ }
+  try { julgarCampanhasNovo(K, snap, vereditos); } catch (_e) { /* idem */ }
   try { julgarProdutos(K, snap, vereditos); } catch (_e) { /* idem */ }
   try { julgarOportunidades(K, snap, calcularRegua(snap), vereditos); } catch (_e) { /* idem */ }
   ordenar(vereditos);
