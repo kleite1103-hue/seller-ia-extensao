@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.60.1';
+  var VERSAO = '0.61.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1516,6 +1516,39 @@
           }
         }
 
+        // ORIGEM DA VENDA POR CANAL e FUNIL DIARIO POR PRODUTO
+        // PALAVRAS-CHAVE COM VOLUME DE BUSCA
+        prog('Lendo palavras-chave e volume de busca...');
+        var corpoKW = JSON.stringify({ campaign_type: 'shop', limit: 60 });
+        var rkw = await buscar('/api/pas/v1/setup_helper/list_recommended_keyword/?' + spcQ, 'POST', corpoKW);
+        totalChamadas++;
+        if (rkw.ok && rkw.dados) processarPacote({ url: '/api/pas/v1/setup_helper/list_recommended_keyword/?escopo=loja', metodo: 'POST', corpo: corpoKW, dados: rkw.dados, ts: Date.now(), loja: lojaDoCiclo });
+        await pausa(450);
+        // por produto: cada item traz o proprio conjunto de termos
+        var idsKW = Object.keys(estado.produtos).slice(0, 8);
+        for (var kw = 0; kw < idsKW.length; kw++) {
+          var cKW = JSON.stringify({ campaign_type: 'product', item_id: parseInt(idsKW[kw], 10), limit: 30 });
+          var rk2 = await buscar('/api/pas/v1/setup_helper/list_recommended_keyword/?' + spcQ, 'POST', cKW);
+          totalChamadas++;
+          if (rk2.ok && rk2.dados) processarPacote({ url: '/api/pas/v1/setup_helper/list_recommended_keyword/?item_id=' + idsKW[kw], metodo: 'POST', corpo: cKW, dados: rk2.dados, ts: Date.now(), loja: lojaDoCiclo });
+          await pausa(300);
+        }
+
+        prog('Lendo de onde vem cada venda...');
+        var urlTO = '/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=custom';
+        var rto = await buscar(urlTO, 'GET', null);
+        totalChamadas++;
+        if (rto.ok && rto.dados) processarPacote({ url: urlTO, metodo: 'GET', corpo: null, dados: rto.dados, ts: Date.now(), loja: lojaDoCiclo });
+        else { estado.faltando = estado.faltando || []; estado.faltando.push('origem das vendas'); }
+        await pausa(450);
+
+        prog('Lendo a evolucao diaria da loja...');
+        var urlMT = '/api/mydata/v2/product/overview/metric-trends/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=custom';
+        var rmt = await buscar(urlMT, 'GET', null);
+        totalChamadas++;
+        if (rmt.ok && rmt.dados) processarPacote({ url: urlMT, metodo: 'GET', corpo: null, dados: rmt.dados, ts: Date.now(), loja: lojaDoCiclo });
+        await pausa(450);
+
         prog('Lendo o funil dos produtos...');
         for (var pg = 1; pg <= 12; pg++) {
           var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&category_type=shopee&category_id=-1&page_size=10&page_num=' + pg + '&order_type=paid&order_by=paid_sales.desc';
@@ -1795,6 +1828,7 @@
     { id: 'gprod', rotulo: 'Shopee Ads' },
     { id: 'espiao', rotulo: 'Espiao' },
     { id: 'cofre', rotulo: 'Cofre' },
+    { id: 'palavras', rotulo: 'Palavras' },
     { id: 'relatorio', rotulo: 'Relatorio' },
     { id: 'diagnostico', rotulo: 'Especialista' },
     { id: 'debug', rotulo: 'Debug', tecnica: true }
@@ -2539,6 +2573,80 @@
     }
   }
   function corpoEl() { return $('sia-corpo'); }
+
+  /* ============ DE ONDE VEM CADA VENDA ============
+     Separa o que a loja CONQUISTA (busca) do que o algoritmo EMPRESTA
+     (recomendacao). Loja que vive de recomendacao e fragil e nao sabe:
+     a Shopee pode cortar a entrega amanha sem aviso. */
+  function renderOrigem() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    var O = D && D.origem;
+    if (!O || !O.canais || !O.canais.length) return '';
+
+    var busca = 0, recom = 0;
+    for (var i = 0; i < O.canais.length; i++) {
+      if (O.canais[i].origem === 'Busca') busca = O.canais[i].pctVendas;
+      if (O.canais[i].origem === 'Recomendacao') recom = O.canais[i].pctVendas;
+    }
+    var h = olho('DE ONDE VEM CADA VENDA', '<b>Busca e o que voce conquista</b>: o comprador procurou e escolheu voce, por titulo, preco e avaliacao. <b>Recomendacao e o que o algoritmo empresta</b>: ele decidiu te mostrar. A diferenca importa porque recomendacao pode ser cortada da noite para o dia, e busca so cai se voce piorar. Loja que vive de recomendacao tem faturamento que nao controla.');
+
+    var fr, ex;
+    if (recom >= busca) {
+      fr = '<span class="w">' + fmt(recom, 0) + '% das suas vendas vem de recomendacao</span>, contra ' + fmt(busca, 0) + '% de busca.';
+      ex = 'A maior parte do que voce vende hoje depende do algoritmo escolher te mostrar. Isso pode mudar sem aviso. O caminho e ganhar busca: titulo com o termo certo, preco competitivo e avaliacao.';
+    } else if (busca >= 60) {
+      fr = '<span class="u">' + fmt(busca, 0) + '% das vendas vem de busca</span>.';
+      ex = 'A maior parte do faturamento e conquistada, nao emprestada. E a base mais solida que uma loja pode ter: so cai se voce piorar.';
+    } else {
+      fr = fmt(busca, 0) + '% das vendas vem de busca e ' + fmt(recom, 0) + '% de recomendacao.';
+      ex = 'Divisao equilibrada. A busca e o que voce controla; a recomendacao e bonus que o algoritmo da enquanto o produto performa.';
+    }
+    h += '<div class="leitura"><div class="fr">' + fr + '</div><div class="ex">' + ex + '</div></div>';
+
+    h += '<table><tr><th>ORIGEM</th><th class="num">% VENDAS</th><th class="num">CLIQUE&rarr;PEDIDO</th><th class="num">TICKET</th></tr>';
+    for (i = 0; i < O.canais.length; i++) {
+      var c = O.canais[i];
+      if (c.pctVendas < 0.5) continue;
+      var cor = c.origem === 'Busca' ? 'var(--vd)' : (c.origem === 'Recomendacao' ? 'var(--am)' : 'var(--t1)');
+      h += '<tr><td style="color:' + cor + '">' + esc(c.origem) + '</td>' +
+        '<td class="num">' + fmt(c.pctVendas, 1) + '%</td>' +
+        '<td class="num">' + (c.cliqueParaPedido != null ? fmt(c.cliqueParaPedido, 2) + '%' : '\u2014') + '</td>' +
+        '<td class="num">' + (c.ticket != null ? reais(c.ticket) : '\u2014') + '</td></tr>';
+    }
+    h += '</table>';
+
+    h += '<div class="nota">Canais no periodo: Shopee Ads ' + reais(O.adsPago || 0) +
+      (O.adsVar != null ? ' (' + (O.adsVar >= 0 ? '+' : '') + fmt(O.adsVar, 1) + '%)' : '') +
+      ' &middot; afiliados ' + reais(O.afiliados || 0) + ' = ' + fmt(O.afiliadosRatio, 1) + '% do total' +
+      (O.afiliadosVar != null ? ' (' + (O.afiliadosVar >= 0 ? '+' : '') + fmt(O.afiliadosVar, 1) + '%)' : '') + '.</div>';
+    return h;
+  }
+
+  /* ============ PERDA DEPOIS DO PEDIDO ============
+     Pedido colocado que nao vira confirmado. E receita que aparece no
+     painel e some do caixa — e ninguem audita isso. */
+  function renderPerdaPosPedido() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    var T = D && D.tendencia;
+    if (!T || !T.perdaPosPedido || T.perdaPosPedido.perdaPct == null) return '';
+    var P = T.perdaPosPedido;
+    if (P.perdaPct < 3) return '';
+
+    var grave = P.perdaPct >= 15;
+    var h = olho('O QUE SOME DEPOIS DO PEDIDO', 'Nem todo pedido colocado vira pedido confirmado. A diferenca e cancelamento, falha de pagamento ou desistencia antes da confirmacao. Essa receita aparece no painel e nao entra no caixa \u2014 e quase ninguem olha.');
+    h += '<div style="background:color-mix(in srgb,' + (grave ? 'var(--rd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (grave ? 'var(--rd)' : 'var(--am)') + ';border-radius:0 12px 12px 0;padding:15px 16px;margin-bottom:12px">' +
+      '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">' + fmt(P.perdaPct, 1) + '% dos pedidos colocados nao se confirmaram</div>' +
+      '<div style="font-size:14px;color:var(--t1);line-height:1.55">De ' + fmt(P.totalColocado, 0) + ' pedidos colocados no periodo, ' + fmt(P.totalConfirmado, 0) + ' foram confirmados. ' +
+      (P.diasRuins ? 'Em ' + P.diasRuins + ' dia' + (P.diasRuins > 1 ? 's' : '') + ' a perda passou de 10%.' : '') +
+      '</div>' +
+      '<div style="font-size:13.5px;color:' + (grave ? 'var(--rd)' : 'var(--am)') + ';margin-top:8px;line-height:1.55">' +
+      '\u2192 Confira falha de pagamento e boleto nao pago<br>' +
+      '\u2192 Veja se ha cancelamento por falta de estoque na variacao<br>' +
+      '\u2192 Prazo de envio longo faz o comprador desistir antes de confirmar</div></div>';
+    return h;
+  }
 
   function renderConta360() {
     var D = null;
@@ -4081,6 +4189,76 @@
     return { nome: nome, linhas: out, em: Date.now() };
   }
 
+  /* ============ PALAVRAS-CHAVE COM VOLUME ============
+     A Shopee entrega o volume mensal real de busca de cada termo que ela
+     sugere. Cruzando com os titulos dos seus produtos, separa o que voce
+     JA USA do que tem gente procurando e voce esta ignorando. */
+  function renderPalavras() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    var K = (D && D.busca && D.busca.keywords) || [];
+    if (!K.length) {
+      return '<div class="nota" style="color:var(--am)">Ainda nao li as palavras desta conta. Rode a coleta completa \u2014 elas vem junto.</div>';
+    }
+
+    // o que ja esta nos titulos
+    var meus = {};
+    for (var id in estado.produtos) {
+      var nm = estado.produtos[id] && estado.produtos[id].nome;
+      if (!nm) continue;
+      var pal = espPalavras(nm);
+      for (var w in pal) meus[w] = true;
+    }
+    function usada(termo) {
+      var ps = String(termo).toLowerCase().split(/\s+/);
+      var achou = 0;
+      for (var i = 0; i < ps.length; i++) if (meus[ps[i].normalize ? ps[i].normalize('NFD').replace(/[\u0300-\u036f]/g, '') : ps[i]]) achou++;
+      return ps.length ? achou / ps.length : 0;
+    }
+
+    var usadas = [], perdidas = [];
+    for (var k = 0; k < K.length; k++) {
+      var it = K[k];
+      if (!it.termo || it.volume == null) continue;
+      var cob = usada(it.termo);
+      (cob >= 0.6 ? usadas : perdidas).push({ t: it.termo, v: it.volume, cob: cob, lance: it.lance });
+    }
+    perdidas.sort(function (a, b) { return b.v - a.v; });
+    usadas.sort(function (a, b) { return b.v - a.v; });
+
+    var somaP = 0;
+    for (k = 0; k < Math.min(perdidas.length, 10); k++) somaP += perdidas[k].v;
+
+    var h = '<div class="leitura"><div class="fr">' +
+      (perdidas.length
+        ? '<span class="w">' + fmt(somaP, 0) + ' buscas por mes</span> em termos que voce nao usa.'
+        : '<span class="u">Seus titulos cobrem os termos que a Shopee sugere</span>.') +
+      '</div><div class="ex">' +
+      (perdidas.length
+        ? 'Sao as dez maiores da lista abaixo. Nao significa que voce deve usar todas \u2014 significa que ha gente procurando por isso e o seu produto nao aparece.'
+        : 'Nao ha termo relevante de fora. O ganho aqui esta em posicao, nao em palavra nova.') +
+      '</div></div>';
+
+    if (perdidas.length) {
+      h += olho('TEM GENTE PROCURANDO E VOCE NAO APARECE', '<b>Como isto e calculado:</b> a Shopee devolve os termos que ela considera relevantes para a sua loja, com o volume mensal REAL de busca de cada um. Cruzamos com os titulos dos seus produtos: se menos de 60% das palavras do termo estao nos seus titulos, ele entra aqui.<br><br><b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego, onde nao ha historico a proteger.');
+      h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
+      for (k = 0; k < Math.min(perdidas.length, 20); k++) {
+        h += '<tr><td>' + esc(perdidas[k].t) + '</td><td class="num" style="color:var(--px)">' + fmt(perdidas[k].v, 0) + '</td></tr>';
+      }
+      h += '</table>';
+    }
+    if (usadas.length) {
+      h += olho('TERMOS QUE VOCE JA USA', 'Estes ja aparecem nos seus titulos. O volume mostra o tamanho da disputa: termo grande traz mais gente e mais concorrente; termo pequeno traz menos gente e converte melhor.');
+      h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
+      for (k = 0; k < Math.min(usadas.length, 15); k++) {
+        h += '<tr><td>' + esc(usadas[k].t) + '</td><td class="num" style="color:var(--vd)">' + fmt(usadas[k].v, 0) + '</td></tr>';
+      }
+      h += '</table>';
+    }
+    h += '<div class="nota">' + K.length + ' termos lidos da Shopee. O volume e o numero real de buscas no mes, nao estimativa.</div>';
+    return h;
+  }
+
   function renderRelatorio() {
     var R = estado.rel;
     var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '06');
@@ -4761,7 +4939,7 @@
   // fechava sozinha.
   var TELAS_VALIDAS = ['semaforo','conta360','calc','cofre','espiao','card','diagnostico','visao',
     'campanhas','produtos','performance','afiliados','cadastro','diamantes','debug',
-    'relatorio','gprod','ferramentas','radar','busca'];
+    'relatorio','gprod','ferramentas','radar','busca','palavras'];
   /* ============ INTELIGENCIA DE PRODUTO (Performance) ============
      Le o funil de cada produto e devolve um veredito, nao uma linha de
      tabela. A ordem das perguntas segue o metodo: primeiro o dinheiro
@@ -5017,6 +5195,11 @@
       return;
     }
 
+    if (abaAtiva === 'palavras') {
+      try { corpo.innerHTML = capa('O QUE O COMPRADOR PROCURA', 'AS', 'PALAVRAS', '06') + renderPalavras(); }
+      catch (err) { corpo.innerHTML = telaDeErro('Palavras', err); }
+      return;
+    }
     if (abaAtiva === 'relatorio') {
       // estado orfao de uma tentativa anterior travava o botao para sempre
       if (estado.rel.gerando && !estado.rel.etapa) estado.rel.gerando = false;
@@ -5025,7 +5208,8 @@
       return;
     }
     if (abaAtiva === 'conta360') {
-      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSeletorPeriodo() + renderFunilLoja() + renderConta360();
+      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSeletorPeriodo() +
+        renderFunilLoja() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
       ligarBotaoColeta();
       ligarSeletorPeriodo();
       return;

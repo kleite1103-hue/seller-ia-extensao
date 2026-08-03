@@ -60,6 +60,8 @@
   // ---- o cofre dos diamantes capturados ----
   var COFRE = {
     conta: {},       // saude, penalidade, percentil, fontes
+    origem: null,    // de onde vem cada venda, por canal
+    tendencia: null, // evolucao diaria da loja + perda pos-pedido
     loja: {},        // rating, seguidores, tag, resposta chat
     ads: {},         // meta roas, estrategia, cpm, leilao, gasto, creditos
     algoritmo: {},   // regras do oCPM: cold start, limites de mudanca, minimos de lance, percentis
@@ -636,6 +638,125 @@
   // O roi_target_setting hora a hora revela quando a meta foi alterada.
   // sov, reach e location_in_ads sao as metricas de leilao que existiam e
   // nunca foram lidas.
+
+  // ---- ORIGEM DA VENDA POR CANAL ----
+  // Responde de onde vem cada real: busca, recomendacao, loja, carrinho.
+  // Separa o que a loja CONQUISTA do que o algoritmo empresta.
+
+  // ---- PALAVRAS-CHAVE COM VOLUME DE BUSCA ----
+  // A rota devolve o volume mensal REAL de cada termo que a Shopee sugere.
+  // Junta loja + produtos e remove repetidos, ficando com o maior volume.
+  function exKeywords(url, d) {
+    var lista = ((d && d.data) || {}).keyword_list || ((d && d.data) || {}).keywords || [];
+    if (!lista.length) return 0;
+    COFRE.busca = COFRE.busca || {};
+    COFRE.busca.keywords = COFRE.busca.keywords || [];
+    var mapa = {};
+    COFRE.busca.keywords.forEach(function (x) { mapa[x.termo] = x; });
+    var novos = 0;
+    for (var i = 0; i < lista.length; i++) {
+      var k = lista[i] || {};
+      var termo = k.keyword || k.keyword_name || k.name;
+      var vol = k.search_volume != null ? n(k.search_volume) : null;
+      if (!termo || vol == null) continue;
+      var reg = mapa[termo];
+      if (!reg || (reg.volume || 0) < vol) {
+        mapa[termo] = {
+          termo: termo, volume: vol,
+          lance: k.recommended_price != null ? real(k.recommended_price) : null,
+          relevancia: k.relevance != null ? n(k.relevance) : null,
+          recomendado: !!k.is_recommended
+        };
+        novos++;
+      }
+    }
+    COFRE.busca.keywords = Object.keys(mapa).map(function (x) { return mapa[x]; })
+      .sort(function (a, b) { return (b.volume || 0) - (a.volume || 0); });
+    logar('keywords', COFRE.busca.keywords.length + ' termos (+' + novos + ')', url);
+    return novos;
+  }
+
+  function exOrigem(url, d) {
+    var r = (d && d.result) || {};
+    var o = r.overview;
+    if (!o) return 0;
+    var ROT = {
+      psd_label_search: 'Busca', psd_label_recommendation: 'Recomendacao',
+      psd_label_shop: 'Sua loja', psd_label_shopping_cart: 'Carrinho',
+      psd_label_my_purchase: 'Minhas compras', psd_label_chat: 'Chat',
+      psd_label_promotion: 'Promocao', psd_label_others: 'Outros'
+    };
+    var canais = [];
+    var pc = r.product_card || {};
+    (pc.breakdown || []).forEach(function (b) {
+      var nome = ROT[b.source] || b.source;
+      canais.push({
+        origem: nome,
+        pctVendas: (b.sales_ratio || 0) * 100,
+        pctPedidos: (b.orders_ratio || 0) * 100,
+        pctCliques: (b.product_clicks_ratio || 0) * 100,
+        vendas: b.sales != null ? n(b.sales) : null,
+        pedidos: b.orders != null ? n(b.orders) : null,
+        ctr: b.ctr != null ? pctReal(b.ctr) : null,
+        ticket: b.sales_per_order != null ? n(b.sales_per_order) : null,
+        cliqueParaPedido: b.product_clicks_to_orders_rate != null ? pctReal(b.product_clicks_to_orders_rate) : null,
+        variacao: b.sales_pct_diff != null ? (b.sales_pct_diff * 100) : null
+      });
+    });
+    canais.sort(function (a, b2) { return b2.pctVendas - a.pctVendas; });
+    COFRE.origem = {
+      total: n(o.total_sales), totalVar: o.total_sales_pct_diff != null ? o.total_sales_pct_diff * 100 : null,
+      cardProduto: n(o.product_card), cardRatio: (o.product_card_ratio || 0) * 100,
+      afiliados: n(o.affiliate), afiliadosRatio: (o.affiliate_ratio || 0) * 100,
+      afiliadosVar: o.affiliate_pct_diff != null ? o.affiliate_pct_diff * 100 : null,
+      adsPago: n(o.paid_ads), adsVar: o.paid_ads_pct_diff != null ? o.paid_ads_pct_diff * 100 : null,
+      live: n(o.live), video: n(o.video),
+      canais: canais
+    };
+    logar('origem', canais.length + ' origens · busca ' + (canais[0] ? canais[0].pctVendas.toFixed(0) + '%' : '?'), url);
+    return 1;
+  }
+
+  // ---- EVOLUCAO DIARIA DA LOJA + PERDA POS-PEDIDO ----
+  // O degrau que ninguem olha: pedido COLOCADO que nao vira CONFIRMADO.
+  function exTendencia(url, d) {
+    var r = (d && d.result) || {};
+    if (!r.uv || !Array.isArray(r.uv)) return 0;
+    function serie(k) {
+      return (r[k] || []).map(function (x) { return (x && typeof x === 'object') ? n(x.value) : n(x); });
+    }
+    var dias = serie('uv').length;
+    var colocado = serie('placed_order'), confirmado = serie('confirmed_order');
+    var perdas = [];
+    for (var i = 0; i < dias; i++) {
+      var c = colocado[i], f = confirmado[i];
+      if (c && f != null && c > 0) {
+        var taxa = f / c;
+        if (taxa < 0.9) perdas.push({ dia: i, colocado: c, confirmado: f, perdaPct: (1 - taxa) * 100 });
+      }
+    }
+    var somaC = colocado.reduce(function (s, x) { return s + (x || 0); }, 0);
+    var somaF = confirmado.reduce(function (s, x) { return s + (x || 0); }, 0);
+    COFRE.tendencia = {
+      dias: dias,
+      uv: serie('uv'), pv: serie('pv'),
+      bounce: serie('bounce_rate'), atcRate: serie('atc_rate'),
+      buscaCliques: serie('search_clicks'),
+      gmvColocado: serie('placed_gmv'),
+      colocado: colocado, confirmado: confirmado,
+      pagos: serie('paid_order'),
+      conversao: serie('uv_to_paid_buyers_rate'),
+      ticketPorComprador: serie('sales_per_buyer'),
+      perdaPosPedido: {
+        totalColocado: somaC, totalConfirmado: somaF,
+        perdaPct: somaC ? (1 - somaF / somaC) * 100 : null,
+        diasRuins: perdas.length, piores: perdas.sort(function (a, b2) { return b2.perdaPct - a.perdaPct; }).slice(0, 3)
+      }
+    };
+    logar('tendencia', dias + ' dias · perda pos-pedido ' + (somaC ? ((1 - somaF / somaC) * 100).toFixed(1) + '%' : '?'), url);
+    return 1;
+  }
+
   function exTempo(url, d) {
     var m = String(url).match(/campaign_id=(\d+)/);
     if (!m) return 0;
@@ -986,6 +1107,9 @@
       if (/get_product_performance_info/.test(url)) exProduto(url, dados);
       if (/todo\/list_task/.test(url)) exTarefas(url, dados);
       if (/report\/get_time_graph/.test(url)) exTempo(url, dados);
+      if (/list_recommended_keyword/.test(url)) exKeywords(url, dados);
+      if (/product\/traffic\/overview/.test(url)) exOrigem(url, dados);
+      if (/product\/overview\/metric-trends/.test(url)) exTendencia(url, dados);
       if (/product\/overview\/metric-trends|product\/overview\/|product\/traffic\/overview/.test(url)) exTendenciaProduto(url, dados);
       if (/get_product_lock_info|item\/get_ratings/.test(url)) exSaudeProduto(url, dados);
       if (/accounthealth\/v1\/sc\/shops\/overview/.test(url)) exSaudeConta(url, dados);
