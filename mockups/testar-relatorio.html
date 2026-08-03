@@ -85,7 +85,19 @@ document.getElementById('ir').addEventListener('click', async function () {
   var url=document.getElementById('url').value.trim();
   var chave=document.getElementById('chave').value.trim();
   if(!chave){res.innerHTML=chk(false,'Falta a chave','Cole a anon key.');return;}
-  btn.disabled=true; btn.textContent='Gerando... (pode levar 60s)';
+  btn.disabled=true; btn.textContent='Verificando versao...';
+  // primeiro confirma QUAL versao esta publicada
+  try{
+    var rp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+chave,'apikey':chave},body:JSON.stringify({ping:true})});
+    var dp=await rp.json();
+    if(!dp||!dp.streaming){
+      res.innerHTML=chk(false,'A funcao publicada e a versao ANTIGA',
+        'Ela respondeu <b>'+esc((dp&&dp.code_version)||'sem versao')+'</b> e nao tem streaming. Enquanto for essa versao, o relatorio SEMPRE vai dar 504 aos 150s, nao importa mais nada.<br><br>Republique o <b>relatorio.ts</b> atualizado: apague todo o codigo no editor do Supabase, cole o novo inteiro e clique em Deploy. Confira que a primeira linha do arquivo comeca com <b>// SELLER.IA · GERADOR DE RELATORIO</b> e que existe <b>stream: true</b> no meio do arquivo.');
+      btn.disabled=false; btn.textContent='Rodar o teste'; return;
+    }
+    res.innerHTML=chk(true,'Versao publicada: '+esc(dp.code_version),'Streaming ativo e geracao em partes disponivel. Seguindo para o teste real...');
+  }catch(e){ /* segue mesmo assim */ }
+  btn.textContent='Gerando... (pode levar 60s)';
   res.innerHTML='<p class="ajuda">Chamando a função. O relatório completo leva de 30 a 90 segundos.</p>';
   var t0=Date.now();
   try{

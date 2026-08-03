@@ -146,6 +146,13 @@ Deno.serve(async (req) => {
   let body: any;
   try { body = await req.json(); } catch { return json({ ok: false, erro: "json invalido" }, 400); }
 
+  // Responde na hora, sem chamar a API: e a unica forma de provar QUAL versao
+  // esta publicada. Sem isso, um 504 nao distingue "codigo antigo sem stream"
+  // de "codigo novo que mesmo assim demorou".
+  if (body.ping) {
+    return json({ ok: true, code_version: CODE_VERSION, streaming: true, aceita_partes: true });
+  }
+
   const chave = Deno.env.get("ANTHROPIC_API_KEY");
   if (!chave) return json({ ok: false, erro: "falta a secret ANTHROPIC_API_KEY na funcao" }, 500);
 
