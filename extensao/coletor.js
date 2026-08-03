@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.55.0';
+  var VERSAO = '0.55.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1787,8 +1787,7 @@
     ],
     gprod: [
       { id: 'campanhas', rotulo: 'Campanhas' }
-    ],
-    espiao: []   // modos internos, tratados dentro de renderEspiao
+    ]
   };
   var subAtiva = { cofre: 'cofre', gprod: 'campanhas' };
   function grupoDe(id) {
@@ -1989,7 +1988,10 @@
     for (var b = 0; b < botoes.length; b++) {
       botoes[b].addEventListener('click', function () {
         var alvo = this.getAttribute('data-aba');
-        abaAtiva = SUB[alvo] ? (subAtiva[alvo] || SUB[alvo][0].id) : alvo;
+        // SUB[alvo] pode existir e estar VAZIO: SUB[alvo][0].id dava undefined
+        // e abaAtiva virava undefined, sem branch de render — a aba nao abria.
+        var sublist = SUB[alvo];
+        abaAtiva = (sublist && sublist.length) ? (subAtiva[alvo] || sublist[0].id) : alvo;
         render();
       });
     }
@@ -4571,8 +4573,14 @@
     if (!$('sia-painel').classList.contains('aberto')) return;
     // se por algum caminho a aba ativa virar um id de GRUPO (gprod, ferramentas)
     // ou um id desconhecido, nenhuma branch casa e a tela apaga. Cai no padrao.
-    if (SUB[abaAtiva]) abaAtiva = subAtiva[abaAtiva] || SUB[abaAtiva][0].id;
-    if (TELAS_VALIDAS.indexOf(abaAtiva) < 0) abaAtiva = 'semaforo';
+    if (SUB[abaAtiva] && SUB[abaAtiva].length) abaAtiva = subAtiva[abaAtiva] || SUB[abaAtiva][0].id;
+    // Rede de seguranca: aba desconhecida ou undefined volta para o Inicio.
+    // Sem isto, abaAtiva undefined nao casava com nenhum branch e a gaveta
+    // ficava em branco sem explicacao — foi o caso do Espiao.
+    if (!abaAtiva || TELAS_VALIDAS.indexOf(abaAtiva) < 0) {
+      try { console.warn('[Seller.IA] aba sem tela:', abaAtiva); } catch (e) { }
+      abaAtiva = 'semaforo';
+    }
     renderAbas();
     var corpo = $('sia-corpo');
     var nC = Object.keys(estado.campanhas).length;
