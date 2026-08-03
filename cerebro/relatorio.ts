@@ -12,7 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const CODE_VERSION = "relatorio-1.1.0";
+const CODE_VERSION = "relatorio-2.0.0";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -222,44 +222,74 @@ Deno.serve(async (req) => {
     return json({ ok: false, erro: "API respondeu " + resposta.status, detalhe: errTxt.slice(0, 600) }, 502);
   }
 
-  // le o stream e remonta o texto
-  let markdown = "";
-  try {
-    const reader = resposta.body!.getReader();
-    const dec = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += dec.decode(value, { stream: true });
-      const linhas = buffer.split("\n");
-      buffer = linhas.pop() || "";
-      for (const linha of linhas) {
-        if (!linha.startsWith("data:")) continue;
-        const payload = linha.slice(5).trim();
-        if (!payload || payload === "[DONE]") continue;
-        try {
-          const ev = JSON.parse(payload);
-          if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
-            markdown += ev.delta.text || "";
+  // ============================================================
+  // O STREAM PRECISA CHEGAR AO CLIENTE, NAO SO VIR DA API.
+  // Meu diagnostico anterior estava pela metade: eu liguei o streaming na
+  // chamada a Anthropic mas continuava ACUMULANDO tudo em memoria e so
+  // respondendo no fim. Para o Supabase, a funcao seguia 150s sem enviar
+  // nada ao chamador — e o IDLE_TIMEOUT continuou estourando, que foi
+  // exatamente o que aconteceu com dados reais.
+  // Agora a resposta e ela mesma um stream: cada pedaco que chega da API
+  // e repassado na hora, a conexao nunca fica ociosa e nao ha limite de
+  // tamanho de relatorio.
+  // ============================================================
+  const enc = new TextEncoder();
+  const saida = new ReadableStream({
+    async start(controller) {
+      let markdown = "";
+      try {
+        const reader = resposta.body!.getReader();
+        const dec = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += dec.decode(value, { stream: true });
+          const linhas = buffer.split("\n");
+          buffer = linhas.pop() || "";
+          for (const linha of linhas) {
+            if (!linha.startsWith("data:")) continue;
+            const payload = linha.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            try {
+              const ev = JSON.parse(payload);
+              if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+                const pedaco = ev.delta.text || "";
+                markdown += pedaco;
+                controller.enqueue(enc.encode(pedaco));   // mantem a conexao viva
+              }
+            } catch { /* pedaco incompleto */ }
           }
-        } catch { /* pedaco incompleto, continua */ }
+        }
+      } catch (e) {
+        controller.enqueue(enc.encode("\n\n[ERRO: o stream foi interrompido — " + String(e) + "]"));
       }
-    }
-  } catch (e) {
-    return json({ ok: false, erro: "o stream da API foi interrompido: " + String(e) }, 502);
-  }
 
-  if (!markdown.trim()) return json({ ok: false, erro: "a API nao devolveu texto" }, 502);
+      // log opcional, ja com o texto completo
+      try {
+        if (parte !== 1 && markdown.trim()) {
+          await supa.from("relatorios").insert({
+            shop_id: String(body.loja || "desconhecida"),
+            periodo_atual: body?.atual?.periodo || null,
+            periodo_anterior: body?.anterior?.periodo || null,
+            markdown,
+          });
+        }
+      } catch (_e) { /* nunca derruba o relatorio */ }
 
-  try {
-    if (parte !== 1) await supa.from("relatorios").insert({
-      shop_id: String(body.loja || "desconhecida"),
-      periodo_atual: body?.atual?.periodo || null,
-      periodo_anterior: body?.anterior?.periodo || null,
-      markdown,
-    });
-  } catch (_e) { /* o log e opcional, o relatorio nao pode falhar por causa dele */ }
+      controller.close();
+    },
+  });
 
-  return json({ ok: true, code_version: CODE_VERSION, parte, markdown, dados_enviados: dados.length });
+  return new Response(saida, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Code-Version": CODE_VERSION,
+      "X-Parte": String(parte),
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Expose-Headers": "X-Code-Version, X-Parte",
+    },
+  });
 });

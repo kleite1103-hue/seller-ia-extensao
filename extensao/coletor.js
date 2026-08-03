@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.55.1';
+  var VERSAO = '0.56.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2703,6 +2703,14 @@
      Antes eu mostrava a lista da rota de keywords sem confrontar com o
      titulo — parecia analise e nao era. */
   var ESP_IGNORA = { 'para': 1, 'com': 1, 'sem': 1, 'de': 1, 'da': 1, 'do': 1, 'das': 1, 'dos': 1, 'em': 1, 'no': 1, 'na': 1, 'e': 1, 'ou': 1, 'kit': 1, 'un': 1, 'pcs': 1, 'unidades': 1, 'novo': 1, 'promocao': 1, 'frete': 1, 'gratis': 1, 'envio': 1, 'rapido': 1, 'pronta': 1, 'entrega': 1, 'qualidade': 1, 'melhor': 1, 'top': 1 };
+  // Foi apagada junto com o Radar em lote e continuou sendo chamada em tres
+  // pontos: mais uma referencia orfa que so quebrava em execucao.
+  function espDinheiro(v) {
+    if (v == null || !isFinite(v)) return '\u2014';
+    if (v >= 1000000) return 'R$ ' + (v / 1000000).toFixed(1).replace('.', ',') + ' mi';
+    if (v >= 1000) return 'R$ ' + (v / 1000).toFixed(1).replace('.', ',') + ' mil';
+    return 'R$ ' + v.toFixed(0);
+  }
   function espPalavras(nome) {
     var s = String(nome || '').toLowerCase();
     s = s.normalize ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : s;
@@ -3885,6 +3893,26 @@
               headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SIA_ANON_KEY, 'apikey': SIA_ANON_KEY },
               body: JSON.stringify(p2)
             }).then(function (r) {
+              // A funcao agora responde em STREAM de texto puro. Ler por
+              // pedacos mostra o relatorio nascendo e, mais importante,
+              // mantem a conexao ativa do inicio ao fim.
+              var ct = r.headers.get('content-type') || '';
+              if (r.ok && ct.indexOf('text/plain') >= 0 && r.body) {
+                var reader = r.body.getReader();
+                var dec = new TextDecoder();
+                var acc = '';
+                function ler() {
+                  return reader.read().then(function (res) {
+                    if (res.done) { aoOk({ ok: true, markdown: acc }); return; }
+                    acc += dec.decode(res.value, { stream: true });
+                    estado.rel.etapa = (parte === 1 ? 'Diagnostico' : 'Plano de 30 dias') + ': ' + Math.round(acc.length / 100) / 10 + ' mil caracteres';
+                    estado.sujo = true;
+                    return ler();
+                  });
+                }
+                ler().catch(function (e) { aoOk({ ok: false, erro: 'O stream foi interrompido: ' + String(e && e.message || e) }); });
+                return;
+              }
               return r.text().then(function (txt) {
                 var j = null;
                 try { j = JSON.parse(txt); } catch (e) { /* noop */ }
