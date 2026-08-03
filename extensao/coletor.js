@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.56.0';
+  var VERSAO = '0.57.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2993,7 +2993,7 @@
         return (y.faturamentoMes || 0) - (x.faturamentoMes || 0);
       })).filter(function (x) { return (x.faturamentoMes || 0) > 0; });
       if (porVenda.length) {
-        h += olho('OS QUE MAIS VENDEM NESTA BUSCA', '<b>Ordenado por faturamento, nao pela posicao na pagina.</b> Quem aparece primeiro pode estar pagando por isso; quem vende mais e a referencia que importa.<br><br><b>De onde vem o numero:</b> a API da Shopee devolve <b>monthly_sold_count</b>, que e a quantidade EXATA vendida nos ultimos 30 dias — nao o texto arredondado do card (onde 1237 aparece como \'1,2mil\'). Multiplicamos pelo preco atual. A unica imprecisao possivel e se o concorrente mudou de preco durante o mes.');
+        h += olho('OS QUE MAIS VENDEM \u00b7 ULTIMOS 30 DIAS', '<b>Ordenado por faturamento, nao pela posicao na pagina.</b> Quem aparece primeiro pode estar pagando por isso; quem vende mais e a referencia que importa.<br><br><b>De onde vem o numero:</b> a API da Shopee devolve <b>monthly_sold_count</b>, que e a quantidade EXATA vendida nos ultimos 30 dias — nao o texto arredondado do card (onde 1237 aparece como \'1,2mil\'). Multiplicamos pelo preco atual. A unica imprecisao possivel e se o concorrente mudou de preco durante o mes.');
         for (var pv = 0; pv < Math.min(porVenda.length, 8); pv++) {
           var it = porVenda[pv];
           h += '<div style="display:flex;align-items:center;gap:10px;padding:11px 8px;border-bottom:1px solid var(--li);font-size:13.5px' +
@@ -3004,8 +3004,8 @@
             '<span style="display:block;font-family:Space Mono,monospace;font-size:10px;color:var(--t3)">pagina ' + it.pos +
             (it.ads ? ' \u00b7 ADS' : ' \u00b7 organico') + (it.cupom ? ' \u00b7 cupom' : '') +
             (it.freteGratis ? ' \u00b7 frete gratis' : '') +
-            (it.estoque != null ? ' \u00b7 ' + fmt(it.estoque, 0) + ' em estoque' : '') +
-            (it.avaliacoes != null ? ' \u00b7 ' + fmt(it.avaliacoes, 0) + ' avaliacoes' : '') +
+            (it.estoque != null ? ' \u00b7 estoque ' + fmt(it.estoque, 0) : '') +
+            (it.avaliacoes != null ? ' \u00b7 ' + fmt(it.avaliacoes, 0) + ' avaliacoes (total)' : '') +
             (it.nota != null ? ' \u00b7 nota ' + fmt(it.nota, 1) : '') +
             (it.cidade ? ' \u00b7 ' + esc(String(it.cidade)) : '') +
             '</span></span>' +
@@ -3651,64 +3651,99 @@
     return isFinite(n) ? n * mult : null;
   }
   function blocoPeriodo(rotulo) {
-    // usa o que esta coletado no estado atual
-    var c = (estado.conta && estado.conta.campos) || {};
+    // ORIGEM CORRETA DOS DADOS.
+    // Eu estava lendo de estado.conta.campos com nomes inventados (vendas,
+    // ads_invest, afil_vendas) que nao existem em lugar nenhum — por isso o
+    // relatorio saiu inteiro com "Nao disponivel" mesmo com a conta lida.
+    // Os numeros da conta vivem em COFRE.gerenciais (gmvPago, pedidosPagos,
+    // uv, pv, ticketMedio, conversaoLoja) e os de Ads sao somados das
+    // campanhas, que e onde o dado realmente esta.
+    var D = null;
+    try { if (window.SIA_Diamantes) D = window.SIA_Diamantes.estado(); } catch (e) { /* noop */ }
+    var G = (D && D.gerenciais) || {};
+    var AF = (D && D.afiliados && D.afiliados.resumo) || {};
+
+    function val(o) {
+      if (o == null) return null;
+      if (typeof o === 'number') return isFinite(o) ? o : null;
+      if (typeof o === 'object' && o.valor !== undefined) return numeroPuro(o.valor);
+      return numeroPuro(o);
+    }
+
+    // produtos, direto do Cofre
     var prods = [], id;
-    for (id in estado.produtos) {
-      var p = estado.produtos[id], m = (p && p.metricas) || {};
-      if (!p || !p.nome) continue;
+    var PP = (D && D.porProduto) || {};
+    for (id in PP) {
+      var pr = PP[id], perf = (pr && pr.perf) || {};
+      if (!pr || !pr.nome) continue;
       prods.push({
-        nome: String(p.nome).slice(0, 80), id: id,
-        visitantes: numeroPuro(m.visitantes), cliques: numeroPuro(m.cliques),
-        carrinho: numeroPuro(m.carrinho), unidades: numeroPuro(m.pedidos_pagos),
-        vendas: numeroPuro(m.vendas_pagas), conversao: numeroPuro(m.conversao_pago)
+        nome: String(pr.nome).slice(0, 80), id: id,
+        visitantes: val(perf.uv) != null ? val(perf.uv) : val(perf.visitantes),
+        cliques: val(perf.cliques), carrinho: val(perf.carrinho) != null ? val(perf.carrinho) : val(perf.atc),
+        unidades: val(perf.pedidosPagos) != null ? val(perf.pedidosPagos) : val(perf.unidadesPagas),
+        vendas: val(perf.vendaPaga) != null ? val(perf.vendaPaga) : val(perf.venda),
+        conversao: val(perf.convPago) != null ? val(perf.convPago) : val(perf.conversao)
       });
     }
     prods.sort(function (a, b) { return (b.vendas || 0) - (a.vendas || 0); });
 
+    // campanhas + soma de Ads
     var camps = [], k, fmtCont = {};
-    for (k in estado.campanhas) {
-      var cp = estado.campanhas[k], rp = (cp && cp.report) || {};
+    var PC = (D && D.porCampanha) || {};
+    var somaGasto = 0, somaImpr = 0, somaCliq = 0, somaPed = 0, somaGmvAds = 0;
+    for (k in PC) {
+      var cp = PC[k], m = (cp && cp.metricas) || {};
       if (!cp) continue;
-      var g = numeroPuro(rp.gasto), ped = numeroPuro(rp.broad_order), ro = numeroPuro(rp.broad_roi);
-      var fm = cp.type === 'product_mpd' ? 'Grupo de Anuncios'
+      var g = val(m.gasto), ro = val(m.roas), imp = val(m.impressoes), cli = val(m.cliques), ped = val(m.pedidos);
+      var fm = cp.tipoFormato || (cp.type === 'product_mpd' ? 'Grupo de Anuncios'
         : cp.type === 'shop_auto' ? 'Anuncio Automatico de Loja'
         : cp.type === 'shop_manual' ? 'Busca de Loja'
-        : (cp.subtype ? 'GMV Max Meta de ROAS' : 'GMV Max Automatico');
+        : (cp.subtype ? 'GMV Max Meta de ROAS' : 'GMV Max Automatico'));
+      somaGasto += g || 0; somaImpr += imp || 0; somaCliq += cli || 0; somaPed += ped || 0;
+      if (g != null && ro != null) somaGmvAds += g * ro;
       if (!fmtCont[fm]) fmtCont[fm] = { rotulo: fm, qtd: 0, gasto: 0, gmvS: 0 };
       fmtCont[fm].qtd++; fmtCont[fm].gasto += (g || 0); fmtCont[fm].gmvS += (g || 0) * (ro || 0);
       camps.push({
-        nome: String(cp.nome || cp.titulo || k).slice(0, 70), produtoId: cp.produtoId || null, formato: fm,
+        nome: String(cp.nome || k).slice(0, 70), produtoId: cp.produtoId || null, formato: fm,
         gasto: g, gmv: (g != null && ro != null) ? g * ro : null, roas: ro,
-        roasDireto: numeroPuro(rp.direct_roi), pedidos: ped,
+        roasDireto: val(m.roasDireto), pedidos: ped,
         cpa: (g != null && ped) ? g / ped : null,
-        metaAtual: numeroPuro(cp.metaAtual), metaSugerida: numeroPuro(cp.metaSugerida)
+        metaAtual: val(cp.metaRoas), metaSugerida: val(cp.metaSugerida)
       });
     }
     camps.sort(function (a, b) { return (b.gasto || 0) - (a.gasto || 0); });
-    var formatos = []; for (k in fmtCont) { var f = fmtCont[k]; formatos.push({ rotulo: f.rotulo, qtd: f.qtd, gasto: f.gasto, roas: f.gasto ? f.gmvS / f.gasto : null }); }
+    var formatos = [];
+    for (k in fmtCont) { var f = fmtCont[k]; formatos.push({ rotulo: f.rotulo, qtd: f.qtd, gasto: f.gasto, roas: f.gasto ? f.gmvS / f.gasto : null }); }
 
-    var inv = numeroPuro(c.ads_invest), pedAds = numeroPuro(c.ads_pedidos), gmvAds = numeroPuro(c.ads_gmv);
+    var gmv = val(G.gmvPago), pedidos = val(G.pedidosPagos), uv = val(G.uv) != null ? val(G.uv) : val(G.visitantes);
+    var ticket = val(G.ticketMedio);
+    if (ticket == null && gmv && pedidos) ticket = gmv / pedidos;
+
     return {
       periodo: rotulo,
       conta: {
-        gmvPago: numeroPuro(c.vendas), pedidosPagos: numeroPuro(c.pedidos), visitantes: numeroPuro(c.uv),
-        conversaoPaga: numeroPuro(c.conv), ticketMedio: numeroPuro(c.ticket), cancelamentos: numeroPuro(c.cancelados),
-        visualizacoes: numeroPuro(c.pv), carrinho: numeroPuro(c.atc)
+        gmvPago: gmv, pedidosPagos: pedidos, visitantes: uv,
+        conversaoPaga: val(G.conversaoLoja), ticketMedio: ticket,
+        cancelamentos: val(G.cancelados), visualizacoes: val(G.pv),
+        carrinho: val(G.carrinho) != null ? val(G.carrinho) : val(G.atc)
       },
       ads: {
-        investimento: inv, impressoes: numeroPuro(c.impr), cliques: numeroPuro(c.cliques_ads),
-        ctr: numeroPuro(c.ctr), gmvPainel: gmvAds, gmvReal: numeroPuro(c.ads_gmv_real),
-        pedidos: pedAds, roasPainel: numeroPuro(c.roas), roasReal: numeroPuro(c.roas_real),
-        cpa: (inv != null && pedAds) ? inv / pedAds : null
+        investimento: somaGasto || null, impressoes: somaImpr || null, cliques: somaCliq || null,
+        ctr: somaImpr ? (somaCliq / somaImpr) * 100 : null,
+        gmvPainel: somaGmvAds || null, gmvReal: somaGmvAds || null,
+        pedidos: somaPed || null,
+        roasPainel: somaGasto ? somaGmvAds / somaGasto : null,
+        roasReal: somaGasto ? somaGmvAds / somaGasto : null,
+        cpa: somaPed ? somaGasto / somaPed : null
       },
       afiliados: {
-        gmv: numeroPuro(c.afil_vendas), comissao: numeroPuro(c.afil_comissao),
-        pedidos: numeroPuro(c.afil_pedidos), novosCompradores: numeroPuro(c.afil_novos), roi: numeroPuro(c.afil_roi)
+        gmv: val(AF.vendas), comissao: val(AF.comissao), pedidos: val(AF.pedidos),
+        novosCompradores: val(AF.novos), roi: val(AF.roi)
       },
-      produtos: prods, campanhas: camps, formatos: formatos
+      produtos: prods.slice(0, 25), campanhas: camps.slice(0, 25), formatos: formatos
     };
   }
+
   function renderRelatorio() {
     var R = estado.rel;
     var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '06');
@@ -3758,9 +3793,9 @@
   }
   function mdParaHtml(md) {
     var s = esc(md);
-    s = s.replace(/^#### (.*)$/gm, '<div style="font-size:14px;font-weight:600;color:var(--t0);margin:14px 0 5px">$1</div>');
-    s = s.replace(/^### (.*)$/gm, '<div style="font-size:16px;font-weight:600;color:var(--t0);margin:18px 0 6px">$1</div>');
-    s = s.replace(/^## (.*)$/gm, '<div style="font-family:Bebas Neue,sans-serif;font-size:24px;color:var(--t0);margin:22px 0 8px;letter-spacing:.02em">$1</div>');
+    s = s.replace(/^#### (.*)$/gm, '<div style="font-size:13px;font-weight:600;color:var(--t0);margin:10px 0 3px">$1</div>');
+    s = s.replace(/^### (.*)$/gm, '<div style="font-size:15px;font-weight:600;color:var(--t0);margin:13px 0 4px">$1</div>');
+    s = s.replace(/^## (.*)$/gm, '<div style="font-family:Bebas Neue,sans-serif;font-size:21px;color:var(--t0);margin:16px 0 5px;letter-spacing:.02em">$1</div>');
     s = s.replace(/\*\*(.+?)\*\*/g, '<b style="color:var(--t0)">$1</b>');
     s = s.replace(/^\s*[-*] (.*)$/gm, '<div style="padding-left:14px;position:relative;margin:3px 0">&bull; $1</div>');
     // tabelas markdown
@@ -3779,7 +3814,7 @@
       });
       return out + '</table>';
     });
-    s = s.replace(/\n{2,}/g, '<div style="height:9px"></div>');
+    s = s.replace(/\n{2,}/g, '<div style="height:5px"></div>');
     return s;
   }
   function gerarRelatorio() {
@@ -4008,11 +4043,14 @@
     var nome = (estado.loja && estado.loja.nome) || 'Loja';
     return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatorio ' + esc(nome) + '</title>' +
       '<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">' +
-      '<style>@page{margin:16mm}body{font-family:Outfit,Arial,sans-serif;font-weight:300;color:#15161a;line-height:1.6;max-width:820px;margin:0 auto;padding:24px;font-size:12pt}' +
-      'h1{font-family:Bebas Neue;font-size:30pt;letter-spacing:.02em;margin:0 0 4px}' +
-      'table{width:100%;border-collapse:collapse;margin:10px 0;font-size:10pt}' +
-      'th{text-align:left;padding:7px 6px;border-bottom:2px solid #15161a;font-size:8.5pt;text-transform:uppercase;letter-spacing:.05em;font-weight:600}' +
-      'td{padding:7px 6px;border-bottom:1px solid #ddd}' +
+      '<style>@page{margin:12mm 10mm}' +
+      'body{font-family:Outfit,Arial,sans-serif;font-weight:300;color:#15161a;line-height:1.45;max-width:none;margin:0;padding:0;font-size:9.5pt}' +
+      'h1{font-family:Bebas Neue;font-size:24pt;letter-spacing:.02em;margin:0 0 2px}' +
+      'table{width:100%;border-collapse:collapse;margin:7px 0;font-size:8.5pt;page-break-inside:avoid}' +
+      'th{text-align:left;padding:5px 5px;border-bottom:1.5px solid #15161a;font-size:7.5pt;text-transform:uppercase;letter-spacing:.04em;font-weight:600}' +
+      'td{padding:5px 5px;border-bottom:1px solid #e3e3e3;vertical-align:top}' +
+      'div{margin:0}' +
+      'ul,ol{margin:4px 0 4px 16px;padding:0}li{margin:1px 0}' +
       'b{font-weight:600}.cab{border-bottom:3px solid #ff4d1c;padding-bottom:10px;margin-bottom:18px}' +
       '.mk{color:#ff4d1c}.rod{margin-top:26px;padding-top:10px;border-top:1px solid #ddd;font-size:8.5pt;color:#777}' +
       '.aviso{background:#f4f2ee;border-radius:8px;padding:11px 14px;margin-bottom:18px;font-size:10pt}' +
