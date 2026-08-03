@@ -85,33 +85,10 @@ document.getElementById('ir').addEventListener('click', async function () {
   var url=document.getElementById('url').value.trim();
   var chave=document.getElementById('chave').value.trim();
   if(!chave){res.innerHTML=chk(false,'Falta a chave','Cole a anon key.');return;}
-  btn.disabled=true; btn.textContent='Verificando versao...';
-  // primeiro confirma QUAL versao esta publicada
-  try{
-    var rp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+chave,'apikey':chave},body:JSON.stringify({ping:true})});
-    var txtP=await rp.text(); var dp=null; try{dp=JSON.parse(txtP)}catch(e){}
-    if(!dp||!dp.streaming){
-      // mostra a resposta CRUA: "sem versao" pode ser codigo antigo OU um erro
-      // diferente respondido rapido, e sao problemas distintos
-      var diag='';
-      var m=(dp&&(dp.erro||dp.detalhe))||'';
-      if(/ANTHROPIC_API_KEY/i.test(m)) diag='<br><br><b>Na verdade nao e versao antiga:</b> a funcao respondeu que falta a secret <b>ANTHROPIC_API_KEY</b>. Cadastre em Edge Functions e <b>republique a funcao depois</b> — secret criada apos o deploy so e lida no deploy seguinte.';
-      else if(/prompt.*n[aã]o encontrado|conhecimento/i.test(m)) diag='<br><br><b>Na verdade nao e versao antiga:</b> a funcao nao achou o prompt na tabela. Rode o <b>prompt-relatorio.sql</b>.';
-      else if(rp.status===404) diag='<br><br>A funcao <b>relatorio</b> nao existe nesse endereco (HTTP 404). Confira o nome exato.';
-      else if(rp.status===401||rp.status===403) diag='<br><br>Chave recusada (HTTP '+rp.status+'). Use a <b>anon public</b>.';
-      res.innerHTML=chk(false,'A funcao nao confirmou a versao nova',
-        'HTTP '+rp.status+'.'+diag+
-        '<br><br><b>Resposta crua:</b><br><code style="font-size:11px;word-break:break-all">'+esc(txtP.slice(0,600))+'</code>');
-      btn.disabled=false; btn.textContent='Rodar o teste'; return;
-    }
-    if(false){
-      res.innerHTML=chk(false,'A funcao publicada e a versao ANTIGA',
-        'Ela respondeu <b>'+esc((dp&&dp.code_version)||'sem versao')+'</b> e nao tem streaming. Enquanto for essa versao, o relatorio SEMPRE vai dar 504 aos 150s, nao importa mais nada.<br><br>Republique o <b>relatorio.ts</b> atualizado: apague todo o codigo no editor do Supabase, cole o novo inteiro e clique em Deploy. Confira que a primeira linha do arquivo comeca com <b>// SELLER.IA · GERADOR DE RELATORIO</b> e que existe <b>stream: true</b> no meio do arquivo.');
-      btn.disabled=false; btn.textContent='Rodar o teste'; return;
-    }
-    res.innerHTML=chk(true,'Versao publicada: '+esc(dp.code_version),'Streaming ativo e geracao em partes disponivel. Seguindo para o teste real...');
-  }catch(e){ /* segue mesmo assim */ }
-  btn.textContent='Gerando... (pode levar 60s)';
+  btn.disabled=true; btn.textContent='Gerando... (pode levar 60s)';
+  // O ping foi adicionado depois de a funcao ja estar publicada, entao a
+  // ausencia dele NAO prova que o codigo e antigo — o teste que vale e
+  // gerar de verdade e ver se responde dentro do tempo.
   res.innerHTML='<p class="ajuda">Chamando a função. O relatório completo leva de 30 a 90 segundos.</p>';
   var t0=Date.now();
   try{
