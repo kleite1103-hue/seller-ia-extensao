@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.52.0';
+  var VERSAO = '0.53.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2614,7 +2614,30 @@
         avaliacoes: rt.rating_count && rt.rating_count.length ? Number(rt.rating_count[0]) : null,
         cupom: voucher ? (voucher.voucher_code || 'sim') : null,
         ads: !!it.adsid,
-        eu: meu && String(d.shopid) === meu
+        eu: meu && String(d.shopid) === meu,
+
+        // ---- O QUE A API ENTREGA E ESTAVA SENDO JOGADO FORA ----
+        // Os numeros abaixo sao EXATOS: vem da API, nao do texto arredondado
+        // que aparece no card da vitrine ("1,2mil" na tela = 1237 aqui).
+        precoAntes: dp.price_before_discount != null ? Number(dp.price_before_discount) / 100000 : null,
+        precoMin: dp.price_min != null ? Number(dp.price_min) / 100000 : null,
+        precoMax: dp.price_max != null ? Number(dp.price_max) / 100000 : null,
+        estoque: d.stock != null ? Number(d.stock) : null,
+        vendidoTexto: sc.sold_count_text || null,          // como a Shopee escreve na tela
+        curtidas: d.liked_count != null ? Number(d.liked_count) : null,
+        notaDetalhe: rt.rating_count || null,              // [total,1,2,3,4,5 estrelas]
+        cidade: d.shop_location || d.item_location || null,
+        freteGratis: !!(d.show_free_shipping || (d.badge_icon_type === 1)),
+        preferido: !!(d.shopee_verified || d.is_preferred_plus_seller),
+        oficial: !!d.is_official_shop,
+        adsid: it.adsid || null,
+        campanhaAds: it.campaignid || null,
+        vendedorId: d.shopid != null ? String(d.shopid) : null,
+        nomeLoja: d.shop_name || null,
+        criadoEm: d.ctime != null ? Number(d.ctime) : null,
+        variacoes: d.tier_variations ? d.tier_variations.length : null,
+        // guarda o item cru para nao perder nada que a Shopee adicionar depois
+        cru: it
       });
     }
     return lista;
@@ -2894,7 +2917,7 @@
         return (y.faturamentoMes || 0) - (x.faturamentoMes || 0);
       })).filter(function (x) { return (x.faturamentoMes || 0) > 0; });
       if (porVenda.length) {
-        h += olho('OS QUE MAIS VENDEM NESTA BUSCA', 'Ordenado por faturamento estimado no mes, nao pela posicao na pagina. Quem aparece primeiro pode estar pagando por isso; quem vende mais e a referencia que importa. O calculo usa o vendido dos ultimos 30 dias que a propria Shopee mostra no card, multiplicado pelo preco.');
+        h += olho('OS QUE MAIS VENDEM NESTA BUSCA', '<b>Ordenado por faturamento, nao pela posicao na pagina.</b> Quem aparece primeiro pode estar pagando por isso; quem vende mais e a referencia que importa.<br><br><b>De onde vem o numero:</b> a API da Shopee devolve <b>monthly_sold_count</b>, que e a quantidade EXATA vendida nos ultimos 30 dias — nao o texto arredondado do card (onde 1237 aparece como \'1,2mil\'). Multiplicamos pelo preco atual. A unica imprecisao possivel e se o concorrente mudou de preco durante o mes.');
         for (var pv = 0; pv < Math.min(porVenda.length, 8); pv++) {
           var it = porVenda[pv];
           h += '<div style="display:flex;align-items:center;gap:10px;padding:11px 8px;border-bottom:1px solid var(--li);font-size:13.5px' +
@@ -2902,7 +2925,14 @@
             '<span style="font-family:Bebas Neue,sans-serif;font-size:19px;width:26px;color:' + (it.eu ? 'var(--vd)' : 'var(--t2)') + '">' + (pv + 1) + '</span>' +
             '<span style="flex:1;min-width:0;line-height:1.35;color:' + (it.eu ? 'var(--vd)' : 'var(--t1)') + (it.eu ? ';font-weight:600' : '') + '">' +
             esc(String(it.nome).slice(0, 46)) + (it.eu ? ' (voce)' : '') +
-            '<span style="display:block;font-family:Space Mono,monospace;font-size:10px;color:var(--t3)">pagina ' + it.pos + (it.ads ? ' · ADS' : ' · organico') + (it.cupom ? ' · cupom' : '') + '</span></span>' +
+            '<span style="display:block;font-family:Space Mono,monospace;font-size:10px;color:var(--t3)">pagina ' + it.pos +
+            (it.ads ? ' \u00b7 ADS' : ' \u00b7 organico') + (it.cupom ? ' \u00b7 cupom' : '') +
+            (it.freteGratis ? ' \u00b7 frete gratis' : '') +
+            (it.estoque != null ? ' \u00b7 ' + fmt(it.estoque, 0) + ' em estoque' : '') +
+            (it.avaliacoes != null ? ' \u00b7 ' + fmt(it.avaliacoes, 0) + ' avaliacoes' : '') +
+            (it.nota != null ? ' \u00b7 nota ' + fmt(it.nota, 1) : '') +
+            (it.cidade ? ' \u00b7 ' + esc(String(it.cidade)) : '') +
+            '</span></span>' +
             '<span style="text-align:right;flex:none">' +
             '<span style="font-family:Space Mono,monospace;font-size:13px;display:block;color:var(--t0)">' + espDinheiro(it.faturamentoMes) + '</span>' +
             '<span style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--vd)">' + (it.vendasMes != null ? it.vendasMes + ' vendas' : '—') + ' · R$' + fmt(it.preco, 2) + '</span></span>' +
