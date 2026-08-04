@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.71.0';
+  var VERSAO = '0.72.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -505,7 +505,11 @@
     if (mSpc) { estado.spc = mSpc[1]; try { window.SIA_ULTIMO_CDS = mSpc[1]; } catch (e) { } }
     // captura o start/end REAL das chamadas mydata (Central de Dados) que a
     // Shopee ja validou. Reusamos no coletor pra nunca errar o formato de data.
-    if (/mydata\/.*\/(key-metrics|performance|traffic|order-performance)/.test(pacote.url)) {
+    // O periodo era atualizado a cada chamada que a Shopee fazia enquanto a
+    // pessoa navegava, entao a tela ficava trocando sozinha. Agora so aceita
+    // periodo novo quando NAO ha coleta em andamento — durante a coleta o
+    // recorte e o que a coleta pediu, e ponto.
+    if (estado.coletaProgresso === null && /mydata\/.*\/(key-metrics|performance|traffic|order-performance)/.test(pacote.url)) {
       var mSt = pacote.url.match(/start_time=(\d{9,11})/);
       var mEt = pacote.url.match(/end_time=(\d{9,11})/);
       var mPer = pacote.url.match(/period=(\w+)/);
@@ -2093,7 +2097,11 @@
     for (var i = 0; i < ABAS.length; i++) {
       var a = ABAS[i];
       if (a.tecnica && !estado.modoTecnico) continue;
-      var ativo = (a.id === abaAtiva) || (SUB[a.id] && grupoDe(abaAtiva) === a.id) || (a.id === 'gprod' && abaAtiva === 'card');
+      // O card ficava sempre marcando 'Shopee Ads' como aba ativa, mesmo
+      // aberto pelo Funil de Produto — era isso que dava a sensacao de ser
+      // levada para o Ads. Agora ele destaca a aba DE ONDE veio.
+      var ativo = (a.id === abaAtiva) || (SUB[a.id] && grupoDe(abaAtiva) === a.id) ||
+        (abaAtiva === 'card' && a.id === (estado.cardVoltaPara || 'gprod'));
       h += '<button class="aba' + (ativo ? ' ativa' : '') + '" data-aba="' + a.id + '">' + a.rotulo + '</button>';
     }
     $('sia-abas').innerHTML = h;
@@ -4361,7 +4369,24 @@
 
     // campanhas + soma de Ads
     var camps = [], k, fmtCont = {};
-    var PC = (D && D.porCampanha) || {};
+    // As campanhas do homepage/query vivem em estado.campanhas; o
+    // COFRE.porCampanha so recebe dados de outras rotas e fica quase vazio.
+    // Ler so dele fazia o relatorio sair sem NENHUM numero de Ads, mesmo com
+    // 300 campanhas lidas — foi o que aconteceu no relatorio de 03/08.
+    var PC = {};
+    for (var kc in estado.campanhas) PC[kc] = estado.campanhas[kc];
+    var PCcofre = (D && D.porCampanha) || {};
+    for (kc in PCcofre) {
+      if (!PC[kc]) { PC[kc] = PCcofre[kc]; continue; }
+      // completa o que faltar, sem sobrescrever o que ja veio
+      var alvo = PC[kc], extra = PCcofre[kc] || {};
+      alvo.metricas = alvo.metricas || {};
+      for (var mk2 in (extra.metricas || {})) {
+        if (alvo.metricas[mk2] == null) alvo.metricas[mk2] = extra.metricas[mk2];
+      }
+      if (extra.metaRoas != null && alvo.metaRoas == null) alvo.metaRoas = extra.metaRoas;
+      if (extra.leilao && !alvo.leilao) alvo.leilao = extra.leilao;
+    }
     var somaGasto = 0, somaImpr = 0, somaCliq = 0, somaPed = 0, somaGmvAds = 0;
     for (k in PC) {
       var cp = PC[k], m = (cp && cp.metricas) || {};
