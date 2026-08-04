@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.78.0';
+  var VERSAO = '0.79.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -513,8 +513,15 @@
       var mSt = pacote.url.match(/start_time=(\d{9,11})/);
       var mEt = pacote.url.match(/end_time=(\d{9,11})/);
       var mPer = pacote.url.match(/period=(\w+)/);
-      if (mSt && mEt && mPer && mPer[1] === 'month') {
-        estado.periodoMydata = { inicio: parseInt(mSt[1], 10), fim: parseInt(mEt[1], 10) };
+      // ANTES so aceitava period=month. Com 'últimos 7 dias' ou 'ontem' no
+      // painel, o periodo era IGNORADO e a coleta usava um recorte antigo —
+      // por isso a tela dizia ler o periodo do painel e varias coisas nao
+      // fechavam. Agora aceita qualquer period, e guarda qual foi.
+      if (mSt && mEt) {
+        var iNovo = parseInt(mSt[1], 10), fNovo = parseInt(mEt[1], 10);
+        if (fNovo > iNovo && (fNovo - iNovo) <= 400 * 86400) {
+          estado.periodoMydata = { inicio: iNovo, fim: fNovo, rotulo: mPer ? mPer[1] : null };
+        }
       }
       // guarda a URL COMPLETA real de cada rota dashboard, pra reusar tal e qual
       estado.urlsReais = estado.urlsReais || {};
@@ -1522,9 +1529,20 @@
         // da janela de aprendizado?".
         var alvoTempo = PROFUNDA ? idsGasto.slice(0, 12) : [];
         for (var tg = 0; tg < alvoTempo.length; tg++) {
+          // CORPO EXATO da captura real. O meu estava errado em tres pontos:
+          // agg_interval e o numero 4, nao a string 'hour'; o campaign_id vai
+          // dentro de filter_params; e need_roi_target_setting e o que traz o
+          // is_cold_start e a meta por hora. Por isso a serie nunca chegava e
+          // o Ads seguia pedindo leitura profunda mesmo depois de rodada.
           var corpoTG = JSON.stringify({
-            start_time: ini, end_time: fimAds, campaign_id: parseInt(alvoTempo[tg], 10),
-            agg_interval: 'hour', campaign_type: 'product'
+            need_roi_target_setting: true,
+            agg_interval: 4,
+            campaign_type: 'product',
+            filter_params: { campaign_id: parseInt(alvoTempo[tg], 10) },
+            start_time: ini,
+            end_time: fimAds,
+            need_product_npa_setting: false,
+            need_positive_operation_boost_completed_setting: true
           });
           var rtg = await buscar('/api/pas/v1/report/get_time_graph/?' + spcQ, 'POST', corpoTG);
           totalChamadas++;
@@ -2675,7 +2693,9 @@
     if (gg && gg.periodoIni && gg.periodoFim) {
       var di = new Date(gg.periodoIni * 1000), df = new Date(gg.periodoFim * 1000);
       function dd(x) { return String(x.getUTCDate()).padStart(2, '0') + '/' + String(x.getUTCMonth() + 1).padStart(2, '0'); }
-      h += '<div class="nota">Periodo lido: <b>' + dd(di) + ' a ' + dd(df) + '</b>' + (gg.periodoDias ? ' (' + gg.periodoDias + ' dias)' : '') +
+      var rotP = (estado.periodoMydata && estado.periodoMydata.rotulo) || null;
+      var ROT_PER = { month: 'Por mes', week: 'Por semana', day: 'Por dia', yesterday: 'Ontem', realtime: 'Tempo real', custom: 'Personalizado' };
+      h += '<div class="nota">Periodo lido: <b>' + dd(di) + ' a ' + dd(df) + '</b>' + (gg.periodoDias ? ' (' + gg.periodoDias + ' dias' + (rotP ? ', ' + (ROT_PER[rotP] || rotP) : '') + ')' : '') +
         ' &middot; e o recorte que estava aberto no painel da Shopee. Para trocar, mude o periodo no painel e colete de novo.</div>';
     }
     if (estado.coletaProgresso !== null) {
@@ -4431,12 +4451,30 @@
       return numeroPuro(o);
     }
 
-    // produtos, direto do Cofre
+    // MESMO ERRO QUE JA CORRIGI NAS CAMPANHAS: lia so de COFRE.porProduto e
+    // ignorava estado.produtos, que e onde a maioria vive. Por isso o
+    // relatorio listava produtos que nao eram os que mais venderam — ele
+    // ordenava corretamente, mas dentro de uma lista incompleta.
     var prods = [], id;
-    var PP = (D && D.porProduto) || {};
+    var PP = {};
+    var PPcofre = (D && D.porProduto) || {};
+    for (id in PPcofre) PP[id] = { nome: PPcofre[id].nome, perf: PPcofre[id].perf || {} };
+    for (id in estado.produtos) {
+      var pe = estado.produtos[id] || {}, me = pe.metricas || {};
+      if (!PP[id]) PP[id] = { nome: pe.nome, perf: {} };
+      if (!PP[id].nome && pe.nome) PP[id].nome = pe.nome;
+      var pf = PP[id].perf;
+      if (pf.uv == null && me.visitantes != null) pf.uv = me.visitantes;
+      if (pf.cliques == null && me.cliques != null) pf.cliques = me.cliques;
+      if (pf.atc == null && me.carrinho != null) pf.atc = me.carrinho;
+      if (pf.pedidosPagos == null && me.pedidos_pagos != null) pf.pedidosPagos = me.pedidos_pagos;
+      if (pf.vendaPaga == null && me.vendas_pagas != null) pf.vendaPaga = me.vendas_pagas;
+      if (pf.convPago == null && me.conversao_pago != null) pf.convPago = me.conversao_pago;
+    }
     for (id in PP) {
       var pr = PP[id], perf = (pr && pr.perf) || {};
       if (!pr || !pr.nome) continue;
+      if (!ehProdutoDeVerdade(pr.nome)) continue;
       prods.push({
         nome: String(pr.nome).slice(0, 80), id: id,
         visitantes: val(perf.uv) != null ? val(perf.uv) : val(perf.visitantes),
