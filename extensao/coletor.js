@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.70.0';
+  var VERSAO = '0.70.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -4543,88 +4543,21 @@
         de termos semelhantes. Nao depende do que voce ja vende.
      2) DA SUA LOJA: os termos que ela sugere para os seus produtos,
         separados entre os que voce ja usa e os que esta ignorando. */
+  /* ============ PALAVRAS ============
+     A rota list_recommended_keyword NAO aceita busca livre — verificado em
+     todas as variantes capturadas: ela so aceita campaign_type e campaign_id,
+     e devolve os termos que a Shopee considera relevantes para ESTA loja.
+     Pesquisar uma palavra qualquer nunca ia funcionar, entao a funcao de
+     busca livre foi removida em vez de continuar frustrando. */
   function renderPalavras() {
-    var modo = estado.modoPalavra || 'pesquisar';
-    var h = '<div class="subabas">' +
-      '<button class="subaba' + (modo === 'pesquisar' ? ' ativa' : '') + '" data-modo-kw="pesquisar">Pesquisar um termo</button>' +
-      '<button class="subaba' + (modo === 'loja' ? ' ativa' : '') + '" data-modo-kw="loja">Da sua loja</button></div>';
-
-    if (modo === 'pesquisar') {
-      h += '<div style="display:flex;gap:8px;margin:14px 0;flex-wrap:wrap">' +
-        '<input id="sia-kw-termo" value="' + esc(estado.termoPesquisa || '') + '" placeholder="procure dentro dos termos da sua categoria" ' +
-        'style="flex:1;min-width:210px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px 13px;color:var(--t0);font-size:14px">' +
-        '<button id="sia-kw-ir" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:12px 22px;border-radius:9px;cursor:pointer">' +
-        (estado.kwBuscando ? 'Buscando...' : 'Ver volume') + '</button></div>';
-
-      if (estado.kwErro) {
-        h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px;font-size:14px;color:var(--t1)">' + esc(estado.kwErro) + '</div>';
-        return h;
-      }
-      if (estado.kwBuscando) {
-        h += '<div class="nota">Perguntando a Shopee quantas pessoas procuram por isso...</div>';
-        return h;
-      }
-      var R = estado.kwResultado;
-      if (!R || !R.termos || !R.termos.length) {
-        h += '<div class="nota">Escreva um termo e clique em <b>Ver volume</b>. <b>Uma limitacao honesta:</b> a Shopee nao permite consultar o volume de qualquer palavra do mundo \u2014 ela devolve os termos que considera relevantes para a sua loja, com o volume real de cada um, e a busca acontece dentro dessa lista.</div>';
-        return h;
-      }
-      var exato = null;
-      for (var e = 0; e < R.termos.length; e++) {
-        if (String(R.termos[e].termo).toLowerCase() === String(R.buscado).toLowerCase()) { exato = R.termos[e]; break; }
-      }
-      h += '<div class="leitura"><div class="fr">' +
-        (exato ? '<span class="u">' + fmt(exato.volume, 0) + ' buscas por mes</span> em "' + esc(R.buscado) + '".'
-               : '"' + esc(R.buscado) + '" nao aparece na lista da Shopee, mas ha ' + R.termos.length + ' termos parecidos.') +
-        '</div><div class="ex">' +
-        (exato ? 'Abaixo, os termos parecidos com o volume de cada um. Termo grande traz mais gente e mais concorrente; termo pequeno traz menos gente e costuma converter melhor.'
-               : 'Pode ser que ela use outra forma de escrever. Veja se algum dos termos abaixo e o que voce procurava.') +
-        '</div></div>';
-      // CAUDA CURTA x LONGA. Termo de 1 a 2 palavras e cauda curta: muito
-      // volume, muita disputa, intencao vaga. De 4 palavras para cima e cauda
-      // longa: menos gente, mas gente que ja sabe o que quer — costuma
-      // converter varias vezes mais e custa menos para disputar.
-      function palavras(s2) { return String(s2).trim().split(/\s+/).length; }
-      var curta = [], media2 = [], longa = [];
-      for (e = 0; e < R.termos.length; e++) {
-        var np = palavras(R.termos[e].termo);
-        (np <= 2 ? curta : (np <= 3 ? media2 : longa)).push(R.termos[e]);
-      }
-      function tabela(rot, lista, cor, dicaTxt) {
-        if (!lista.length) return '';
-        var s3 = olho(rot, dicaTxt);
-        s3 += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
-        for (var q = 0; q < Math.min(lista.length, 15); q++) {
-          var forte = exato && lista[q] === exato;
-          s3 += '<tr><td' + (forte ? ' style="color:var(--t0);font-weight:600"' : '') + '>' + esc(lista[q].termo) + '</td>' +
-            '<td class="num" style="color:' + cor + '">' + fmt(lista[q].volume, 0) + '</td></tr>';
-        }
-        return s3 + '</table>';
-      }
-      h += tabela('CAUDA CURTA \u00b7 1 a 2 palavras', curta, 'var(--px)',
-        '<b>Muito volume, muita disputa.</b> Quem busca assim ainda esta decidindo o que quer, entao converte menos e o leilao e mais caro. Serve para descoberta e para gerar dado, nao para rentabilidade.');
-      h += tabela('CAUDA MEDIA \u00b7 3 palavras', media2, 'var(--am)',
-        'O meio do caminho: ja ha intencao, mas ainda ha volume. Costuma ser onde a maioria dos produtos disputa.');
-      h += tabela('CAUDA LONGA \u00b7 4 palavras ou mais', longa, 'var(--vd)',
-        '<b>Menos gente, mas gente que ja sabe o que quer.</b> Quem digita quatro palavras esta perto de comprar: converte varias vezes mais que a cauda curta e a disputa e menor. E onde produto pequeno consegue aparecer sem brigar com quem investe muito.');
-      if (longa.length && curta.length) {
-        var somaL = 0, somaC = 0;
-        for (e = 0; e < longa.length; e++) somaL += longa[e].volume;
-        for (e = 0; e < curta.length; e++) somaC += curta[e].volume;
-        h += '<div class="nota">A cauda curta soma ' + fmt(somaC, 0) + ' buscas e a longa ' + fmt(somaL, 0) + '. ' +
-          'A curta parece maior, mas a longa traz quem ja decidiu \u2014 e disputar nela custa menos.</div>';
-      }
-      return h;
-    }
-
-    // ---- DA SUA LOJA ----
     var D = null;
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (er) { /* noop */ }
     var K = (D && D.busca && D.busca.keywords) || [];
+
     if (!K.length) {
-      return h + '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:16px;margin-top:14px">' +
-        '<div style="font-size:15px;font-weight:600;color:var(--t0);margin-bottom:5px">Ainda nao li as palavras da sua loja</div>' +
-        '<div style="font-size:13.5px;color:var(--t1);line-height:1.55">Elas vem na coleta da conta. Se ja coletou e mesmo assim nao apareceram, a rota pode ter falhado nesta leitura.</div>' +
+      return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:16px">' +
+        '<div style="font-size:15px;font-weight:600;color:var(--t0);margin-bottom:5px">Ainda nao li as palavras desta conta</div>' +
+        '<div style="font-size:13.5px;color:var(--t1);line-height:1.55">Elas vem da tela de criacao de campanha de Busca de Loja. Se a conta nao tem campanha desse tipo, a Shopee pode nao devolver nada.</div>' +
         '<button id="sia-kw-coletar" style="margin-top:11px;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;padding:10px 16px;border-radius:8px;cursor:pointer">' +
         (estado.coletaProgresso !== null ? esc(String(estado.coletaProgresso)) : 'Buscar as palavras agora') + '</button></div>';
     }
@@ -4656,89 +4589,41 @@
     var somaP = 0;
     for (k = 0; k < Math.min(perdidas.length, 10); k++) somaP += perdidas[k].v;
 
-    h += '<div class="leitura" style="margin-top:14px"><div class="fr">' +
+    var filtro = (estado.buscaPalavra || '').toLowerCase().trim();
+    var h = '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
+      '<input id="sia-kw-busca" value="' + esc(estado.buscaPalavra || '') + '" placeholder="filtrar nesta lista" ' +
+      'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px"></div>';
+
+    h += '<div class="leitura"><div class="fr">' +
       (perdidas.length ? '<span class="w">' + fmt(somaP, 0) + ' buscas por mes</span> em termos que voce nao usa.'
                        : '<span class="u">Seus titulos cobrem os termos que a Shopee sugere</span>.') +
       '</div><div class="ex">' +
-      (perdidas.length ? 'Sao as dez maiores da lista. Nao significa que deve usar todas — significa que ha gente procurando e o seu produto nao aparece.'
+      (perdidas.length ? 'Sao as dez maiores. Nao significa que deve usar todas — significa que ha gente procurando e o seu produto nao aparece.'
                        : 'Nao ha termo relevante de fora. O ganho aqui esta em posicao, nao em palavra nova.') +
       '</div></div>';
 
-    if (perdidas.length) {
-      h += olho('TEM GENTE PROCURANDO E VOCE NAO APARECE', '<b>Como e calculado:</b> a Shopee devolve os termos que considera relevantes para a sua loja, com o volume mensal real. Cruzamos com os titulos dos seus produtos: se menos de 60% das palavras do termo estao neles, ele entra aqui.<br><br><b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego.');
-      h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
-      for (k = 0; k < Math.min(perdidas.length, 25); k++) {
-        var nl = String(perdidas[k].t).trim().split(/\s+/).length;
-        h += '<tr><td>' + esc(perdidas[k].t) +
+    function tab(rot, lista, cor, dicaTxt) {
+      var L = filtro ? lista.filter(function (x) { return x.t.toLowerCase().indexOf(filtro) >= 0; }) : lista;
+      if (!L.length) return '';
+      var s3 = olho(rot, dicaTxt) + '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
+      for (var q = 0; q < Math.min(L.length, 25); q++) {
+        var nl = String(L[q].t).trim().split(/\s+/).length;
+        s3 += '<tr><td>' + esc(L[q].t) +
           (nl >= 4 ? ' <span style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--vd);border:1px solid var(--vd);border-radius:99px;padding:1px 7px">cauda longa</span>' : '') +
-          '</td><td class="num" style="color:var(--px)">' + fmt(perdidas[k].v, 0) + '</td></tr>';
+          '</td><td class="num" style="color:' + cor + '">' + fmt(L[q].v, 0) + '</td></tr>';
       }
-      h += '</table>';
+      return s3 + '</table>';
     }
-    if (usadas.length) {
-      h += olho('TERMOS QUE VOCE JA USA', 'Ja aparecem nos seus titulos. O volume mostra o tamanho da disputa.');
-      h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
-      for (k = 0; k < Math.min(usadas.length, 15); k++) h += '<tr><td>' + esc(usadas[k].t) + '</td><td class="num" style="color:var(--vd)">' + fmt(usadas[k].v, 0) + '</td></tr>';
-      h += '</table>';
-    }
+    h += tab('TEM GENTE PROCURANDO E VOCE NAO APARECE', perdidas, 'var(--px)',
+      '<b>Como e calculado:</b> a Shopee devolve os termos que considera relevantes para a sua loja, com o volume mensal real de cada um. Cruzamos com os titulos dos seus produtos: se menos de 60% das palavras do termo estao neles, ele entra aqui.<br><br><b>Cauda longa</b> (4 palavras ou mais) traz menos gente, mas gente que ja sabe o que quer: converte mais e a disputa e menor.<br><br><b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe.');
+    h += tab('TERMOS QUE VOCE JA USA', usadas, 'var(--vd)',
+      'Ja aparecem nos seus titulos. O volume mostra o tamanho da disputa: termo grande traz mais gente e mais concorrente.');
+
+    h += '<div class="nota">' + K.length + ' termos lidos da Shopee, com o volume real de buscas no mes. ' +
+      '<b>Limitacao:</b> a Shopee nao permite consultar o volume de uma palavra qualquer — ela so devolve os termos que considera relevantes para esta loja.</div>';
     return h;
   }
 
-  function pesquisarTermo(termo) {
-    // A rota NAO aceita termo de entrada — verificado na captura real: o corpo
-    // e apenas {campaign_type, suggest_log_data} e ela devolve a lista que ela
-    // decide. Entao "pesquisar" e filtrar essa lista, e quando o termo nao
-    // esta nela a tela precisa dizer isso, nao fingir que a busca falhou.
-    estado.kwBuscando = true; estado.kwErro = null; estado.kwResultado = null; render();
-    var corpo = JSON.stringify({ campaign_type: 'shop', suggest_log_data: { page: 'suggest_creation' } });
-    chrome.runtime.sendMessage({
-      tipo: 'sia:buscar',
-      url: '/api/pas/v1/setup_helper/list_recommended_keyword/?SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2',
-      metodo: 'POST', corpo: corpo
-    }, function (r) {
-      void chrome.runtime.lastError;
-      estado.kwBuscando = false;
-      try {
-        var raiz = ((r || {}).dados || {}).data;
-        var lista = Array.isArray(raiz) ? raiz : ((raiz || {}).keyword_list || []);
-        var todos = [];
-        for (var i = 0; i < lista.length; i++) {
-          var k = lista[i];
-          if (!k || k.keyword == null || k.search_volume == null) continue;
-          todos.push({ termo: k.keyword, volume: n0(k.search_volume) });
-        }
-        // junta com o que a coleta ja trouxe, para a base ser maior
-        try {
-          var Dk = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null;
-          var jaTem = (Dk && Dk.busca && Dk.busca.keywords) || [];
-          var vistos = {};
-          todos.forEach(function (x) { vistos[x.termo] = 1; });
-          jaTem.forEach(function (x) { if (!vistos[x.termo] && x.volume != null) todos.push({ termo: x.termo, volume: x.volume }); });
-        } catch (e2) { /* noop */ }
-
-        var alvo = String(termo).toLowerCase();
-        var partes = alvo.split(/\s+/).filter(function (x) { return x.length > 2; });
-        var achados = todos.filter(function (x) {
-          var s2 = String(x.termo).toLowerCase();
-          if (s2.indexOf(alvo) >= 0) return true;
-          for (var q = 0; q < partes.length; q++) if (s2.indexOf(partes[q]) >= 0) return true;
-          return false;
-        });
-        achados.sort(function (a, b) { return b.volume - a.volume; });
-
-        if (!achados.length) {
-          estado.kwErro = 'A Shopee nao tem "' + termo + '" na lista dela para esta conta. ' +
-            'Importante: a rota de volume NAO aceita pesquisa livre — ela devolve os termos que a propria Shopee considera relevantes para a sua loja, e so consigo procurar dentro dessa lista. ' +
-            'Foram ' + todos.length + ' termos verificados. Tente uma palavra da sua categoria.';
-        } else {
-          estado.kwResultado = { buscado: termo, termos: achados, base: todos.length };
-        }
-      } catch (e) {
-        estado.kwErro = 'Nao consegui ler a resposta: ' + String(e && e.message || e);
-      }
-      render();
-    });
-  }
   function n0(v) { var x = typeof v === 'number' ? v : parseFloat(v); return isFinite(x) ? x : 0; }
 
   function renderRelatorio() {
@@ -5699,17 +5584,8 @@
     if (abaAtiva === 'palavras') {
       try {
         corpo.innerHTML = capa('O QUE O COMPRADOR PROCURA', 'AS', 'PALAVRAS', '06') + renderPalavras();
-        var mk = corpoEl().querySelectorAll('[data-modo-kw]');
-        for (var mi = 0; mi < mk.length; mi++) {
-          mk[mi].addEventListener('click', function () { estado.modoPalavra = this.getAttribute('data-modo-kw'); render(); });
-        }
-        var ki = $('sia-kw-termo');
-        if (ki) ki.addEventListener('input', function () { estado.termoPesquisa = ki.value; });
-        var kg = $('sia-kw-ir');
-        if (kg) kg.addEventListener('click', function () {
-          var termo = (ki && ki.value || '').trim();
-          if (termo) pesquisarTermo(termo);
-        });
+        var kb = $('sia-kw-busca');
+        if (kb) kb.addEventListener('input', function () { estado.buscaPalavra = kb.value; estado.sujo = true; });
         var kc = $('sia-kw-coletar');
         if (kc) kc.addEventListener('click', function () {
           if (estado.coletaProgresso !== null) return;
