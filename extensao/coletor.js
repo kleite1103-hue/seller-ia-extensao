@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.65.0';
+  var VERSAO = '0.66.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1358,6 +1358,8 @@
     var jaResolveu = false;
     var travaSeguranca = null;
     lojaDoCiclo = estado.loja ? estado.loja.shop_id : null;
+    estado.faltando = [];
+    estado.diarioColeta = { etapas: [], periodo: null };
     // leitura de periodo passado nao representa o estado atual da conta
     estado.leituraHistorica = !!periodoForcado;
     return new Promise(function (resolverOriginal) {
@@ -1377,6 +1379,8 @@
           chamadas: 0, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
       }, (PROFUNDA ? 5 : 2) * 60 * 1000);
       (async function () {
+        // registra o periodo REAL pedido, para a tela poder mostrar
+        estado.diarioColeta.periodo = { ini: ini, fim: fim, forcado: !!periodoForcado };
         function prog(t) {
           estado.coletaProgresso = t; estado.sujo = true;
           if (t === null) {
@@ -1525,7 +1529,9 @@
 
         // ORIGEM DA VENDA POR CANAL e FUNIL DIARIO POR PRODUTO
         // PALAVRAS-CHAVE COM VOLUME DE BUSCA
-        prog(PROFUNDA ? 'Lendo palavras-chave e volume de busca...' : 'Lendo palavras-chave...');
+        // A chamada da LOJA e uma so e barata: volta para a coleta normal.
+        // O que pesava eram as 8 por produto, que seguem na profunda.
+        prog('Lendo palavras-chave...');
         var corpoKW = JSON.stringify({ campaign_type: 'shop', limit: 60 });
         var rkw = await buscar('/api/pas/v1/setup_helper/list_recommended_keyword/?' + spcQ, 'POST', corpoKW);
         totalChamadas++;
@@ -1542,7 +1548,7 @@
         }
 
         prog('Lendo de onde vem cada venda...');
-        var urlTO = '/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=custom';
+        var urlTO = '/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=day';
         var rto = await buscar(urlTO, 'GET', null);
         totalChamadas++;
         if (rto.ok && rto.dados) processarPacote({ url: urlTO, metodo: 'GET', corpo: null, dados: rto.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -1550,7 +1556,7 @@
         await pausa(250);
 
         prog('Lendo a evolucao diaria da loja...');
-        var urlMT = '/api/mydata/v2/product/overview/metric-trends/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=custom';
+        var urlMT = '/api/mydata/v2/product/overview/metric-trends/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=day';
         var rmt = await buscar(urlMT, 'GET', null);
         totalChamadas++;
         if (rmt.ok && rmt.dados) processarPacote({ url: urlMT, metodo: 'GET', corpo: null, dados: rmt.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -1562,7 +1568,7 @@
           var rp = await buscar(urlP, 'GET', null);
           totalChamadas++;
           if (!rp.ok || !rp.dados) break;
-          processarPacote({ url: urlP, metodo: 'GET', corpo: null, dados: rp.dados, ts: Date.now() });
+          processarPacote({ url: urlP, metodo: 'GET', corpo: null, dados: rp.dados, ts: Date.now(), loja: lojaDoCiclo });
           var itens = rp.dados.result && rp.dados.result.items ? rp.dados.result.items.length : 0;
           prog('Produtos lidos: ' + Object.keys(estado.produtos).length + '...');
           if (itens < 20) break;
@@ -1576,7 +1582,7 @@
           var rt = await buscar(urlT, 'GET', null);
           totalChamadas++;
           if (!rt.ok || !rt.dados) break;
-          processarPacote({ url: urlT, metodo: 'GET', corpo: null, dados: rt.dados, ts: Date.now() });
+          processarPacote({ url: urlT, metodo: 'GET', corpo: null, dados: rt.dados, ts: Date.now(), loja: lojaDoCiclo });
           var itens2 = rt.dados.result && rt.dados.result.item ? rt.dados.result.item.length : 0;
           if (itens2 < 20) break;
           await pausa(250);
@@ -1587,7 +1593,7 @@
         var urlFo = (estado.urlsReais && estado.urlsReais.funilOverview) || ('/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
         var rfo = await buscar(urlFo, 'GET', null);
         totalChamadas++;
-        if (rfo.ok && rfo.dados) processarPacote({ url: urlFo, metodo: 'GET', corpo: null, dados: rfo.dados, ts: Date.now() });
+        if (rfo.ok && rfo.dados) processarPacote({ url: urlFo, metodo: 'GET', corpo: null, dados: rfo.dados, ts: Date.now(), loja: lojaDoCiclo });
         await pausa(150);
 
         // helper: prefere a URL REAL capturada da Central (a Shopee ja validou);
@@ -1604,27 +1610,26 @@
         var urlF = (periodoForcado ? null : reais.trafficSources) || ('/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
         var rf = await buscar(urlF, 'GET', null);
         totalChamadas++;
-        if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now() });
+        if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now(), loja: lojaDoCiclo });
 
         // E) Indicadores gerais da loja — key-metrics
-        estado.faltando = [];
         prog('Lendo os indicadores gerais...');
         // Antes preferia a URL capturada do painel, que carrega o periodo QUE
         // A SHOPEE usou — por isso escolher 30 dias trazia o mes. Quando ha
         // periodo forcado, ele manda; a URL capturada so vale como fallback.
         var urlK = (periodoForcado
-          ? ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=custom&fetag=fetag')
+          ? ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=day&fetag=fetag')
           : (reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag')));
         var rk = await buscar(urlK, 'GET', null);
         totalChamadas++;
-        if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now() });
+        if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now(), loja: lojaDoCiclo });
 
         // G) Vendas e cancelamentos (saude das vendas)
         prog('Lendo vendas e cancelamentos...');
         var urlO = (estado.urlsReais && estado.urlsReais.orderPerf) || ('/api/mydata/dashboard/order-performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag&order_type=paid');
         var ro = await buscar(urlO, 'GET', null);
         totalChamadas++;
-        if (ro.ok && ro.dados) processarPacote({ url: urlO, metodo: 'GET', corpo: null, dados: ro.dados, ts: Date.now() });
+        if (ro.ok && ro.dados) processarPacote({ url: urlO, metodo: 'GET', corpo: null, dados: ro.dados, ts: Date.now(), loja: lojaDoCiclo });
         await pausa(150);
 
         // H) Saude da conta (penalidade, rating de performance)
@@ -1641,12 +1646,12 @@
         var urlAf = '/api/v3/affiliateplatform/dashboard/seller_daily?start_time=' + ini + '&end_time=' + (fim - 1) + '&is_real_time=0&order_type=2&channel=0';
         var raf = await buscar(urlAf, 'GET', null);
         totalChamadas++;
-        if (raf.ok && raf.dados) processarPacote({ url: urlAf, metodo: 'GET', corpo: null, dados: raf.dados, ts: Date.now() });
+        if (raf.ok && raf.dados) processarPacote({ url: urlAf, metodo: 'GET', corpo: null, dados: raf.dados, ts: Date.now(), loja: lojaDoCiclo });
         await pausa(150);
         var urlTop = '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + ini + '&end_time=' + (fim - 1) + '&order_type=2&channel=0&has_meta_feature=1';
         var rtop = await buscar(urlTop, 'GET', null);
         totalChamadas++;
-        if (rtop.ok && rtop.dados) processarPacote({ url: urlTop, metodo: 'GET', corpo: null, dados: rtop.dados, ts: Date.now() });
+        if (rtop.ok && rtop.dados) processarPacote({ url: urlTop, metodo: 'GET', corpo: null, dados: rtop.dados, ts: Date.now(), loja: lojaDoCiclo });
         await pausa(150);
 
         // J) Avaliacoes dos top produtos (1-2 estrelas = risco). Pega ate 6 produtos
@@ -2702,6 +2707,46 @@
      que a Shopee sugere e a MEDIANA DA CATEGORIA — nao um calculo do custo
      ou da margem deste lojista. E a categoria inclui quem vende sem margem
      e quem esta queimando estoque. */
+  /* ============ O QUE FOI LIDO ============
+     Sem isto, quando algo nao aparece na tela nao da para saber se e porque
+     a conta nao tem aquele dado, se a rota falhou, ou se foi o periodo. */
+  function renderDiagnosticoColeta() {
+    var dc = estado.diarioColeta;
+    if (!dc || !dc.periodo) return '';
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    function dd(ts) {
+      var x = new Date(ts * 1000);
+      return String(x.getUTCDate()).padStart(2, '0') + '/' + String(x.getUTCMonth() + 1).padStart(2, '0');
+    }
+    var itens = [
+      { rot: 'Indicadores da conta', ok: !!(D && D.gerenciais && D.gerenciais.gmvPago) },
+      { rot: 'Produtos', ok: Object.keys(estado.produtos).length > 0, n: Object.keys(estado.produtos).length },
+      { rot: 'Campanhas', ok: Object.keys(estado.campanhas).length > 0, n: Object.keys(estado.campanhas).length },
+      { rot: 'Origem das vendas', ok: !!(D && D.origem) },
+      { rot: 'Evolucao diaria', ok: !!(D && D.tendencia) },
+      { rot: 'Palavras-chave', ok: !!(D && D.busca && D.busca.keywords && D.busca.keywords.length), n: (D && D.busca && D.busca.keywords) ? D.busca.keywords.length : 0 },
+      { rot: 'Serie hora a hora', ok: !!(D && D.horas && Object.keys(D.horas).length), extra: 'so na leitura profunda' },
+      { rot: 'Afiliados', ok: !!(D && D.afiliados && D.afiliados.resumo) },
+      { rot: 'Saude da conta', ok: !!(D && D.conta && D.conta.saudeConta) }
+    ];
+    var okN = 0;
+    for (var i = 0; i < itens.length; i++) if (itens[i].ok) okN++;
+
+    var h = olho('O QUE FOI LIDO', 'Cada linha e uma fonte de dado da Shopee. Verde significa que chegou; cinza significa que nao veio nesta leitura. Assim, quando uma tela aparece vazia, da para saber se e porque a conta nao tem aquele dado ou porque a rota falhou.');
+    h += '<div class="nota">Periodo pedido: <b>' + dd(dc.periodo.ini) + ' a ' + dd(dc.periodo.fim) + '</b>' +
+      (dc.periodo.forcado ? ' (escolhido por voce)' : ' (herdado do painel)') + ' &middot; ' + okN + ' de ' + itens.length + ' fontes.</div>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';
+    for (i = 0; i < itens.length; i++) {
+      var it = itens[i];
+      h += '<span style="font-family:Space Mono,monospace;font-size:11px;padding:5px 10px;border-radius:99px;border:1px solid ' +
+        (it.ok ? 'var(--vd);color:var(--vd)' : 'var(--li2);color:var(--t3)') + '">' +
+        (it.ok ? '\u2713 ' : '\u2013 ') + it.rot + (it.ok && it.n ? ' ' + it.n : '') + '</span>';
+    }
+    h += '</div>';
+    return h;
+  }
+
   function renderPercentis() {
     var D = null;
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
@@ -4416,7 +4461,16 @@
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
     var K = (D && D.busca && D.busca.keywords) || [];
     if (!K.length) {
-      return '<div class="nota" style="color:var(--am)">Ainda nao li as palavras desta conta. Rode a coleta completa \u2014 elas vem junto.</div>';
+      var jaColetou = Object.keys(estado.produtos).length || Object.keys(estado.campanhas).length;
+      return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:16px;margin-top:12px">' +
+        '<div style="font-size:15px;font-weight:600;color:var(--t0);margin-bottom:5px">Ainda nao li as palavras desta conta</div>' +
+        '<div style="font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        (jaColetou
+          ? 'A conta foi lida, mas as palavras vem de uma rota propria que pode ter falhado nesta leitura. Tente de novo pelo botao abaixo.'
+          : 'Colete a conta primeiro — as palavras vem junto.') +
+        '</div>' +
+        '<button id="sia-kw-coletar" style="margin-top:11px;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;padding:10px 16px;border-radius:8px;cursor:pointer">' +
+        (estado.coletaProgresso !== null ? esc(String(estado.coletaProgresso)) : 'Buscar as palavras agora') + '</button></div>';
     }
 
     // o que ja esta nos titulos
@@ -5421,6 +5475,12 @@
         corpo.innerHTML = capa('O QUE O COMPRADOR PROCURA', 'AS', 'PALAVRAS', '06') + renderPalavras();
         var kb = $('sia-kw-busca');
         if (kb) kb.addEventListener('input', function () { estado.buscaPalavra = kb.value; estado.sujo = true; });
+        var kc = $('sia-kw-coletar');
+        if (kc) kc.addEventListener('click', function () {
+          if (estado.coletaProgresso !== null) return;
+          coletaCompleta(function () { render(); }, faixaDoPeriodo(estado.periodo360 || '30'), 'profunda');
+          render();
+        });
       } catch (err) { corpo.innerHTML = telaDeErro('Palavras', err); }
       return;
     }
@@ -5432,7 +5492,7 @@
       return;
     }
     if (abaAtiva === 'conta360') {
-      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSeletorPeriodo() +
+      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSeletorPeriodo() + renderDiagnosticoColeta() +
         renderFunilLoja() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
       ligarBotaoColeta();
       ligarSeletorPeriodo();
