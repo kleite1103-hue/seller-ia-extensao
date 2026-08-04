@@ -247,6 +247,11 @@
 
   // 3) PRODUTO — deboost, aprendizado, competitividade, leilao, listing, janela
   function exProduto(url, d) {
+    // O Cofre e da SUA loja. Rotas da vitrine publica (shopee.com.br) trazem
+    // produto de concorrente e estavam entrando aqui porque a funcao so
+    // procurava um itemid em qualquer lugar da resposta. Era assim que um
+    // produto pesquisado no Espiao virava produto do Cofre.
+    if (/shopee\.com\.br\/api|search_items|pdp\/|get_pc|hot_sales/.test(String(url))) return;
     var pinfo = acharObj(d, 'product_info');
     var itemid = pinfo ? pinfo.id : achar(d, 'itemid');
     if (itemid == null) itemid = achar(d, 'item_id');
@@ -647,7 +652,10 @@
   // A rota devolve o volume mensal REAL de cada termo que a Shopee sugere.
   // Junta loja + produtos e remove repetidos, ficando com o maior volume.
   function exKeywords(url, d) {
-    var lista = ((d && d.data) || {}).keyword_list || ((d && d.data) || {}).keywords || [];
+    // A resposta traz data como LISTA DIRETA, nao objeto com keyword_list.
+    // Eu tinha assumido a estrutura errada e por isso nada era lido.
+    var raiz = d && d.data;
+    var lista = Array.isArray(raiz) ? raiz : ((raiz || {}).keyword_list || (raiz || {}).keywords || []);
     if (!lista.length) return 0;
     COFRE.busca = COFRE.busca || {};
     COFRE.busca.keywords = COFRE.busca.keywords || [];

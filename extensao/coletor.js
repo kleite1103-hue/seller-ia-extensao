@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.68.0';
+  var VERSAO = '0.69.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1953,6 +1953,8 @@
           return;
         }
         if (el.getAttribute('data-voltar-radar')) { estado.espiao.erro = null; estado.espiao.res = null; render(); return; }
+        var cf = el.getAttribute && el.getAttribute('data-camp-filtro');
+        if (cf) { estado.verPausadas = (cf === 'pausadas'); render(); return; }
         // Estes botoes eram ligados por addEventListener depois de cada render.
         // Qualquer render extra entre o desenho e a religacao deixava o botao
         // morto — clicava e nada acontecia, sem erro. Na delegacao global eles
@@ -2029,7 +2031,7 @@
           if (sel) { salvarVinculo(el.getAttribute('data-camp'), sel.value); render(); }
           return;
         }
-        if (el.getAttribute('data-voltar')) { abaAtiva = (estado.cardVoltaPara && TELAS_VALIDAS.indexOf(estado.cardVoltaPara) >= 0) ? estado.cardVoltaPara : 'campanhas'; render(); return; }
+        if (el.getAttribute('data-voltar')) { abaAtiva = (estado.cardVoltaPara && TELAS_VALIDAS.indexOf(estado.cardVoltaPara) >= 0) ? estado.cardVoltaPara : 'performance'; render(); return; }
         var d = el.getAttribute('data-card');
         if (d) { var p = d.split(':'); estado.cardVoltaPara = abaAtiva; abrirCard(p[0], p.slice(1).join(':')); return; }
       }
@@ -3303,6 +3305,7 @@
     var arr = [], id;
     for (id in estado.produtos) {
       var p = estado.produtos[id];
+      if (!ehProdutoDeVerdade(p && p.nome)) continue;
       if (!p || !p.nome) continue;
       // linhas que nao sao produto entram na lista de "produtos" da coleta
       // (credito de Ads, saldo, ajuste). Buscar isso na vitrine e ruido.
@@ -3730,6 +3733,7 @@
     for (id in estado.produtos) out.push({ id: id, nome: estado.produtos[id].nome || ('Produto ' + id) });
     for (id in (C.porProduto || {})) {
       if (estado.produtos[id]) continue;
+      if (!ehProdutoDeVerdade(C.porProduto[id] && C.porProduto[id].nome)) continue;
       out.push({ id: id, nome: (C.porProduto[id].nome) || ('Produto ' + id) });
     }
     return out;
@@ -3985,9 +3989,17 @@
     var diagRot = dg ? dg[0] : (probl ? esc(String(probl).slice(0, 16)) : '—');
     var diagSub = dg ? dg[1] : (probl ? 'apontado pela propria Shopee' : 'sem apontamento');
     var diagCor = !probl ? 'var(--t2)' : (String(probl).toLowerCase() === 'na' || String(probl).toLowerCase() === 'good' ? 'var(--vd)' : (String(probl).toLowerCase() === 'room_more_traffic' ? 'var(--vd)' : 'var(--am)'));
+    // Produto sem campanha nao tem nada de Ads para mostrar. Antes o card
+    // abria as secoes de leilao e meta mesmo assim, e a leitura de funil —
+    // que e o motivo de ter clicado — ficava enterrada embaixo delas.
+    var temAds = !!(pc && (pc.metricas || pc.campanha));
+    if (!temAds) {
+      h += '<div class="nota">Este produto nao tem campanha ativa nesta leitura. O que esta abaixo e o funil organico dele.</div>';
+    }
+
     // ---- APRENDIZADO REAL, dito pela Shopee ----
     // Substitui a estimativa por idade da campanha, que era um chute.
-    var apr = pc && pc.aprendizado;
+    var apr = temAds ? (pc && pc.aprendizado) : null;
     if (apr) {
       if (apr.emAprendizado) {
         h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
@@ -4008,7 +4020,7 @@
     }
 
     // ---- CPM E FATIA DE LEILAO ----
-    var mrep = (pc && pc.metricas) || {};
+    var mrep = temAds ? ((pc && pc.metricas) || {}) : {};
     var cpmReal = (mrep.gasto && mrep.impressoes) ? (mrep.gasto / mrep.impressoes) * 1000 : null;
     var ls = pc && pc.leilaoSerie;
     if (cpmReal != null || (ls && (ls.sovMedio != null || ls.alcanceMax != null))) {
@@ -4412,6 +4424,23 @@
      a exportacao do painel entrega. Ideia da Karina: em vez de so declarar a
      limitacao, pedir a planilha e analisar a partir dela. E o unico caminho
      para saber qual item sustenta e qual parasita o grupo. */
+  /* Pausada nao gasta agora: deixar as duas na mesma tabela enche a lista de
+     coisa que nao acontece mais. Ativas por padrao; as pausadas ficam atras
+     de um clique e sao ordenadas por retorno, que e o que interessa nelas. */
+  function renderFiltroCampanhas() {
+    var ativas = 0, pausadas = 0;
+    for (var k in estado.campanhas) {
+      var e2 = String((estado.campanhas[k] && (estado.campanhas[k].estado || estado.campanhas[k].state)) || '').toLowerCase();
+      if (e2 === 'paused' || e2 === 'ended' || e2 === 'closed') pausadas++; else ativas++;
+    }
+    if (!pausadas) return '';
+    var vendo = estado.verPausadas ? 'pausadas' : 'ativas';
+    return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 10px">' +
+      '<button data-camp-filtro="ativas" style="background:' + (vendo === 'ativas' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (vendo === 'ativas' ? 'var(--mk)' : 'var(--li)') + ';color:' + (vendo === 'ativas' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Ativas (' + ativas + ')</button>' +
+      '<button data-camp-filtro="pausadas" style="background:' + (vendo === 'pausadas' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (vendo === 'pausadas' ? 'var(--mk)' : 'var(--li)') + ';color:' + (vendo === 'pausadas' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Pausadas (' + pausadas + ')</button>' +
+      '<span class="nota" style="margin:0;align-self:center">' +
+      (estado.verPausadas ? 'Ordenadas por retorno: o que elas geravam antes de parar.' : 'As pausadas ficam de fora da lista por padrao.') + '</span></div>';
+  }
   function renderImportador() {
     var g = estado.grupoImportado;
     var h = olho('PLANILHA DO GRUPO DE ANUNCIOS', 'A Shopee nao entrega o desempenho por produto dentro de um Grupo de Anuncios pela API — so o total do grupo. A exportacao do painel entrega. Suba o arquivo aqui e a leitura passa a ser item a item.');
@@ -4517,7 +4546,7 @@
 
     if (modo === 'pesquisar') {
       h += '<div style="display:flex;gap:8px;margin:14px 0;flex-wrap:wrap">' +
-        '<input id="sia-kw-termo" value="' + esc(estado.termoPesquisa || '') + '" placeholder="escreva o termo, ex: porta vinho de mesa" ' +
+        '<input id="sia-kw-termo" value="' + esc(estado.termoPesquisa || '') + '" placeholder="procure dentro dos termos da sua categoria" ' +
         'style="flex:1;min-width:210px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px 13px;color:var(--t0);font-size:14px">' +
         '<button id="sia-kw-ir" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:12px 22px;border-radius:9px;cursor:pointer">' +
         (estado.kwBuscando ? 'Buscando...' : 'Ver volume') + '</button></div>';
@@ -4532,7 +4561,7 @@
       }
       var R = estado.kwResultado;
       if (!R || !R.termos || !R.termos.length) {
-        h += '<div class="nota">Escreva um termo e clique em <b>Ver volume</b>. A Shopee devolve quantas buscas ele recebe por mes e sugere termos parecidos, com o volume de cada um.</div>';
+        h += '<div class="nota">Escreva um termo e clique em <b>Ver volume</b>. <b>Uma limitacao honesta:</b> a Shopee nao permite consultar o volume de qualquer palavra do mundo \u2014 ela devolve os termos que considera relevantes para a sua loja, com o volume real de cada um, e a busca acontece dentro dessa lista.</div>';
         return h;
       }
       var exato = null;
@@ -4651,8 +4680,12 @@
   }
 
   function pesquisarTermo(termo) {
+    // A rota NAO aceita termo de entrada — verificado na captura real: o corpo
+    // e apenas {campaign_type, suggest_log_data} e ela devolve a lista que ela
+    // decide. Entao "pesquisar" e filtrar essa lista, e quando o termo nao
+    // esta nela a tela precisa dizer isso, nao fingir que a busca falhou.
     estado.kwBuscando = true; estado.kwErro = null; estado.kwResultado = null; render();
-    var corpo = JSON.stringify({ campaign_type: 'shop', keyword: termo, search_term: termo, limit: 40 });
+    var corpo = JSON.stringify({ campaign_type: 'shop', suggest_log_data: { page: 'suggest_creation' } });
     chrome.runtime.sendMessage({
       tipo: 'sia:buscar',
       url: '/api/pas/v1/setup_helper/list_recommended_keyword/?SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2',
@@ -4661,16 +4694,40 @@
       void chrome.runtime.lastError;
       estado.kwBuscando = false;
       try {
-        var lista = (((r || {}).dados || {}).data || {}).keyword_list || [];
-        var out = [];
+        var raiz = ((r || {}).dados || {}).data;
+        var lista = Array.isArray(raiz) ? raiz : ((raiz || {}).keyword_list || []);
+        var todos = [];
         for (var i = 0; i < lista.length; i++) {
           var k = lista[i];
           if (!k || k.keyword == null || k.search_volume == null) continue;
-          out.push({ termo: k.keyword, volume: n0(k.search_volume) });
+          todos.push({ termo: k.keyword, volume: n0(k.search_volume) });
         }
-        out.sort(function (a, b) { return b.volume - a.volume; });
-        if (!out.length) estado.kwErro = 'A Shopee nao devolveu termos para "' + termo + '". Tente uma palavra mais comum ou sem acento.';
-        else estado.kwResultado = { buscado: termo, termos: out };
+        // junta com o que a coleta ja trouxe, para a base ser maior
+        try {
+          var Dk = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null;
+          var jaTem = (Dk && Dk.busca && Dk.busca.keywords) || [];
+          var vistos = {};
+          todos.forEach(function (x) { vistos[x.termo] = 1; });
+          jaTem.forEach(function (x) { if (!vistos[x.termo] && x.volume != null) todos.push({ termo: x.termo, volume: x.volume }); });
+        } catch (e2) { /* noop */ }
+
+        var alvo = String(termo).toLowerCase();
+        var partes = alvo.split(/\s+/).filter(function (x) { return x.length > 2; });
+        var achados = todos.filter(function (x) {
+          var s2 = String(x.termo).toLowerCase();
+          if (s2.indexOf(alvo) >= 0) return true;
+          for (var q = 0; q < partes.length; q++) if (s2.indexOf(partes[q]) >= 0) return true;
+          return false;
+        });
+        achados.sort(function (a, b) { return b.volume - a.volume; });
+
+        if (!achados.length) {
+          estado.kwErro = 'A Shopee nao tem "' + termo + '" na lista dela para esta conta. ' +
+            'Importante: a rota de volume NAO aceita pesquisa livre — ela devolve os termos que a propria Shopee considera relevantes para a sua loja, e so consigo procurar dentro dessa lista. ' +
+            'Foram ' + todos.length + ' termos verificados. Tente uma palavra da sua categoria.';
+        } else {
+          estado.kwResultado = { buscado: termo, termos: achados, base: todos.length };
+        }
       } catch (e) {
         estado.kwErro = 'Nao consegui ler a resposta: ' + String(e && e.message || e);
       }
@@ -5279,6 +5336,15 @@
     return isFinite(n) ? n : null;
   }
 
+  // Linhas que nao sao produto entram na coleta (credito de Ads, saldo,
+  // recarga, ajuste). No Cofre, onde se cadastra CUSTO, elas nao fazem
+  // sentido nenhuma — nao se compra credito de Ads de fornecedor.
+  function ehProdutoDeVerdade(nome) {
+    if (!nome) return false;
+    if (/cr[eé]dito|saldo|recarga|ajuste|reembolso|taxa|cupom da loja|voucher|bonifica|desconto da loja|frete gr[aá]tis/i.test(nome)) return false;
+    if (!/[a-zA-Zà-úÀ-Ú]{4}/.test(nome)) return false;
+    return true;
+  }
   function renderCofre() {
     if (!estado.cofre) estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
     var cf = estado.cofre;
@@ -5737,7 +5803,22 @@
       corpo.innerHTML = h;
 
     } else if (abaAtiva === 'campanhas') {
-      var idsC = Object.keys(estado.campanhas);
+      // ativas por padrao; pausadas so quando a pessoa pede, e ordenadas
+      // por retorno, que e o que interessa numa campanha parada
+      var idsC = Object.keys(estado.campanhas).filter(function (k) {
+        var e3 = String((estado.campanhas[k] && (estado.campanhas[k].estado || estado.campanhas[k].state)) || '').toLowerCase();
+        var pausada = (e3 === 'paused' || e3 === 'ended' || e3 === 'closed');
+        return estado.verPausadas ? pausada : !pausada;
+      });
+      if (estado.verPausadas) {
+        idsC.sort(function (a, b) {
+          function ret(x) {
+            var m = (estado.campanhas[x] && estado.campanhas[x].metricas) || {};
+            return (m.gasto || 0) * (m.roas || 0);
+          }
+          return ret(b) - ret(a);
+        });
+      }
       if (!idsC.length) {
         corpo.innerHTML = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>.</div>' + renderImportador();
       ligarImportador();
@@ -5766,7 +5847,7 @@
       }
       // A planilha do Grupo e analise de ADS, nao de custo: estava no Cofre
       // por engano meu.
-      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + renderPercentis() + renderHoras() + h2 + renderImportador();
+      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + renderPercentis() + renderHoras() + renderFiltroCampanhas() + h2 + renderImportador();
       h2 += '</table><div class="nota">CPC derivado (gasto ÷ cliques) — os campos cpc/cpm da API interna nao batem com a tela e foram descartados. ROAS = broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
       ligarImportador();
