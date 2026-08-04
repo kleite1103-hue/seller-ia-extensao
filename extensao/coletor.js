@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.75.0';
+  var VERSAO = '0.76.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1579,6 +1579,26 @@
           await pausa(200);
         }
 
+        // PALAVRAS DE CADA CAMPANHA DE BUSCA DE LOJA
+        // Unico formato com lance manual: da para ver qual palavra esta
+        // ativa, quanto voce paga e quanto a Shopee recomenda.
+        var idsBusca = [];
+        for (var kb2 in estado.campanhas) {
+          if (String(estado.campanhas[kb2].type || '') === 'shop_manual') idsBusca.push(kb2);
+        }
+        if (idsBusca.length) {
+          prog('Lendo palavras das campanhas de busca...');
+          for (var kb3 = 0; kb3 < Math.min(idsBusca.length, 10); kb3++) {
+            var cKb = JSON.stringify({ campaign_id: parseInt(idsBusca[kb3], 10) });
+            var rkb = await buscar('/api/pas/v1/shop/manual/list_keyword_with_recommended_price/?' + spcQ, 'POST', cKb);
+            totalChamadas++;
+            if (rkb.ok && rkb.dados) {
+              processarPacote({ url: '/api/pas/v1/shop/manual/list_keyword_with_recommended_price/?campaign_id=' + idsBusca[kb3], metodo: 'POST', corpo: cKb, dados: rkb.dados, ts: Date.now(), loja: lojaDoCiclo });
+            }
+            await pausa(250);
+          }
+        }
+
         prog('Lendo de onde vem cada venda...');
         var urlTO = '/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=day';
         var rto = await buscar(urlTO, 'GET', null);
@@ -1801,7 +1821,7 @@
     '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
     '.aba{background:none;border:none;color:var(--t2);font-family:Space Mono,monospace;font-size:12.5px;letter-spacing:.02em;padding:10px 13px;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
-    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:26px 26px 40px}' +
+    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 20px 34px}' +
     /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
     '.olho{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2);letter-spacing:.14em;margin:32px 0 14px}' +
     '.olho:first-child{margin-top:0}' +
@@ -2336,13 +2356,13 @@
       var mostrar = estado.filaCompleta ? R.fila : R.fila.slice(0, LIMITE);
       mostrar.forEach(function (c) {
         var co = CORES_SEM[c.nivel];
-        h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:18px 19px;margin-bottom:12px;transition:border-color .15s">';
+        h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px;transition:border-color .15s">';
         h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
-          '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.3;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
+          '<span style="flex:1;font-size:17.5px;font-weight:600;color:var(--t0);line-height:1.25;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
           '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
-        if (c.campanha) h += '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + sig(c.campanha) +
+        if (c.campanha) h += '<div style="font-size:13px;color:var(--t2);margin-bottom:6px;line-height:1.35">' + sig(c.campanha) +
           '<span style="font-family:Space Mono,monospace;color:var(--t3)">' + (c.roas ? '  ROAS ' + c.roas.toFixed(1) + 'x' : '') + (c.posicao ? '  pos ' + c.posicao : '') + '</span></div>';
-        h += '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(c.texto) + '</div>';
+        h += '<div style="font-size:15px;color:var(--t1);line-height:1.5">' + esc(c.texto) + '</div>';
         h += '</div>';
       });
     }
@@ -3469,14 +3489,14 @@
         var co = CORES_SEM[v.nivel] || CORES_SEM.cinza;
         var alvo = v.escopo === 'produto' ? (estado.produtos[v.id] && estado.produtos[v.id].nome)
           : (estado.campanhas[v.id] && (estado.campanhas[v.id].nome || estado.campanhas[v.id].titulo));
-        s += '<div data-card="' + esc(v.escopo) + ':' + esc(v.id || '') + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:17px 18px;margin-bottom:11px">' +
+        s += '<div data-card="' + esc(v.escopo) + ':' + esc(v.id || '') + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px">' +
           '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">' +
-          '<span style="flex:1;font-size:16.5px;font-weight:600;color:var(--t0);line-height:1.3">' + esc(v.titulo) + '</span>' +
+          '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.25">' + esc(v.titulo) + '</span>' +
           (v.dinheiro ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(v.dinheiro) + '</span>' : '') + '</div>' +
           (alvo ? '<div style="font-size:12.5px;color:var(--t2);margin-bottom:6px">' + sig(String(alvo).slice(0, 66)) + '</div>' : '') +
           '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(v.texto) + '</div>';
         if (v.passos && v.passos.length) {
-          s += '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:8px;line-height:1.6">';
+          s += '<div style="font-size:14px;color:' + co.dot + ';margin-top:8px;line-height:1.45">';
           for (var k2 = 0; k2 < v.passos.length; k2++) s += '\u2192 ' + esc(v.passos[k2]) + '<br>';
           s += '</div>';
         }
@@ -3666,7 +3686,6 @@
         h += linha('Nota', m.nota != null ? fmt(m.nota, 1) : '—', b.nota != null ? fmt(b.nota, 1) : '—', lid.nota != null ? fmt(lid.nota, 1) : '—');
         h += linha('Cupom', m.cupom ? 'sim' : 'nao', b.comCupom + ' de ' + b.n + ' tem', lid.cupom ? 'sim' : 'nao');
         // as duas linhas que faltavam para completar as nove prometidas
-        h += linha('Frete gratis', m.freteGratis ? 'sim' : 'nao', (b.comFrete != null ? b.comFrete : 0) + ' de ' + b.n + ' tem', lid.freteGratis ? 'sim' : 'nao');
         h += linha('Anuncio', m.ads ? 'pago' : 'organico', (b.comAds != null ? b.comAds : 0) + ' de ' + b.n + ' pagos', lid.ads ? 'pago' : 'organico');
         h += '</table>';
         if (lid && !lid.ads && m.ads) {
@@ -4588,11 +4607,11 @@
     }
 
     var co = CORES_SEM[nivel] || CORES_SEM.cinza;
-    var h = '<div data-card="campanha:' + esc(id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:17px 18px;margin-bottom:11px">';
+    var h = '<div data-card="campanha:' + esc(id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px">';
     h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">' +
-      '<span style="flex:1;font-size:16.5px;font-weight:600;color:var(--t0);line-height:1.3">' + esc(titulo) + '</span>' +
+      '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.25">' + esc(titulo) + '</span>' +
       (gasto != null ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(gasto) + '</span>' : '') + '</div>';
-    h += '<div style="font-size:12.5px;color:var(--t2);margin-bottom:9px;line-height:1.4">' + sig(String(c.nome || c.titulo || ('Campanha ' + id)).slice(0, 62)) +
+    h += '<div style="font-size:13px;color:var(--t2);margin-bottom:7px;line-height:1.35">' + sig(String(c.nome || c.titulo || ('Campanha ' + id)).slice(0, 62)) +
       (meta ? ' <span style="font-family:Space Mono,monospace;color:var(--t3)">meta ' + fmt(meta, 1) + 'x</span>' : '') +
       (pos ? ' <span style="font-family:Space Mono,monospace;color:var(--t3)">pos ' + fmt(pos, 0) + '</span>' : '') + '</div>';
 
@@ -4611,9 +4630,9 @@
     h += celula('PEDIDOS', fmt(ped, 0));
     h += '</div>';
 
-    h += '<div style="font-size:14px;color:var(--t1);line-height:1.6">' + esc(texto) + '</div>';
+    h += '<div style="font-size:15px;color:var(--t1);line-height:1.5">' + esc(texto) + '</div>';
     if (passos.length) {
-      h += '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:8px;line-height:1.6">';
+      h += '<div style="font-size:14px;color:' + co.dot + ';margin-top:8px;line-height:1.45">';
       for (var q = 0; q < passos.length; q++) h += '\u2192 ' + esc(passos[q]) + '<br>';
       h += '</div>';
     }
@@ -4667,6 +4686,35 @@
       h += '</div>';
       if (pos == null && compet == null) {
         h += '<div class="nota">Posicao no leilao e competitividade vem na leitura profunda.</div>';
+      }
+
+      // ---- PALAVRAS: qual acionou, quanto voce paga, quanto perde ----
+      var pal = pcC.palavras || [];
+      if (pal.length) {
+        var perdendo = pal.filter(function (x) { return x.abaixo; });
+        h += '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin:12px 0 8px">' +
+          'AS PALAVRAS DESTA CAMPANHA' +
+          dica('<b>So a Busca de Loja tem lance por palavra</b> — nos outros formatos a Shopee escolhe sozinha onde mostrar. Aqui da para ver qual termo esta ativo, quanto voce paga por clique nele e quanto a Shopee recomenda. <b>Lance abaixo do recomendado significa perder leilao</b>: seu anuncio deixa de aparecer para quem buscou aquele termo, e o concorrente que paga mais leva.') + '</div>';
+        if (perdendo.length) {
+          h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:9px;font-size:13.5px;color:var(--t1);line-height:1.5">' +
+            '<b style="color:var(--t0)">' + perdendo.length + ' de ' + pal.length + ' palavras com lance abaixo do recomendado.</b> ' +
+            'Nelas voce aparece menos do que poderia — quem paga mais leva a impressao.</div>';
+        }
+        h += '<table style="font-size:12.5px"><tr><th>TERMO</th><th class="num">SEU LANCE</th><th class="num">RECOMENDADO</th><th class="num">FALTA</th></tr>';
+        for (var pw = 0; pw < Math.min(pal.length, 12); pw++) {
+          var P2 = pal[pw];
+          h += '<tr><td>' + esc(P2.termo) +
+            '<span style="font-family:Space Mono,monospace;font-size:9px;color:var(--t3)"> ' + P2.correspondencia + (P2.ativa ? '' : ' · pausada') + '</span></td>' +
+            '<td class="num">' + (P2.lance != null ? 'R$' + fmt(P2.lance, 2) : '\u2014') + '</td>' +
+            '<td class="num">' + (P2.recomendado != null ? 'R$' + fmt(P2.recomendado, 2) : '\u2014') + '</td>' +
+            '<td class="num" style="color:' + (P2.abaixo ? 'var(--rd)' : 'var(--vd)') + '">' +
+            (P2.faltaPct != null && P2.faltaPct > 0 ? '\u2212' + fmt(P2.faltaPct, 0) + '%' : 'ok') + '</td></tr>';
+        }
+        h += '</table>';
+      } else if (String(c.type || '') === 'shop_manual') {
+        h += '<div class="nota">As palavras desta campanha vem na leitura profunda.</div>';
+      } else {
+        h += '<div class="nota">Este formato nao tem lance por palavra: a Shopee escolhe sozinha onde mostrar o anuncio. Palavra com lance so existe em <b>Busca de Loja</b>.</div>';
       }
     }
     return h + '</div>';
@@ -4873,7 +4921,7 @@
 
     var filtro = (estado.buscaPalavra || '').toLowerCase().trim();
     var h = '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
-      '<input id="sia-kw-busca" value="' + esc(estado.buscaPalavra || '') + '" placeholder="filtrar nesta lista" ' +
+      '<input id="sia-kw-busca" value="' + esc(estado.buscaPalavra || '') + '" placeholder="filtrar esta lista" ' +
       'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px"></div>';
 
     h += '<div class="leitura"><div class="fr">' +
@@ -5863,17 +5911,17 @@
 
   function cartaoProduto(c) {
     var co = CORES_SEM[c.nivel] || CORES_SEM.cinza;
-    return '<div data-card="produto:' + esc(c.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:18px 19px;margin-bottom:12px">' +
+    return '<div data-card="produto:' + esc(c.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px">' +
       '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
-      '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.3;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
+      '<span style="flex:1;font-size:17.5px;font-weight:600;color:var(--t0);line-height:1.25;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
       (c.venda ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(c.venda) + '</span>' : '') +
       '</div>' +
-      '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + sig(String(c.nome).slice(0, 70)) + '</div>' +
-      '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(c.texto) + '</div>' +
+      '<div style="font-size:13px;color:var(--t2);margin-bottom:6px;line-height:1.35">' + sig(String(c.nome).slice(0, 70)) + '</div>' +
+      '<div style="font-size:15px;color:var(--t1);line-height:1.5">' + esc(c.texto) + '</div>' +
       // O veredito diz O QUE; o funil mostra ONDE. Sem ele o analista sabe
       // que ha problema e precisa ir procurar em qual degrau.
       funilDoProduto(c.id) +
-      (c.acao ? '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:9px;line-height:1.5">\u2192 ' + esc(c.acao) + '</div>' : '') +
+      (c.acao ? '<div style="font-size:14px;color:' + co.dot + ';margin-top:8px;line-height:1.45">\u2192 ' + esc(c.acao) + '</div>' : '') +
       '</div>';
   }
   function renderPerformanceIA() {

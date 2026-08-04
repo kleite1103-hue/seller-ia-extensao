@@ -770,6 +770,41 @@
   // ---- PERCENTIS DA CATEGORIA ----
   // A meta que a Shopee recomenda e o percentil 50 da categoria: a mediana
   // do que os OUTROS vendedores praticam, nao um calculo do seu produto.
+
+  // ---- PALAVRAS DE UMA CAMPANHA DE BUSCA DE LOJA ----
+  // Traz o lance ATUAL e o RECOMENDADO por palavra. A diferenca entre os
+  // dois diz se voce esta perdendo leilao por lance baixo.
+  function exPalavrasCampanha(url, d) {
+    var m = String(url).match(/campaign_id=(\d+)/);
+    if (!m) return 0;
+    var raiz = d && d.data;
+    var lista = Array.isArray(raiz) ? raiz : ((raiz || {}).keyword_list || []);
+    if (!lista.length) return 0;
+    var out = [];
+    for (var i = 0; i < lista.length; i++) {
+      var k = lista[i] || {};
+      if (!k.keyword) continue;
+      var atual = k.bid_price != null ? real(k.bid_price) : null;
+      var rec = k.recommended_price != null ? real(k.recommended_price) : null;
+      out.push({
+        termo: k.keyword,
+        lance: atual,
+        recomendado: rec,
+        correspondencia: k.match_type === 'exact' ? 'exata' : 'ampla',
+        ativa: k.state === 'active',
+        abaixo: (atual != null && rec != null) ? atual < rec * 0.95 : null,
+        faltaPct: (atual != null && rec != null && rec > 0) ? ((rec - atual) / rec) * 100 : null
+      });
+    }
+    out.sort(function (a, b) { return (b.faltaPct || 0) - (a.faltaPct || 0); });
+    var pc = COFRE.porCampanha[m[1]] || {};
+    pc.palavras = out;
+    COFRE.porCampanha[m[1]] = pc;
+    var perdendo = out.filter(function (x) { return x.abaixo; }).length;
+    logar('palavras_campanha', m[1] + ': ' + out.length + ' palavras, ' + perdendo + ' com lance abaixo do recomendado', url);
+    return out.length;
+  }
+
   function exPercentis(url, d) {
     var cfg = ((d && d.data) || {}).ads_config || {};
     var r2 = cfg.roi_two || {};
@@ -1156,6 +1191,7 @@
       if (/get_product_performance_info/.test(url)) exProduto(url, dados);
       if (/todo\/list_task/.test(url)) exTarefas(url, dados);
       if (/report\/get_time_graph/.test(url)) exTempo(url, dados);
+      if (/list_keyword_with_recommended_price/.test(url)) exPalavrasCampanha(url, dados);
       if (/pas\/v1\/config\/get/.test(url)) exPercentis(url, dados);
       if (/list_recommended_keyword/.test(url)) exKeywords(url, dados);
       if (/product\/traffic\/overview/.test(url)) exOrigem(url, dados);
