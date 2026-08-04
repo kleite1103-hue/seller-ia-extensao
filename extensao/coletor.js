@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.70.1';
+  var VERSAO = '0.71.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1557,7 +1557,9 @@
         // A chamada da LOJA e uma so e barata: volta para a coleta normal.
         // O que pesava eram as 8 por produto, que seguem na profunda.
         prog('Lendo palavras-chave...');
-        var corpoKW = JSON.stringify({ campaign_type: 'shop', limit: 60 });
+        // CORPO EXATO da captura real. Eu mandava {campaign_type, limit}:
+        // 'limit' nao existe nessa rota e 'suggest_log_data' e obrigatorio.
+        var corpoKW = JSON.stringify({ campaign_type: 'shop', suggest_log_data: { page: 'suggest_creation' } });
         var rkw = await buscar('/api/pas/v1/setup_helper/list_recommended_keyword/?' + spcQ, 'POST', corpoKW);
         totalChamadas++;
         if (rkw.ok && rkw.dados) processarPacote({ url: '/api/pas/v1/setup_helper/list_recommended_keyword/?escopo=loja', metodo: 'POST', corpo: corpoKW, dados: rkw.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -1565,7 +1567,7 @@
         // por produto: cada item traz o proprio conjunto de termos
         var idsKW = PROFUNDA ? Object.keys(estado.produtos).slice(0, 8) : [];
         for (var kw = 0; kw < idsKW.length; kw++) {
-          var cKW = JSON.stringify({ campaign_type: 'product', item_id: parseInt(idsKW[kw], 10), limit: 30 });
+          var cKW = JSON.stringify({ campaign_type: 'product', item_id: parseInt(idsKW[kw], 10), suggest_log_data: { page: 'suggest_creation' } });
           var rk2 = await buscar('/api/pas/v1/setup_helper/list_recommended_keyword/?' + spcQ, 'POST', cKW);
           totalChamadas++;
           if (rk2.ok && rk2.dados) processarPacote({ url: '/api/pas/v1/setup_helper/list_recommended_keyword/?item_id=' + idsKW[kw], metodo: 'POST', corpo: cKW, dados: rk2.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -4748,9 +4750,14 @@
 
       estado.rel.etapa = 'Lendo ' + faixaDoMes(sel).rotulo + '...'; render();
       zerar();
-      coletaCompleta(function (p) {
+      // usa a Promise da coleta em vez de vigiar coletaProgresso: vigiar uma
+      // variavel cria janela de corrida, que foi o que zerou o mes anterior.
+      var prA = coletaCompleta(function (p) {
         if (p) { estado.rel.etapa = 'Mes atual: ' + p; render(); }
       }, epochDoMes(sel));
+      if (prA && prA.then) {
+        prA.then(function () { if (esperaA) clearInterval(esperaA); concluirA(); });
+      }
 
       // a coleta avisa o fim passando null no progresso; encadeamos por espera
       // TETO DE TEMPO: sem isto, coleta travada deixava o botao em "Gerando"
@@ -4763,11 +4770,19 @@
         estado.rel.erro = motivo;
         restaurar(); render();
       }
+      var blocoA = null;
       var esperaA = setInterval(function () {
         if (Date.now() - t0 > LIMITE_MS) { clearInterval(esperaA); desistir('A leitura do mes atual demorou demais e foi interrompida. Os dados da tela foram preservados.'); return; }
         if (estado.coletaProgresso !== null) return;
         clearInterval(esperaA);
-        var blocoA = blocoPeriodo(fa.rotulo);
+        concluirA();
+      }, 900);
+
+      var jaConcluiA = false;
+      function concluirA() {
+        if (jaConcluiA) return;
+        jaConcluiA = true;
+        blocoA = blocoPeriodo(fa.rotulo);
         if (!Object.keys(estado.campanhas).length && !Object.keys(estado.produtos).length) {
           desistir('Nao consegui ler dados de ' + fa.rotulo + '. Verifique se voce esta na conta certa e se ha movimento nesse mes.');
           return;
@@ -4775,19 +4790,28 @@
 
         estado.rel.etapa = 'Lendo ' + faixaDoMes(mesAnterior(sel)).rotulo + '...'; render();
         zerar();
-        // respiro entre as duas leituras completas: sao ~60 chamadas seguidas
-        // e emendar uma na outra e o jeito mais rapido de tomar bloqueio
+        // BUG QUE ZERAVA O MES ANTERIOR: o esperaB comecava a contar na hora,
+        // mas a segunda coleta so disparava 3 segundos depois. Nessa janela
+        // coletaProgresso ainda era null, entao o esperaB concluia na hora,
+        // lia o COFRE recem-zerado e devolvia um mes vazio. Agora a espera so
+        // comeca DEPOIS que a coleta confirma que iniciou, e usamos a Promise
+        // da propria coleta em vez de vigiar uma variavel.
+        var t1 = Date.now();
+        var esperaB = null;
         setTimeout(function () {
-        coletaCompleta(function (p) {
-          if (p) { estado.rel.etapa = 'Mes anterior: ' + p; render(); }
-        }, epochDoMes(mesAnterior(sel)));
+          var pr = coletaCompleta(function (p) {
+            if (p) { estado.rel.etapa = 'Mes anterior: ' + p; render(); }
+          }, epochDoMes(mesAnterior(sel)));
+          if (pr && pr.then) { pr.then(function () { concluirB(); }); return; }
+          esperaB = setInterval(function () {
+            if (Date.now() - t1 > LIMITE_MS) { clearInterval(esperaB); desistir('A leitura do mes anterior demorou demais e foi interrompida.'); return; }
+            if (estado.coletaProgresso !== null) return;
+            clearInterval(esperaB);
+            concluirB();
+          }, 900);
         }, 3000);
 
-        var t1 = Date.now();
-        var esperaB = setInterval(function () {
-          if (Date.now() - t1 > LIMITE_MS) { clearInterval(esperaB); desistir('A leitura do mes anterior demorou demais e foi interrompida. Os dados da tela foram preservados.'); return; }
-          if (estado.coletaProgresso !== null) return;
-          clearInterval(esperaB);
+        function concluirB() {
           var blocoB = blocoPeriodo(fp.rotulo);
           restaurar();
 
@@ -4912,9 +4936,8 @@
               render();
             });
           } catch (e) { estado.rel.gerando = false; estado.rel.erro = String(e); restaurar(); render(); }
-        }, 900);
-      }, 900);
-
+        }
+      }
   }
 
   function ligarRelatorio() {
