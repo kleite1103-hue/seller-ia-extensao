@@ -99,6 +99,34 @@ function montarDados(b: any) {
     L.push("\n== AFILIADOS ==\nnao disponivel nesta coleta");
   }
 
+  // ORIGEM DA VENDA — separa o que a loja conquista do que o algoritmo empresta
+  const oA = A.origem || {}, oP = P.origem || {};
+  if (Array.isArray(oA.canais) && oA.canais.length) {
+    L.push("\n== DE ONDE VEM CADA VENDA (periodo atual) ==");
+    L.push("Busca e o que a loja CONQUISTA: o comprador procurou e escolheu. Recomendacao e o que o algoritmo EMPRESTA: ele decidiu mostrar. Recomendacao pode ser cortada sem aviso; busca so cai se a loja piorar.");
+    for (const c of oA.canais) {
+      if (!c.pctVendas || c.pctVendas < 0.5) continue;
+      L.push(`${c.origem}: ${pc(c.pctVendas)} das vendas | clique->pedido ${pc(c.cliqueParaPedido)} | ticket ${br(c.ticket)}`);
+    }
+    L.push(linha("GMV de afiliados", oA.afiliados, oP.afiliados, br));
+    L.push(linha("GMV de Shopee Ads", oA.adsPago, oP.adsPago, br));
+  }
+
+  // PEDIDO NAO PAGO — receita que aparece no painel e nao entra no caixa
+  const npA = A.naoPago || {}, npP = P.naoPago || {};
+  if (n(npA.perdaPct) !== null) {
+    L.push("\n== PEDIDOS NAO PAGOS ==");
+    L.push(linha("Taxa de pedido nao pago", npA.perdaPct, npP.perdaPct, pc));
+    L.push(`De ${nu(npA.totalColocado)} pedidos feitos, ${nu(npA.totalPago)} foram pagos. Ate 10% e comum quando ha boleto; acima disso investigar cupom com valor minimo alto, frete que so aparece no fim do checkout e prazo de envio.`);
+    L.push("ATENCAO: o vendedor NAO escolhe meios de pagamento na Shopee. Nunca sugerir desativar boleto ou alterar formas de pagamento.");
+  }
+
+  // META RECOMENDADA — o que ela realmente significa
+  if (Array.isArray(A.campanhas) && A.campanhas.some((c: any) => c.metaSugerida != null)) {
+    L.push("\n== SOBRE A META QUE A SHOPEE SUGERE ==");
+    L.push("A meta recomendada pela Shopee e o PERCENTIL 50 da categoria, ou seja a mediana do que os outros vendedores praticam — nao um calculo do custo ou da margem deste lojista. A categoria inclui quem vende sem margem e quem esta queimando estoque. Seguir a mediana e aceitar a media do mercado como meta. Sempre confrontar com o piso pela margem antes de recomendar qualquer descida.");
+  }
+
   // funil
   L.push("\n== FUNIL DA LOJA (periodo atual) ==");
   L.push(`Impressoes: ${nu(aA.impressoes)} -> Visitantes: ${nu(cA.visitantes)} -> Carrinho: ${nu(cA.carrinho)} -> Pedidos pagos: ${nu(cA.pedidosPagos)}`);

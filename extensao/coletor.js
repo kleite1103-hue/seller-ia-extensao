@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.62.1';
+  var VERSAO = '0.63.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -4125,6 +4125,16 @@
         gmv: val(AF.vendas), comissao: val(AF.comissao), pedidos: val(AF.pedidos),
         novosCompradores: val(AF.novos), roi: val(AF.roi)
       },
+      origem: (D && D.origem) ? {
+        canais: (D.origem.canais || []).slice(0, 8),
+        afiliados: D.origem.afiliados, adsPago: D.origem.adsPago
+      } : null,
+      naoPago: (D && D.tendencia && D.tendencia.perdaPosPedido) ? {
+        perdaPct: D.tendencia.perdaPosPedido.perdaPct,
+        totalColocado: D.tendencia.perdaPosPedido.totalColocado,
+        totalPago: D.tendencia.perdaPosPedido.totalConfirmado,
+        diasRuins: D.tendencia.perdaPosPedido.diasRuins
+      } : null,
       produtos: prods.slice(0, 25), campanhas: camps.slice(0, 25), formatos: formatos
     };
   }

@@ -1,4 +1,17 @@
-# PROMPT DE RELATÓRIO — v2
+-- ============================================================
+-- SELLER.IA · ATUALIZA O PROMPT DO RELATORIO
+-- Rodar depois de prompt-relatorio.sql (substitui o texto)
+-- ============================================================
+-- Acrescenta ao metodo tres coisas descobertas depois da primeira versao:
+-- 1) a meta que a Shopee recomenda e o PERCENTIL 50 da categoria, nao um
+--    calculo do produto do lojista;
+-- 2) a leitura de origem da venda, separando busca (conquista) de
+--    recomendacao (emprestimo do algoritmo);
+-- 3) pedidos nao pagos, com a proibicao explicita de sugerir desativar
+--    boleto — o vendedor nao escolhe meios de pagamento na Shopee.
+
+update conhecimento
+set veredito = jsonb_build_object('texto', $PROMPT$# PROMPT DE RELATÓRIO — v2
 **Seller.IA · Efeito Vendas** · roda dentro da Edge Function `cerebro`, nunca no cliente
 
 > **O que mudou em relação à v1:**
@@ -324,3 +337,9 @@ Quatro semanas. Cada ação com: **Ferramenta Shopee · Gatilho com evidência n
 Técnica, nunca genérica. Sem achismo. Toda recomendação justificada com número da própria conta. Nunca usar estratégia de outro marketplace. Nunca citar dados de outra loja. Sempre nomear os produtos específicos.
 
 A plataforma nunca é apresentada como vilã. Quando a recomendação dela divergir do interesse do vendedor, nomear a diferença de objetivo — não atribuir erro.
+$PROMPT$),
+    atualizado_em = now()
+where dominio = 'prompt' and chave = 'relatorio';
+
+-- confere: deve voltar um numero perto de 20.000
+-- select length(veredito->>'texto') from conhecimento where dominio='prompt' and chave='relatorio';
