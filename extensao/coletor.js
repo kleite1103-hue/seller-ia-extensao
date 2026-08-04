@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.66.0';
+  var VERSAO = '0.67.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1431,16 +1431,27 @@
 
         // A) Campanhas do Ads (paginado por offset)
         prog('Lendo campanhas do Shopee Ads...');
-        for (var off = 0; off < 400; off += 20) {
-          var corpoC = JSON.stringify({ start_time: ini, end_time: fimAds, filter_list: [{ campaign_type: 'product_homepage_v3', state: 'all', search_term: '', is_valid_rebate_only: false }], offset: off, limit: 20, use_paid_gmv: false });
+        // ANTES: state 'all' com ate 400 campanhas — puxava as 300 da conta,
+        // incluindo pausadas ha meses que nao dizem nada e so deixam a coleta
+        // lenta. AGORA: as ONGOING primeiro, e depois um lote pequeno de
+        // pausadas so para detectar a que rendia e parou.
+        var fases = [
+          { estado: 'ongoing', ate: 200 },
+          { estado: 'paused', ate: 60 }
+        ];
+        for (var fx = 0; fx < fases.length; fx++) {
+        var faseAtual = fases[fx];
+        for (var off = 0; off < faseAtual.ate; off += 20) {
+          var corpoC = JSON.stringify({ start_time: ini, end_time: fimAds, filter_list: [{ campaign_type: 'product_homepage_v3', state: faseAtual.estado, search_term: '', is_valid_rebate_only: false }], offset: off, limit: 20, use_paid_gmv: false });
           var rc = await buscar('/api/pas/v1/homepage/query/?' + spcQ, 'POST', corpoC);
           totalChamadas++;
           if (!rc.ok || !rc.dados) break;
-          processarPacote({ url: '/api/pas/v1/homepage/query/', metodo: 'POST', corpo: corpoC, dados: rc.dados, ts: Date.now() });
+          processarPacote({ url: '/api/pas/v1/homepage/query/', metodo: 'POST', corpo: corpoC, dados: rc.dados, ts: Date.now(), loja: lojaDoCiclo });
           var lote = rc.dados.data && rc.dados.data.entry_list ? rc.dados.data.entry_list.length : 0;
-          prog('Campanhas lidas: ' + Object.keys(estado.campanhas).length + '...');
+          prog((faseAtual.estado === 'ongoing' ? 'Campanhas ativas' : 'Campanhas pausadas') + ': ' + Object.keys(estado.campanhas).length + '...');
           if (lote < 20) break;
           await pausa(250);
+        }
         }
         estado.periodoAds = { inicio: ini, fim: fim, dias: 30 };
 
@@ -1607,7 +1618,7 @@
 
         // D3) Fontes de trafego (traffic-sources)
         prog('Cruzando fontes de trafego...');
-        var urlF = (periodoForcado ? null : reais.trafficSources) || ('/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
+        var urlF = reais.trafficSources || ('/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
         var rf = await buscar(urlF, 'GET', null);
         totalChamadas++;
         if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -1617,9 +1628,10 @@
         // Antes preferia a URL capturada do painel, que carrega o periodo QUE
         // A SHOPEE usou — por isso escolher 30 dias trazia o mes. Quando ha
         // periodo forcado, ele manda; a URL capturada so vale como fallback.
-        var urlK = (periodoForcado
-          ? ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=day&fetag=fetag')
-          : (reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag')));
+        // REVERTIDO para o comportamento que funcionava: a URL capturada do
+        // painel manda. Ela ja vem com o periodo que a Shopee validou, e
+        // tentar montar a minha so quebrou a leitura.
+        var urlK = reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag');
         var rk = await buscar(urlK, 'GET', null);
         totalChamadas++;
         if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -2573,6 +2585,28 @@
     var n = parseInt(id, 10) || 30;
     return { inicio: hoje0 - n * 86400, fim: hoje0 };
   }
+  // O periodo volta a ser o do painel da Shopee: e o que ela ja validou.
+  // A tela apenas DIZ qual e, para nunca mais haver duvida sobre de onde
+  // vem o numero.
+  function renderAvisoPeriodo() {
+    var gg = null;
+    try { gg = window.SIA_Diamantes ? window.SIA_Diamantes.estado().gerenciais : null; } catch (e) { /* noop */ }
+    var h = '';
+    if (gg && gg.periodoIni && gg.periodoFim) {
+      var di = new Date(gg.periodoIni * 1000), df = new Date(gg.periodoFim * 1000);
+      function dd(x) { return String(x.getUTCDate()).padStart(2, '0') + '/' + String(x.getUTCMonth() + 1).padStart(2, '0'); }
+      h += '<div class="nota">Periodo lido: <b>' + dd(di) + ' a ' + dd(df) + '</b>' + (gg.periodoDias ? ' (' + gg.periodoDias + ' dias)' : '') +
+        ' &middot; e o recorte que estava aberto no painel da Shopee. Para trocar, mude o periodo no painel e colete de novo.</div>';
+    }
+    if (estado.coletaProgresso !== null) {
+      h += '<div class="nota" style="color:var(--mk)">Lendo: ' + esc(String(estado.coletaProgresso)) + '</div>';
+    } else {
+      h += '<div class="nota" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' +
+        '<button id="sia-profunda" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Leitura profunda</button>' +
+        '<span>Acrescenta a serie hora a hora e as palavras por produto. Leva alguns minutos.</span></div>';
+    }
+    return h;
+  }
   function renderSeletorPeriodo() {
     var atual = estado.periodo360 || '30';
     var h = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">';
@@ -2610,7 +2644,7 @@
     if (!b) return;
     b.addEventListener('click', function () {
       if (estado.coletaProgresso !== null) return;
-      coletaCompleta(function () { render(); }, faixaDoPeriodo(estado.periodo360 || '30'), 'profunda');
+      coletaCompleta(function () { render(); }, null, 'profunda');
       render();
     });
   }
@@ -4456,24 +4490,72 @@
      A Shopee entrega o volume mensal real de busca de cada termo que ela
      sugere. Cruzando com os titulos dos seus produtos, separa o que voce
      JA USA do que tem gente procurando e voce esta ignorando. */
+  /* ============ PALAVRAS — DUAS FUNCOES ============
+     1) PESQUISAR: voce escreve um termo e a Shopee devolve o volume dele e
+        de termos semelhantes. Nao depende do que voce ja vende.
+     2) DA SUA LOJA: os termos que ela sugere para os seus produtos,
+        separados entre os que voce ja usa e os que esta ignorando. */
   function renderPalavras() {
+    var modo = estado.modoPalavra || 'pesquisar';
+    var h = '<div class="subabas">' +
+      '<button class="subaba' + (modo === 'pesquisar' ? ' ativa' : '') + '" data-modo-kw="pesquisar">Pesquisar um termo</button>' +
+      '<button class="subaba' + (modo === 'loja' ? ' ativa' : '') + '" data-modo-kw="loja">Da sua loja</button></div>';
+
+    if (modo === 'pesquisar') {
+      h += '<div style="display:flex;gap:8px;margin:14px 0;flex-wrap:wrap">' +
+        '<input id="sia-kw-termo" value="' + esc(estado.termoPesquisa || '') + '" placeholder="escreva o termo, ex: porta vinho de mesa" ' +
+        'style="flex:1;min-width:210px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px 13px;color:var(--t0);font-size:14px">' +
+        '<button id="sia-kw-ir" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:12px 22px;border-radius:9px;cursor:pointer">' +
+        (estado.kwBuscando ? 'Buscando...' : 'Ver volume') + '</button></div>';
+
+      if (estado.kwErro) {
+        h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px;font-size:14px;color:var(--t1)">' + esc(estado.kwErro) + '</div>';
+        return h;
+      }
+      if (estado.kwBuscando) {
+        h += '<div class="nota">Perguntando a Shopee quantas pessoas procuram por isso...</div>';
+        return h;
+      }
+      var R = estado.kwResultado;
+      if (!R || !R.termos || !R.termos.length) {
+        h += '<div class="nota">Escreva um termo e clique em <b>Ver volume</b>. A Shopee devolve quantas buscas ele recebe por mes e sugere termos parecidos, com o volume de cada um.</div>';
+        return h;
+      }
+      var exato = null;
+      for (var e = 0; e < R.termos.length; e++) {
+        if (String(R.termos[e].termo).toLowerCase() === String(R.buscado).toLowerCase()) { exato = R.termos[e]; break; }
+      }
+      h += '<div class="leitura"><div class="fr">' +
+        (exato ? '<span class="u">' + fmt(exato.volume, 0) + ' buscas por mes</span> em "' + esc(R.buscado) + '".'
+               : '"' + esc(R.buscado) + '" nao aparece na lista da Shopee, mas ha ' + R.termos.length + ' termos parecidos.') +
+        '</div><div class="ex">' +
+        (exato ? 'Abaixo, os termos parecidos com o volume de cada um. Termo grande traz mais gente e mais concorrente; termo pequeno traz menos gente e costuma converter melhor.'
+               : 'Pode ser que ela use outra forma de escrever. Veja se algum dos termos abaixo e o que voce procurava.') +
+        '</div></div>';
+      h += olho('TERMOS E VOLUME', 'O volume e o numero de buscas no mes, dito pela propria Shopee \u2014 nao e estimativa. Ela devolve os termos que considera relacionados ao que voce escreveu.');
+      h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
+      for (e = 0; e < Math.min(R.termos.length, 30); e++) {
+        var it = R.termos[e];
+        var forte = exato && it === exato;
+        h += '<tr><td' + (forte ? ' style="color:var(--t0);font-weight:600"' : '') + '>' + esc(it.termo) + '</td>' +
+          '<td class="num" style="color:var(--px)">' + fmt(it.volume, 0) + '</td></tr>';
+      }
+      h += '</table>';
+      return h;
+    }
+
+    // ---- DA SUA LOJA ----
     var D = null;
-    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (er) { /* noop */ }
     var K = (D && D.busca && D.busca.keywords) || [];
     if (!K.length) {
-      var jaColetou = Object.keys(estado.produtos).length || Object.keys(estado.campanhas).length;
-      return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:16px;margin-top:12px">' +
-        '<div style="font-size:15px;font-weight:600;color:var(--t0);margin-bottom:5px">Ainda nao li as palavras desta conta</div>' +
-        '<div style="font-size:13.5px;color:var(--t1);line-height:1.55">' +
-        (jaColetou
-          ? 'A conta foi lida, mas as palavras vem de uma rota propria que pode ter falhado nesta leitura. Tente de novo pelo botao abaixo.'
-          : 'Colete a conta primeiro — as palavras vem junto.') +
-        '</div>' +
+      return h + '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:16px;margin-top:14px">' +
+        '<div style="font-size:15px;font-weight:600;color:var(--t0);margin-bottom:5px">Ainda nao li as palavras da sua loja</div>' +
+        '<div style="font-size:13.5px;color:var(--t1);line-height:1.55">Elas vem na coleta da conta. Se ja coletou e mesmo assim nao apareceram, a rota pode ter falhado nesta leitura.</div>' +
         '<button id="sia-kw-coletar" style="margin-top:11px;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;padding:10px 16px;border-radius:8px;cursor:pointer">' +
         (estado.coletaProgresso !== null ? esc(String(estado.coletaProgresso)) : 'Buscar as palavras agora') + '</button></div>';
     }
 
-    // o que ja esta nos titulos
     var meus = {};
     for (var id in estado.produtos) {
       var nm = estado.produtos[id] && estado.produtos[id].nome;
@@ -4484,55 +4566,74 @@
     function usada(termo) {
       var ps = String(termo).toLowerCase().split(/\s+/);
       var achou = 0;
-      for (var i = 0; i < ps.length; i++) if (meus[ps[i].normalize ? ps[i].normalize('NFD').replace(/[\u0300-\u036f]/g, '') : ps[i]]) achou++;
+      for (var i = 0; i < ps.length; i++) {
+        var lp = ps[i].normalize ? ps[i].normalize('NFD').replace(/[\u0300-\u036f]/g, '') : ps[i];
+        if (meus[lp]) achou++;
+      }
       return ps.length ? achou / ps.length : 0;
     }
-
     var usadas = [], perdidas = [];
     for (var k = 0; k < K.length; k++) {
-      var it = K[k];
-      if (!it.termo || it.volume == null) continue;
-      var cob = usada(it.termo);
-      (cob >= 0.6 ? usadas : perdidas).push({ t: it.termo, v: it.volume, cob: cob, lance: it.lance });
+      var t2 = K[k];
+      if (!t2.termo || t2.volume == null) continue;
+      (usada(t2.termo) >= 0.6 ? usadas : perdidas).push({ t: t2.termo, v: t2.volume });
     }
     perdidas.sort(function (a, b) { return b.v - a.v; });
     usadas.sort(function (a, b) { return b.v - a.v; });
-
     var somaP = 0;
     for (k = 0; k < Math.min(perdidas.length, 10); k++) somaP += perdidas[k].v;
 
-    var h = '<div class="leitura"><div class="fr">' +
-      (perdidas.length
-        ? '<span class="w">' + fmt(somaP, 0) + ' buscas por mes</span> em termos que voce nao usa.'
-        : '<span class="u">Seus titulos cobrem os termos que a Shopee sugere</span>.') +
+    h += '<div class="leitura" style="margin-top:14px"><div class="fr">' +
+      (perdidas.length ? '<span class="w">' + fmt(somaP, 0) + ' buscas por mes</span> em termos que voce nao usa.'
+                       : '<span class="u">Seus titulos cobrem os termos que a Shopee sugere</span>.') +
       '</div><div class="ex">' +
-      (perdidas.length
-        ? 'Sao as dez maiores da lista abaixo. Nao significa que voce deve usar todas \u2014 significa que ha gente procurando por isso e o seu produto nao aparece.'
-        : 'Nao ha termo relevante de fora. O ganho aqui esta em posicao, nao em palavra nova.') +
+      (perdidas.length ? 'Sao as dez maiores da lista. Nao significa que deve usar todas — significa que ha gente procurando e o seu produto nao aparece.'
+                       : 'Nao ha termo relevante de fora. O ganho aqui esta em posicao, nao em palavra nova.') +
       '</div></div>';
 
     if (perdidas.length) {
-      h += olho('TEM GENTE PROCURANDO E VOCE NAO APARECE', '<b>Como isto e calculado:</b> a Shopee devolve os termos que ela considera relevantes para a sua loja, com o volume mensal REAL de busca de cada um. Cruzamos com os titulos dos seus produtos: se menos de 60% das palavras do termo estao nos seus titulos, ele entra aqui.<br><br><b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego, onde nao ha historico a proteger.');
+      h += olho('TEM GENTE PROCURANDO E VOCE NAO APARECE', '<b>Como e calculado:</b> a Shopee devolve os termos que considera relevantes para a sua loja, com o volume mensal real. Cruzamos com os titulos dos seus produtos: se menos de 60% das palavras do termo estao neles, ele entra aqui.<br><br><b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego.');
       h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
-      var lp = busca ? perdidas.filter(function (x) { return x.t.toLowerCase().indexOf(busca) >= 0; }) : perdidas;
-      for (k = 0; k < Math.min(lp.length, 25); k++) {
-        h += '<tr><td>' + esc(lp[k].t) + '</td><td class="num" style="color:var(--px)">' + fmt(lp[k].v, 0) + '</td></tr>';
-      }
-      if (busca && !lp.length) h += '<tr><td colspan="2" style="color:var(--t2)">Nenhum termo com "' + esc(busca) + '" nesta lista.</td></tr>';
+      for (k = 0; k < Math.min(perdidas.length, 25); k++) h += '<tr><td>' + esc(perdidas[k].t) + '</td><td class="num" style="color:var(--px)">' + fmt(perdidas[k].v, 0) + '</td></tr>';
       h += '</table>';
     }
     if (usadas.length) {
-      h += olho('TERMOS QUE VOCE JA USA', 'Estes ja aparecem nos seus titulos. O volume mostra o tamanho da disputa: termo grande traz mais gente e mais concorrente; termo pequeno traz menos gente e converte melhor.');
+      h += olho('TERMOS QUE VOCE JA USA', 'Ja aparecem nos seus titulos. O volume mostra o tamanho da disputa.');
       h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
-      var lu = busca ? usadas.filter(function (x) { return x.t.toLowerCase().indexOf(busca) >= 0; }) : usadas;
-      for (k = 0; k < Math.min(lu.length, 20); k++) {
-        h += '<tr><td>' + esc(lu[k].t) + '</td><td class="num" style="color:var(--vd)">' + fmt(lu[k].v, 0) + '</td></tr>';
-      }
+      for (k = 0; k < Math.min(usadas.length, 15); k++) h += '<tr><td>' + esc(usadas[k].t) + '</td><td class="num" style="color:var(--vd)">' + fmt(usadas[k].v, 0) + '</td></tr>';
       h += '</table>';
     }
-    h += '<div class="nota">' + K.length + ' termos lidos da Shopee. O volume e o numero real de buscas no mes, nao estimativa.</div>';
     return h;
   }
+
+  function pesquisarTermo(termo) {
+    estado.kwBuscando = true; estado.kwErro = null; estado.kwResultado = null; render();
+    var corpo = JSON.stringify({ campaign_type: 'shop', keyword: termo, search_term: termo, limit: 40 });
+    chrome.runtime.sendMessage({
+      tipo: 'sia:buscar',
+      url: '/api/pas/v1/setup_helper/list_recommended_keyword/?SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2',
+      metodo: 'POST', corpo: corpo
+    }, function (r) {
+      void chrome.runtime.lastError;
+      estado.kwBuscando = false;
+      try {
+        var lista = (((r || {}).dados || {}).data || {}).keyword_list || [];
+        var out = [];
+        for (var i = 0; i < lista.length; i++) {
+          var k = lista[i];
+          if (!k || k.keyword == null || k.search_volume == null) continue;
+          out.push({ termo: k.keyword, volume: n0(k.search_volume) });
+        }
+        out.sort(function (a, b) { return b.volume - a.volume; });
+        if (!out.length) estado.kwErro = 'A Shopee nao devolveu termos para "' + termo + '". Tente uma palavra mais comum ou sem acento.';
+        else estado.kwResultado = { buscado: termo, termos: out };
+      } catch (e) {
+        estado.kwErro = 'Nao consegui ler a resposta: ' + String(e && e.message || e);
+      }
+      render();
+    });
+  }
+  function n0(v) { var x = typeof v === 'number' ? v : parseFloat(v); return isFinite(x) ? x : 0; }
 
   function renderRelatorio() {
     var R = estado.rel;
@@ -5473,12 +5574,21 @@
     if (abaAtiva === 'palavras') {
       try {
         corpo.innerHTML = capa('O QUE O COMPRADOR PROCURA', 'AS', 'PALAVRAS', '06') + renderPalavras();
-        var kb = $('sia-kw-busca');
-        if (kb) kb.addEventListener('input', function () { estado.buscaPalavra = kb.value; estado.sujo = true; });
+        var mk = corpoEl().querySelectorAll('[data-modo-kw]');
+        for (var mi = 0; mi < mk.length; mi++) {
+          mk[mi].addEventListener('click', function () { estado.modoPalavra = this.getAttribute('data-modo-kw'); render(); });
+        }
+        var ki = $('sia-kw-termo');
+        if (ki) ki.addEventListener('input', function () { estado.termoPesquisa = ki.value; });
+        var kg = $('sia-kw-ir');
+        if (kg) kg.addEventListener('click', function () {
+          var termo = (ki && ki.value || '').trim();
+          if (termo) pesquisarTermo(termo);
+        });
         var kc = $('sia-kw-coletar');
         if (kc) kc.addEventListener('click', function () {
           if (estado.coletaProgresso !== null) return;
-          coletaCompleta(function () { render(); }, faixaDoPeriodo(estado.periodo360 || '30'), 'profunda');
+          coletaCompleta(function () { render(); }, null, 'profunda');
           render();
         });
       } catch (err) { corpo.innerHTML = telaDeErro('Palavras', err); }
@@ -5492,10 +5602,9 @@
       return;
     }
     if (abaAtiva === 'conta360') {
-      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSeletorPeriodo() + renderDiagnosticoColeta() +
+      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderAvisoPeriodo() +
         renderFunilLoja() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
       ligarBotaoColeta();
-      ligarSeletorPeriodo();
       ligarProfunda();
       return;
     }
