@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.63.0';
+  var VERSAO = '0.64.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1342,7 +1342,14 @@
   }
   function pausa(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-  function coletaCompleta(aoProgresso, periodoForcado) {
+  // COLETA EM DOIS MODOS.
+  // Eu fui empilhando rota e a coleta passou de ~30 para mais de 90 chamadas:
+  // 12 series horarias, 3 lotes de leilao, 8 palavras-chave, top campanhas.
+  // Virou lenta demais para o uso do dia a dia — e quem espera 3 minutos
+  // prefere olhar o painel. Agora o padrao e RAPIDA (o essencial, ~40s) e o
+  // que e pesado vira PROFUNDA, disparada so quando a pessoa pede.
+  function coletaCompleta(aoProgresso, periodoForcado, modo) {
+    var PROFUNDA = modo === 'profunda';
     // Marcar 'iniciando' sem garantir a liberacao deixava coletaProgresso
     // travado para sempre quando a coleta falhava antes do fim — e a trava
     // do relatorio olha justamente esse campo. Era por isso que o botao
@@ -1368,7 +1375,7 @@
       travaSeguranca = setTimeout(function () {
         resolver({ ok: false, erro: 'A leitura passou de 4 minutos e foi encerrada. O que ja tinha sido lido foi mantido.',
           chamadas: 0, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
-      }, 4 * 60 * 1000);
+      }, (PROFUNDA ? 5 : 2) * 60 * 1000);
       (async function () {
         function prog(t) {
           estado.coletaProgresso = t; estado.sujo = true;
@@ -1429,7 +1436,7 @@
           var lote = rc.dados.data && rc.dados.data.entry_list ? rc.dados.data.entry_list.length : 0;
           prog('Campanhas lidas: ' + Object.keys(estado.campanhas).length + '...');
           if (lote < 20) break;
-          await pausa(450);
+          await pausa(250);
         }
         estado.periodoAds = { inicio: ini, fim: fim, dias: 30 };
 
@@ -1442,7 +1449,7 @@
           var rr = await buscar('/api/pas/v1/report/get/?' + spcQ, 'POST', corpoR);
           totalChamadas++;
           if (rr.ok && rr.dados) processarPacote({ url: '/api/pas/v1/report/get/', metodo: 'POST', corpo: corpoR, dados: rr.dados, ts: Date.now() });
-          await pausa(450);
+          await pausa(250);
         }
 
         // C) Funil de todos os produtos (Central de Dados, paginado)
@@ -1456,7 +1463,7 @@
           var mb = (estado.campanhas[b] && estado.campanhas[b].metricas) || {};
           return (mb.gasto || 0) - (ma.gasto || 0);
         });
-        var alvoLeilao = idsGasto.slice(0, 60);
+        var alvoLeilao = idsGasto.slice(0, PROFUNDA ? 60 : 20);
 
         // Esta rota e da LOJA INTEIRA e nao depende de campanha nenhuma, mas
         // tinha ficado dentro do if de campanhas com gasto — numa conta sem
@@ -1471,7 +1478,7 @@
           estado.faltando = estado.faltando || [];
           estado.faltando.push('recomendacoes da Shopee (competitividade)');
         }
-        await pausa(450);
+        await pausa(250);
 
         // APRENDIZADO REAL E MUDANCA DE META (itens 6 e 7)
         // A rota report/get_time_graph devolve, por hora, o roi_target_setting
@@ -1479,7 +1486,7 @@
         // e o valor da meta em cada momento, o que revela QUANDO ela foi
         // alterada. E a unica forma de responder "mexeram na campanha dentro
         // da janela de aprendizado?".
-        var alvoTempo = idsGasto.slice(0, 12);
+        var alvoTempo = PROFUNDA ? idsGasto.slice(0, 12) : [];
         for (var tg = 0; tg < alvoTempo.length; tg++) {
           var corpoTG = JSON.stringify({
             start_time: ini, end_time: fimAds, campaign_id: parseInt(alvoTempo[tg], 10),
@@ -1490,7 +1497,7 @@
           if (rtg.ok && rtg.dados) {
             processarPacote({ url: '/api/pas/v1/report/get_time_graph/?campaign_id=' + alvoTempo[tg], metodo: 'POST', corpo: corpoTG, dados: rtg.dados, ts: Date.now(), loja: lojaDoCiclo });
           }
-          await pausa(300);
+          await pausa(200);
         }
 
         if (alvoLeilao.length) {
@@ -1505,33 +1512,33 @@
             if (rv.ok && rv.dados) {
               processarPacote({ url: '/api/pas/v1/diagnosis/homepage_batch_list_verdict/', metodo: 'POST', corpo: corpoV, dados: rv.dados, ts: Date.now(), loja: lojaDoCiclo });
             }
-            await pausa(450);   // rajada sem intervalo e o padrao que dispara antifraude
+            await pausa(250);   // rajada sem intervalo e o padrao que dispara antifraude
             var corpoPI = JSON.stringify({ campaign_id_list: lote20, start_time: ini, end_time: fimAds });
             var rpi = await buscar('/api/pas/v1/campaign/get_product_performance_info/?' + spcQ, 'POST', corpoPI);
             totalChamadas++;
             if (rpi.ok && rpi.dados) {
               processarPacote({ url: '/api/pas/v1/campaign/get_product_performance_info/', metodo: 'POST', corpo: corpoPI, dados: rpi.dados, ts: Date.now(), loja: lojaDoCiclo });
             }
-            await pausa(450);
+            await pausa(250);
           }
         }
 
         // ORIGEM DA VENDA POR CANAL e FUNIL DIARIO POR PRODUTO
         // PALAVRAS-CHAVE COM VOLUME DE BUSCA
-        prog('Lendo palavras-chave e volume de busca...');
+        prog(PROFUNDA ? 'Lendo palavras-chave e volume de busca...' : 'Lendo palavras-chave...');
         var corpoKW = JSON.stringify({ campaign_type: 'shop', limit: 60 });
         var rkw = await buscar('/api/pas/v1/setup_helper/list_recommended_keyword/?' + spcQ, 'POST', corpoKW);
         totalChamadas++;
         if (rkw.ok && rkw.dados) processarPacote({ url: '/api/pas/v1/setup_helper/list_recommended_keyword/?escopo=loja', metodo: 'POST', corpo: corpoKW, dados: rkw.dados, ts: Date.now(), loja: lojaDoCiclo });
-        await pausa(450);
+        await pausa(250);
         // por produto: cada item traz o proprio conjunto de termos
-        var idsKW = Object.keys(estado.produtos).slice(0, 8);
+        var idsKW = PROFUNDA ? Object.keys(estado.produtos).slice(0, 8) : [];
         for (var kw = 0; kw < idsKW.length; kw++) {
           var cKW = JSON.stringify({ campaign_type: 'product', item_id: parseInt(idsKW[kw], 10), limit: 30 });
           var rk2 = await buscar('/api/pas/v1/setup_helper/list_recommended_keyword/?' + spcQ, 'POST', cKW);
           totalChamadas++;
           if (rk2.ok && rk2.dados) processarPacote({ url: '/api/pas/v1/setup_helper/list_recommended_keyword/?item_id=' + idsKW[kw], metodo: 'POST', corpo: cKW, dados: rk2.dados, ts: Date.now(), loja: lojaDoCiclo });
-          await pausa(300);
+          await pausa(200);
         }
 
         prog('Lendo de onde vem cada venda...');
@@ -1540,14 +1547,14 @@
         totalChamadas++;
         if (rto.ok && rto.dados) processarPacote({ url: urlTO, metodo: 'GET', corpo: null, dados: rto.dados, ts: Date.now(), loja: lojaDoCiclo });
         else { estado.faltando = estado.faltando || []; estado.faltando.push('origem das vendas'); }
-        await pausa(450);
+        await pausa(250);
 
         prog('Lendo a evolucao diaria da loja...');
         var urlMT = '/api/mydata/v2/product/overview/metric-trends/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=custom';
         var rmt = await buscar(urlMT, 'GET', null);
         totalChamadas++;
         if (rmt.ok && rmt.dados) processarPacote({ url: urlMT, metodo: 'GET', corpo: null, dados: rmt.dados, ts: Date.now(), loja: lojaDoCiclo });
-        await pausa(450);
+        await pausa(250);
 
         prog('Lendo o funil dos produtos...');
         for (var pg = 1; pg <= 12; pg++) {
@@ -1559,7 +1566,7 @@
           var itens = rp.dados.result && rp.dados.result.items ? rp.dados.result.items.length : 0;
           prog('Produtos lidos: ' + Object.keys(estado.produtos).length + '...');
           if (itens < 20) break;
-          await pausa(450);
+          await pausa(250);
         }
 
         // D) Fatia de vendas + vinculo campanha (traffic item-list, paginado)
@@ -1572,7 +1579,7 @@
           processarPacote({ url: urlT, metodo: 'GET', corpo: null, dados: rt.dados, ts: Date.now() });
           var itens2 = rt.dados.result && rt.dados.result.item ? rt.dados.result.item.length : 0;
           if (itens2 < 20) break;
-          await pausa(450);
+          await pausa(250);
         }
 
         // D2) Funil de vendas (overview) — a origem do dinheiro (card/ads/afiliado)
@@ -1594,7 +1601,7 @@
 
         // D3) Fontes de trafego (traffic-sources)
         prog('Cruzando fontes de trafego...');
-        var urlF = reais.trafficSources || ('/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
+        var urlF = (periodoForcado ? null : reais.trafficSources) || ('/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
         var rf = await buscar(urlF, 'GET', null);
         totalChamadas++;
         if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now() });
@@ -1602,7 +1609,12 @@
         // E) Indicadores gerais da loja — key-metrics
         estado.faltando = [];
         prog('Lendo os indicadores gerais...');
-        var urlK = reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag');
+        // Antes preferia a URL capturada do painel, que carrega o periodo QUE
+        // A SHOPEE usou — por isso escolher 30 dias trazia o mes. Quando ha
+        // periodo forcado, ele manda; a URL capturada so vale como fallback.
+        var urlK = (periodoForcado
+          ? ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=custom&fetag=fetag')
+          : (reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag')));
         var rk = await buscar(urlK, 'GET', null);
         totalChamadas++;
         if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now() });
@@ -2241,7 +2253,11 @@
       expl = 'Mexer antes do fim do aprendizado reinicia a contagem do algoritmo. O melhor a fazer agora e nao fazer nada.';
     }
 
-    var h = '<div class="leitura"><div class="fr">' + frase + '</div><div class="ex">' + expl + '</div></div>';
+    var busca = (estado.buscaPalavra || '').toLowerCase().trim();
+    var h = '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
+      '<input id="sia-kw-busca" value="' + esc(estado.buscaPalavra || '') + '" placeholder="procurar um termo na lista" ' +
+      'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px"></div>';
+    h += '<div class="leitura"><div class="fr">' + frase + '</div><div class="ex">' + expl + '</div></div>';
 
     h += '<div class="tres">' +
       '<div><div class="v" style="color:var(--rd)">' + R.contagem.vermelho + '</div><div class="l">NO PREJUIZO</div><div class="s">' + reais(gastoRuim) + '</div></div>' +
@@ -2562,6 +2578,10 @@
     h += '</div>';
     if (estado.coletaProgresso !== null) {
       h += '<div class="nota" style="color:var(--mk)">Lendo: ' + esc(String(estado.coletaProgresso)) + '</div>';
+    } else {
+      h += '<div class="nota" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' +
+        '<button id="sia-profunda" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Leitura profunda</button>' +
+        '<span>A leitura normal cobre conta, produtos e campanhas. A profunda acrescenta a serie hora a hora e as palavras-chave, e leva alguns minutos.</span></div>';
     }
     return h;
   }
@@ -2575,11 +2595,20 @@
         try { if (window.SIA_Diamantes && window.SIA_Diamantes.zerar) window.SIA_Diamantes.zerar('troca de periodo da Conta 360'); } catch (e) { /* noop */ }
         estado.campanhas = {}; estado.produtos = {}; estado.conta = { campos: {}, atualizadoEm: null };
         render();
-        coletaCompleta(function () { render(); }, f);
+        coletaCompleta(function () { render(); }, f, 'rapida');
       });
     }
   }
   function corpoEl() { return $('sia-corpo'); }
+  function ligarProfunda() {
+    var b = $('sia-profunda');
+    if (!b) return;
+    b.addEventListener('click', function () {
+      if (estado.coletaProgresso !== null) return;
+      coletaCompleta(function () { render(); }, faixaDoPeriodo(estado.periodo360 || '30'), 'profunda');
+      render();
+    });
+  }
 
   /* ============ DE ONDE VEM CADA VENDA ============
      Separa o que a loja CONQUISTA (busca) do que o algoritmo EMPRESTA
@@ -4285,16 +4314,19 @@
     if (perdidas.length) {
       h += olho('TEM GENTE PROCURANDO E VOCE NAO APARECE', '<b>Como isto e calculado:</b> a Shopee devolve os termos que ela considera relevantes para a sua loja, com o volume mensal REAL de busca de cada um. Cruzamos com os titulos dos seus produtos: se menos de 60% das palavras do termo estao nos seus titulos, ele entra aqui.<br><br><b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego, onde nao ha historico a proteger.');
       h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
-      for (k = 0; k < Math.min(perdidas.length, 20); k++) {
-        h += '<tr><td>' + esc(perdidas[k].t) + '</td><td class="num" style="color:var(--px)">' + fmt(perdidas[k].v, 0) + '</td></tr>';
+      var lp = busca ? perdidas.filter(function (x) { return x.t.toLowerCase().indexOf(busca) >= 0; }) : perdidas;
+      for (k = 0; k < Math.min(lp.length, 25); k++) {
+        h += '<tr><td>' + esc(lp[k].t) + '</td><td class="num" style="color:var(--px)">' + fmt(lp[k].v, 0) + '</td></tr>';
       }
+      if (busca && !lp.length) h += '<tr><td colspan="2" style="color:var(--t2)">Nenhum termo com "' + esc(busca) + '" nesta lista.</td></tr>';
       h += '</table>';
     }
     if (usadas.length) {
       h += olho('TERMOS QUE VOCE JA USA', 'Estes ja aparecem nos seus titulos. O volume mostra o tamanho da disputa: termo grande traz mais gente e mais concorrente; termo pequeno traz menos gente e converte melhor.');
       h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
-      for (k = 0; k < Math.min(usadas.length, 15); k++) {
-        h += '<tr><td>' + esc(usadas[k].t) + '</td><td class="num" style="color:var(--vd)">' + fmt(usadas[k].v, 0) + '</td></tr>';
+      var lu = busca ? usadas.filter(function (x) { return x.t.toLowerCase().indexOf(busca) >= 0; }) : usadas;
+      for (k = 0; k < Math.min(lu.length, 20); k++) {
+        h += '<tr><td>' + esc(lu[k].t) + '</td><td class="num" style="color:var(--vd)">' + fmt(lu[k].v, 0) + '</td></tr>';
       }
       h += '</table>';
     }
@@ -5239,8 +5271,11 @@
     }
 
     if (abaAtiva === 'palavras') {
-      try { corpo.innerHTML = capa('O QUE O COMPRADOR PROCURA', 'AS', 'PALAVRAS', '06') + renderPalavras(); }
-      catch (err) { corpo.innerHTML = telaDeErro('Palavras', err); }
+      try {
+        corpo.innerHTML = capa('O QUE O COMPRADOR PROCURA', 'AS', 'PALAVRAS', '06') + renderPalavras();
+        var kb = $('sia-kw-busca');
+        if (kb) kb.addEventListener('input', function () { estado.buscaPalavra = kb.value; estado.sujo = true; });
+      } catch (err) { corpo.innerHTML = telaDeErro('Palavras', err); }
       return;
     }
     if (abaAtiva === 'relatorio') {
@@ -5255,6 +5290,7 @@
         renderFunilLoja() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
       ligarBotaoColeta();
       ligarSeletorPeriodo();
+      ligarProfunda();
       return;
     }
 
@@ -5265,8 +5301,7 @@
     }
 
     if (abaAtiva === 'cofre') {
-      corpo.innerHTML = capa('QUANTO SOBRA', 'O', 'COFRE', '05') + renderSubAbas('cofre') + renderCofre() + renderImportador();
-      ligarImportador();
+      corpo.innerHTML = capa('QUANTO SOBRA', 'O', 'COFRE', '05') + renderSubAbas('cofre') + renderCofre();
       ligarCofre();
       return;
     }
@@ -5345,7 +5380,8 @@
     } else if (abaAtiva === 'campanhas') {
       var idsC = Object.keys(estado.campanhas);
       if (!idsC.length) {
-        corpo.innerHTML = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>.</div>';
+        corpo.innerHTML = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + '<div class="vazio">Nada lido ainda. Navegue pela tela de <b>Shopee Ads</b>.</div>' + renderImportador();
+      ligarImportador();
         return;
       }
       idsC.sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); });
@@ -5369,9 +5405,12 @@
           '<td class="num">' + fmt(m.pedidos) + '</td>' +
           '<td class="num">' + (m.posicao === undefined ? '—' : fmt(m.posicao, 0)) + '</td></tr>';
       }
-      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + h2;
+      // A planilha do Grupo e analise de ADS, nao de custo: estava no Cofre
+      // por engano meu.
+      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + h2 + renderImportador();
       h2 += '</table><div class="nota">CPC derivado (gasto ÷ cliques) — os campos cpc/cpm da API interna nao batem com a tela e foram descartados. ROAS = broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
+      ligarImportador();
 
     } else if (abaAtiva === 'produtos') {
       // mostra as CAMPANHAS do Ads (o dado que o coletor traz via homepage/query).
