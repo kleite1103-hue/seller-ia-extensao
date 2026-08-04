@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.76.0';
+  var VERSAO = '0.77.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1970,6 +1970,21 @@
         if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
         var xc = el.getAttribute && el.getAttribute('data-cofre-excluir');
         if (xc) { excluirDoCofre(xc); return; }
+        var cs = el.getAttribute && el.getAttribute('data-calc-salvar');
+        if (cs) {
+          var tmpC = (estado.calcTmp && estado.calcTmp[cs]) || {};
+          var vc = numeroPuro(tmpC.custo);
+          if (vc) {
+            estado.cofre.custos = estado.cofre.custos || {};
+            estado.cofre.custos[cs] = vc;
+            if (numeroPuro(tmpC.embalagem)) estado.cofre.embalagem = numeroPuro(tmpC.embalagem);
+            if (numeroPuro(tmpC.imposto)) estado.cofre.imposto = numeroPuro(tmpC.imposto);
+            salvarCofre();
+            mostrarExpl('<b>Custo salvo.</b> A partir de agora o piso de ROAS deste produto usa a margem real, e o relatorio tambem.');
+          }
+          render();
+          return;
+        }
         var ec = el.getAttribute && el.getAttribute('data-exp-camp');
         if (ec) { estado.campExpandida = (estado.campExpandida === ec) ? null : ec; render(); return; }
         var mde = el.getAttribute && el.getAttribute('data-modo-esp');
@@ -4529,6 +4544,12 @@
      Tabela nao e analise: ela mostra numeros lado a lado e deixa a leitura
      para o analista. Cada campanha agora vira um card com veredito, o que
      esta acontecendo e o que fazer — como o analista faria. */
+  function campoCalc(campo, id, rot, valor) {
+    return '<div><div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);margin-bottom:4px">' + rot + '</div>' +
+      '<input data-calc="' + esc(campo) + ':' + esc(id) + '" value="' + esc(String(valor)) + '" placeholder="0,00" ' +
+      'style="width:100%;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:8px 9px;color:var(--t0);font-family:Space Mono,monospace;font-size:13px"></div>';
+  }
+
   function cardCampanha(id) {
     var c = estado.campanhas[id] || {};
     var m = c.metricas || {};
@@ -4666,7 +4687,35 @@
           '<span style="font-size:14px;font-weight:600;color:var(--t0)">' + (custo ? 'Lucro por pedido' : 'Sobra antes do custo') + '</span>' +
           '<span style="font-family:Bebas Neue,sans-serif;font-size:24px;color:' + (sobra > 0 ? 'var(--vd)' : 'var(--rd)') + '">' + reais(sobra) + '</span></div>';
         if (!custo) {
-          h += '<div style="font-size:12.5px;color:var(--am);margin-top:7px;line-height:1.5">Falta o custo deste produto. Cadastre na aba <b>Cofre</b> e esta sobra vira lucro de verdade, com o piso de ROAS calculado pela margem real.</div>';
+          // Calculadora no proprio card, como a Karina desenhou: preencher
+          // aqui e mais rapido que ir ao Cofre, e o resultado aparece na hora.
+          h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:12px;margin-top:10px">' +
+            '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:9px">CALCULADORA DE MARGEM</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+            campoCalc('custo', idProd, 'Custo do produto', (estado.calcTmp && estado.calcTmp[idProd] && estado.calcTmp[idProd].custo) || '') +
+            campoCalc('embalagem', idProd, 'Embalagem', (estado.calcTmp && estado.calcTmp[idProd] && estado.calcTmp[idProd].embalagem) || '') +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">' +
+            campoCalc('imposto', idProd, 'Imposto %', (estado.calcTmp && estado.calcTmp[idProd] && estado.calcTmp[idProd].imposto) || '') +
+            '<button data-calc-salvar="' + esc(idProd) + '" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;border-radius:8px;cursor:pointer;align-self:end;padding:9px">Calcular e salvar</button>' +
+            '</div>';
+          var tmp = (estado.calcTmp && estado.calcTmp[idProd]) || {};
+          var cTmp = numeroPuro(tmp.custo), eTmp = numeroPuro(tmp.embalagem) || 0, iTmp = numeroPuro(tmp.imposto) || 0;
+          if (cTmp) {
+            var impV = ticket * (iTmp / 100);
+            var liqT = ticket - com2 - adsPorPedido - cTmp - eTmp - impV;
+            var margT = (liqT / ticket) * 100;
+            h += '<div style="border-top:1px solid var(--li);margin-top:10px;padding-top:9px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+              'Sobra <b style="color:' + (liqT > 0 ? 'var(--vd)' : 'var(--rd)') + '">' + reais(liqT) + '</b> por pedido, margem de <b style="color:var(--t0)">' + fmt(margT, 1) + '%</b>.<br>' +
+              (margT > 0
+                ? 'Seu ponto de equilibrio e <b style="color:var(--t0)">' + fmt(100 / margT, 1) + 'x</b>' +
+                  (roas != null ? ' e esta campanha entrega ' + fmt(roas, 1) + 'x — ' + (roas >= 100 / margT ? '<b style="color:var(--vd)">esta dando lucro</b>.' : '<b style="color:var(--rd)">esta no prejuizo</b>.') : '.')
+                : '<b style="color:var(--rd)">Este produto perde dinheiro em cada venda, antes mesmo do anuncio.</b> Nenhuma meta de ROAS resolve isso.') +
+              '</div>';
+          } else {
+            h += '<div style="font-size:12.5px;color:var(--t2);margin-top:9px;line-height:1.5">Preencha o custo para ver a margem real, o ponto de equilibrio e se esta campanha da lucro.</div>';
+          }
+          h += '</div>';
         } else {
           var margemReal = (sobra / ticket) * 100;
           h += '<div style="font-size:12.5px;color:var(--t2);margin-top:7px;line-height:1.5">Margem de <b style="color:var(--t0)">' + fmt(margemReal, 1) + '%</b> por pedido. Seu ponto de equilibrio nesta campanha e <b style="color:var(--t0)">' + fmt(100 / Math.max(margemReal, 0.1), 1) + 'x</b>.</div>';
@@ -4720,6 +4769,17 @@
     return h + '</div>';
   }
 
+  function ligarCalculadora() {
+    var ins = corpoEl().querySelectorAll('[data-calc]');
+    for (var i = 0; i < ins.length; i++) {
+      ins[i].addEventListener('input', function () {
+        var p2 = this.getAttribute('data-calc').split(':');
+        estado.calcTmp[p2[1]] = estado.calcTmp[p2[1]] || {};
+        estado.calcTmp[p2[1]][p2[0]] = this.value;
+      });
+      ins[i].addEventListener('blur', function () { estado.sujo = true; render(); });
+    }
+  }
   function renderFiltroCampanhas() {
     var ativas = 0, pausadas = 0;
     for (var k in estado.campanhas) {
@@ -6127,6 +6187,7 @@
       // que fazer primeiro. Agora ela ordena por dinheiro em jogo e escreve.
       corpo.innerHTML = capa('A ANALISE COMPLETA', 'O', 'ESPECIALISTA', '07') + renderEspecialista();
       ligarChamadaCerebro();
+      ligarCalculadora();
       var be = $('sia-coletar-tudo');
       if (be) be.addEventListener('click', function () {
         if (estado.coletaProgresso !== null) return;
@@ -6211,6 +6272,7 @@
       h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + renderPercentis() + renderHoras() + renderFiltroCampanhas() + h2 + renderImportador();
       h2 += '<div class="nota">CPC e CPM sao derivados de gasto dividido por cliques e por impressoes: os campos cpc e cpm da API nao sao taxa e foram descartados. ROAS e o broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
+      ligarCalculadora();
       ligarImportador();
 
     } else if (abaAtiva === 'produtos') {
