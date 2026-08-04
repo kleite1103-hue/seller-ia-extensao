@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.69.0';
+  var VERSAO = '0.70.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1632,7 +1632,7 @@
 
         // D3) Fontes de trafego (traffic-sources)
         prog('Cruzando fontes de trafego...');
-        var urlF = reais.trafficSources || ('/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
+        var urlF = (periodoForcado ? null : reais.trafficSources) || ('/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
         var rf = await buscar(urlF, 'GET', null);
         totalChamadas++;
         if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -1642,10 +1642,15 @@
         // Antes preferia a URL capturada do painel, que carrega o periodo QUE
         // A SHOPEE usou — por isso escolher 30 dias trazia o mes. Quando ha
         // periodo forcado, ele manda; a URL capturada so vale como fallback.
-        // REVERTIDO para o comportamento que funcionava: a URL capturada do
-        // painel manda. Ela ja vem com o periodo que a Shopee validou, e
-        // tentar montar a minha so quebrou a leitura.
-        var urlK = reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag');
+        // PROVADO nas capturas: a rota aceita start_time e end_time LIVRES —
+        // vieram intervalos de 23 e de 30 dias, ambos com period=month, e um
+        // deles nem alinhado a meia-noite. Ou seja, `period` e so um ROTULO;
+        // quem define o recorte sao start/end. Meu erro antes foi trocar o
+        // period por 'custom'/'day', valores que a Shopee nao usa e recusa.
+        // Mantendo period=month, da para pedir qualquer intervalo.
+        var urlK = periodoForcado
+          ? ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag')
+          : (reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag'));
         var rk = await buscar(urlK, 'GET', null);
         totalChamadas++;
         if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -4902,6 +4907,16 @@
           restaurar();
 
           // se os dois periodos sairem identicos, algo nao trocou de verdade
+          // NAO GERAR SEM DADOS. Relatorio vazio e pior que relatorio nenhum:
+          // parece que funcionou e nao serve para decidir nada.
+          var vazioA = !blocoA.conta || (blocoA.conta.gmvPago == null && blocoA.conta.pedidosPagos == null);
+          var vazioB = !blocoB.conta || (blocoB.conta.gmvPago == null && blocoB.conta.pedidosPagos == null);
+          if (vazioA || vazioB) {
+            desistir('Nao consegui ler os numeros da conta ' + (vazioA && vazioB ? 'nos dois meses' : (vazioA ? 'do mes escolhido' : 'do mes anterior')) +
+              '. Sem GMV e pedidos nao ha relatorio possivel — prefiro nao gerar do que entregar um documento vazio. ' +
+              'Abra a Central de Dados da Shopee uma vez e tente de novo.');
+            return;
+          }
           var iguais = blocoA.conta && blocoB.conta &&
             blocoA.conta.gmvPago === blocoB.conta.gmvPago &&
             blocoA.conta.pedidosPagos === blocoB.conta.pedidosPagos &&
