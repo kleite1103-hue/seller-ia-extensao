@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.73.0';
+  var VERSAO = '0.74.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -4004,6 +4004,37 @@
     var diagRot = dg ? dg[0] : (probl ? esc(String(probl).slice(0, 16)) : '—');
     var diagSub = dg ? dg[1] : (probl ? 'apontado pela propria Shopee' : 'sem apontamento');
     var diagCor = !probl ? 'var(--t2)' : (String(probl).toLowerCase() === 'na' || String(probl).toLowerCase() === 'good' ? 'var(--vd)' : (String(probl).toLowerCase() === 'room_more_traffic' ? 'var(--vd)' : 'var(--am)'));
+    // Funil do produto contra a media da loja: sem a comparacao, 2% de
+    // conversao nao diz se e bom ou ruim.
+    if (idProduto) {
+      var fq = funilDoProduto(idProduto);
+      if (fq) {
+        h += olho('O CAMINHO ATE A VENDA', 'Cada degrau mostra quantas pessoas seguiram para a etapa seguinte. O degrau com a maior queda e onde vale colocar esforco primeiro: melhorar um degrau que ja esta bom rende quase nada.') + fq;
+
+        // como este produto se compara com a media da loja
+        var somaConv = 0, nConv = 0, somaCtr = 0, nCtr = 0;
+        for (var pk in estado.produtos) {
+          var mk3 = estado.produtos[pk].metricas || {};
+          if ((mk3.visitantes || 0) < 30) continue;
+          if (mk3.conversao_pago != null) { somaConv += mk3.conversao_pago; nConv++; }
+          if (mk3.ctr_card != null) { somaCtr += mk3.ctr_card; nCtr++; }
+        }
+        var mProd = (estado.produtos[idProduto] && estado.produtos[idProduto].metricas) || {};
+        var convP = mProd.conversao_pago, ctrP = mProd.ctr_card;
+        var mediaConv = nConv ? somaConv / nConv : null, mediaCtr = nCtr ? somaCtr / nCtr : null;
+        if (mediaConv != null && convP != null) {
+          var razao = convP / mediaConv;
+          h += '<div style="background:color-mix(in srgb,' + (razao >= 1 ? 'var(--vd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (razao >= 1 ? 'var(--vd)' : 'var(--am)') + ';border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+            '<b style="color:var(--t0)">Contra a media da sua loja:</b> este produto converte ' + fmt(convP, 1) + '% e a media e ' + fmt(mediaConv, 1) + '%' +
+            (razao >= 1.3 ? ' — ' + fmt(razao, 1) + 'x melhor que o resto do catalogo.'
+             : razao >= 1 ? ', ou seja esta na faixa da loja.'
+             : ' — ' + fmt(1 / razao, 1) + 'x pior que o resto do catalogo.') +
+            (mediaCtr != null && ctrP != null ? ' No clique, ' + fmt(ctrP, 1) + '% contra ' + fmt(mediaCtr, 1) + '% da loja.' : '') +
+            '</div>';
+        }
+      }
+    }
+
     // Produto sem campanha nao tem nada de Ads para mostrar. Antes o card
     // abria as secoes de leilao e meta mesmo assim, e a leitura de funil —
     // que e o motivo de ter clicado — ficava enterrada embaixo delas.
@@ -5604,6 +5635,78 @@
         'O algoritmo precisa de ' + janela + ' dias para entender quem compra. ' +
         'Faltam ' + (janela - dias) + '. Mexer agora reinicia a contagem e joga fora o que ela ja aprendeu.' };
   }
+  /* ============ FUNIL DENTRO DO CARD DE PRODUTO ============
+     O veredito diz O QUE esta errado; o funil mostra ONDE. Cada degrau com
+     quantas pessoas passaram e quantas ficaram, e o pior nomeado — porque
+     melhorar um degrau que ja esta bom rende quase nada. */
+  function funilDoProduto(id) {
+    var p = estado.produtos[id] || {};
+    var m = p.metricas || {};
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    var perf = (D && D.porProduto && D.porProduto[id] && D.porProduto[id].perf) || {};
+
+    function v(a, b) { var x = m[a]; if (x == null) x = perf[b]; return (typeof x === 'number' && isFinite(x)) ? x : null; }
+    var impr = v('impressoes', 'impressoes');
+    var uv = v('visitantes', 'uv');
+    var cliq = v('cliques', 'cliques');
+    var atc = v('carrinho', 'atc');
+    var ped = v('pedidos_pagos', 'pedidosPagos');
+
+    var degraus = [];
+    if (impr) degraus.push({ r: 'VIRAM NA BUSCA', v: impr, ex: 'quantas vezes o card apareceu' });
+    if (cliq) degraus.push({ r: 'CLICARAM', v: cliq, ex: 'quantos abriram a pagina' });
+    else if (uv) degraus.push({ r: 'VISITARAM', v: uv, ex: 'pessoas diferentes que abriram' });
+    if (uv && cliq) degraus.push({ r: 'VISITANTES', v: uv, ex: 'pessoas diferentes' });
+    if (atc != null) degraus.push({ r: 'NO CARRINHO', v: atc, ex: 'quantos guardaram' });
+    if (ped != null) degraus.push({ r: 'COMPRARAM', v: ped, ex: 'quantos pagaram' });
+    if (degraus.length < 2) return '';
+
+    // maior queda
+    var quedas = [], i;
+    for (i = 1; i < degraus.length; i++) {
+      var ant = degraus[i - 1].v, at = degraus[i].v;
+      if (!ant) continue;
+      quedas.push({ i: i, de: degraus[i - 1].r, para: degraus[i].r, pct: (1 - at / ant) * 100, ficaram: at, tinham: ant });
+    }
+    var pior = null;
+    for (i = 0; i < quedas.length; i++) if (!pior || quedas[i].pct > pior.pct) pior = quedas[i];
+
+    var h = '<div style="background:var(--b1);border:1px solid var(--li);border-radius:11px;padding:13px 11px;margin-top:11px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:9px">ONDE AS PESSOAS PARAM</div>' +
+      '<div style="display:flex;align-items:flex-end;gap:2px">';
+    for (i = 0; i < degraus.length; i++) {
+      if (i > 0) {
+        var q = quedas[i - 1];
+        var ruim = pior && q && q.i === pior.i;
+        h += '<div style="flex:none;text-align:center;font-family:Space Mono,monospace;font-size:8.5px;color:' + (ruim ? 'var(--rd)' : 'var(--t3)') + ';padding-bottom:15px">\u203a<br>' +
+          (q ? '\u2212' + fmt(q.pct, 0) + '%' : '') + '</div>';
+      }
+      var ehUltimo = i === degraus.length - 1;
+      h += '<div style="flex:1;text-align:center">' +
+        '<div style="font-family:Bebas Neue,sans-serif;font-size:19px;line-height:1;color:' + (ehUltimo && degraus[i].v === 0 ? 'var(--rd)' : 'var(--t0)') + '">' + fmt(degraus[i].v, 0) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:7px;color:var(--t2);margin-top:3px;line-height:1.25">' + degraus[i].r + '</div></div>';
+    }
+    h += '</div>';
+
+    if (pior) {
+      var alvo = pior.para.toLowerCase();
+      var conselho;
+      if (alvo.indexOf('clicaram') >= 0 || alvo.indexOf('visit') >= 0) {
+        conselho = 'Quem ve o card nao entra. O que decide isso e a primeira foto, o preco no card e o comeco do titulo.';
+      } else if (alvo.indexOf('carrinho') >= 0) {
+        conselho = 'Quem entra na pagina nao se convence. Preco contra o concorrente, variacao sem estoque e avaliacoes sem resposta sao as causas comuns.';
+      } else {
+        conselho = 'Quem guardou no carrinho nao fechou. Frete, prazo de entrega e o preco final na hora de pagar sao o que costuma travar.';
+      }
+      h += '<div style="font-size:13px;color:var(--t1);line-height:1.55;margin-top:10px;padding-top:9px;border-top:1px solid var(--li)">' +
+        '<b style="color:var(--t0)">A maior perda esta entre ' + pior.de.toLowerCase() + ' e ' + alvo + ':</b> de ' +
+        fmt(pior.tinham, 0) + ' que chegaram, ' + fmt(pior.ficaram, 0) + ' seguiram. ' +
+        '<span style="color:var(--rd)">Perde ' + fmt(pior.pct, 0) + '% aqui.</span><br>' + conselho + '</div>';
+    }
+    return h + '</div>';
+  }
+
   function cartaoProduto(c) {
     var co = CORES_SEM[c.nivel] || CORES_SEM.cinza;
     return '<div data-card="produto:' + esc(c.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:18px 19px;margin-bottom:12px">' +
@@ -5613,7 +5716,10 @@
       '</div>' +
       '<div style="font-size:12.5px;color:var(--t2);margin-bottom:7px;line-height:1.4">' + sig(String(c.nome).slice(0, 70)) + '</div>' +
       '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(c.texto) + '</div>' +
-      (c.acao ? '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:7px;line-height:1.5">\u2192 ' + esc(c.acao) + '</div>' : '') +
+      // O veredito diz O QUE; o funil mostra ONDE. Sem ele o analista sabe
+      // que ha problema e precisa ir procurar em qual degrau.
+      funilDoProduto(c.id) +
+      (c.acao ? '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:9px;line-height:1.5">\u2192 ' + esc(c.acao) + '</div>' : '') +
       '</div>';
   }
   function renderPerformanceIA() {
