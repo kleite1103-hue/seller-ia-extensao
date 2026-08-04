@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.64.0';
+  var VERSAO = '0.65.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2691,6 +2691,129 @@
     return h;
   }
 
+  /* ============ AS 24 HORAS ============
+     O padrao do dia nao aparece em nenhum numero consolidado. Nos dados
+     reais, a tarde consumia 42% do dinheiro e entregava 13% dos pedidos —
+     custando 8x mais por pedido que a noite, com CPM MENOR. Ou seja: nao se
+     paga mais por impressao, paga-se por impressao que nao converte. */
+  /* ============ O QUE A META RECOMENDADA REALMENTE E ============
+     Descoberta no campo recommendation_percentiles: exact = percentil 50,
+     lower_bound = percentil 80, upper_bound = percentil 20. Ou seja, a meta
+     que a Shopee sugere e a MEDIANA DA CATEGORIA — nao um calculo do custo
+     ou da margem deste lojista. E a categoria inclui quem vende sem margem
+     e quem esta queimando estoque. */
+  function renderPercentis() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    var P = D && D.algoritmo && D.algoritmo.percentis;
+    if (!P || P.exato == null) return '';
+
+    var margem = margemMediaCofre();
+    var piso = margem ? 100 / margem : null;
+
+    var h = olho('O QUE A META SUGERIDA REALMENTE SIGNIFICA', 'A Shopee entrega tres numeros de meta com os percentis de cada um. <b>Exato e o percentil 50: a mediana do que os outros vendedores da sua categoria praticam.</b> Nao e calculo do seu custo, da sua margem ou do seu ticket — ela olha onde os outros estao e sugere o meio.');
+
+    h += '<div class="leitura"><div class="fr">A meta que a Shopee sugere e <span class="w">a mediana da sua categoria</span>, nao um calculo do seu produto.</div>' +
+      '<div class="ex">Ela recomenda ' + fmt(P.exato, 1) + 'x porque metade dos vendedores da categoria opera acima disso e metade abaixo. Essa categoria inclui quem vende sem margem e quem esta queimando estoque \u2014 seguir a mediana e aceitar a media do mercado como objetivo.</div></div>';
+
+    h += '<div class="tres">' +
+      '<div><div class="v" style="color:var(--vd)">' + fmt(P.tetoCategoria, 1) + 'x</div><div class="l">SO ' + fmt(P.pctTeto, 0) + '% PEDEM MAIS</div><div class="s">os mais exigentes</div></div>' +
+      '<div><div class="v" style="color:var(--am)">' + fmt(P.exato, 1) + 'x</div><div class="l">A MEDIANA</div><div class="s">o que ela sugere</div></div>' +
+      '<div><div class="v" style="color:var(--t2)">' + fmt(P.pisoCategoria, 1) + 'x</div><div class="l">' + fmt(P.pctPiso, 0) + '% PEDEM MAIS</div><div class="s">os menos exigentes</div></div></div>';
+
+    if (piso) {
+      var abaixo = P.exato < piso;
+      h += '<div style="background:color-mix(in srgb,' + (abaixo ? 'var(--rd)' : 'var(--vd)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (abaixo ? 'var(--rd)' : 'var(--vd)') + ';border-radius:0 11px 11px 0;padding:14px 15px;margin-top:12px;font-size:14px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">Seu ponto de equilibrio e ' + fmt(piso, 1) + 'x</b>, pela margem cadastrada no Cofre. ' +
+        (abaixo
+          ? 'A mediana da categoria (' + fmt(P.exato, 1) + 'x) esta <b style="color:var(--rd)">abaixo do seu equilibrio</b>. Seguir a sugestao da Shopee faria cada venda sair no prejuizo — e explica por que a recomendacao dela nunca deve ser aceita sem confronto.'
+          : 'A mediana da categoria (' + fmt(P.exato, 1) + 'x) esta acima do seu equilibrio, entao ha espaco para trabalhar entre os dois.') +
+        '</div>';
+    } else {
+      h += '<div class="nota" style="color:var(--am)">Cadastre o custo no Cofre para saber se essa mediana cabe na sua margem. Sem isso, nao da para dizer se seguir a sugestao da Shopee da lucro ou prejuizo.</div>';
+    }
+    return h;
+  }
+
+  function renderHoras() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    var H = D && D.horas;
+    if (!H || !Object.keys(H).length) {
+      return olho('O DIA HORA A HORA') +
+        '<div class="nota" style="color:var(--am)">Esta leitura precisa da <b>leitura profunda</b>, que busca a serie hora a hora das campanhas. Rode na Conta 360.</div>';
+    }
+
+    var FAIXAS = [
+      { id: 'madrugada', rot: 'Madrugada', de: 0, ate: 5 },
+      { id: 'manha', rot: 'Manha', de: 6, ate: 11 },
+      { id: 'tarde', rot: 'Tarde', de: 12, ate: 17 },
+      { id: 'noite', rot: 'Noite', de: 18, ate: 23 }
+    ];
+    var res = [], totG = 0, totP = 0;
+    for (var f = 0; f < FAIXAS.length; f++) {
+      var F = FAIXAS[f], g = 0, im = 0, cl = 0, pd = 0, gm = 0;
+      for (var hh = F.de; hh <= F.ate; hh++) {
+        var a = H[hh]; if (!a) continue;
+        g += a.gasto; im += a.impressoes; cl += a.cliques; pd += a.pedidos; gm += a.gmv;
+      }
+      if (!im) continue;
+      totG += g; totP += pd;
+      res.push({
+        rot: F.rot, gasto: g, impressoes: im, cliques: cl, pedidos: pd, gmv: gm,
+        cpm: im ? g / im * 1000 : null,
+        ctr: im ? cl / im * 100 : null,
+        custoPedido: pd ? g / pd : null,
+        roas: g ? gm / g : null
+      });
+    }
+    if (!res.length) return '';
+
+    // a pior faixa: a que mais consome por pedido
+    var pior = null, melhor = null;
+    for (var i = 0; i < res.length; i++) {
+      if (res[i].custoPedido == null) continue;
+      if (!pior || res[i].custoPedido > pior.custoPedido) pior = res[i];
+      if (!melhor || res[i].custoPedido < melhor.custoPedido) melhor = res[i];
+    }
+
+    var h = olho('O DIA HORA A HORA', '<b>Nenhum numero consolidado mostra isto.</b> O total do dia mistura as faixas e some com o padrao. Aqui cada faixa aparece com o que gastou, o que entregou e quanto custou cada pedido nela. <b>CPM mais barato nao significa faixa melhor</b>: o que importa e quanto custa o pedido, nao a impressao.');
+
+    if (pior && melhor && pior !== melhor && pior.custoPedido > melhor.custoPedido * 2) {
+      var partG = totG ? pior.gasto / totG * 100 : 0;
+      var partP = totP ? pior.pedidos / totP * 100 : 0;
+      h += '<div class="leitura"><div class="fr">A <span class="d">' + pior.rot.toLowerCase() + ' consome ' + fmt(partG, 0) + '% do dinheiro e entrega ' + fmt(partP, 0) + '% dos pedidos</span>.</div>' +
+        '<div class="ex">Cada pedido ali custa ' + reais(pior.custoPedido) + ', contra ' + reais(melhor.custoPedido) + ' na ' + melhor.rot.toLowerCase() + '. ' +
+        (pior.cpm != null && melhor.cpm != null && pior.cpm <= melhor.cpm
+          ? 'E repare: o CPM da ' + pior.rot.toLowerCase() + ' nao e o mais caro. Voce nao paga mais por impressao — paga por impressao que nao converte.'
+          : '') + '</div></div>';
+    }
+
+    h += '<table><tr><th>FAIXA</th><th class="num">GASTO</th><th class="num">CPM</th><th class="num">CTR</th><th class="num">PEDIDOS</th><th class="num">CUSTO/PEDIDO</th></tr>';
+    for (i = 0; i < res.length; i++) {
+      var r = res[i];
+      var cor = (pior && r === pior) ? 'var(--rd)' : ((melhor && r === melhor) ? 'var(--vd)' : 'var(--t1)');
+      h += '<tr><td style="color:' + cor + '">' + r.rot + '</td>' +
+        '<td class="num">' + reais(r.gasto) + '</td>' +
+        '<td class="num">' + (r.cpm != null ? 'R$' + fmt(r.cpm, 2) : '\u2014') + '</td>' +
+        '<td class="num">' + (r.ctr != null ? fmt(r.ctr, 2) + '%' : '\u2014') + '</td>' +
+        '<td class="num">' + fmt(r.pedidos, 0) + '</td>' +
+        '<td class="num" style="color:' + cor + '">' + (r.custoPedido != null ? reais(r.custoPedido) : '\u2014') + '</td></tr>';
+    }
+    h += '</table>';
+
+    // orcamento que acaba antes do pico
+    var horasComGasto = [];
+    for (var hz = 0; hz < 24; hz++) if (H[hz] && H[hz].gasto > 0) horasComGasto.push(hz);
+    var ultima = horasComGasto.length ? horasComGasto[horasComGasto.length - 1] : null;
+    if (ultima != null && ultima < 20) {
+      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin-top:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">O gasto para as ' + ultima + 'h.</b> Depois disso a conta nao aparece mais na vitrine paga. ' +
+        'Se a noite converte melhor que o resto do dia, o orcamento esta acabando justamente antes do melhor horario.</div>';
+    }
+    return h;
+  }
+
   function renderConta360() {
     var D = null;
     try { if (window.SIA_Diamantes) D = window.SIA_Diamantes.resumo(); } catch (e) { }
@@ -3053,12 +3176,19 @@
       return n ? s / n : null;
     }
     var comCupom = 0;
-    for (i = 0; i < top.length; i++) if (top[i].cupom) comCupom++;
+    var comCupom2 = 0, comFrete = 0, comAds = 0;
+    for (i = 0; i < top.length; i++) {
+      if (top[i].cupom) comCupom2++;
+      if (top[i].freteGratis) comFrete++;
+      if (top[i].ads) comAds++;
+    }
+    comCupom = comCupom2;
     return {
       n: top.length, lider: top[0], top: top,
       preco: media('preco'), vendasMes: media('vendasMes'),
       faturamentoMes: media('faturamentoMes'), nota: media('nota'),
-      avaliacoes: media('avaliacoes'), comCupom: comCupom
+      avaliacoes: media('avaliacoes'), comCupom: comCupom,
+      comFrete: comFrete, comAds: comAds
     };
   }
 
@@ -3409,7 +3539,13 @@
         h += linha('Avaliacoes', m.avaliacoes != null ? fmt(m.avaliacoes, 0) : '—', b.avaliacoes != null ? fmt(b.avaliacoes, 0) : '—', lid.avaliacoes != null ? fmt(lid.avaliacoes, 0) : '—');
         h += linha('Nota', m.nota != null ? fmt(m.nota, 1) : '—', b.nota != null ? fmt(b.nota, 1) : '—', lid.nota != null ? fmt(lid.nota, 1) : '—');
         h += linha('Cupom', m.cupom ? 'sim' : 'nao', b.comCupom + ' de ' + b.n + ' tem', lid.cupom ? 'sim' : 'nao');
+        // as duas linhas que faltavam para completar as nove prometidas
+        h += linha('Frete gratis', m.freteGratis ? 'sim' : 'nao', (b.comFrete != null ? b.comFrete : 0) + ' de ' + b.n + ' tem', lid.freteGratis ? 'sim' : 'nao');
+        h += linha('Anuncio', m.ads ? 'pago' : 'organico', (b.comAds != null ? b.comAds : 0) + ' de ' + b.n + ' pagos', lid.ads ? 'pago' : 'organico');
         h += '</table>';
+        if (lid && !lid.ads && m.ads) {
+          h += '<div class="nota" style="color:var(--am)">O primeiro colocado esta em <b>organico</b> e voce esta pagando anuncio para ficar atras dele. Isso costuma ser diferenca de titulo, avaliacao ou preco, nao de investimento.</div>';
+        }
 
         var falta = (b.faturamentoMes != null && m.faturamentoMes != null) ? b.faturamentoMes - m.faturamentoMes : null;
         var faltaUn = (b.vendasMes != null && m.vendasMes != null) ? Math.round(b.vendasMes - m.vendasMes) : null;
@@ -3433,6 +3569,16 @@
         h += '<div style="font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.06em;margin:18px 0 8px">PALAVRAS QUE OS PRIMEIROS USAM E VOCE NAO' + dica('<b>Como isto e calculado:</b> quebramos o titulo dos cinco primeiros colocados desta busca e o seu, e listamos as palavras que aparecem em pelo menos dois deles e faltam no seu titulo. Palavras muito genericas ficam de fora. <b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego, onde nao ha historico a proteger.') + '</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
         for (var w = 0; w < dp.faltando.length; w++) {
           var vol = (estado.espiao.volumes || {})[dp.faltando[w].p];
+          if (vol == null) {
+            // tenta na lista de palavras que a coleta ja trouxe
+            try {
+              var Dk = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null;
+              var lk = (Dk && Dk.busca && Dk.busca.keywords) || [];
+              for (var vk = 0; vk < lk.length; vk++) {
+                if (String(lk[vk].termo).toLowerCase().indexOf(dp.faltando[w].p) >= 0) { vol = lk[vk].volume; break; }
+              }
+            } catch (e) { /* noop */ }
+          }
           h += '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--px);background:color-mix(in srgb,var(--px) 10%,transparent);border:1px solid var(--px);border-radius:99px;padding:4px 11px">' +
             esc(dp.faltando[w].p) + ' <span style="color:var(--t2)">' + dp.faltando[w].n + '/5</span>' +
             (vol ? ' <b style="color:var(--vd);font-weight:400">' + fmt(vol, 0) + '/mes</b>' : '') + '</span>';
@@ -5407,7 +5553,7 @@
       }
       // A planilha do Grupo e analise de ADS, nao de custo: estava no Cofre
       // por engano meu.
-      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + h2 + renderImportador();
+      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + renderPercentis() + renderHoras() + h2 + renderImportador();
       h2 += '</table><div class="nota">CPC derivado (gasto ÷ cliques) — os campos cpc/cpm da API interna nao batem com a tela e foram descartados. ROAS = broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
       ligarImportador();

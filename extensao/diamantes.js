@@ -759,6 +759,27 @@
     return 1;
   }
 
+  // ---- PERCENTIS DA CATEGORIA ----
+  // A meta que a Shopee recomenda e o percentil 50 da categoria: a mediana
+  // do que os OUTROS vendedores praticam, nao um calculo do seu produto.
+  function exPercentis(url, d) {
+    var cfg = ((d && d.data) || {}).ads_config || {};
+    var r2 = cfg.roi_two || {};
+    var rp = r2.recommendation_percentiles || cfg.recommendation_percentiles;
+    if (!rp && !r2.exact) return 0;
+    COFRE.algoritmo = COFRE.algoritmo || {};
+    COFRE.algoritmo.percentis = {
+      exato: r2.exact != null ? real(r2.exact) : null,
+      pisoCategoria: r2.lower_bound != null ? real(r2.lower_bound) : null,
+      tetoCategoria: r2.upper_bound != null ? real(r2.upper_bound) : null,
+      pctExato: rp ? n(rp.exact) : 50,
+      pctPiso: rp ? n(rp.lower_bound) : 80,
+      pctTeto: rp ? n(rp.upper_bound) : 20
+    };
+    logar('percentis', 'mediana da categoria ' + (COFRE.algoritmo.percentis.exato || '?') + 'x', url);
+    return 1;
+  }
+
   function exTempo(url, d) {
     var m = String(url).match(/campaign_id=(\d+)/);
     if (!m) return 0;
@@ -799,6 +820,24 @@
       alcanceMax: reachMax || null,
       posicaoMedia: rankN ? rankS / rankN : null
     };
+    // agrega por hora somando todas as campanhas: e assim que o padrao do
+    // dia aparece. Uma campanha sozinha tem pouco volume por hora.
+    COFRE.horas = COFRE.horas || {};
+    for (var hx = 0; hx < rbt.length; hx++) {
+      var px = rbt[hx] || {}; var mx = px.metrics || {};
+      var ts = n(px.key) || 0;
+      var hh = new Date((ts - 3 * 3600) * 1000).getUTCHours();
+      var acc = COFRE.horas[hh] || { gasto: 0, impressoes: 0, cliques: 0, atc: 0, checkout: 0, pedidos: 0, gmv: 0, rank: 0, rankN: 0 };
+      acc.gasto += (n(mx.cost) || 0) / 100000;
+      acc.impressoes += n(mx.impression) || 0;
+      acc.cliques += n(mx.click) || 0;
+      acc.atc += n(mx.atc) || 0;
+      acc.checkout += n(mx.checkout) || 0;
+      acc.pedidos += n(mx.broad_order) || 0;
+      acc.gmv += (n(mx.broad_gmv) || 0) / 100000;
+      if (mx.avg_rank) { acc.rank += n(mx.avg_rank); acc.rankN++; }
+      COFRE.horas[hh] = acc;
+    }
     COFRE.porCampanha[id] = pc;
     logar('tempo', 'campanha ' + id + ': ' + (frio ? 'em aprendizado' : 'aprendizado concluido') + (trocas.length ? ' \u00b7 ' + trocas.length + ' troca(s) de meta' : ''), url);
     return 1;
@@ -1109,6 +1148,7 @@
       if (/get_product_performance_info/.test(url)) exProduto(url, dados);
       if (/todo\/list_task/.test(url)) exTarefas(url, dados);
       if (/report\/get_time_graph/.test(url)) exTempo(url, dados);
+      if (/pas\/v1\/config\/get/.test(url)) exPercentis(url, dados);
       if (/list_recommended_keyword/.test(url)) exKeywords(url, dados);
       if (/product\/traffic\/overview/.test(url)) exOrigem(url, dados);
       if (/product\/overview\/metric-trends/.test(url)) exTendencia(url, dados);
