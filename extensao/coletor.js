@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.67.0';
+  var VERSAO = '0.68.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1446,6 +1446,20 @@
           var rc = await buscar('/api/pas/v1/homepage/query/?' + spcQ, 'POST', corpoC);
           totalChamadas++;
           if (!rc.ok || !rc.dados) break;
+          // PAUSADA COM MAIS DE 60 DIAS nao entra: a analise de pausada que
+          // rendia so faz sentido em campanha parada ha pouco tempo, com o
+          // produto ainda vivo. Acima disso e arqueologia, e so pesa a coleta.
+          if (faseAtual.estado === 'paused' && rc.dados.data && rc.dados.data.entry_list) {
+            var corte = Math.floor(Date.now() / 1000) - 60 * 86400;
+            rc.dados.data.entry_list = rc.dados.data.entry_list.filter(function (e) {
+              var c2 = e && e.campaign;
+              if (!c2) return false;
+              var fimC = c2.end_time && c2.end_time > 0 ? c2.end_time : null;
+              var iniC = c2.start_time || 0;
+              // usa o fim quando existe; senao o inicio, como aproximacao
+              return (fimC ? fimC >= corte : iniC >= corte);
+            });
+          }
           processarPacote({ url: '/api/pas/v1/homepage/query/', metodo: 'POST', corpo: corpoC, dados: rc.dados, ts: Date.now(), loja: lojaDoCiclo });
           var lote = rc.dados.data && rc.dados.data.entry_list ? rc.dados.data.entry_list.length : 0;
           prog((faseAtual.estado === 'ongoing' ? 'Campanhas ativas' : 'Campanhas pausadas') + ': ' + Object.keys(estado.campanhas).length + '...');
@@ -4532,15 +4546,40 @@
         (exato ? 'Abaixo, os termos parecidos com o volume de cada um. Termo grande traz mais gente e mais concorrente; termo pequeno traz menos gente e costuma converter melhor.'
                : 'Pode ser que ela use outra forma de escrever. Veja se algum dos termos abaixo e o que voce procurava.') +
         '</div></div>';
-      h += olho('TERMOS E VOLUME', 'O volume e o numero de buscas no mes, dito pela propria Shopee \u2014 nao e estimativa. Ela devolve os termos que considera relacionados ao que voce escreveu.');
-      h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
-      for (e = 0; e < Math.min(R.termos.length, 30); e++) {
-        var it = R.termos[e];
-        var forte = exato && it === exato;
-        h += '<tr><td' + (forte ? ' style="color:var(--t0);font-weight:600"' : '') + '>' + esc(it.termo) + '</td>' +
-          '<td class="num" style="color:var(--px)">' + fmt(it.volume, 0) + '</td></tr>';
+      // CAUDA CURTA x LONGA. Termo de 1 a 2 palavras e cauda curta: muito
+      // volume, muita disputa, intencao vaga. De 4 palavras para cima e cauda
+      // longa: menos gente, mas gente que ja sabe o que quer — costuma
+      // converter varias vezes mais e custa menos para disputar.
+      function palavras(s2) { return String(s2).trim().split(/\s+/).length; }
+      var curta = [], media2 = [], longa = [];
+      for (e = 0; e < R.termos.length; e++) {
+        var np = palavras(R.termos[e].termo);
+        (np <= 2 ? curta : (np <= 3 ? media2 : longa)).push(R.termos[e]);
       }
-      h += '</table>';
+      function tabela(rot, lista, cor, dicaTxt) {
+        if (!lista.length) return '';
+        var s3 = olho(rot, dicaTxt);
+        s3 += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
+        for (var q = 0; q < Math.min(lista.length, 15); q++) {
+          var forte = exato && lista[q] === exato;
+          s3 += '<tr><td' + (forte ? ' style="color:var(--t0);font-weight:600"' : '') + '>' + esc(lista[q].termo) + '</td>' +
+            '<td class="num" style="color:' + cor + '">' + fmt(lista[q].volume, 0) + '</td></tr>';
+        }
+        return s3 + '</table>';
+      }
+      h += tabela('CAUDA CURTA \u00b7 1 a 2 palavras', curta, 'var(--px)',
+        '<b>Muito volume, muita disputa.</b> Quem busca assim ainda esta decidindo o que quer, entao converte menos e o leilao e mais caro. Serve para descoberta e para gerar dado, nao para rentabilidade.');
+      h += tabela('CAUDA MEDIA \u00b7 3 palavras', media2, 'var(--am)',
+        'O meio do caminho: ja ha intencao, mas ainda ha volume. Costuma ser onde a maioria dos produtos disputa.');
+      h += tabela('CAUDA LONGA \u00b7 4 palavras ou mais', longa, 'var(--vd)',
+        '<b>Menos gente, mas gente que ja sabe o que quer.</b> Quem digita quatro palavras esta perto de comprar: converte varias vezes mais que a cauda curta e a disputa e menor. E onde produto pequeno consegue aparecer sem brigar com quem investe muito.');
+      if (longa.length && curta.length) {
+        var somaL = 0, somaC = 0;
+        for (e = 0; e < longa.length; e++) somaL += longa[e].volume;
+        for (e = 0; e < curta.length; e++) somaC += curta[e].volume;
+        h += '<div class="nota">A cauda curta soma ' + fmt(somaC, 0) + ' buscas e a longa ' + fmt(somaL, 0) + '. ' +
+          'A curta parece maior, mas a longa traz quem ja decidiu \u2014 e disputar nela custa menos.</div>';
+      }
       return h;
     }
 
@@ -4594,7 +4633,12 @@
     if (perdidas.length) {
       h += olho('TEM GENTE PROCURANDO E VOCE NAO APARECE', '<b>Como e calculado:</b> a Shopee devolve os termos que considera relevantes para a sua loja, com o volume mensal real. Cruzamos com os titulos dos seus produtos: se menos de 60% das palavras do termo estao neles, ele entra aqui.<br><br><b>Regra do metodo:</b> titulo de produto que ja vende nao se mexe. Isto serve para produto sem trafego.');
       h += '<table><tr><th>TERMO</th><th class="num">BUSCAS/MES</th></tr>';
-      for (k = 0; k < Math.min(perdidas.length, 25); k++) h += '<tr><td>' + esc(perdidas[k].t) + '</td><td class="num" style="color:var(--px)">' + fmt(perdidas[k].v, 0) + '</td></tr>';
+      for (k = 0; k < Math.min(perdidas.length, 25); k++) {
+        var nl = String(perdidas[k].t).trim().split(/\s+/).length;
+        h += '<tr><td>' + esc(perdidas[k].t) +
+          (nl >= 4 ? ' <span style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--vd);border:1px solid var(--vd);border-radius:99px;padding:1px 7px">cauda longa</span>' : '') +
+          '</td><td class="num" style="color:var(--px)">' + fmt(perdidas[k].v, 0) + '</td></tr>';
+      }
       h += '</table>';
     }
     if (usadas.length) {
