@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.72.0';
+  var VERSAO = '0.73.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -4459,6 +4459,120 @@
   /* Pausada nao gasta agora: deixar as duas na mesma tabela enche a lista de
      coisa que nao acontece mais. Ativas por padrao; as pausadas ficam atras
      de um clique e sao ordenadas por retorno, que e o que interessa nelas. */
+  /* ============ CARDS DE CAMPANHA ============
+     Tabela nao e analise: ela mostra numeros lado a lado e deixa a leitura
+     para o analista. Cada campanha agora vira um card com veredito, o que
+     esta acontecendo e o que fazer — como o analista faria. */
+  function cardCampanha(id) {
+    var c = estado.campanhas[id] || {};
+    var m = c.metricas || {};
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    var pcC = (D && D.porCampanha && D.porCampanha[id]) || {};
+
+    var gasto = m.gasto != null ? m.gasto : null;
+    var roas = m.roas != null ? m.roas : null;
+    var impr = m.impressoes != null ? m.impressoes : null;
+    var cliq = m.cliques != null ? m.cliques : null;
+    var ped = m.pedidos != null ? m.pedidos : 0;
+    var gmv = (gasto != null && roas != null) ? gasto * roas : null;
+    var ctr = impr ? (cliq || 0) / impr * 100 : null;
+    var cpc = cliq ? gasto / cliq : null;
+    var cpa = ped ? gasto / ped : null;
+    var cpm = impr ? gasto / impr * 1000 : null;
+    var meta = m.metaRoas != null ? m.metaRoas : (pcC.metaRoas != null ? pcC.metaRoas : null);
+    var pos = (pcC.leilao && pcC.leilao.posicao) || m.posicao || null;
+
+    var margem = margemMediaCofre();
+    var piso = margem ? 100 / margem : 4;
+    var temCofre = !!margem;
+
+    // regua da propria loja
+    var totCliq = 0, totPed = 0;
+    for (var k in estado.campanhas) {
+      var mm = estado.campanhas[k].metricas || {};
+      totCliq += mm.cliques || 0; totPed += mm.pedidos || 0;
+    }
+    var cliquesPorVenda = totPed ? totCliq / totPed : null;
+
+    var estadoC = String(c.estado || c.state || '').toLowerCase();
+    var pausada = (estadoC === 'paused' || estadoC === 'ended' || estadoC === 'closed');
+
+    // ---- VEREDITO ----
+    var nivel = 'cinza', titulo = 'Sem volume para julgar', texto = '', passos = [];
+    if (pausada) {
+      nivel = 'cinza'; titulo = 'Pausada';
+      texto = gmv ? 'Enquanto rodava, gerou ' + reais(gmv) + ' com ' + reais(gasto) + ' investidos.' : 'Nao gerou receita registrada no periodo.';
+      passos = gmv && roas >= piso ? ['Rendia acima do seu equilibrio: vale entender por que parou'] : [];
+    } else if (!gasto) {
+      nivel = 'cinza'; titulo = 'Sem investimento no periodo';
+      texto = 'Nao gastou nada neste recorte. Pode estar sem saldo, fora do ar ou com orcamento zerado.';
+      passos = ['Confira saldo e orcamento diario'];
+    } else if (ped === 0 && cliquesPorVenda && cliq < cliquesPorVenda) {
+      nivel = 'cinza'; titulo = 'Ainda cedo para julgar';
+      texto = 'Gastou ' + reais(gasto) + ' e comprou ' + fmt(cliq, 0) + ' cliques. Nesta loja, cada venda custa cerca de ' + fmt(cliquesPorVenda, 0) + ' cliques.';
+      passos = ['Reavalie quando passar de ' + fmt(cliquesPorVenda, 0) + ' cliques'];
+    } else if (ped === 0) {
+      nivel = 'vermelho';
+      if (ctr != null && ctr < 1.8) {
+        titulo = 'Paga para aparecer e recebe pouco clique';
+        texto = 'De cada 100 que veem, ' + fmt(ctr, 1) + ' clicam — o normal e ao menos 2. ' + reais(gasto) + ' gastos sem venda.';
+        passos = ['A primeira foto e o preco no card decidem o clique', 'Compare com quem aparece na mesma busca'];
+      } else {
+        titulo = 'Recebe clique e nao vende';
+        texto = fmt(cliq, 0) + ' cliques, ' + reais(gasto) + ' gastos e nenhuma venda. O card funciona; o freio esta na pagina.';
+        passos = ['Abra a pagina no celular', 'Preco, variacao sem estoque e avaliacoes sem resposta sao as causas comuns'];
+      }
+    } else if (roas != null && roas < piso) {
+      nivel = 'vermelho'; titulo = 'Vende, mas abaixo do seu equilibrio';
+      var perda = gasto * (roas * ((margem || 25) / 100) - 1);
+      texto = 'Entrega ' + fmt(roas, 1) + 'x e o equilibrio e ' + fmt(piso, 1) + 'x. ' +
+        (perda < 0 ? 'Resultado no periodo: ' + reais(perda) + '.' : '') +
+        (temCofre ? '' : ' Margem assumida de 25% — cadastre o custo no Cofre.');
+      passos = ['Suba a meta em degraus de 20% e meca 7 dias', 'Se o volume cair sem o lucro subir, o problema e a pagina'];
+    } else if (roas != null && roas >= piso * 1.5) {
+      nivel = 'verde'; titulo = 'Aqui cabe mais investimento';
+      texto = 'Entrega ' + fmt(roas, 1) + 'x contra o equilibrio de ' + fmt(piso, 1) + 'x. ' + reais(gmv) + ' com ' + reais(gasto) + '.';
+      passos = ['Suba o orcamento em 20%, nao mais que isso de uma vez', 'Meca 7 dias antes do proximo aumento'];
+    } else {
+      nivel = 'amarelo'; titulo = 'Dentro do esperado';
+      texto = 'Entrega ' + fmt(roas, 1) + 'x, acima do equilibrio de ' + fmt(piso, 1) + 'x, mas sem folga para escalar com seguranca.';
+      passos = ['Melhore a pagina antes de subir orcamento'];
+    }
+
+    var co = CORES_SEM[nivel] || CORES_SEM.cinza;
+    var h = '<div data-card="campanha:' + esc(id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:17px 18px;margin-bottom:11px">';
+    h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">' +
+      '<span style="flex:1;font-size:16.5px;font-weight:600;color:var(--t0);line-height:1.3">' + esc(titulo) + '</span>' +
+      (gasto != null ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(gasto) + '</span>' : '') + '</div>';
+    h += '<div style="font-size:12.5px;color:var(--t2);margin-bottom:9px;line-height:1.4">' + sig(String(c.nome || c.titulo || ('Campanha ' + id)).slice(0, 62)) +
+      (meta ? ' <span style="font-family:Space Mono,monospace;color:var(--t3)">meta ' + fmt(meta, 1) + 'x</span>' : '') +
+      (pos ? ' <span style="font-family:Space Mono,monospace;color:var(--t3)">pos ' + fmt(pos, 0) + '</span>' : '') + '</div>';
+
+    // os numeros que sustentam o veredito
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:1px;background:var(--li);border:1px solid var(--li);border-radius:10px;overflow:hidden;margin-bottom:10px">';
+    function celula(rot, val2, cor) {
+      return '<div style="background:var(--b2);padding:9px 6px;text-align:center">' +
+        '<div style="font-family:Space Mono,monospace;font-size:13px;color:' + (cor || 'var(--t0)') + '">' + val2 + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:3px">' + rot + '</div></div>';
+    }
+    h += celula('ROAS', roas != null ? fmt(roas, 1) + 'x' : '\u2014', roas != null ? (roas >= piso ? 'var(--vd)' : 'var(--rd)') : null);
+    h += celula('CTR', ctr != null ? fmt(ctr, 1) + '%' : '\u2014', ctr != null && ctr < 1.8 ? 'var(--am)' : null);
+    h += celula('CPC', cpc != null ? 'R$' + fmt(cpc, 2) : '\u2014');
+    h += celula('CPA', cpa != null ? 'R$' + fmt(cpa, 2) : '\u2014');
+    h += celula('CPM', cpm != null ? 'R$' + fmt(cpm, 2) : '\u2014');
+    h += celula('PEDIDOS', fmt(ped, 0));
+    h += '</div>';
+
+    h += '<div style="font-size:14px;color:var(--t1);line-height:1.6">' + esc(texto) + '</div>';
+    if (passos.length) {
+      h += '<div style="font-size:13.5px;color:' + co.dot + ';margin-top:8px;line-height:1.6">';
+      for (var q = 0; q < passos.length; q++) h += '\u2192 ' + esc(passos[q]) + '<br>';
+      h += '</div>';
+    }
+    return h + '</div>';
+  }
+
   function renderFiltroCampanhas() {
     var ativas = 0, pausadas = 0;
     for (var k in estado.campanhas) {
@@ -5763,31 +5877,31 @@
       ligarImportador();
         return;
       }
-      idsC.sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); });
-      var h2 = '<table><tr><th>Campanha</th><th>Estado</th><th>Estrategia</th><th class="num">Orc/dia</th>' +
-        '<th class="num">Gasto</th><th class="num">GMV</th><th class="num">ROAS</th><th class="num">CTR</th>' +
-        '<th class="num">CPC</th><th class="num">Pedidos</th><th class="num">Pos.</th></tr>';
-      for (var j = 0; j < idsC.length; j++) {
-        var c = estado.campanhas[idsC[j]];
-        var m = c.metricas;
-        var roasC = m.roas !== undefined ? m.roas : (m.gasto ? (m.gmv || 0) / m.gasto : null);
-        var ctrC = m.ctr !== undefined ? (m.ctr <= 1 ? m.ctr * 100 : m.ctr) : (m.impressoes ? (m.cliques || 0) / m.impressoes * 100 : null);
-        var cpcC = m.gasto && m.cliques ? m.gasto / m.cliques : null;
-        var estadoTxt = c.estado === 'ongoing' ? 'Ativa' : (c.estado === 'paused' ? 'Pausada' : (c.estado || '—'));
-        h2 += '<tr data-card="campanha:' + esc(idsC[j]) + '" style="cursor:pointer"><td class="nome">' + esc(c.nome || '(sem nome)') + ' <span style="color:var(--mk);font-family:monospace;font-size:9px">abrir ›</span></td>' +
-          '<td>' + esc(estadoTxt) + '</td><td>' + esc(c.estrategia || '—') + '</td>' +
-          '<td class="num">' + (m.orcamento_dia === 0 ? 'Sem limite' : reais(m.orcamento_dia)) + '</td>' +
-          '<td class="num">' + reais(m.gasto) + '</td><td class="num">' + reais(m.gmv) + '</td>' +
-          '<td class="num">' + (roasC === null ? '—' : fmt(roasC, 2) + 'x') + '</td>' +
-          '<td class="num">' + (ctrC === null ? '—' : fmt(ctrC, 2) + '%') + '</td>' +
-          '<td class="num">' + (cpcC === null ? '—' : reais(cpcC)) + '</td>' +
-          '<td class="num">' + fmt(m.pedidos) + '</td>' +
-          '<td class="num">' + (m.posicao === undefined ? '—' : fmt(m.posicao, 0)) + '</td></tr>';
+      if (!estado.verPausadas) {
+        idsC.sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); });
       }
-      // A planilha do Grupo e analise de ADS, nao de custo: estava no Cofre
-      // por engano meu.
+
+      // CARDS EM VEZ DE TABELA: tabela mostra numeros lado a lado e deixa a
+      // leitura para o analista. Cada campanha vira um card com veredito,
+      // as metricas que sustentam e o que fazer.
+      var vermC = [], amarC = [], verdC = [], cinzaC = [];
+      for (var j = 0; j < idsC.length; j++) {
+        var htmlC = cardCampanha(idsC[j]);
+        if (htmlC.indexOf('var(--rd)') >= 0 && htmlC.indexOf('border-left:3px solid var(--rd)') >= 0) vermC.push(htmlC);
+        else if (htmlC.indexOf('border-left:3px solid var(--am)') >= 0) amarC.push(htmlC);
+        else if (htmlC.indexOf('border-left:3px solid var(--vd)') >= 0) verdC.push(htmlC);
+        else cinzaC.push(htmlC);
+      }
+      var h2 = '';
+      if (vermC.length) h2 += olho('CUSTANDO DINHEIRO (' + vermC.length + ')', 'Ordenado por quanto cada uma gasta. Resolver a primeira vale mais que resolver as ultimas juntas.') + vermC.slice(0, 12).join('');
+      if (verdC.length) h2 += olho('ONDE CABE MAIS INVESTIMENTO (' + verdC.length + ')', 'Entregam acima do seu ponto de equilibrio com folga. Subir orcamento aqui e o crescimento mais barato da conta.') + verdC.slice(0, 8).join('');
+      if (amarC.length) h2 += olho('DENTRO DO ESPERADO (' + amarC.length + ')', 'Acima do equilibrio, mas sem folga para escalar com seguranca.') + amarC.slice(0, 8).join('');
+      if (cinzaC.length) h2 += olho('SEM VOLUME PARA JULGAR (' + cinzaC.length + ')', 'Sem investimento no periodo ou com poucos cliques para concluir qualquer coisa.') + cinzaC.slice(0, 6).join('');
+      var totalMostrado = Math.min(vermC.length, 12) + Math.min(verdC.length, 8) + Math.min(amarC.length, 8) + Math.min(cinzaC.length, 6);
+      if (idsC.length > totalMostrado) h2 += '<div class="nota">Mostrando ' + totalMostrado + ' de ' + idsC.length + ' campanhas, as de maior investimento em cada grupo.</div>';
+
       h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + renderPercentis() + renderHoras() + renderFiltroCampanhas() + h2 + renderImportador();
-      h2 += '</table><div class="nota">CPC derivado (gasto ÷ cliques) — os campos cpc/cpm da API interna nao batem com a tela e foram descartados. ROAS = broad_roi da Shopee.</div>';
+      h2 += '<div class="nota">CPC e CPM sao derivados de gasto dividido por cliques e por impressoes: os campos cpc e cpm da API nao sao taxa e foram descartados. ROAS e o broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
       ligarImportador();
 
