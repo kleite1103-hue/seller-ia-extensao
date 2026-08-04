@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.77.0';
+  var VERSAO = '0.78.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1909,7 +1909,7 @@
     { id: 'performance', rotulo: 'Funil de Produto' },
     { id: 'gprod', rotulo: 'Shopee Ads' },
     { id: 'espiao', rotulo: 'Espiao' },
-    { id: 'cofre', rotulo: 'Cofre' },
+    { id: 'cofre', rotulo: 'Precificacao' },
     { id: 'palavras', rotulo: 'Palavras' },
     { id: 'relatorio', rotulo: 'Relatorio' },
     { id: 'diagnostico', rotulo: 'Especialista' },
@@ -1918,8 +1918,8 @@
   // grupos: uma aba de cima abre varias telas por dentro
   var SUB = {
     cofre: [
-      { id: 'cofre', rotulo: 'Custos por produto' },
-      { id: 'calc', rotulo: 'Calculadora de margem' }
+      { id: 'cofre', rotulo: 'Por quanto vender' },
+      { id: 'calc', rotulo: 'Margem de um preco' }
     ],
     gprod: [
       { id: 'campanhas', rotulo: 'Campanhas' }
@@ -5114,6 +5114,26 @@
       if (!epochDoMes(sel) || !epochDoMes(mesAnterior(sel))) {
         estado.rel.erro = 'Este mes ainda nao tem dia fechado na Shopee. Escolha outro.'; render(); return;
       }
+      // MES EM CURSO: comparar 3 dias de agosto com 31 de julho produz
+      // quedas falsas que parecem desempenho e nao sao. Ou equaliza os dias,
+      // ou nao gera.
+      var fA2 = epochDoMes(sel), fB2 = epochDoMes(mesAnterior(sel));
+      if (fA2 && fB2) {
+        var diasA = Math.round((fA2.fim - fA2.inicio) / 86400);
+        var diasB = Math.round((fB2.fim - fB2.inicio) / 86400);
+        if (diasA < diasB * 0.6) {
+          if (diasA < 7) {
+            estado.rel.erro = 'O mes escolhido tem apenas ' + diasA + ' dia' + (diasA > 1 ? 's' : '') +
+              ' de dados, e o anterior tem ' + diasB + '. Comparar os dois produziria quedas que sao so a diferenca de tamanho do periodo, nao de desempenho. ' +
+              'Escolha um mes ja fechado, ou espere passar pelo menos uma semana.';
+            estado.rel.gerando = false; render(); return;
+          }
+          // equaliza: usa os mesmos N dias no mes anterior
+          estado.rel.equalizado = diasA;
+        } else {
+          estado.rel.equalizado = null;
+        }
+      }
       if (!estado.loja || !estado.loja.shop_id) {
         estado.rel.erro = 'Ainda nao identifiquei a loja. Navegue uma vez pelo painel da Shopee e tente de novo.'; render(); return;
       }
@@ -5189,7 +5209,12 @@
         setTimeout(function () {
           var pr = coletaCompleta(function (p) {
             if (p) { estado.rel.etapa = 'Mes anterior: ' + p; render(); }
-          }, epochDoMes(mesAnterior(sel)));
+          }, (function () {
+          var fb = epochDoMes(mesAnterior(sel));
+          // mesmo numero de dias, contados do inicio do mes anterior
+          if (fb && estado.rel.equalizado) fb = { inicio: fb.inicio, fim: fb.inicio + estado.rel.equalizado * 86400 };
+          return fb;
+        })());
           if (pr && pr.then) { pr.then(function () { concluirB(); }); return; }
           esperaB = setInterval(function () {
             if (Date.now() - t1 > LIMITE_MS) { clearInterval(esperaB); desistir('A leitura do mes anterior demorou demais e foi interrompida.'); return; }
@@ -5226,6 +5251,7 @@
 
           estado.rel.etapa = 'O consultor esta escrevendo...'; render();
           var payload = {
+            equalizado: estado.rel.equalizado || null,
             loja: estado.loja ? estado.loja.shop_id : 'desconhecida',
             loja_nome: estado.loja ? estado.loja.nome : '',
             margemMediaPct: margemMediaCofre(),
@@ -5665,6 +5691,107 @@
     if (!/[a-zA-Zà-úÀ-Ú]{4}/.test(nome)) return false;
     return true;
   }
+  /* ============ CALCULADORA DE PRECIFICACAO ============
+     O Cofre deixou de ser lista de custos — isso agora vive no card do Ads,
+     onde a decisao acontece. Aqui fica a pergunta que antecede tudo: dado
+     este custo e esta margem alvo, por quanto eu preciso vender? */
+  function renderPrecificacao() {
+    var C = estado.precific || {};
+    function campo(id2, rot, valor, sufixo, ajuda) {
+      return '<div><div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-bottom:5px">' + rot + '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+        '<input data-prec="' + id2 + '" value="' + esc(String(valor || '')) + '" placeholder="0,00" ' +
+        'style="flex:1;background:var(--b2);border:1px solid var(--li);border-radius:8px;padding:10px 11px;color:var(--t0);font-family:Space Mono,monospace;font-size:14px">' +
+        (sufixo ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2)">' + sufixo + '</span>' : '') + '</div>' +
+        (ajuda ? '<div style="font-size:11.5px;color:var(--t3);margin-top:4px;line-height:1.4">' + ajuda + '</div>' : '') + '</div>';
+    }
+
+    var h = '<div class="leitura"><div class="fr">Por quanto preciso vender?</div>' +
+      '<div class="ex">Voce diz o custo e quanto quer que sobre. A conta devolve o preco, ja com a comissao da Shopee, embalagem e imposto descontados — e o ROAS minimo que esse preco sustenta.</div></div>';
+
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+      campo('custo', 'Custo do produto', C.custo, 'R$', 'o que voce paga ao fornecedor') +
+      campo('margem', 'Margem que quer', C.margem, '%', 'quanto do preco final quer que sobre') +
+      '</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
+      campo('embalagem', 'Embalagem', C.embalagem, 'R$', 'caixa, plastico, etiqueta') +
+      campo('imposto', 'Imposto', C.imposto, '%', 'sobre o preco de venda') +
+      '</div>';
+
+    var custo = numeroPuro(C.custo), margem = numeroPuro(C.margem);
+    if (!custo || !margem) {
+      return h + '<div class="nota">Preencha o custo e a margem para ver o preco.</div>';
+    }
+    var emb = numeroPuro(C.embalagem) || 0, imp = numeroPuro(C.imposto) || 0;
+
+    // resolve o preco: preco = custo + emb + comissao(preco) + imposto(preco) + margem(preco)
+    // a comissao muda de faixa conforme o preco, entao testa faixa a faixa
+    function comissaoDe(p2) {
+      if (p2 < 80) return p2 * 0.20 + 4;
+      if (p2 < 100) return p2 * 0.14 + 16;
+      if (p2 < 200) return p2 * 0.14 + 20;
+      return p2 * 0.14 + 26;
+    }
+    var preco = null;
+    for (var faixa = 0; faixa < 4; faixa++) {
+      var pct = faixa === 0 ? 0.20 : 0.14;
+      var fixo = faixa === 0 ? 4 : (faixa === 1 ? 16 : (faixa === 2 ? 20 : 26));
+      // preco*(1 - pct - imp/100 - margem/100) = custo + emb + fixo
+      var div = 1 - pct - (imp / 100) - (margem / 100);
+      if (div <= 0) continue;
+      var cand = (custo + emb + fixo) / div;
+      var limites = [80, 100, 200, Infinity];
+      var minimo = faixa === 0 ? 0 : limites[faixa - 1];
+      if (cand >= minimo && cand < limites[faixa]) { preco = cand; break; }
+    }
+    if (!preco) {
+      return h + '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px;font-size:14px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">Essa margem nao cabe.</b> Somando comissao e imposto, nao existe preco que deixe ' + fmt(margem, 0) + '% sobrando com esse custo. Reduza a margem alvo ou o custo.</div>';
+    }
+
+    var com = comissaoDe(preco);
+    var impV = preco * (imp / 100);
+    var sobra = preco - com - custo - emb - impV;
+    var pisoRoasP = 100 / margem;
+
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:13px;padding:17px;margin-bottom:12px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">O PRECO QUE ENTREGA ESSA MARGEM</div>' +
+      '<div style="font-family:Bebas Neue,sans-serif;font-size:46px;line-height:1;color:var(--mk)">' + reais(preco) + '</div>' +
+      '<div style="font-size:13.5px;color:var(--t2);margin-top:6px">deixa ' + reais(sobra) + ' por venda</div></div>';
+
+    function ln2(rot, v2, cor) {
+      return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:5px 0;color:' + (cor || 'var(--t1)') + '">' +
+        '<span>' + rot + '</span><span style="font-family:Space Mono,monospace">' + v2 + '</span></div>';
+    }
+    h += olho('DE ONDE SAI CADA REAL');
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:14px">';
+    h += ln2('Preco de venda', reais(preco), 'var(--t0)');
+    h += ln2('\u2212 Comissao Shopee', '\u2212 ' + reais(com), 'var(--t2)');
+    h += ln2('\u2212 Custo do produto', '\u2212 ' + reais(custo), 'var(--t2)');
+    if (emb) h += ln2('\u2212 Embalagem', '\u2212 ' + reais(emb), 'var(--t2)');
+    if (impV) h += ln2('\u2212 Imposto', '\u2212 ' + reais(impV), 'var(--t2)');
+    h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--li);margin-top:8px;padding-top:9px">' +
+      '<span style="font-size:15px;font-weight:600;color:var(--t0)">Sobra</span>' +
+      '<span style="font-family:Bebas Neue,sans-serif;font-size:26px;color:var(--vd)">' + reais(sobra) + '</span></div></div>';
+
+    h += olho('O QUE ISSO SIGNIFICA PARA O ANUNCIO', 'Com esta margem, cada real investido em Shopee Ads precisa devolver pelo menos este valor para a venda nao sair no prejuizo. Abaixo disso voce paga para vender.');
+    h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 12px 12px 0;padding:15px 16px;font-size:14.5px;color:var(--t1);line-height:1.55">' +
+      '<b style="color:var(--t0)">ROAS minimo: ' + fmt(pisoRoasP, 1) + 'x</b><br>' +
+      'Com margem de ' + fmt(margem, 0) + '%, abaixo de ' + fmt(pisoRoasP, 1) + 'x cada venda sai no negativo. ' +
+      'Para ter folga de verdade, trabalhe a partir de ' + fmt(pisoRoasP * 1.5, 1) + 'x.</div>';
+
+    if (preco < 80) {
+      var precoAcima = null;
+      for (var d2 = 80; d2 < 140; d2 += 1) {
+        var s2 = d2 - comissaoDe(d2) - custo - emb - d2 * (imp / 100);
+        if ((s2 / d2) * 100 >= margem) { precoAcima = d2; break; }
+      }
+      h += '<div class="nota" style="margin-top:12px">Este preco esta na faixa de comissao mais cara (20% + R$ 4). ' +
+        (precoAcima ? 'Um kit ou combo a partir de ' + reais(precoAcima) + ' cai para 14% + R$ 16 e entrega a mesma margem com menos esforco de venda.' : 'Passar de R$ 80 muda a faixa para 14% + R$ 16.') + '</div>';
+    }
+    return h;
+  }
+
   function renderCofre() {
     if (!estado.cofre) estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
     var cf = estado.cofre;
@@ -6141,13 +6268,20 @@
     }
 
     if (abaAtiva === 'calc') {
-      corpo.innerHTML = capa('QUANTO SOBRA', 'O', 'COFRE', '05') + renderSubAbas('cofre') + renderCalculadora();
+      corpo.innerHTML = capa('POR QUANTO VENDER', 'A', 'PRECIFICACAO', '05') + renderSubAbas('cofre') + renderCalculadora();
       ligarCalculadora();
       return;
     }
 
     if (abaAtiva === 'cofre') {
-      corpo.innerHTML = capa('QUANTO SOBRA', 'O', 'COFRE', '05') + renderSubAbas('cofre') + renderCofre();
+      // O Cofre virou calculadora de precificacao: a lista de custos foi para
+      // o card do Ads, onde a decisao acontece.
+      corpo.innerHTML = capa('POR QUANTO VENDER', 'A', 'PRECIFICACAO', '05') + renderSubAbas('cofre') + renderPrecificacao();
+      var pi = corpoEl().querySelectorAll('[data-prec]');
+      for (var pj = 0; pj < pi.length; pj++) {
+        pi[pj].addEventListener('input', function () { estado.precific[this.getAttribute('data-prec')] = this.value; });
+        pi[pj].addEventListener('blur', function () { estado.sujo = true; render(); });
+      }
       ligarCofre();
       return;
     }

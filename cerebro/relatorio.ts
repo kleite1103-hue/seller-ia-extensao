@@ -55,6 +55,9 @@ function montarDados(b: any) {
   L.push(`LOJA: ${b.loja_nome || b.loja || "nao informado"}`);
   L.push(`PERIODO ATUAL: ${A.periodo || "nao informado"}`);
   L.push(`PERIODO ANTERIOR: ${P.periodo || "nao informado"}`);
+  if (body.equalizado) {
+    L.push(`ATENCAO: o mes atual esta EM CURSO, com ${body.equalizado} dias. Para a comparacao ser honesta, o periodo anterior foi recortado nos mesmos ${body.equalizado} primeiros dias. Diga isso no relatorio e NUNCA projete o mes inteiro a partir de dados parciais sem avisar que e projecao.`);
+  }
   if (n(b.margemMediaPct) !== null) {
     L.push(`MARGEM LIQUIDA MEDIA INFORMADA PELO LOJISTA: ${pc(b.margemMediaPct)}`);
     L.push(`PISO DE ROAS DESTA CONTA (1/margem): ${(100 / Number(b.margemMediaPct)).toFixed(2).replace(".", ",")}x`);
@@ -71,6 +74,19 @@ function montarDados(b: any) {
   L.push(linha("Cancelamentos", cA.cancelamentos, cP.cancelamentos, nu));
   L.push(linha("Visualizacoes de pagina", cA.visualizacoes, cP.visualizacoes, nu));
   L.push(linha("Adicoes ao carrinho", cA.carrinho, cP.carrinho, nu));
+
+  // REGRA QUE FALTAVA: investimento caindo mais que o GMV e ganho de
+  // eficiencia, nao piora. Sem isto o relatorio le queda de faturamento como
+  // problema de desempenho quando a conta so investiu menos.
+  const invA = n(aA.investimento), invP = n(aP.investimento);
+  const gmvA = n(cA.gmvPago), gmvP = n(cP.gmvPago);
+  if (invA !== null && invP && gmvA !== null && gmvP) {
+    const quedaInv = (1 - invA / invP) * 100;
+    const quedaGmv = (1 - gmvA / gmvP) * 100;
+    if (quedaInv > 20 && quedaInv > quedaGmv + 10) {
+      L.push(`\nLEITURA OBRIGATORIA: o investimento caiu ${quedaInv.toFixed(0)}% e o GMV caiu ${quedaGmv.toFixed(0)}%. Cada real investido rendeu ${(gmvA / invA).toFixed(1)}x contra ${(gmvP / invP).toFixed(1)}x no periodo anterior. Isso e GANHO DE EFICIENCIA, nao piora de desempenho: a conta vendeu menos porque investiu menos, e nao porque perdeu capacidade. Nao trate a queda de faturamento como problema sem dizer isso primeiro.`);
+    }
+  }
 
   L.push("\n== SHOPEE ADS ==");
   L.push(linha("Investimento", aA.investimento, aP.investimento, br));
