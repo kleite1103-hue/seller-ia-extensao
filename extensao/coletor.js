@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.74.0';
+  var VERSAO = '0.75.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1363,6 +1363,7 @@
     var travaSeguranca = null;
     lojaDoCiclo = estado.loja ? estado.loja.shop_id : null;
     estado.faltando = [];
+    MAPA_ADS = null;
     estado.diarioColeta = { etapas: [], periodo: null };
     // leitura de periodo passado nao representa o estado atual da conta
     estado.leituraHistorica = !!periodoForcado;
@@ -1947,6 +1948,10 @@
         // sem isto o clique e capturado pela linha e o href nunca e seguido
         if (el.getAttribute('data-link-externo')) return;
         if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
+        var xc = el.getAttribute && el.getAttribute('data-cofre-excluir');
+        if (xc) { excluirDoCofre(xc); return; }
+        var ec = el.getAttribute && el.getAttribute('data-exp-camp');
+        if (ec) { estado.campExpandida = (estado.campExpandida === ec) ? null : ec; render(); return; }
         var mde = el.getAttribute && el.getAttribute('data-modo-esp');
         if (mde) { estado.espiaoModo = mde; render(); return; }
         if (el.id === 'sia-esp-analisar') {
@@ -2380,6 +2385,15 @@
       return;
     }
     if (coletaJaTentada) return;
+    // NAO auto-disparar quando ja ha dado lido. Antes, abrir a Conta 360
+    // iniciava uma coleta a cada render — e coleta rodando bloqueia o
+    // relatorio, que foi o que travou o teste.
+    if (Object.keys(estado.produtos).length || Object.keys(estado.campanhas).length) {
+      coletaJaTentada = true;
+      if (status) { status.textContent = 'conta ja lida. Toque em Coletar para atualizar.'; status.style.color = 'var(--t2)'; }
+      return;
+    }
+    if (estado.rel && estado.rel.gerando) return;   // relatorio em andamento manda
     if (estado.spc) {
       coletaJaTentada = true;
       if (status) { status.textContent = 'iniciando coleta…'; status.style.color = 'var(--t2)'; }
@@ -3321,6 +3335,7 @@
     for (id in estado.produtos) {
       var p = estado.produtos[id];
       if (!ehProdutoDeVerdade(p && p.nome)) continue;
+      if (estado.cofre.ocultos && estado.cofre.ocultos[id]) continue;
       if (!p || !p.nome) continue;
       // linhas que nao sao produto entram na lista de "produtos" da coleta
       // (credito de Ads, saldo, ajuste). Buscar isso na vitrine e ruido.
@@ -3749,6 +3764,7 @@
     for (id in (C.porProduto || {})) {
       if (estado.produtos[id]) continue;
       if (!ehProdutoDeVerdade(C.porProduto[id] && C.porProduto[id].nome)) continue;
+      if (estado.cofre.ocultos && estado.cofre.ocultos[id]) continue;
       out.push({ id: id, nome: (C.porProduto[id].nome) || ('Produto ' + id) });
     }
     return out;
@@ -4601,6 +4617,58 @@
       for (var q = 0; q < passos.length; q++) h += '\u2192 ' + esc(passos[q]) + '<br>';
       h += '</div>';
     }
+    // ---- EXPANDIR: margem, leilao e o que a Shopee sabe ----
+    var aberto = estado.campExpandida === String(id);
+    h += '<div data-exp-camp="' + esc(id) + '" style="margin-top:10px;padding-top:9px;border-top:1px solid var(--li);font-family:Space Mono,monospace;font-size:10.5px;color:var(--mk);cursor:pointer">' +
+      (aberto ? '\u2303 fechar analise' : '\u2304 analisar margem e leilao') + '</div>';
+
+    if (aberto) {
+      var idProd = c.produtoId || campanhaDoProduto(c.produtoId);
+      var pr = idProd ? (estado.produtos[idProd] || {}) : {};
+      var mp2 = pr.metricas || {};
+      var ticket = mp2.ticket_pedido || (mp2.vendas_pagas && mp2.pedidos_pagos ? mp2.vendas_pagas / mp2.pedidos_pagos : (ped && gmv ? gmv / ped : null));
+      var custo = (estado.cofre && estado.cofre.custos && idProd) ? estado.cofre.custos[idProd] : null;
+
+      h += '<div style="background:var(--b1);border:1px solid var(--li);border-radius:11px;padding:13px;margin-top:10px">';
+      h += '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:9px">A CONTA DE UM PEDIDO</div>';
+      if (ticket) {
+        var com2 = ticket < 80 ? ticket * 0.20 + 4 : (ticket < 100 ? ticket * 0.14 + 16 : (ticket < 200 ? ticket * 0.14 + 20 : ticket * 0.14 + 26));
+        var adsPorPedido = cpa || 0;
+        function ln(rot, val3, cor) {
+          return '<div style="display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0;color:' + (cor || 'var(--t1)') + '">' +
+            '<span>' + rot + '</span><span style="font-family:Space Mono,monospace">' + val3 + '</span></div>';
+        }
+        h += ln('Ticket medio', reais(ticket));
+        h += ln('\u2212 Comissao Shopee', '\u2212 ' + reais(com2), 'var(--t2)');
+        if (adsPorPedido) h += ln('\u2212 Ads por pedido', '\u2212 ' + reais(adsPorPedido), 'var(--t2)');
+        if (custo) h += ln('\u2212 Custo do produto', '\u2212 ' + reais(custo), 'var(--t2)');
+        var sobra = ticket - com2 - adsPorPedido - (custo || 0);
+        h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--li);margin-top:7px;padding-top:8px">' +
+          '<span style="font-size:14px;font-weight:600;color:var(--t0)">' + (custo ? 'Lucro por pedido' : 'Sobra antes do custo') + '</span>' +
+          '<span style="font-family:Bebas Neue,sans-serif;font-size:24px;color:' + (sobra > 0 ? 'var(--vd)' : 'var(--rd)') + '">' + reais(sobra) + '</span></div>';
+        if (!custo) {
+          h += '<div style="font-size:12.5px;color:var(--am);margin-top:7px;line-height:1.5">Falta o custo deste produto. Cadastre na aba <b>Cofre</b> e esta sobra vira lucro de verdade, com o piso de ROAS calculado pela margem real.</div>';
+        } else {
+          var margemReal = (sobra / ticket) * 100;
+          h += '<div style="font-size:12.5px;color:var(--t2);margin-top:7px;line-height:1.5">Margem de <b style="color:var(--t0)">' + fmt(margemReal, 1) + '%</b> por pedido. Seu ponto de equilibrio nesta campanha e <b style="color:var(--t0)">' + fmt(100 / Math.max(margemReal, 0.1), 1) + 'x</b>.</div>';
+        }
+      } else {
+        h += '<div class="nota">Sem ticket medio para este produto nesta leitura.</div>';
+      }
+      h += '</div>';
+
+      // o que a Shopee sabe
+      var compet = pr.competitividade != null ? pr.competitividade : (pcC.competitividade != null ? pcC.competitividade : null);
+      h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:1px;background:var(--li);border:1px solid var(--li);border-radius:10px;overflow:hidden;margin-top:9px">';
+      h += celula('POSICAO', pos != null ? fmt(pos, 0) : '\u2014', pos != null && pos > 30 ? 'var(--rd)' : null);
+      h += celula('COMPETITIVIDADE', compet != null ? fmt(compet, 0) + '/100' : '\u2014', compet != null && compet < 40 ? 'var(--rd)' : null);
+      h += celula('IMPRESSOES', impr != null ? fmt(impr, 0) : '\u2014');
+      h += celula('GMV', gmv != null ? reais(gmv) : '\u2014');
+      h += '</div>';
+      if (pos == null && compet == null) {
+        h += '<div class="nota">Posicao no leilao e competitividade vem na leitura profunda.</div>';
+      }
+    }
     return h + '</div>';
   }
 
@@ -4663,18 +4731,58 @@
     inp.addEventListener('change', function () {
       var f = inp.files && inp.files[0];
       if (!f) return;
+      // A Shopee baixa XLSX. Exigir que a pessoa converta para CSV e jogar
+      // trabalho para cima dela — o importador tem que aceitar o arquivo do
+      // jeito que sai da plataforma.
+      var ehXlsx = /\.xlsx?$/i.test(f.name);
       var fr = new FileReader();
       fr.onload = function () {
         try {
-          estado.grupoImportado = lerCsvGrupo(String(fr.result || ''), f.name);
+          var texto;
+          if (ehXlsx) texto = textoDoXlsx(new Uint8Array(fr.result));
+          else texto = String(fr.result || '');
+          estado.grupoImportado = lerCsvGrupo(texto, f.name);
           estado.sujo = true; render();
         } catch (e) {
-          mostrarExpl('<b>Nao consegui ler a planilha.</b> ' + esc(String(e && e.message || e)) + ' Se for XLSX, salve como CSV e tente de novo.');
+          mostrarExpl('<b>Nao consegui ler a planilha.</b> ' + esc(String(e && e.message || e)) +
+            '<br><br>Se persistir, abra o arquivo e me diga quais sao os nomes das colunas \u2014 posso ensinar o leitor a reconhece-los.');
         }
       };
-      fr.readAsText(f, 'utf-8');
+      if (ehXlsx) fr.readAsArrayBuffer(f); else fr.readAsText(f, 'utf-8');
     });
   }
+  /* ---- LER XLSX SEM BIBLIOTECA ----
+     Um .xlsx e um zip com XML dentro. Sem descompactar de verdade, da para
+     achar as strings e os valores no sheet1 e remontar as linhas. Funciona
+     para planilha simples de exportacao, que e o caso da Shopee. */
+  function textoDoXlsx(bytes) {
+    var bruto = '';
+    for (var i = 0; i < bytes.length; i++) bruto += String.fromCharCode(bytes[i]);
+    // os xlsx da Shopee costumam vir sem compressao nos XML pequenos; quando
+    // vem comprimido, o texto legivel ainda aparece em blocos
+    var sst = [];
+    var reT = /<t[^>]*>([^<]*)<\/t>/g, m;
+    while ((m = reT.exec(bruto)) !== null) sst.push(m[1]);
+    if (!sst.length) throw new Error('nao consegui abrir o XLSX. Salve como CSV no Excel e tente de novo');
+
+    var linhas = [], atual = [], ultimaLinha = null;
+    var reC = /<c r="([A-Z]+)(\d+)"([^>]*)>(?:<v>([^<]*)<\/v>)?/g;
+    while ((m = reC.exec(bruto)) !== null) {
+      var linha = m[2], attrs = m[3] || '', val = m[4];
+      if (ultimaLinha !== null && linha !== ultimaLinha) { linhas.push(atual); atual = []; }
+      ultimaLinha = linha;
+      var v2 = '';
+      if (val != null) {
+        if (/t="s"/.test(attrs)) { var idx = parseInt(val, 10); v2 = sst[idx] != null ? sst[idx] : ''; }
+        else v2 = val;
+      }
+      atual.push(String(v2).replace(/;/g, ','));
+    }
+    if (atual.length) linhas.push(atual);
+    if (linhas.length < 2) throw new Error('a planilha parece vazia ou em formato que nao consigo ler');
+    return linhas.map(function (l) { return l.join(';'); }).join('\n');
+  }
+
   function lerCsvGrupo(txt, nome) {
     var sep = (txt.indexOf(';') >= 0 && txt.indexOf(';') < txt.indexOf('\n')) ? ';' : ',';
     var linhas = txt.split(/\r?\n/).filter(function (l) { return l.trim(); });
@@ -4686,11 +4794,13 @@
       }
       return -1;
     }
-    var iNome = acha('produto', 'anúncio', 'anuncio', 'item', 'nome');
-    var iGasto = acha('despesa', 'gasto', 'investimento', 'custo');
-    var iRoas = acha('roas', 'retorno');
-    var iPed = acha('pedido', 'conversõ', 'conversao', 'vendas');
-    if (iNome < 0) throw new Error('nao achei a coluna de produto');
+    var iNome = acha('produto', 'anúncio', 'anuncio', 'item', 'nome', 'titulo', 'título', 'sku');
+    var iGasto = acha('despesa', 'gasto', 'investimento', 'custo', 'expense', 'spend');
+    var iRoas = acha('roas', 'retorno', 'roi');
+    var iPed = acha('pedido', 'conversõ', 'conversao', 'venda', 'order');
+    if (iNome < 0) {
+      throw new Error('nao achei a coluna de produto. As colunas que li foram: ' + cab.slice(0, 8).join(', '));
+    }
     var out = [];
     for (var l = 1; l < linhas.length; l++) {
       var col = linhas[l].split(sep).map(function (x) { return x.replace(/^"|"$/g, '').trim(); });
@@ -5432,6 +5542,15 @@
   // Linhas que nao sao produto entram na coleta (credito de Ads, saldo,
   // recarga, ajuste). No Cofre, onde se cadastra CUSTO, elas nao fazem
   // sentido nenhuma — nao se compra credito de Ads de fornecedor.
+  function excluirDoCofre(id) {
+    if (!estado.cofre.custos) estado.cofre.custos = {};
+    delete estado.cofre.custos[id];
+    estado.cofre.ocultos = estado.cofre.ocultos || {};
+    estado.cofre.ocultos[id] = true;
+    salvarCofre();
+    estado.sujo = true;
+    render();
+  }
   function ehProdutoDeVerdade(nome) {
     if (!nome) return false;
     if (/cr[eé]dito|saldo|recarga|ajuste|reembolso|taxa|cupom da loja|voucher|bonifica|desconto da loja|frete gr[aá]tis/i.test(nome)) return false;
@@ -5480,10 +5599,12 @@
       var cst = custoDe(it.id);
       h += '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--li)">' +
         '<span style="width:6px;height:6px;border-radius:50%;background:' + (cst ? 'var(--vd)' : 'var(--li2)') + ';flex:none"></span>' +
-        '<span style="flex:1;font-size:12px;color:var(--t1);min-width:0">' + esc(String(it.nome).slice(0, 46)) + '</span>' +
+        '<span style="flex:1;font-size:13px;color:var(--t1);min-width:0">' + sig(String(it.nome).slice(0, 46)) + '</span>' +
         (it.gmv ? '<span style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2)">' + reais(it.gmv) + '</span>' : '') +
         '<input data-custo="' + esc(it.id) + '" value="' + (cst ? String(cst).replace('.', ',') : '') + '" placeholder="custo" ' +
-        'style="width:84px;background:var(--b1);border:1px solid ' + (cst ? 'var(--vd)' : 'var(--li)') + ';border-radius:7px;padding:6px 8px;color:var(--t0);font-family:monospace;font-size:12px;text-align:right"></div>';
+        'style="width:84px;background:var(--b1);border:1px solid ' + (cst ? 'var(--vd)' : 'var(--li)') + ';border-radius:7px;padding:6px 8px;color:var(--t0);font-family:monospace;font-size:12.5px;text-align:right">' +
+        '<span data-cofre-excluir="' + esc(it.id) + '" title="tirar da lista" style="flex:none;color:var(--t3);cursor:pointer;font-size:16px;padding:0 4px">\u00d7</span>' +
+        '</div>';
     }
     h += '<div class="nota">Comece pelos de cima — eles concentram o faturamento. Nao precisa cadastrar todos hoje.</div>';
     return h;
@@ -5604,9 +5725,14 @@
     // 6) converte bem e ninguem esta empurrando
     if (conv != null && conv >= 2) {
       r.nivel = 'verde';
-      r.titulo = (d.campaignId || perf.temAds) ? 'Vende bem e ja tem anuncio' : 'Vende bem sem nenhum anuncio';
+      // usa o mapa completo: campaignId sozinho falhava e o produto com
+      // campanha ativa aparecia como se nao tivesse anuncio
+      var comAds = !!(d.campaignId || perf.temAds || produtoTemAds(d.id || d.itemid));
+      r.titulo = comAds ? 'Vende bem e ja tem anuncio' : 'Vende bem sem nenhum anuncio';
       r.texto = 'De cada 100 pessoas que entram na pagina, ' + fmt(conv, 1) + ' compram. A media da loja e mais baixa que isso.';
-      r.acao = (d.campaignId || perf.temAds) ? 'Suba o orcamento em 20% e reavalie em 7 dias, uma mudanca por vez.' : 'A pagina ja vende sozinha. E o produto mais barato para comecar a anunciar, porque voce paga por visita que ja sabe converter.';
+      r.acao = comAds
+        ? 'Suba o orcamento em 20%, meca 7 dias e so entao suba de novo. Uma mudanca por vez: mexer em meta e orcamento juntos impede saber o que funcionou.'
+        : 'A pagina ja vende sozinha. E o produto mais barato para comecar a anunciar, porque voce paga por visita que ja sabe converter.';
       return r;
     }
     r.nivel = 'verde';
@@ -5639,6 +5765,34 @@
      O veredito diz O QUE esta errado; o funil mostra ONDE. Cada degrau com
      quantas pessoas passaram e quantas ficaram, e o pior nomeado — porque
      melhorar um degrau que ja esta bom rende quase nada. */
+  /* Um produto tem anuncio se QUALQUER campanha aponta para ele. Antes so
+     olhavamos o campaignId gravado no proprio produto, que nem sempre vem —
+     por isso um produto com campanha ativa aparecia como "vende bem sem
+     nenhum anuncio", e a dica errada ia junto. */
+  var MAPA_ADS = null;
+  function produtoTemAds(id) {
+    if (!id) return false;
+    if (!MAPA_ADS) {
+      MAPA_ADS = {};
+      var D = null;
+      try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+      // 1) pelo produto
+      var PP = (D && D.porProduto) || {};
+      for (var k in PP) if (PP[k] && PP[k].campaignId) MAPA_ADS[k] = PP[k].campaignId;
+      // 2) pela campanha (caminho inverso, que estava faltando)
+      for (k in estado.campanhas) {
+        var c = estado.campanhas[k];
+        if (c && c.produtoId) MAPA_ADS[String(c.produtoId)] = k;
+        var lst = c && c.mpd && c.mpd.item_list;
+        if (lst) for (var i = 0; i < lst.length; i++) MAPA_ADS[String(lst[i])] = k;
+      }
+      var PC = (D && D.porCampanha) || {};
+      for (k in PC) if (PC[k] && PC[k].produtoId) MAPA_ADS[String(PC[k].produtoId)] = k;
+    }
+    return !!MAPA_ADS[String(id)];
+  }
+  function campanhaDoProduto(id) { produtoTemAds(id); return MAPA_ADS[String(id)] || null; }
+
   function funilDoProduto(id) {
     var p = estado.produtos[id] || {};
     var m = p.metricas || {};
