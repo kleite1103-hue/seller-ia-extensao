@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.62.0';
+  var VERSAO = '0.62.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2649,16 +2649,16 @@
 
     var grave = P.perdaPct >= 15;
     var naoPagos = P.totalColocado - P.totalConfirmado;
-    var h = olho('PEDIDOS QUE NAO FORAM PAGOS', 'O comprador finalizou o pedido e nao pagou: boleto vencido, Pix nao concluido ou cartao recusado. O painel da Shopee deixa filtrar pago ou nao pago, mas nao mostra a TAXA entre os dois ao longo dos dias \u2014 e e a taxa que revela se e normal da categoria ou se algo mudou no seu checkout.');
+    var h = olho('PEDIDOS QUE NAO FORAM PAGOS', 'O comprador finalizou o pedido e nao pagou: boleto vencido, Pix nao concluido ou cartao recusado. O vendedor nao escolhe os meios de pagamento na Shopee, entao o que da para mexer e o que acontece ANTES de pagar: cupom, frete e lembrete por chat. O painel deixa filtrar pago ou nao pago, mas nao mostra a TAXA entre os dois ao longo dos dias \u2014 e e a taxa que revela se e normal da categoria ou se algo mudou no seu checkout.');
     h += '<div style="background:color-mix(in srgb,' + (grave ? 'var(--rd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (grave ? 'var(--rd)' : 'var(--am)') + ';border-radius:0 12px 12px 0;padding:15px 16px;margin-bottom:12px">' +
       '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">' + fmt(naoPagos, 0) + ' pedidos nao foram pagos (' + fmt(P.perdaPct, 1) + '%)</div>' +
       '<div style="font-size:14px;color:var(--t1);line-height:1.55">De ' + fmt(P.totalColocado, 0) + ' pedidos feitos no periodo, ' + fmt(P.totalConfirmado, 0) + ' foram pagos. ' +
       (P.diasRuins ? 'Em ' + P.diasRuins + ' dia' + (P.diasRuins > 1 ? 's' : '') + ' a taxa passou de 10%.' : '') +
       ' Ate 10% e comum quando ha boleto; acima disso vale investigar.</div>' +
       '<div style="font-size:13.5px;color:' + (grave ? 'var(--rd)' : 'var(--am)') + ';margin-top:8px;line-height:1.55">' +
-      '\u2192 Boleto costuma ter a maior perda: veja se compensa desativar<br>' +
       '\u2192 Cupom com valor minimo alto faz desistir na hora de pagar<br>' +
-      '\u2192 Frete que so aparece no fim do checkout derruba pedido pronto</div></div>';
+      '\u2192 Frete que so aparece no fim do checkout derruba pedido pronto<br>' +
+      '\u2192 Use Transmissao por Chat para lembrar quem gerou boleto e nao pagou</div></div>';
     return h;
   }
 
