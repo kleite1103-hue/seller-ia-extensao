@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.81.0';
+  var VERSAO = '0.82.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1625,7 +1625,16 @@
           { u: '/api/marketing/v3/voucher/list/?' + spcQ + '&limit=50&offset=0&voucher_type=1&voucher_status=1', m: 'GET', c: null },
           { u: '/api/marketing/v4/shop_flash_sale/get_shop_flash_sale_list/?' + spcQ + '&limit=50&offset=0&status=1', m: 'GET', c: null },
           { u: '/api/marketing/v3/public/discount/list/?' + spcQ, m: 'POST', c: JSON.stringify({ limit: 50, offset: 0, status: 1 }) },
-          { u: '/api/marketing/v4/public/get_marketing_tool_list/?' + spcQ, m: 'GET', c: null }
+          { u: '/api/marketing/v4/public/get_marketing_tool_list/?' + spcQ, m: 'GET', c: null },
+          // CAMPANHAS OFICIAIS DA SHOPEE (liquidacao 8.8, datas comemorativas):
+          // a conta pode estar convidada e nao ter inscrito produto nenhum.
+          { u: '/api/marketing/v4/public/get_marketing_center_campaign_list/?' + spcQ, m: 'GET', c: null },
+          // QUAIS FERRAMENTAS A CONTA TEM LIBERADAS
+          { u: '/api/marketing/v4/public/get_toggle/?' + spcQ, m: 'GET', c: null },
+          // RETORNO DE CADA FERRAMENTA no periodo
+          { u: '/api/marketing/v3/public/discount/metrics/?' + spcQ, m: 'POST', c: JSON.stringify({ start_time: ini, end_time: fim }) },
+          { u: '/api/marketing/v3/voucher/promotion_tool/metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim, m: 'GET', c: null },
+          { u: '/api/marketing/v3/bundle_deal/metrics/?' + spcQ, m: 'POST', c: JSON.stringify({ start_time: ini, end_time: fim }) }
         ];
         for (var rm = 0; rm < rotasMkt.length; rm++) {
           var R2 = rotasMkt[rm];
@@ -5166,6 +5175,73 @@
           '<td class="num">' + (A.usados != null ? fmt(A.usados, 0) + (A.limite ? '/' + fmt(A.limite, 0) : '') : '\u2014') + '</td></tr>';
       }
       h += '</table>';
+    }
+
+    // ---- CAMPANHAS DA SHOPEE ----
+    var of = M.oficiais || [];
+    var abertas = of.filter(function (c) { return c.fim && c.fim > agora; });
+    if (abertas.length) {
+      var semInscricao = abertas.filter(function (c) { return !c.inscritos; });
+      h += olho('CAMPANHAS DA SHOPEE ABERTAS (' + abertas.length + ')', 'Sao as campanhas oficiais da plataforma \u2014 liquidacao 8.8, datas comemorativas. <b>Participar coloca o produto em vitrine que a loja nao alcanca sozinha, e nao custa verba de anuncio.</b> Estar convidada e nao inscrever nenhum produto e deixar alcance gratuito na mesa.');
+      if (semInscricao.length) {
+        h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+          '<b style="color:var(--t0)">' + semInscricao.length + ' campanha(s) sem nenhum produto inscrito.</b> ' +
+          'A loja foi convidada e nao entrou \u2014 e vitrine gratuita que esta passando batido.</div>';
+      }
+      h += '<table><tr><th>CAMPANHA</th><th class="num">TERMINA</th><th class="num">PRODUTOS</th></tr>';
+      for (var oi = 0; oi < Math.min(abertas.length, 8); oi++) {
+        var O = abertas[oi];
+        h += '<tr><td>' + esc(String(O.nome).slice(0, 42)) + '</td>' +
+          '<td class="num">' + dataBr(O.fim) + '</td>' +
+          '<td class="num" style="color:' + (O.inscritos ? 'var(--vd)' : 'var(--px)') + '">' + (O.inscritos || 'nenhum') + '</td></tr>';
+      }
+      h += '</table>';
+    }
+
+    // ---- RETORNO DE CADA FERRAMENTA ----
+    var R3 = M.retorno || {};
+    var temRet = Object.keys(R3).some(function (k) { return R3[k] && R3[k].vendas; });
+    if (temRet) {
+      h += olho('QUANTO CADA FERRAMENTA DEVOLVEU', 'Vendas atribuidas a cada ferramenta no periodo lido, com a variacao contra o periodo anterior. Serve para saber onde vale insistir: ferramenta que nao devolve nada esta so ocupando espaco na gestao.');
+      h += '<table><tr><th>FERRAMENTA</th><th class="num">VENDAS</th><th class="num">PEDIDOS</th><th class="num">VARIACAO</th></tr>';
+      var ROT_F = { desconto: 'Desconto', cupom: 'Cupom', combo: 'Combo', geral: 'Geral' };
+      for (var rk in R3) {
+        var F = R3[rk];
+        if (!F || (!F.vendas && !F.pedidos)) continue;
+        h += '<tr><td>' + (ROT_F[rk] || rk) + '</td>' +
+          '<td class="num">' + (F.vendas != null ? reais(F.vendas) : '\u2014') + '</td>' +
+          '<td class="num">' + (F.pedidos != null ? fmt(F.pedidos, 0) : '\u2014') + '</td>' +
+          '<td class="num" style="color:' + (F.varVendas > 0 ? 'var(--vd)' : (F.varVendas < 0 ? 'var(--rd)' : 'var(--t2)')) + '">' +
+          (F.varVendas != null ? (F.varVendas >= 0 ? '+' : '') + fmt(F.varVendas, 0) + '%' : '\u2014') + '</td></tr>';
+      }
+      h += '</table>';
+    }
+
+    // ---- FERRAMENTAS LIBERADAS E NAO USADAS ----
+    var L2 = M.liberadas;
+    if (L2) {
+      var usadas2 = {
+        cupom: (M.cupons || []).some(function (x) { return x.ativo; }),
+        relampagoLoja: (M.relampago || []).some(function (x) { return x.ativo; }),
+        desconto: (M.descontos || []).some(function (x) { return x.ativo; })
+      };
+      var ROT_L = {
+        relampagoLoja: 'Oferta Relampago da Loja', desconto: 'Desconto de produto', cupom: 'Cupom da loja',
+        combo: 'Leve Mais por Menos', compreJunto: 'Compre Junto', premioSeguidor: 'Premio de seguidor',
+        jogoDaLoja: 'Jogo da loja', campanhaShopee: 'Campanhas da Shopee', freteSubsidiado: 'Frete subsidiado'
+      };
+      var ociosas = [];
+      for (var lk in ROT_L) {
+        if (L2[lk] && !usadas2[lk]) ociosas.push(ROT_L[lk]);
+      }
+      if (ociosas.length) {
+        h += olho('LIBERADAS E SEM USO (' + ociosas.length + ')', 'Ferramentas que a Shopee habilitou para esta conta e que nao tem nada ativo. Nao significa que todas devam ser ligadas \u2014 significa que estao disponiveis e nao custam verba de anuncio.');
+        h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+        for (var oc = 0; oc < ociosas.length; oc++) {
+          h += '<span style="font-family:Space Mono,monospace;font-size:11px;padding:6px 11px;border-radius:99px;border:1px solid var(--li2);color:var(--t2)">' + esc(ociosas[oc]) + '</span>';
+        }
+        h += '</div>';
+      }
     }
 
     // cupom criado e nao usado

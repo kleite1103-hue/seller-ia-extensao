@@ -818,6 +818,55 @@
       logar('marketing_relampago', COFRE.marketing.relampago.length + ' ofertas relampago', url);
       return 1;
     }
+    // CAMPANHAS OFICIAIS DA SHOPEE — liquidacao 8.8, datas comemorativas.
+    // A conta pode estar convidada e nao ter inscrito nenhum produto: e
+    // trafego gratuito de vitrine que fica parado.
+    if (/get_marketing_center_campaign_list/.test(url)) {
+      var lc = dd.campaign_list || [];
+      COFRE.marketing.oficiais = lc.map(function (c) {
+        return {
+          id: String(c.campaign_id), nome: c.campaign_name,
+          inicio: n(c.campaign_start_time), fim: n(c.campaign_end_time),
+          tipo: c.campaign_scene, status: c.status,
+          inscritos: n(c.registered_item_count) || 0,
+          url: c.url
+        };
+      });
+      logar('marketing_oficiais', COFRE.marketing.oficiais.length + ' campanhas da Shopee', url);
+      return 1;
+    }
+    // QUAIS FERRAMENTAS A CONTA TEM LIBERADAS
+    if (/public\/get_toggle/.test(url)) {
+      COFRE.marketing.liberadas = {
+        relampagoLoja: !!dd.enable_shop_flash_sale,
+        relampagoShopee: !!dd.enable_flash_sale,
+        desconto: !!dd.enable_seller_discount,
+        cupom: !!dd.enable_seller_voucher,
+        combo: !!dd.enable_bundle_deal,
+        compreJunto: !!dd.sz_enable_add_on_deal,
+        premioSeguidor: !!dd.enable_follow_prize,
+        jogoDaLoja: !!dd.sz_enable_shop_game,
+        campanhaShopee: !!dd.enable_seller_campaign,
+        freteSubsidiado: !!dd.enable_logistics_promotion
+      };
+      logar('marketing_toggles', 'ferramentas liberadas lidas', url);
+      return 1;
+    }
+    // RETORNO DE CADA FERRAMENTA no periodo
+    if (/metrics/.test(url)) {
+      var mm2 = dd.data || dd.metrics || dd;
+      if (!mm2 || typeof mm2 !== 'object') return 0;
+      COFRE.marketing.retorno = COFRE.marketing.retorno || {};
+      var qual = /discount/.test(url) ? 'desconto' : (/voucher/.test(url) ? 'cupom' : (/bundle/.test(url) ? 'combo' : 'geral'));
+      COFRE.marketing.retorno[qual] = {
+        vendas: n(mm2.sales), pedidos: n(mm2.orders), compradores: n(mm2.buyers), unidades: n(mm2.units),
+        usados: n(mm2.used), taxaUso: mm2.usage_rate != null ? n(mm2.usage_rate) * 100 : null,
+        varVendas: mm2.sales_pct_diff != null ? n(mm2.sales_pct_diff) * 100 : null,
+        varPedidos: mm2.orders_pct_diff != null ? n(mm2.orders_pct_diff) * 100 : null
+      };
+      logar('marketing_retorno', qual + ': ' + (n(mm2.sales) || 0) + ' em vendas', url);
+      return 1;
+    }
     if (/discount\/list/.test(url)) {
       var ld = dd.discount_list || dd.list || (Array.isArray(dd) ? dd : []);
       COFRE.marketing.descontos = ld.map(function (x) {
