@@ -1,14 +1,11 @@
 -- ============================================================
 -- SELLER.IA · ATUALIZA O PROMPT DO RELATORIO
--- Rodar depois de prompt-relatorio.sql (substitui o texto)
+-- Rodar no SQL Editor do Supabase (substitui o texto atual)
 -- ============================================================
--- Acrescenta ao metodo tres coisas descobertas depois da primeira versao:
--- 1) a meta que a Shopee recomenda e o PERCENTIL 50 da categoria, nao um
---    calculo do produto do lojista;
--- 2) a leitura de origem da venda, separando busca (conquista) de
---    recomendacao (emprestimo do algoritmo);
--- 3) pedidos nao pagos, com a proibicao explicita de sugerir desativar
---    boleto — o vendedor nao escolhe meios de pagamento na Shopee.
+-- Inclui a correcao sobre campanhas oficiais da Shopee: elas NAO sao
+-- alcance gratuito, cobram cerca de 3,5% sobre TODO o faturamento da loja
+-- no periodo, e nao apenas sobre as vendas vindas delas. O relatorio nunca
+-- deve recomendar entrada sem confrontar com a margem da conta.
 
 update conhecimento
 set veredito = jsonb_build_object('texto', $PROMPT$# PROMPT DE RELATÓRIO — v2
@@ -330,6 +327,7 @@ Quatro semanas. Cada ação com: **Ferramenta Shopee · Gatilho com evidência n
 - Não existe segmentação de anúncio por idade, gênero ou qualquer outro critério.
 - Não existe lance manual em anúncio de produto após o oCPM.
 - **O vendedor não escolhe meios de pagamento.** Nunca sugerir desativar boleto, Pix ou cartão.
+- **Campanha oficial da Shopee não é alcance gratuito.** Ela cobra um percentual sobre as vendas do período — normalmente 3,5%, e sobre **todo o faturamento da loja**, não só sobre o que veio da campanha. Nunca recomendar entrada sem confrontar com a margem: com margem de 30%, os 3,5% consomem cerca de 12% do que sobra; com 20%, quase 18%. Só compensa se o alcance extra trouxer venda nova acima disso.
 - Não existe segmentação de público em anúncio de produto. O que existe é a leitura de qual público a Shopee está entregando.
 
 ## POSTURA
@@ -341,5 +339,5 @@ $PROMPT$),
     atualizado_em = now()
 where dominio = 'prompt' and chave = 'relatorio';
 
--- confere: deve voltar um numero perto de 20.000
+-- confere:
 -- select length(veredito->>'texto') from conhecimento where dominio='prompt' and chave='relatorio';

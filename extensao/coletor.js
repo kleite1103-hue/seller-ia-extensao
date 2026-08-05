@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.82.0';
+  var VERSAO = '0.82.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -5182,12 +5182,19 @@
     var abertas = of.filter(function (c) { return c.fim && c.fim > agora; });
     if (abertas.length) {
       var semInscricao = abertas.filter(function (c) { return !c.inscritos; });
-      h += olho('CAMPANHAS DA SHOPEE ABERTAS (' + abertas.length + ')', 'Sao as campanhas oficiais da plataforma \u2014 liquidacao 8.8, datas comemorativas. <b>Participar coloca o produto em vitrine que a loja nao alcanca sozinha, e nao custa verba de anuncio.</b> Estar convidada e nao inscrever nenhum produto e deixar alcance gratuito na mesa.');
-      if (semInscricao.length) {
-        h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
-          '<b style="color:var(--t0)">' + semInscricao.length + ' campanha(s) sem nenhum produto inscrito.</b> ' +
-          'A loja foi convidada e nao entrou \u2014 e vitrine gratuita que esta passando batido.</div>';
-      }
+      // CORRECAO: eu tinha escrito que participar "nao custa verba de anuncio",
+      // como se fosse alcance gratuito. A Karina corrigiu: a campanha cobra
+      // 3,5% sobre TODAS as vendas da loja no periodo, nao so sobre as vendas
+      // vindas dela. Isso muda a conta inteira e nao da para recomendar
+      // entrada sem confrontar com a margem.
+      var margemMkt = margemMediaCofre();
+      h += olho('CAMPANHAS DA SHOPEE ABERTAS (' + abertas.length + ')', '<b>Participar nao e gratuito.</b> A Shopee cobra um percentual sobre as vendas da loja no periodo da campanha \u2014 normalmente 3,5%, e sobre TODAS as vendas, nao apenas as que vieram dela. Em troca, o produto entra em vitrine que a loja nao alcanca sozinha.<br><br><b>A conta que decide:</b> o ganho de alcance precisa cobrir o percentual cobrado sobre o faturamento inteiro. Loja de margem apertada raramente compensa.');
+      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">Antes de entrar, faca a conta.</b> A taxa costuma ser de 3,5% sobre todo o faturamento do periodo. ' +
+        (margemMkt
+          ? 'Com a sua margem de ' + fmt(margemMkt, 0) + '%, isso consome <b style="color:var(--t0)">' + fmt((3.5 / margemMkt) * 100, 0) + '% do que sobra</b> em cada venda \u2014 inclusive nas que voce faria de qualquer jeito.'
+          : 'Cadastre o custo dos produtos para eu calcular quanto isso consome da sua margem.') +
+        ' So compensa se o alcance extra trouxer venda nova acima disso.</div>';
       h += '<table><tr><th>CAMPANHA</th><th class="num">TERMINA</th><th class="num">PRODUTOS</th></tr>';
       for (var oi = 0; oi < Math.min(abertas.length, 8); oi++) {
         var O = abertas[oi];

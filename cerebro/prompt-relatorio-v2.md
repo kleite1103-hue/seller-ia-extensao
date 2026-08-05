@@ -317,6 +317,7 @@ Quatro semanas. Cada ação com: **Ferramenta Shopee · Gatilho com evidência n
 - Não existe segmentação de anúncio por idade, gênero ou qualquer outro critério.
 - Não existe lance manual em anúncio de produto após o oCPM.
 - **O vendedor não escolhe meios de pagamento.** Nunca sugerir desativar boleto, Pix ou cartão.
+- **Campanha oficial da Shopee não é alcance gratuito.** Ela cobra um percentual sobre as vendas do período — normalmente 3,5%, e sobre **todo o faturamento da loja**, não só sobre o que veio da campanha. Nunca recomendar entrada sem confrontar com a margem: com margem de 30%, os 3,5% consomem cerca de 12% do que sobra; com 20%, quase 18%. Só compensa se o alcance extra trouxer venda nova acima disso.
 - Não existe segmentação de público em anúncio de produto. O que existe é a leitura de qual público a Shopee está entregando.
 
 ## POSTURA
