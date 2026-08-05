@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.79.1';
+  var VERSAO = '0.80.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1929,6 +1929,7 @@
     { id: 'espiao', rotulo: 'Espiao' },
     { id: 'cofre', rotulo: 'Precificacao' },
     { id: 'palavras', rotulo: 'Palavras' },
+    { id: 'semanal', rotulo: 'Semanal' },
     { id: 'relatorio', rotulo: 'Relatorio' },
     { id: 'diagnostico', rotulo: 'Especialista' },
     { id: 'debug', rotulo: 'Debug', tecnica: true }
@@ -2027,6 +2028,9 @@
         // morto — clicava e nada acontecia, sem erro. Na delegacao global eles
         // funcionam sempre, porque o listener vive no container que nao e
         // recriado.
+        if (el.id === 'sia-sem-gerar') { gerarSemanal(); return; }
+        if (el.id === 'sia-sem-novo') { estado.semanal.markdown = null; render(); return; }
+        if (el.id === 'sia-sem-pdf') { imprimirSemanal(); return; }
         if (el.id === 'sia-rel-gerar') {
           // Sem este try, um ReferenceError dentro de gerarRelatorio morria no
           // console e o botao "nao fazia nada" — que foi exatamente o caso do
@@ -5066,6 +5070,103 @@
 
   function n0(v) { var x = typeof v === 'number' ? v : parseFloat(v); return isFinite(x) ? x : 0; }
 
+  /* ============ RELATORIO SEMANAL ============
+     Curto, objetivo e para mandar ao cliente. Le os ultimos 7 dias e a IA
+     escreve o panorama sempre citando o produto pelo nome e pelo ID, para o
+     cliente conseguir agir sem precisar caçar de qual item se trata. */
+  function renderSemanal() {
+    var S = estado.semanal || {};
+    var gg = null;
+    try { gg = window.SIA_Diamantes ? window.SIA_Diamantes.estado().gerenciais : null; } catch (e) { /* noop */ }
+
+    var h = '<div style="font-size:15px;color:var(--t1);line-height:1.6;margin-bottom:16px">' +
+      'Panorama curto dos ultimos 7 dias, com a leitura do especialista produto a produto. Feito para mandar ao cliente.</div>';
+
+    // aviso do periodo — a leitura herda o painel
+    var dias = gg && gg.periodoDias;
+    var certo = dias != null && dias >= 6 && dias <= 8;
+    h += '<div style="background:color-mix(in srgb,' + (certo ? 'var(--vd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (certo ? 'var(--vd)' : 'var(--am)') + ';border-radius:0 12px 12px 0;padding:14px 15px;margin-bottom:14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      (certo
+        ? '<b style="color:var(--t0)">Periodo certo.</b> A leitura atual cobre ' + dias + ' dias.'
+        : '<b style="color:var(--t0)">Antes de gerar, ajuste o painel.</b> Va em <b>Informacoes Gerenciais</b> da Shopee e selecione <b>Ultimos 7 dias</b>, depois colete a conta. ' +
+          (dias != null ? 'A leitura atual e de ' + dias + ' dias.' : 'Ainda nao identifiquei o periodo lido.')) +
+      '</div>';
+
+    if (S.erro) {
+      h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px;margin-bottom:12px;font-size:14px;color:var(--t1);line-height:1.55">' + esc(S.erro) + '</div>';
+    }
+
+    h += '<button id="sia-sem-gerar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer">' +
+      (S.gerando ? esc(S.etapa || 'Escrevendo...') : 'Gerar panorama da semana') + '</button>';
+
+    if (S.markdown) {
+      h += '<div style="display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap">' +
+        '<button id="sia-sem-pdf" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:9px;cursor:pointer">Salvar em PDF</button>' +
+        '<button id="sia-sem-novo" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:13px;padding:11px 16px;border-radius:9px;cursor:pointer">Gerar de novo</button></div>';
+      h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:13px;padding:18px;font-size:14.5px;color:var(--t1);line-height:1.65">' + mdParaHtml(S.markdown) + '</div>';
+    }
+    return h;
+  }
+
+  function gerarSemanal() {
+    if (estado.semanal.gerando) return;
+    var nP = Object.keys(estado.produtos).length;
+    if (!nP) { estado.semanal.erro = 'Colete a conta antes de gerar o panorama.'; render(); return; }
+
+    estado.semanal.gerando = true;
+    estado.semanal.erro = null;
+    estado.semanal.etapa = 'Montando os numeros...';
+    render();
+
+    var bloco = blocoPeriodo('ultimos 7 dias');
+    var payload = {
+      loja: estado.loja ? estado.loja.shop_id : null,
+      loja_nome: estado.loja ? estado.loja.nome : null,
+      margemMediaPct: margemMediaCofre(),
+      semanal: true,
+      atual: bloco
+    };
+
+    estado.semanal.etapa = 'O especialista esta escrevendo...';
+    render();
+
+    fetch(SIA_URL_RELATORIO, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SIA_ANON_KEY, 'apikey': SIA_ANON_KEY },
+      body: JSON.stringify(payload)
+    }).then(function (r) {
+      var ct = r.headers.get('content-type') || '';
+      if (r.ok && ct.indexOf('text/plain') >= 0 && r.body) {
+        var reader = r.body.getReader(), dec = new TextDecoder(), acc = '';
+        function ler() {
+          return reader.read().then(function (res) {
+            if (res.done) {
+              estado.semanal.gerando = false;
+              estado.semanal.markdown = acc;
+              render();
+              return;
+            }
+            acc += dec.decode(res.value, { stream: true });
+            estado.semanal.etapa = Math.round(acc.length / 100) / 10 + ' mil caracteres';
+            estado.sujo = true;
+            return ler();
+          });
+        }
+        return ler();
+      }
+      return r.text().then(function (txt) {
+        estado.semanal.gerando = false;
+        var j = null; try { j = JSON.parse(txt); } catch (e) { /* noop */ }
+        estado.semanal.erro = (j && (j.erro || j.detalhe)) || ('A funcao respondeu HTTP ' + r.status);
+        render();
+      });
+    }).catch(function (e) {
+      estado.semanal.gerando = false;
+      estado.semanal.erro = 'Nao consegui alcancar a funcao: ' + String(e && e.message || e);
+      render();
+    });
+  }
+
   function renderRelatorio() {
     var R = estado.rel;
     var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '06');
@@ -5171,18 +5272,11 @@
       if (fA2 && fB2) {
         var diasA = Math.round((fA2.fim - fA2.inicio) / 86400);
         var diasB = Math.round((fB2.fim - fB2.inicio) / 86400);
-        if (diasA < diasB * 0.6) {
-          if (diasA < 7) {
-            estado.rel.erro = 'O mes escolhido tem apenas ' + diasA + ' dia' + (diasA > 1 ? 's' : '') +
-              ' de dados, e o anterior tem ' + diasB + '. Comparar os dois produziria quedas que sao so a diferenca de tamanho do periodo, nao de desempenho. ' +
-              'Escolha um mes ja fechado, ou espere passar pelo menos uma semana.';
-            estado.rel.gerando = false; render(); return;
-          }
-          // equaliza: usa os mesmos N dias no mes anterior
-          estado.rel.equalizado = diasA;
-        } else {
-          estado.rel.equalizado = null;
-        }
+        // NUNCA recusar por mes em curso — a Karina pode querer analisar o
+        // mes corrente, e isso e legitimo. O que nao pode e comparar 3 dias
+        // com 31: entao equaliza SEMPRE que os periodos forem diferentes,
+        // recortando o mes anterior no mesmo numero de dias.
+        estado.rel.equalizado = (diasA < diasB) ? diasA : null;
       }
       if (!estado.loja || !estado.loja.shop_id) {
         estado.rel.erro = 'Ainda nao identifiquei a loja. Navegue uma vez pelo painel da Shopee e tente de novo.'; render(); return;
@@ -5436,6 +5530,37 @@
       mostrarExpl('<b>Nao consegui gerar o arquivo.</b> ' + esc(String(e)));
       return;
     }
+  }
+  function imprimirSemanal() {
+    var nome = (estado.loja && estado.loja.nome) || 'Loja';
+    var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Semanal ' + esc(nome) + '</title>' +
+      '<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">' +
+      '<style>@page{margin:12mm 11mm}body{font-family:Outfit,Arial,sans-serif;font-weight:300;color:#15161a;line-height:1.5;margin:0;padding:0;font-size:10.5pt}' +
+      'h1{font-family:Bebas Neue;font-size:26pt;margin:0 0 2px}' +
+      'table{width:100%;border-collapse:collapse;margin:8px 0;font-size:9pt;page-break-inside:avoid}' +
+      'th{text-align:left;padding:6px 5px;border-bottom:1.5px solid #15161a;font-size:8pt;text-transform:uppercase;letter-spacing:.04em;font-weight:600}' +
+      'td{padding:6px 5px;border-bottom:1px solid #e3e3e3;vertical-align:top}' +
+      'ul,ol{margin:5px 0 5px 17px;padding:0}li{margin:2px 0}' +
+      '.cab{border-bottom:2px solid #ff4d1c;padding-bottom:7px;margin-bottom:11px}.mk{color:#ff4d1c}' +
+      '.rod{margin-top:22px;padding-top:9px;border-top:1px solid #ddd;font-size:8pt;color:#777}' +
+      '@media print{.noprint{display:none}}</style></head><body>' +
+      '<div class="cab"><h1>SELLER<span class="mk">.IA</span></h1>' +
+      '<div style="font-size:9.5pt;color:#666">Panorama da semana &middot; ' + esc(nome) + ' &middot; ' + new Date().toLocaleDateString('pt-BR') + '</div></div>' +
+      '<div class="noprint" style="background:#f4f2ee;border-radius:7px;padding:9px 12px;margin-bottom:14px;font-size:9pt">Use <b>Imprimir &rarr; Salvar como PDF</b> (Ctrl+P). Esta faixa nao sai na impressao.</div>' +
+      mdParaHtmlImpressao(estado.semanal.markdown || '') +
+      '<div class="rod">Seller.IA &middot; Efeito Vendas</div>' +
+      '<script>setTimeout(function(){try{window.print()}catch(e){}},900)<\/script></body></html>';
+    try {
+      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var w = window.open(url, '_blank');
+      if (!w) {
+        var a = document.createElement('a');
+        a.href = url; a.download = 'semanal-' + String(nome).replace(/[^\w-]/g, '-') + '.html';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) { } }, 60000);
+    } catch (e) { mostrarExpl('<b>Nao consegui gerar o arquivo.</b> ' + esc(String(e))); }
   }
   function __htmlRelatorio() {
     var nome = (estado.loja && estado.loja.nome) || 'Loja';
@@ -5924,7 +6049,7 @@
   // fechava sozinha.
   var TELAS_VALIDAS = ['semaforo','conta360','calc','cofre','espiao','card','diagnostico','visao',
     'campanhas','produtos','performance','afiliados','cadastro','diamantes','debug',
-    'relatorio','gprod','ferramentas','radar','busca','palavras'];
+    'relatorio','gprod','ferramentas','radar','busca','palavras','semanal'];
   /* ============ INTELIGENCIA DE PRODUTO (Performance) ============
      Le o funil de cada produto e devolve um veredito, nao uma linha de
      tabela. A ordem das perguntas segue o metodo: primeiro o dinheiro
@@ -6316,6 +6441,11 @@
           render();
         });
       } catch (err) { corpo.innerHTML = telaDeErro('Palavras', err); }
+      return;
+    }
+    if (abaAtiva === 'semanal') {
+      try { corpo.innerHTML = capa('OS ULTIMOS 7 DIAS', 'O', 'SEMANAL', '07') + renderSemanal(); }
+      catch (err) { corpo.innerHTML = telaDeErro('Semanal', err); }
       return;
     }
     if (abaAtiva === 'relatorio') {

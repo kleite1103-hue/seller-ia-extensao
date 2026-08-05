@@ -56,7 +56,7 @@ function montarDados(b: any) {
   L.push(`PERIODO ATUAL: ${A.periodo || "nao informado"}`);
   L.push(`PERIODO ANTERIOR: ${P.periodo || "nao informado"}`);
   if (body.equalizado) {
-    L.push(`ATENCAO: o mes atual esta EM CURSO, com ${body.equalizado} dias. Para a comparacao ser honesta, o periodo anterior foi recortado nos mesmos ${body.equalizado} primeiros dias. Diga isso no relatorio e NUNCA projete o mes inteiro a partir de dados parciais sem avisar que e projecao.`);
+    L.push(`ATENCAO: o periodo atual tem ${body.equalizado} dias — provavelmente um mes em curso. O periodo anterior foi recortado nos mesmos ${body.equalizado} PRIMEIROS dias do mes, para a comparacao ser dia a dia e nao mes inteiro contra parcial. Diga isso logo na Identificacao, com as duas datas exatas. Analisar mes em curso e legitimo: nao trate como limitacao nem se recuse a concluir. Se projetar o mes fechado, deixe explicito que e projecao e mostre a conta.`);
   }
   if (n(b.margemMediaPct) !== null) {
     L.push(`MARGEM LIQUIDA MEDIA INFORMADA PELO LOJISTA: ${pc(b.margemMediaPct)}`);
@@ -223,6 +223,29 @@ Deno.serve(async (req) => {
   // parte 2 (plano e projecao), e junta. Cada chamada cabe folgado no limite.
   const parte = Number(body.parte || 0);
   let instrucao = "Gere o relatorio completo no formato definido, usando exclusivamente os dados abaixo.";
+
+  // SEMANAL: curto, para o cliente ler e agir no mesmo dia. Nada de dez
+  // secoes — o valor aqui e ser rapido de aplicar.
+  if (body.semanal) {
+    instrucao = `Escreva um PANORAMA DA SEMANA em portugues do Brasil, curto e direto, para o lojista ler e agir hoje mesmo. NAO use o formato de dez secoes do relatorio mensal.
+
+Estrutura obrigatoria, nesta ordem:
+
+1. **A semana em uma frase** — o que aconteceu de mais importante, sem rodeio.
+
+2. **Os numeros** — uma tabela pequena so com o que importa: GMV, pedidos, visitantes, conversao, ticket, investimento em Ads e ROAS.
+
+3. **O que precisa de voce agora** — no maximo tres itens, em ordem de dinheiro em jogo. Cada um com: o nome do produto E o ID entre parenteses, o que esta acontecendo com numero, e a acao especifica. Exemplo do nivel de detalhe esperado: "Comedouro Lento Labirinto (ID 58262149043) recebeu 1.545 visitas e converteu 2,8%, abaixo dos 4,1% do Kit Gancho. Revise a primeira foto e o preco final com frete."
+
+4. **O que esta indo bem** — no maximo dois, tambem com nome e ID, dizendo por que vale proteger ou escalar.
+
+Regras:
+- SEMPRE cite o produto pelo nome e pelo ID. Sem isso o lojista nao sabe em qual item mexer.
+- Toda afirmacao com numero ao lado.
+- Nada de "monitorar", "acompanhar" ou "avaliar": diga o que fazer.
+- No maximo 600 palavras no total.
+- Se faltar um dado, diga em uma linha e siga. Nao escreva secoes inteiras sobre o que falta.`;
+  }
   if (parte === 1) {
     instrucao = "Gere APENAS as secoes 1 a 8 do relatorio (Identificacao, Snapshot Executivo, Visao Geral, Analise Detalhada de KPIs, Shopee Ads, Analise de Produtos, Pontos Positivos e Pontos de Atencao). NAO escreva as secoes 9 e 10 nem qualquer conclusao final: elas serao geradas em outra chamada. Use exclusivamente os dados abaixo.";
   } else if (parte === 2) {
@@ -248,7 +271,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: body.modelo || "claude-sonnet-4-5",
-        max_tokens: parte ? 9000 : 16000,
+        max_tokens: body.semanal ? 3000 : (parte ? 9000 : 16000),
         stream: true,
         system: prompt,
         messages: [{
