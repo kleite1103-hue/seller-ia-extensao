@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.82.1';
+  var VERSAO = '0.83.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2020,6 +2020,13 @@
         if (_xc) { excluirDoCofre(_xc); return; }
         var _cs = alvo.getAttribute('data-calc-salvar');
         if (_cs) { salvarCalcDoCard(_cs); return; }
+        // botoes por id tambem precisam ser vistos aqui: a segunda passagem
+        // so roda se nada antes fizer return, e o clique no TEXTO de um botao
+        // dentro de um card era capturado pelo card
+        if (alvo.id === 'sia-sem-gerar') { try { gerarSemanal(); } catch (e3) { estado.semanal.erro = 'Erro ao gerar: ' + String(e3 && e3.message || e3); render(); } return; }
+        if (alvo.id === 'sia-sem-novo') { estado.semanal.markdown = null; render(); return; }
+        if (alvo.id === 'sia-sem-pdf') { imprimirSemanal(); return; }
+        if (alvo.id === 'sia-profunda') { if (estado.coletaProgresso === null) { coletaCompleta(function () { render(); }, null, 'profunda'); render(); } return; }
         if (alvo.getAttribute('data-calc') || alvo.getAttribute('data-prec') || alvo.getAttribute('data-custo')) return;
       }
       alvo = alvo.parentNode;
@@ -3123,10 +3130,32 @@
     var E = null; try { E = window.SIA_Diamantes.estado(); } catch (e) { }
     var cp = '';
     if (E && E.porProduto) {
-      var comPerf = Object.keys(E.porProduto).filter(function (k) { return E.porProduto[k].perf && E.porProduto[k].perf.ctr != null; });
+      // ANTES filtrava por perf.ctr != null: produto que vendeu muito mas nao
+      // tinha CTR ficava de fora, e a lista nao batia com o painel. Agora o
+      // criterio e o mesmo do painel — quem mais faturou — e junta as duas
+      // fontes de dado, como ja corrigi no relatorio.
+      var fonte = {};
+      for (var kf in E.porProduto) fonte[kf] = { nome: E.porProduto[kf].nome, perf: E.porProduto[kf].perf || {} };
+      for (kf in estado.produtos) {
+        var pe2 = estado.produtos[kf] || {}, me2 = pe2.metricas || {};
+        if (!fonte[kf]) fonte[kf] = { nome: pe2.nome, perf: {} };
+        if (!fonte[kf].nome && pe2.nome) fonte[kf].nome = pe2.nome;
+        var pf2 = fonte[kf].perf;
+        if (pf2.vendaPaga == null && me2.vendas_pagas != null) pf2.vendaPaga = me2.vendas_pagas;
+        if (pf2.uv == null && me2.visitantes != null) pf2.uv = me2.visitantes;
+        if (pf2.ctr == null && me2.ctr_card != null) pf2.ctr = me2.ctr_card;
+        if (pf2.convPago == null && me2.conversao_pago != null) pf2.convPago = me2.conversao_pago;
+        if (pf2.fatiaVendas == null && me2.fatia_vendas != null) pf2.fatiaVendas = me2.fatia_vendas;
+        if (pf2.rejeicao == null && me2.rejeicao != null) pf2.rejeicao = me2.rejeicao;
+      }
+      E = { porProduto: fonte };
+      var comPerf = Object.keys(fonte).filter(function (k) {
+        var v = fonte[k].perf.vendaPaga || fonte[k].perf.venda || 0;
+        return v > 0 && ehProdutoDeVerdade(fonte[k].nome);
+      });
       comPerf.sort(function (a, b) {
-        var va = (E.porProduto[a].perf.vendaPaga || E.porProduto[a].perf.venda || 0);
-        var vb = (E.porProduto[b].perf.vendaPaga || E.porProduto[b].perf.venda || 0);
+        var va = (fonte[a].perf.vendaPaga || fonte[a].perf.venda || 0);
+        var vb = (fonte[b].perf.vendaPaga || fonte[b].perf.venda || 0);
         return vb - va;
       });
       comPerf.slice(0, 6).forEach(function (k) {
@@ -3141,7 +3170,7 @@
           '<span style="color:var(--t2);font-size:11px">CTR ' + (P.ctr != null ? P.ctr.toFixed(1) : '—') + '% · conv ' + (P.convPago != null ? P.convPago.toFixed(1) : '—') + '% · rejeicao ' + (P.rejeicao != null ? P.rejeicao.toFixed(0) : '—') + '% · ' + fmtR(P.vendaPaga || P.venda) + (P.fatiaVendas != null ? ' · ' + P.fatiaVendas.toFixed(0) + '% da loja' : '') + '</span></div>';
       });
     }
-    h += bloco('3 · PERFORMANCE DE PRODUTO', cp, 'abra Produtos na Central de Dados');
+    h += bloco('3 · OS QUE MAIS FATURARAM', cp, 'abra Produtos na Central de Dados');
 
     // ---- 4) SAUDE / AVALIACOES ----
     var ca4 = '';
@@ -3224,7 +3253,7 @@
       if (comp.ESCROW_AMOUNT != null) cfin += '<div class="ld">Liquido recebido: <b style="color:var(--vd)">' + fmtR(comp.ESCROW_AMOUNT) + '</b></div>';
       cfin += '<div class="ld" style="color:var(--t2);font-size:11px;margin-top:3px">A Shopee ja entrega comissao e taxas. Falta so o custo do produto (Cofre de Custos).</div>';
     }
-    h += bloco('6 · FINANCEIRO (margem real)', cfin, 'abra um pedido em Financeiro > Minha Renda');
+
 
     h += '</div>';
     return h;
@@ -5106,6 +5135,112 @@
      quando vence, guarda o mtime de cada uma: a API nao tem log de auditoria,
      entao comparar a ultima alteracao entre leituras e a unica forma de ver
      que o cliente mexeu em algo sem avisar. */
+  /* ============ A LEITURA DO 360 ============
+     Os numeros da Conta 360 tambem estao no painel da Shopee. O que justifica
+     a tela existir e o que fazemos com eles: dizer o que cada um significa
+     nesta conta, cruzando uns com os outros, como um consultor faria. */
+  function leituraDaConta() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return ''; }
+    if (!D) return '';
+    var g = D.gerenciais || {};
+    function v2(x) { return x && x.valor != null ? numeroPuro(x.valor) : (typeof x === 'number' ? x : null); }
+    var gmv = v2(g.gmvPago), ped = v2(g.pedidosPagos), uv = v2(g.uv) || v2(g.visitantes);
+    var pv = v2(g.pv), ticket = v2(g.ticketMedio);
+    if (!gmv && !ped && !uv) return '';
+    if (!ticket && gmv && ped) ticket = gmv / ped;
+    var conv = (ped && uv) ? (ped / uv) * 100 : null;
+    var pagPorVisita = (pv && uv) ? pv / uv : null;
+
+    // Ads e afiliados para cruzar
+    var gastoAds = 0, gmvAds = 0;
+    for (var k in estado.campanhas) {
+      var m = estado.campanhas[k].metricas || {};
+      gastoAds += m.gasto || 0;
+      if (m.gasto && m.roas) gmvAds += m.gasto * m.roas;
+    }
+    var AF = (D.afiliados && D.afiliados.resumo) || {};
+    var gmvAf = numeroPuro(AF.vendas) || 0;
+    var tacos = (gmv && gastoAds) ? (gastoAds / gmv) * 100 : null;
+    var depAds = (gmv && gmvAds) ? (gmvAds / gmv) * 100 : null;
+
+    var itens = [];
+
+    // 1) o que sustenta o faturamento
+    if (depAds != null) {
+      itens.push({
+        rot: 'DE ONDE VEM O FATURAMENTO',
+        txt: depAds >= 80
+          ? 'Ads responde por ' + fmt(depAds, 0) + '% do que a loja vende. Isso e dependencia: no dia em que a verba parar, o faturamento para junto. O organico precisa crescer para a conta ter piso.'
+          : depAds >= 40
+            ? 'Ads responde por ' + fmt(depAds, 0) + '% do faturamento e o resto vem de organico e afiliados. E uma divisao saudavel: ha o que escalar e ha piso se a verba parar.'
+            : 'So ' + fmt(depAds, 0) + '% do faturamento vem de Ads. A loja se sustenta no organico, o que da seguranca — e mostra que ha espaco para crescer com verba sem depender dela.',
+        nivel: depAds >= 80 ? 'amarelo' : 'verde'
+      });
+    }
+
+    // 2) TACOS
+    if (tacos != null) {
+      itens.push({
+        rot: 'QUANTO DA RECEITA VAI PARA ANUNCIO',
+        txt: tacos > 15
+          ? fmt(tacos, 1) + '% de tudo que a loja fatura vai para Ads. Acima de 15% costuma corroer margem: confira se o ROAS medio cobre o seu ponto de equilibrio antes de manter esse ritmo.'
+          : tacos < 5
+            ? 'Apenas ' + fmt(tacos, 1) + '% do faturamento vai para Ads. Ha espaco para investir mais nas campanhas que ja entregam acima do seu equilibrio.'
+            : fmt(tacos, 1) + '% do faturamento vai para Ads, dentro da faixa saudavel de 8 a 12%.',
+        nivel: tacos > 15 ? 'amarelo' : 'verde'
+      });
+    }
+
+    // 3) conversao contra o funil
+    if (conv != null) {
+      itens.push({
+        rot: 'O QUE ACONTECE COM QUEM ENTRA',
+        txt: 'De cada 100 visitantes, ' + fmt(conv, 1) + ' compram.' +
+          (pagPorVisita ? ' Cada visitante ve ' + fmt(pagPorVisita, 1) + ' paginas' + (pagPorVisita < 1.5 ? ', o que e pouco: quem chega nao navega pelo catalogo, entra e sai.' : ', entao ha navegacao pelo catalogo.') : '') +
+          (conv < 1 ? ' Conversao abaixo de 1% costuma ser preco, foto ou avaliacao — nao falta de trafego.' : ''),
+        nivel: conv < 1 ? 'amarelo' : 'verde'
+      });
+    }
+
+    // 4) ticket
+    if (ticket) {
+      itens.push({
+        rot: 'O TAMANHO DE CADA VENDA',
+        txt: 'Ticket medio de ' + reais(ticket) + '.' +
+          (ticket < 30
+            ? ' Abaixo de R$ 30 a comissao pesa muito: a Shopee cobra 20% + R$ 4 nessa faixa, o que consome ' + fmt(((ticket * 0.2 + 4) / ticket) * 100, 0) + '% do preco. Combo ou kit acima de R$ 80 cai para 14% + R$ 16.'
+            : ticket > 100
+              ? ' Ticket alto costuma converter menos, mas cada venda sustenta um CPA maior — vale aceitar custo por pedido acima da media aqui.'
+              : ' Faixa em que a comissao ja e mais leve que nos produtos baratos.'),
+        nivel: ticket < 30 ? 'amarelo' : 'verde'
+      });
+    }
+
+    // 5) afiliados contra ads
+    if (gmvAf && gmv) {
+      var partAf = (gmvAf / gmv) * 100;
+      itens.push({
+        rot: 'O CANAL DE AFILIADOS',
+        txt: partAf >= 10
+          ? 'Afiliados trazem ' + fmt(partAf, 0) + '% do faturamento e so cobram quando vendem. E o canal de menor risco da conta.'
+          : 'Afiliados respondem por ' + fmt(partAf, 1) + '% do faturamento. Como so ha custo quando ha venda, ampliar aqui nao arrisca verba.',
+        nivel: 'verde'
+      });
+    }
+
+    if (!itens.length) return '';
+    var h = olho('O QUE ESTES NUMEROS DIZEM', 'Os numeros acima tambem estao no painel da Shopee. O que muda aqui e a leitura: cada um cruzado com os outros, dizendo o que significa nesta conta especifica.');
+    for (var i = 0; i < itens.length; i++) {
+      var it = itens[i];
+      var cor = it.nivel === 'amarelo' ? 'var(--am)' : 'var(--vd)';
+      h += '<div style="border-left:3px solid ' + cor + ';background:color-mix(in srgb,' + cor + ' var(--tin,7%),var(--b2));border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:9px">' +
+        '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.07em;margin-bottom:5px">' + it.rot + '</div>' +
+        '<div style="font-size:14.5px;color:var(--t1);line-height:1.55">' + esc(it.txt) + '</div></div>';
+    }
+    return h;
+  }
+
   function renderMarketing() {
     var D = null;
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
@@ -6642,7 +6777,7 @@
     }
     if (abaAtiva === 'conta360') {
       corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderAvisoPeriodo() +
-        renderFunilLoja() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
+        renderFunilLoja() + leituraDaConta() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
       ligarBotaoColeta();
       ligarProfunda();
       return;
@@ -6784,7 +6919,22 @@
       var totalMostrado = Math.min(vermC.length, 12) + Math.min(verdC.length, 8) + Math.min(amarC.length, 8) + Math.min(cinzaC.length, 6);
       if (idsC.length > totalMostrado) h2 += '<div class="nota">Mostrando ' + totalMostrado + ' de ' + idsC.length + ' campanhas, as de maior investimento em cada grupo.</div>';
 
-      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + renderMarketing() + renderPercentis() + renderHoras() + renderFiltroCampanhas() + h2 + renderImportador();
+      // Cada bloco isolado: antes, um erro em qualquer um deles derrubava a
+      // aba inteira e ela nao abria — que foi o que aconteceu.
+      function seguro(fn, nome) {
+        try { return fn(); }
+        catch (e) {
+          try { console.error('[Seller.IA] ' + nome + ':', e); } catch (e2) { }
+          return '<div class="nota" style="color:var(--rd)">O bloco <b>' + esc(nome) + '</b> falhou: ' + esc(String(e && e.message || e)) + '</div>';
+        }
+      }
+      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') +
+        seguro(renderMarketing, 'Campanhas de marketing') +
+        seguro(renderPercentis, 'Percentis da categoria') +
+        seguro(renderHoras, 'O dia hora a hora') +
+        seguro(renderFiltroCampanhas, 'Filtro de campanhas') +
+        h2 +
+        seguro(renderImportador, 'Planilha do grupo');
       h2 += '<div class="nota">CPC e CPM sao derivados de gasto dividido por cliques e por impressoes: os campos cpc e cpm da API nao sao taxa e foram descartados. ROAS e o broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
       ligarCalculadora();
