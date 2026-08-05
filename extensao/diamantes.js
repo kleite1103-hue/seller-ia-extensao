@@ -62,6 +62,7 @@
     conta: {},       // saude, penalidade, percentil, fontes
     origem: null,    // de onde vem cada venda, por canal
     tendencia: null, // evolucao diaria da loja + perda pos-pedido
+    marketing: null, // cupons, oferta relampago e descontos, com mtime
     loja: {},        // rating, seguidores, tag, resposta chat
     ads: {},         // meta roas, estrategia, cpm, leilao, gasto, creditos
     algoritmo: {},   // regras do oCPM: cold start, limites de mudanca, minimos de lance, percentis
@@ -774,6 +775,65 @@
   // ---- PALAVRAS DE UMA CAMPANHA DE BUSCA DE LOJA ----
   // Traz o lance ATUAL e o RECOMENDADO por palavra. A diferenca entre os
   // dois diz se voce esta perdendo leilao por lance baixo.
+
+  // ---- CAMPANHAS DE MARKETING ----
+  // Cupom, Oferta Relampago e Desconto. Todas trazem ctime (criacao) e mtime
+  // (ultima alteracao): sem log de auditoria na API, comparar o mtime entre
+  // leituras e a unica forma de detectar mexida do cliente.
+  function exMarketing(url, d) {
+    var dd = (d && d.data) || {};
+    COFRE.marketing = COFRE.marketing || { cupons: [], relampago: [], descontos: [], lidoEm: Date.now() };
+
+    if (/voucher\/list/.test(url)) {
+      var lv = dd.voucher_list || dd.list || (Array.isArray(dd) ? dd : []);
+      COFRE.marketing.cupons = lv.map(function (v) {
+        var rule = v.rule || {};
+        return {
+          id: String(v.voucher_id), nome: v.name, codigo: v.voucher_code,
+          tipo: v.discount ? 'percentual' : 'valor',
+          desconto: rule.discount_percentage_with_decimal ? rule.discount_percentage_with_decimal / 100000 : n(v.value),
+          minimo: n(v.min_price),
+          inicio: n(v.start_time), fim: n(v.end_time),
+          usados: n(v.current_usage) || 0, limite: n(v.usage_limit),
+          ativo: v.status === 1,
+          alteradoEm: n(v.mtime), criadoEm: n(v.ctime),
+          absorvidoPeloVendedor: !!rule.is_seller_absorbed,
+          porUsuario: rule.usage_limit_per_user
+        };
+      });
+      logar('marketing_cupons', COFRE.marketing.cupons.length + ' cupons', url);
+      return 1;
+    }
+    if (/shop_flash_sale_list/.test(url)) {
+      var lf = dd.flash_sale_list || dd.list || (Array.isArray(dd) ? dd : []);
+      COFRE.marketing.relampago = lf.map(function (f) {
+        return {
+          id: String(f.flash_sale_id),
+          inicio: n(f.start_time), fim: n(f.end_time),
+          itens: n(f.item_count), itensAtivos: n(f.enabled_item_count),
+          ativo: f.status === 1,
+          alteradoEm: n(f.mtime), criadoEm: n(f.ctime)
+        };
+      });
+      logar('marketing_relampago', COFRE.marketing.relampago.length + ' ofertas relampago', url);
+      return 1;
+    }
+    if (/discount\/list/.test(url)) {
+      var ld = dd.discount_list || dd.list || (Array.isArray(dd) ? dd : []);
+      COFRE.marketing.descontos = ld.map(function (x) {
+        return {
+          id: String(x.discount_id || x.promotion_id || ''), nome: x.discount_name || x.name,
+          inicio: n(x.start_time), fim: n(x.end_time),
+          itens: n(x.item_count), ativo: x.status === 1,
+          alteradoEm: n(x.mtime), criadoEm: n(x.ctime)
+        };
+      });
+      logar('marketing_descontos', COFRE.marketing.descontos.length + ' descontos', url);
+      return 1;
+    }
+    return 0;
+  }
+
   function exPalavrasCampanha(url, d) {
     var m = String(url).match(/campaign_id=(\d+)/);
     if (!m) return 0;
@@ -1191,6 +1251,7 @@
       if (/get_product_performance_info/.test(url)) exProduto(url, dados);
       if (/todo\/list_task/.test(url)) exTarefas(url, dados);
       if (/report\/get_time_graph/.test(url)) exTempo(url, dados);
+      if (/\/api\/marketing\//.test(url)) exMarketing(url, dados);
       if (/list_keyword_with_recommended_price/.test(url)) exPalavrasCampanha(url, dados);
       if (/pas\/v1\/config\/get/.test(url)) exPercentis(url, dados);
       if (/list_recommended_keyword/.test(url)) exKeywords(url, dados);

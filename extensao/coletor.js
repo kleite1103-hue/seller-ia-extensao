@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.80.0';
+  var VERSAO = '0.81.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1615,6 +1615,24 @@
             }
             await pausa(250);
           }
+        }
+
+        // CAMPANHAS DE MARKETING: cupons, oferta relampago, descontos.
+        // Todas trazem ctime e mtime — criacao e ULTIMA ALTERACAO — que e o
+        // que permite ver mexida do cliente sem log de auditoria.
+        prog('Lendo campanhas de marketing...');
+        var rotasMkt = [
+          { u: '/api/marketing/v3/voucher/list/?' + spcQ + '&limit=50&offset=0&voucher_type=1&voucher_status=1', m: 'GET', c: null },
+          { u: '/api/marketing/v4/shop_flash_sale/get_shop_flash_sale_list/?' + spcQ + '&limit=50&offset=0&status=1', m: 'GET', c: null },
+          { u: '/api/marketing/v3/public/discount/list/?' + spcQ, m: 'POST', c: JSON.stringify({ limit: 50, offset: 0, status: 1 }) },
+          { u: '/api/marketing/v4/public/get_marketing_tool_list/?' + spcQ, m: 'GET', c: null }
+        ];
+        for (var rm = 0; rm < rotasMkt.length; rm++) {
+          var R2 = rotasMkt[rm];
+          var rr2 = await buscar(R2.u, R2.m, R2.c);
+          totalChamadas++;
+          if (rr2.ok && rr2.dados) processarPacote({ url: R2.u, metodo: R2.m, corpo: R2.c, dados: rr2.dados, ts: Date.now(), loja: lojaDoCiclo });
+          await pausa(250);
         }
 
         prog('Lendo de onde vem cada venda...');
@@ -5074,6 +5092,90 @@
      Curto, objetivo e para mandar ao cliente. Le os ultimos 7 dias e a IA
      escreve o panorama sempre citando o produto pelo nome e pelo ID, para o
      cliente conseguir agir sem precisar caçar de qual item se trata. */
+  /* ============ CAMPANHAS DE MARKETING ============
+     Cupom, Oferta Relampago e Desconto. Alem de listar o que esta no ar e
+     quando vence, guarda o mtime de cada uma: a API nao tem log de auditoria,
+     entao comparar a ultima alteracao entre leituras e a unica forma de ver
+     que o cliente mexeu em algo sem avisar. */
+  function renderMarketing() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
+    var M = D && D.marketing;
+    if (!M) return '<div class="nota" style="color:var(--am)">Ainda nao li as campanhas de marketing. Elas vem na coleta da conta.</div>';
+
+    var agora = Math.floor(Date.now() / 1000);
+    function dataBr(ts) {
+      if (!ts) return '\u2014';
+      var x = new Date(ts * 1000);
+      return String(x.getUTCDate()).padStart(2, '0') + '/' + String(x.getUTCMonth() + 1).padStart(2, '0');
+    }
+    function venceEm(fim) {
+      if (!fim) return null;
+      var dias = Math.floor((fim - agora) / 86400);
+      return dias;
+    }
+
+    var h = '';
+    var todas = [].concat(
+      (M.cupons || []).map(function (x) { return { t: 'Cupom', d: x }; }),
+      (M.relampago || []).map(function (x) { return { t: 'Oferta Relampago', d: x }; }),
+      (M.descontos || []).map(function (x) { return { t: 'Desconto', d: x }; })
+    );
+
+    // ---- ALTERACOES RECENTES ----
+    var mexidas = todas.filter(function (x) {
+      return x.d.alteradoEm && (agora - x.d.alteradoEm) < 7 * 86400;
+    }).sort(function (a, b) { return b.d.alteradoEm - a.d.alteradoEm; });
+
+    if (mexidas.length) {
+      h += olho('MEXERAM NISTO NOS ULTIMOS 7 DIAS', 'A Shopee nao guarda quem alterou, mas guarda QUANDO: o campo de ultima alteracao de cada campanha. Aqui aparecem as que mudaram na ultima semana \u2014 util quando o cliente mexe sem avisar e o resultado muda sem explicacao aparente.');
+      for (var mi = 0; mi < Math.min(mexidas.length, 8); mi++) {
+        var X = mexidas[mi].d;
+        var qdo = new Date(X.alteradoEm * 1000);
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--li);font-size:13.5px">' +
+          '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--am);flex:none;width:74px">' +
+          String(qdo.getUTCDate()).padStart(2, '0') + '/' + String(qdo.getUTCMonth() + 1).padStart(2, '0') + ' ' +
+          String(qdo.getUTCHours()).padStart(2, '0') + 'h' + String(qdo.getUTCMinutes()).padStart(2, '0') + '</span>' +
+          '<span style="flex:1;color:var(--t1)"><b style="color:var(--t0)">' + esc(mexidas[mi].t) + '</b> ' + esc(X.nome || X.codigo || ('#' + X.id)) + '</span>' +
+          '<span style="font-family:Space Mono,monospace;font-size:10.5px;color:' + (X.ativo ? 'var(--vd)' : 'var(--t3)') + ';flex:none">' + (X.ativo ? 'ativo' : 'inativo') + '</span></div>';
+      }
+    }
+
+    // ---- O QUE ESTA NO AR ----
+    var ativas = todas.filter(function (x) { return x.d.ativo && (!x.d.fim || x.d.fim > agora); });
+    var vencendo = ativas.filter(function (x) { var v = venceEm(x.d.fim); return v != null && v <= 7; });
+
+    h += olho('O QUE ESTA NO AR AGORA (' + ativas.length + ')', 'Cupom, Oferta Relampago e Desconto ativos, com a data em que cada um termina. Campanha que vence sem substituta deixa buraco: o preco volta ao cheio e a conversao cai sem ninguem perceber.');
+    if (vencendo.length) {
+      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">' + vencendo.length + ' ' + (vencendo.length > 1 ? 'campanhas vencem' : 'campanha vence') + ' em ate 7 dias.</b> ' +
+        'Sem renovar, o preco volta ao cheio e a conversao cai sem aviso.</div>';
+    }
+    if (!ativas.length) {
+      h += '<div class="nota">Nenhuma campanha de marketing ativa. A conta esta vendendo so no preco cheio.</div>';
+    } else {
+      h += '<table><tr><th>TIPO</th><th>NOME</th><th class="num">TERMINA</th><th class="num">USO</th></tr>';
+      for (var ai = 0; ai < ativas.length; ai++) {
+        var A = ativas[ai].d, dv = venceEm(A.fim);
+        var corV = dv != null && dv <= 3 ? 'var(--rd)' : (dv != null && dv <= 7 ? 'var(--am)' : 'var(--t1)');
+        h += '<tr><td>' + esc(ativas[ai].t) + '</td>' +
+          '<td>' + sig(String(A.nome || A.codigo || ('#' + A.id)).slice(0, 34)) +
+          (A.desconto ? ' <span style="font-family:Space Mono,monospace;font-size:10px;color:var(--t3)">' + fmt(A.desconto, 0) + '%</span>' : '') +
+          (A.itens ? ' <span style="font-family:Space Mono,monospace;font-size:10px;color:var(--t3)">' + A.itens + ' itens</span>' : '') + '</td>' +
+          '<td class="num" style="color:' + corV + '">' + dataBr(A.fim) + (dv != null && dv <= 7 ? ' (' + (dv <= 0 ? 'hoje' : dv + 'd') + ')' : '') + '</td>' +
+          '<td class="num">' + (A.usados != null ? fmt(A.usados, 0) + (A.limite ? '/' + fmt(A.limite, 0) : '') : '\u2014') + '</td></tr>';
+      }
+      h += '</table>';
+    }
+
+    // cupom criado e nao usado
+    var parados = (M.cupons || []).filter(function (c) { return c.ativo && (c.usados || 0) === 0 && c.criadoEm && (agora - c.criadoEm) > 7 * 86400; });
+    if (parados.length) {
+      h += '<div class="nota" style="color:var(--am)"><b>' + parados.length + ' cupom(ns) ativo(s) ha mais de 7 dias sem nenhum uso.</b> Ou nao esta visivel na pagina, ou o valor minimo esta acima do ticket da loja.</div>';
+    }
+    return h;
+  }
+
   function renderSemanal() {
     var S = estado.semanal || {};
     var gg = null;
@@ -6599,7 +6701,7 @@
       var totalMostrado = Math.min(vermC.length, 12) + Math.min(verdC.length, 8) + Math.min(amarC.length, 8) + Math.min(cinzaC.length, 6);
       if (idsC.length > totalMostrado) h2 += '<div class="nota">Mostrando ' + totalMostrado + ' de ' + idsC.length + ' campanhas, as de maior investimento em cada grupo.</div>';
 
-      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + renderPercentis() + renderHoras() + renderFiltroCampanhas() + h2 + renderImportador();
+      h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') + renderMarketing() + renderPercentis() + renderHoras() + renderFiltroCampanhas() + h2 + renderImportador();
       h2 += '<div class="nota">CPC e CPM sao derivados de gasto dividido por cliques e por impressoes: os campos cpc e cpm da API nao sao taxa e foram descartados. ROAS e o broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
       ligarCalculadora();
