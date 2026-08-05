@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.79.0';
+  var VERSAO = '0.79.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1980,31 +1980,29 @@
     ev.preventDefault(); estado.modoTecnico = !estado.modoTecnico; render();
   });
   $('sia-corpo').addEventListener('click', function (ev) {
+    // PRIMEIRA PASSAGEM: acoes internas do card (expandir, excluir, calcular).
+    // Sem isto o div do card, que e pai, capturava o clique e abria a tela do
+    // card em vez de expandir — clicar no texto do link nao funcionava.
+    var alvo = ev.target;
+    while (alvo && alvo !== this) {
+      if (alvo.getAttribute) {
+        var _ec = alvo.getAttribute('data-exp-camp');
+        if (_ec) { estado.campExpandida = (estado.campExpandida === _ec) ? null : _ec; render(); return; }
+        var _xc = alvo.getAttribute('data-cofre-excluir');
+        if (_xc) { excluirDoCofre(_xc); return; }
+        var _cs = alvo.getAttribute('data-calc-salvar');
+        if (_cs) { salvarCalcDoCard(_cs); return; }
+        if (alvo.getAttribute('data-calc') || alvo.getAttribute('data-prec') || alvo.getAttribute('data-custo')) return;
+      }
+      alvo = alvo.parentNode;
+    }
+
     var el = ev.target;
     while (el && el !== this) {
       if (el.getAttribute) {
         // sem isto o clique e capturado pela linha e o href nunca e seguido
         if (el.getAttribute('data-link-externo')) return;
         if (el.id === 'sia-fila-mais') { estado.filaCompleta = true; render(); return; }
-        var xc = el.getAttribute && el.getAttribute('data-cofre-excluir');
-        if (xc) { excluirDoCofre(xc); return; }
-        var cs = el.getAttribute && el.getAttribute('data-calc-salvar');
-        if (cs) {
-          var tmpC = (estado.calcTmp && estado.calcTmp[cs]) || {};
-          var vc = numeroPuro(tmpC.custo);
-          if (vc) {
-            estado.cofre.custos = estado.cofre.custos || {};
-            estado.cofre.custos[cs] = vc;
-            if (numeroPuro(tmpC.embalagem)) estado.cofre.embalagem = numeroPuro(tmpC.embalagem);
-            if (numeroPuro(tmpC.imposto)) estado.cofre.imposto = numeroPuro(tmpC.imposto);
-            salvarCofre();
-            mostrarExpl('<b>Custo salvo.</b> A partir de agora o piso de ROAS deste produto usa a margem real, e o relatorio tambem.');
-          }
-          render();
-          return;
-        }
-        var ec = el.getAttribute && el.getAttribute('data-exp-camp');
-        if (ec) { estado.campExpandida = (estado.campExpandida === ec) ? null : ec; render(); return; }
         var mde = el.getAttribute && el.getAttribute('data-modo-esp');
         if (mde) { estado.espiaoModo = mde; render(); return; }
         if (el.id === 'sia-esp-analisar') {
@@ -2536,6 +2534,18 @@
     return h;
   }
 
+  function salvarCalcDoCard(id) {
+    var tmpC = (estado.calcTmp && estado.calcTmp[id]) || {};
+    var vc = numeroPuro(tmpC.custo);
+    if (!vc) { mostrarExpl('<b>Preencha o custo do produto</b> para o sistema calcular a margem real.'); return; }
+    estado.cofre.custos = estado.cofre.custos || {};
+    estado.cofre.custos[id] = vc;
+    if (numeroPuro(tmpC.embalagem)) estado.cofre.embalagem = numeroPuro(tmpC.embalagem);
+    if (numeroPuro(tmpC.imposto)) estado.cofre.imposto = numeroPuro(tmpC.imposto);
+    salvarCofre();
+    mostrarExpl('<b>Custo salvo.</b> O piso de ROAS deste produto passa a usar a margem real, e o relatorio tambem.');
+    render();
+  }
   function ligarCalculadora() {
     var btn = $('calc-btn');
     if (!btn || !window.SIA_Calc) return;
@@ -4815,7 +4825,9 @@
         estado.calcTmp[p2[1]] = estado.calcTmp[p2[1]] || {};
         estado.calcTmp[p2[1]][p2[0]] = this.value;
       });
-      ins[i].addEventListener('blur', function () { estado.sujo = true; render(); });
+      // blur NAO pode chamar render: redesenhar ao sair do campo apagava o
+      // que a pessoa acabou de digitar no campo seguinte.
+      ins[i].addEventListener('change', function () { estado.sujo = true; });
     }
   }
   function renderFiltroCampanhas() {
@@ -6251,6 +6263,22 @@
 
   function render() {
     DICAS = {}; seqDica = 0;
+    // ANTES DE REDESENHAR, guarda o que esta digitado nos campos. O render
+    // recria o innerHTML e apagava tudo — era por isso que a calculadora
+    // limpava sozinha assim que a tela atualizava.
+    try {
+      var vivos = $('sia-corpo') ? $('sia-corpo').querySelectorAll('input[data-calc],input[data-prec],input[data-custo]') : [];
+      for (var vi = 0; vi < vivos.length; vi++) {
+        var el2 = vivos[vi];
+        if (el2.getAttribute('data-calc')) {
+          var pc2 = el2.getAttribute('data-calc').split(':');
+          estado.calcTmp[pc2[1]] = estado.calcTmp[pc2[1]] || {};
+          estado.calcTmp[pc2[1]][pc2[0]] = el2.value;
+        } else if (el2.getAttribute('data-prec')) {
+          estado.precific[el2.getAttribute('data-prec')] = el2.value;
+        }
+      }
+    } catch (e) { /* noop */ }
     if (!$('sia-painel').classList.contains('aberto')) return;
     // se por algum caminho a aba ativa virar um id de GRUPO (gprod, ferramentas)
     // ou um id desconhecido, nenhuma branch casa e a tela apaga. Cai no padrao.
@@ -6318,7 +6346,7 @@
       var pi = corpoEl().querySelectorAll('[data-prec]');
       for (var pj = 0; pj < pi.length; pj++) {
         pi[pj].addEventListener('input', function () { estado.precific[this.getAttribute('data-prec')] = this.value; });
-        pi[pj].addEventListener('blur', function () { estado.sujo = true; render(); });
+        pi[pj].addEventListener('change', function () { estado.sujo = true; });
       }
       ligarCofre();
       return;
