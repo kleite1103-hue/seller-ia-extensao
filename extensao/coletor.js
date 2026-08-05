@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.83.0';
+  var VERSAO = '0.84.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1621,19 +1621,17 @@
         // Todas trazem ctime e mtime — criacao e ULTIMA ALTERACAO — que e o
         // que permite ver mexida do cliente sem log de auditoria.
         prog('Lendo campanhas de marketing...');
+        // PARAMETROS EXATOS da captura real. Os que eu tinha inventado
+        // (voucher_type, voucher_status, status) nao existem, e a Shopee
+        // recusava a chamada — por isso os cupons nunca apareceram.
         var rotasMkt = [
-          { u: '/api/marketing/v3/voucher/list/?' + spcQ + '&limit=50&offset=0&voucher_type=1&voucher_status=1', m: 'GET', c: null },
-          { u: '/api/marketing/v4/shop_flash_sale/get_shop_flash_sale_list/?' + spcQ + '&limit=50&offset=0&status=1', m: 'GET', c: null },
-          { u: '/api/marketing/v3/public/discount/list/?' + spcQ, m: 'POST', c: JSON.stringify({ limit: 50, offset: 0, status: 1 }) },
-          { u: '/api/marketing/v4/public/get_marketing_tool_list/?' + spcQ, m: 'GET', c: null },
-          // CAMPANHAS OFICIAIS DA SHOPEE (liquidacao 8.8, datas comemorativas):
-          // a conta pode estar convidada e nao ter inscrito produto nenhum.
-          { u: '/api/marketing/v4/public/get_marketing_center_campaign_list/?' + spcQ, m: 'GET', c: null },
-          // QUAIS FERRAMENTAS A CONTA TEM LIBERADAS
+          { u: '/api/marketing/v3/voucher/list/?' + spcQ + '&offset=0&limit=50&promotion_type=0', m: 'GET', c: null },
+          { u: '/api/marketing/v4/shop_flash_sale/get_shop_flash_sale_list/?' + spcQ + '&offset=0&limit=30&type=3', m: 'GET', c: null },
+          { u: '/api/marketing/v3/public/discount/list/?' + spcQ, m: 'POST', c: JSON.stringify({ discount_type: 2, time_status: 0, offset: 0, limit: 30 }) },
+          { u: '/api/marketing/v4/public/get_marketing_center_campaign_list/?' + spcQ + '&language=pt-br', m: 'GET', c: null },
           { u: '/api/marketing/v4/public/get_toggle/?' + spcQ, m: 'GET', c: null },
-          // RETORNO DE CADA FERRAMENTA no periodo
-          { u: '/api/marketing/v3/public/discount/metrics/?' + spcQ, m: 'POST', c: JSON.stringify({ start_time: ini, end_time: fim }) },
-          { u: '/api/marketing/v3/voucher/promotion_tool/metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim, m: 'GET', c: null },
+          { u: '/api/marketing/v4/discount/metrics/?' + spcQ, m: 'POST', c: JSON.stringify({ start_time: ini, end_time: fim }) },
+          { u: '/api/marketing/v3/voucher/promotion_tool/metrics/?' + spcQ + '&tool_name=marketing_voucher', m: 'GET', c: null },
           { u: '/api/marketing/v3/bundle_deal/metrics/?' + spcQ, m: 'POST', c: JSON.stringify({ start_time: ini, end_time: fim }) }
         ];
         for (var rm = 0; rm < rotasMkt.length; rm++) {
@@ -5165,6 +5163,47 @@
     var depAds = (gmv && gmvAds) ? (gmvAds / gmv) * 100 : null;
 
     var itens = [];
+
+    // ---- ADS: investimento, ROAS e a leitura contra o periodo anterior ----
+    // A variacao vem da propria Shopee nos campos gerenciais. Cruzar
+    // investimento com faturamento responde a pergunta que importa: investiu
+    // mais e faturou menos? entao o retorno piorou, e o problema nao e verba.
+    if (gastoAds) {
+      var roasGeral = gmvAds / gastoAds;
+      var margemC = margemMediaCofre();
+      var pisoC = margemC ? 100 / margemC : null;
+      var cpaGeral = null;
+      var pedAds = 0;
+      for (var kp in estado.campanhas) pedAds += (estado.campanhas[kp].metricas || {}).pedidos || 0;
+      if (pedAds) cpaGeral = gastoAds / pedAds;
+
+      var varGmv = (g.gmvPago && g.gmvPago.variacao != null) ? numeroPuro(g.gmvPago.variacao) : null;
+      var txtAds = 'Investiu ' + reais(gastoAds) + ' e trouxe ' + reais(gmvAds) + ', um retorno de ' + fmt(roasGeral, 1) + 'x.';
+      if (pisoC) {
+        txtAds += roasGeral >= pisoC
+          ? ' Seu ponto de equilibrio e ' + fmt(pisoC, 1) + 'x, entao a conta esta lucrando com anuncio.'
+          : ' Seu ponto de equilibrio e ' + fmt(pisoC, 1) + 'x — abaixo disso cada venda por anuncio sai no negativo.';
+      } else {
+        txtAds += ' Cadastre o custo dos produtos para eu dizer se esse retorno cobre a sua margem.';
+      }
+      if (cpaGeral) txtAds += ' Cada pedido por anuncio custou ' + reais(cpaGeral) + (ticket ? ', contra um ticket de ' + reais(ticket) + '.' : '.');
+      if (varGmv != null) {
+        txtAds += varGmv < 0
+          ? ' O faturamento caiu ' + fmt(Math.abs(varGmv), 1) + '% contra o periodo anterior: se o investimento nao caiu junto, o retorno piorou e o problema nao e falta de verba.'
+          : ' O faturamento subiu ' + fmt(varGmv, 1) + '% contra o periodo anterior.';
+      }
+      itens.push({
+        rot: 'O QUE O ANUNCIO DEVOLVEU',
+        txt: txtAds,
+        nivel: (pisoC && roasGeral < pisoC) ? 'amarelo' : 'verde'
+      });
+    } else if (Object.keys(estado.campanhas).length) {
+      itens.push({
+        rot: 'O QUE O ANUNCIO DEVOLVEU',
+        txt: 'Ha ' + Object.keys(estado.campanhas).length + ' campanhas cadastradas e nenhum investimento no periodo lido. Ou estao pausadas, ou sem saldo, ou o recorte de datas nao pegou o gasto.',
+        nivel: 'amarelo'
+      });
+    }
 
     // 1) o que sustenta o faturamento
     if (depAds != null) {
