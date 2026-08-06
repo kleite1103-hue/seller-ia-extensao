@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.90.0';
+  var VERSAO = '0.91.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -6077,16 +6077,25 @@
               aoOk({ ok: false, erro: 'Nao consegui alcancar a funcao: ' + String((e && e.message) || e) });
             });
           }
+          // TRES PARTES: 8 secoes em 9 mil tokens estourava o limite e o
+          // relatorio era cortado no meio da secao 4, sumindo com as secoes
+          // 5 a 8. Agora sao 1-4, 5-8 e 9-10.
           estado.rel.etapa = 'Escrevendo o diagnostico...'; render();
           pedir(1, function (r1) {
             if (!r1 || !r1.ok) { falhouRelatorio(r1); return; }
+            estado.rel.etapa = 'Escrevendo Ads e produtos...'; render();
+            pedir(3, function (r3) {
             estado.rel.etapa = 'Escrevendo o plano de 30 dias...'; render();
             pedir(2, function (r2) {
               estado.rel.gerando = false; estado.rel.etapa = '';
-              estado.rel.markdown = r1.markdown + '\n\n' + ((r2 && r2.ok && r2.markdown) || '');
+              estado.rel.markdown = r1.markdown +
+                '\n\n' + ((r3 && r3.ok && r3.markdown) || '') +
+                '\n\n' + ((r2 && r2.ok && r2.markdown) || '');
               estado.rel.loja = estado.loja ? estado.loja.shop_id : null;
               if (!r2 || !r2.ok) estado.rel.erro = 'O diagnostico ficou pronto, mas o plano de 30 dias falhou: ' + ((r2 && (r2.erro || r2.detalhe)) || 'sem resposta');
+              else if (!r3 || !r3.ok) estado.rel.erro = 'As secoes de Ads e produtos falharam: ' + ((r3 && (r3.erro || r3.detalhe)) || 'sem resposta');
               render();
+            });
             });
           });
           return;

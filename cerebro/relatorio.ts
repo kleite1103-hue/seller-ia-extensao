@@ -70,6 +70,13 @@ function montarDados(b: any) {
   L.push(linha("Pedidos pagos", cA.pedidosPagos, cP.pedidosPagos, nu));
   L.push(linha("Visitantes", cA.visitantes, cP.visitantes, nu));
   L.push(linha("Conversao real paga", cA.conversaoPaga, cP.conversaoPaga, pc));
+  // A conversao que a Shopee reporta usa CLIQUES NO PRODUTO como denominador,
+  // nao visitantes da loja. Dividir pedidos por visitantes da outro numero, e
+  // o relatorio ja apresentou os dois como se fossem o mesmo.
+  if (n(cA.pedidosPagos) && n(cA.visitantes)) {
+    const porVisita = (Number(cA.pedidosPagos) / Number(cA.visitantes)) * 100;
+    L.push(`OBS SOBRE CONVERSAO: o valor acima e o que a Shopee reporta e usa cliques no produto como base. Se dividir pedidos por visitantes da loja o resultado e ${pc(porVisita)}, que e outra coisa. Use o valor reportado e NUNCA recalcule conversao dividindo pedidos por visitantes, nem apresente os dois como se fossem a mesma metrica.`);
+  }
   L.push(linha("Ticket medio", cA.ticketMedio, cP.ticketMedio, br));
   L.push(linha("Cancelamentos", cA.cancelamentos, cP.cancelamentos, nu));
   L.push(linha("Visualizacoes de pagina", cA.visualizacoes, cP.visualizacoes, nu));
@@ -108,8 +115,21 @@ function montarDados(b: any) {
     L.push(linha("Pedidos do canal", fA.pedidos, fP.pedidos, nu));
     L.push(linha("Novos compradores", fA.novosCompradores, fP.novosCompradores, nu));
     L.push(linha("ROI do canal", fA.roi, fP.roi, (x) => (n(x) === null ? "nao disponivel" : Number(x).toFixed(2).replace(".", ","))));
-    if (n(fA.comissao) !== null && n(fA.pedidos) && Number(fA.pedidos) > 0) {
-      L.push(`Custo por venda do canal afiliados: ${br(Number(fA.comissao) / Number(fA.pedidos))} — compare diretamente com o CPA de Ads`);
+    // SEPARAR COMISSAO DE GMV. Um relatorio chamou a comissao de "GMV do
+    // canal", o que inverteu a leitura inteira do afiliado.
+    const comAf = n(fA.comissao), pedAf = n(fA.pedidos), gmvAf = n(fA.gmv);
+    if (comAf !== null && pedAf && pedAf > 0) {
+      const custoVenda = comAf / pedAf;
+      L.push(`Custo por venda do canal afiliados: ${br(custoVenda)} (comissao paga dividida por pedidos do canal). Compare diretamente com o CPA de Ads.`);
+      const tk = n(cA.ticketMedio);
+      if (tk && tk > 0) {
+        L.push(`A comissao consome ${pc((custoVenda / tk) * 100)} do valor de cada venda do canal. Use isto no calculo de margem: e um custo variavel que so existe quando ha venda.`);
+      }
+    }
+    if (gmvAf !== null && comAf !== null && gmvAf > 0) {
+      L.push(`ATENCAO AO NOMEAR: GMV do canal e ${br(gmvAf)} e comissao paga e ${br(comAf)}. Sao numeros diferentes — nunca chame comissao de GMV.`);
+    } else if (comAf !== null && gmvAf === null) {
+      L.push(`O GMV do canal de afiliados NAO veio nesta leitura; o que existe e a comissao (${br(comAf)}). Diga isso e nao apresente a comissao como se fosse GMV.`);
     }
   } else {
     L.push("\n== AFILIADOS ==\nnao disponivel nesta coleta");
@@ -169,7 +189,8 @@ function montarDados(b: any) {
   const camps = Array.isArray(A.campanhas) ? A.campanhas.slice(0, 25) : [];
   if (camps.length) {
     L.push("\n== CAMPANHAS (periodo atual) ==");
-    L.push("nome | id produto | formato | investimento | GMV | ROAS amplo | ROAS direto | pedidos | CPA | meta atual | meta sugerida pela Shopee");
+    L.push("nome da campanha | id do produto (quando a Shopee informa) | formato | investimento | GMV | ROAS amplo | ROAS direto | pedidos | CPA | meta atual | meta sugerida pela Shopee");
+    L.push("IMPORTANTE: quando o id do produto vier vazio, a Shopee nao vinculou aquela campanha a um item — nesse caso cite a CAMPANHA pelo nome e diga que o produto nao foi informado. NUNCA invente um id, e nunca escreva 'itens selecionados' ou 'sem ID visivel': nomeie a campanha.");
     for (const c of camps) {
       L.push([c.nome, c.produtoId, c.formato, br(c.gasto), br(c.gmv),
         c.roas != null ? Number(c.roas).toFixed(2).replace(".", ",") : "nd",
@@ -291,7 +312,9 @@ Regras:
 - Se faltar um dado, diga em uma linha e siga. Nao escreva secoes inteiras sobre o que falta.`;
   }
   if (parte === 1) {
-    instrucao = "Gere APENAS as secoes 1 a 8 do relatorio (Identificacao, Snapshot Executivo, Visao Geral, Analise Detalhada de KPIs, Shopee Ads, Analise de Produtos, Pontos Positivos e Pontos de Atencao). NAO escreva as secoes 9 e 10 nem qualquer conclusao final: elas serao geradas em outra chamada. Use exclusivamente os dados abaixo.";
+    instrucao = "Gere APENAS as secoes 1 a 4 do relatorio: Identificacao, Snapshot Executivo, Visao Geral do Desempenho e Analise Detalhada de KPIs (4.1 ate o fim dos KPIs de conta). PARE ao terminar os KPIs. NAO escreva as secoes de Shopee Ads, produtos, projecao ou plano: elas vem em outras chamadas. Use exclusivamente os dados abaixo.";
+  } else if (parte === 3) {
+    instrucao = "Gere APENAS as secoes 5 a 8: Shopee Ads (resumo estrategico, top 5 melhores e top 5 piores campanhas por eficiencia), Analise de Produtos (top por GMV com participacao, e os que precisam de atencao), Pontos Positivos e Pontos de Atencao. Nao repita a identificacao nem o snapshot, e nao escreva a projecao nem o plano. Use exclusivamente os dados abaixo.";
   } else if (parte === 2) {
     instrucao = "Gere APENAS as secoes 9 e 10 do relatorio: a Projecao de Crescimento para os proximos 30 dias (com a coluna de LUCRO e recomendando o cenario de maior lucro, nao de maior GMV) e o Plano Tatico de 30 dias dividido em quatro semanas. Nao repita as secoes anteriores nem escreva introducao. Use exclusivamente os dados abaixo.";
   }
