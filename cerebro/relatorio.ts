@@ -176,15 +176,39 @@ function montarDados(b: any) {
   }
 
   // produtos
-  const prods = Array.isArray(A.produtos) ? A.produtos.slice(0, 25) : [];
-  if (Array.isArray(A.produtos) && A.produtos.length > 25) {
-    L.push(`OBS: a loja tem ${A.produtos.length} produtos; abaixo estao os 25 de maior venda. Analise esses e diga em uma linha quantos ficaram de fora.`);
-  }
-  if (prods.length) {
-    L.push("\n== PRODUTOS (periodo atual) ==");
-    L.push("nome | id | visitantes | cliques | carrinho | unidades pagas | vendas R$ | conversao %");
-    for (const p of prods) {
-      L.push(`${p.nome} | ${p.id} | ${nu(p.visitantes)} | ${nu(p.cliques)} | ${nu(p.carrinho)} | ${nu(p.unidades)} | ${br(p.vendas)} | ${pc(p.conversao)}`);
+  // PRODUTOS POR GRUPO DE DECISAO, nao os 25 primeiros.
+  // A maioria das lojas passa de 25 itens e mandar todos gasta token sem
+  // melhorar a analise. O que decide sao quatro recortes.
+  const sel = A.selecao;
+  if (sel && Array.isArray(sel.selecionados) && sel.selecionados.length) {
+    L.push(`\n== PRODUTOS QUE IMPORTAM (${sel.selecionados.length} de ${sel.total} da loja) ==`);
+    L.push("Selecionados por quatro criterios: os 5 que mais faturam, os 5 de pior conversao com trafego, os 5 que mais cresceram e os que estao PERDENDO desempenho e ainda pesam no faturamento. Um produto pode estar em mais de um grupo.");
+    L.push("nome | id | grupos | visitantes | cliques | carrinho | unidades | vendas R$ | % do faturamento | conversao | variacao vs periodo anterior");
+    for (const p of sel.selecionados) {
+      L.push([
+        p.nome, p.id,
+        (p.grupos || []).join(" + ") || "-",
+        nu(p.visitantes), nu(p.cliques), nu(p.carrinho), nu(p.unidades),
+        br(p.vendas),
+        p.fatiaPct != null ? pc(p.fatiaPct) : "nd",
+        pc(p.conversao),
+        p.novo ? "produto novo no periodo" : (p.variacaoPct != null ? (p.variacaoPct >= 0 ? "+" : "") + p.variacaoPct.toFixed(1).replace(".", ",") + "%" : "sem base anterior"),
+      ].join(" | "));
+    }
+    const caindo = sel.selecionados.filter((x: any) => (x.grupos || []).indexOf("perdendo desempenho") >= 0);
+    if (caindo.length) {
+      const somaFatia = caindo.reduce((s: number, x: any) => s + (x.fatiaPct || 0), 0);
+      L.push(`ALERTA: ${caindo.length} produto(s) perderam desempenho no periodo e juntos representam ${pc(somaFatia)} do faturamento. Trate isto como prioridade na secao de produtos: queda em item que pesa muda o resultado da loja inteira.`);
+    }
+    L.push(`Os outros ${sel.total - sel.selecionados.length} produtos ficaram fora da selecao por nao estarem em nenhum dos quatro criterios. Diga isso em uma linha e nao invente numeros sobre eles.`);
+  } else {
+    const prods = Array.isArray(A.produtos) ? A.produtos.slice(0, 25) : [];
+    if (prods.length) {
+      L.push("\n== PRODUTOS (periodo atual) ==");
+      L.push("nome | id | visitantes | cliques | carrinho | unidades pagas | vendas R$ | conversao %");
+      for (const p of prods) {
+        L.push(`${p.nome} | ${p.id} | ${nu(p.visitantes)} | ${nu(p.cliques)} | ${nu(p.carrinho)} | ${nu(p.unidades)} | ${br(p.vendas)} | ${pc(p.conversao)}`);
+      }
     }
   }
 
@@ -317,7 +341,19 @@ Regras:
   if (parte === 1) {
     instrucao = "Gere APENAS as secoes 1 a 4 do relatorio: Identificacao, Snapshot Executivo, Visao Geral do Desempenho e Analise Detalhada de KPIs (4.1 ate o fim dos KPIs de conta). PARE ao terminar os KPIs. NAO escreva as secoes de Shopee Ads, produtos, projecao ou plano: elas vem em outras chamadas. Use exclusivamente os dados abaixo.";
   } else if (parte === 3) {
-    instrucao = "Gere APENAS as secoes 5 a 8: Shopee Ads (resumo estrategico, top 5 melhores e top 5 piores campanhas por eficiencia), Analise de Produtos (top por GMV com participacao, e os que precisam de atencao), Pontos Positivos e Pontos de Atencao. Nao repita a identificacao nem o snapshot, e nao escreva a projecao nem o plano. Use exclusivamente os dados abaixo.";
+    instrucao = `Gere APENAS as secoes 5 a 8, usando exclusivamente os dados abaixo:
+
+**5. Shopee Ads** — resumo estrategico, top 5 melhores e top 5 piores campanhas por eficiencia. Sempre com nome e ID.
+
+**6. Analise de Produtos** — organize nos quatro grupos que os dados ja trazem, nesta ordem de prioridade:
+   6.1 **Perdendo desempenho e pesando no faturamento** — os que cairam e ainda representam fatia relevante. E o grupo mais urgente: queda em item que pesa muda o resultado da loja inteira. Diga quanto cada um caiu, quanto representa do faturamento e o que fazer.
+   6.2 **Os 5 que mais faturam** — participacao de cada um e o que protege esse resultado.
+   6.3 **Os 5 que mais cresceram** — o que mudou e se da para replicar nos outros.
+   6.4 **Os 5 de pior conversao com trafego** — recebem visita e nao vendem; diga onde o funil quebra.
+
+**7. Pontos Positivos** e **8. Pontos de Atencao** — no maximo 5 cada, sempre com numero ao lado.
+
+Nao repita a identificacao nem o snapshot, e nao escreva a projecao nem o plano.`;
   } else if (parte === 2) {
     instrucao = "Gere APENAS as secoes 9 e 10 do relatorio: a Projecao de Crescimento para os proximos 30 dias (com a coluna de LUCRO e recomendando o cenario de maior lucro, nao de maior GMV) e o Plano Tatico de 30 dias dividido em quatro semanas. Nao repita as secoes anteriores nem escreva introducao. Use exclusivamente os dados abaixo.";
   }

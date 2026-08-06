@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.92.0';
+  var VERSAO = '0.93.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -4664,6 +4664,53 @@
     }
     prods.sort(function (a, b) { return (b.vendas || 0) - (a.vendas || 0); });
 
+    // SELECAO POR GRUPO, nao os 25 primeiros. A maioria das lojas passa de 25
+    // itens e mandar todos gasta token sem melhorar a analise. O que importa
+    // sao quatro recortes, e um produto pode estar em mais de um.
+    function selecionarProdutos(lista, listaAnterior) {
+      var antes = {};
+      (listaAnterior || []).forEach(function (x) { antes[x.id] = x; });
+      var totalGmv = 0;
+      lista.forEach(function (x) { totalGmv += x.vendas || 0; });
+
+      lista.forEach(function (x) {
+        var a = antes[x.id];
+        x.grupos = [];
+        x.fatiaPct = totalGmv ? ((x.vendas || 0) / totalGmv) * 100 : null;
+        if (a && a.vendas) {
+          x.variacaoPct = (((x.vendas || 0) - a.vendas) / a.vendas) * 100;
+          x.vendasAntes = a.vendas;
+        } else if (!a && (x.vendas || 0) > 0) {
+          x.novo = true;
+        }
+      });
+
+      var porGmv = lista.slice(0, 5);
+      porGmv.forEach(function (x) { x.grupos.push('top faturamento'); });
+
+      // pior desempenho: tem trafego e nao converte
+      var pior = lista.filter(function (x) { return (x.visitantes || 0) >= 100 && porGmv.indexOf(x) < 0; })
+        .sort(function (a, b) { return (a.conversao || 0) - (b.conversao || 0); }).slice(0, 5);
+      pior.forEach(function (x) { x.grupos.push('pior conversao'); });
+
+      // maior crescimento no periodo
+      var cresceu = lista.filter(function (x) { return x.variacaoPct != null && x.variacaoPct > 30 && (x.vendas || 0) > 0; })
+        .sort(function (a, b) { return b.variacaoPct - a.variacaoPct; }).slice(0, 5);
+      cresceu.forEach(function (x) { if (x.grupos.indexOf('top faturamento') < 0) x.grupos.push('crescimento'); });
+
+      // PERDENDO E PESANDO: caiu no periodo e representa fatia relevante
+      var caindo = lista.filter(function (x) {
+        return x.variacaoPct != null && x.variacaoPct < -15 && (x.fatiaPct || 0) >= 3;
+      }).sort(function (a, b) { return (b.fatiaPct || 0) - (a.fatiaPct || 0); }).slice(0, 5);
+      caindo.forEach(function (x) { x.grupos.push('perdendo desempenho'); });
+
+      var vistos = {}, saida = [];
+      [].concat(porGmv, pior, cresceu, caindo).forEach(function (x) {
+        if (!vistos[x.id]) { vistos[x.id] = 1; saida.push(x); }
+      });
+      return { selecionados: saida, total: lista.length, totalGmv: totalGmv };
+    }
+
     // campanhas + soma de Ads
     var camps = [], k, fmtCont = {};
     // As campanhas do homepage/query vivem em estado.campanhas; o
@@ -4747,7 +4794,9 @@
         totalPago: D.tendencia.perdaPosPedido.totalConfirmado,
         diasRuins: D.tendencia.perdaPosPedido.diasRuins
       } : null,
-      produtos: prods.slice(0, 25), campanhas: camps.slice(0, 25), formatos: formatos
+      produtos: prods.slice(0, 25),
+      selecao: selecionarProdutos(prods, (estado.rel && estado.rel.produtosAnteriores) || null),
+      campanhas: camps.slice(0, 25), formatos: formatos
     };
   }
 
