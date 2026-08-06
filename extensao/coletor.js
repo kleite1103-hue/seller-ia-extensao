@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.86.0';
+  var VERSAO = '0.87.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -35,7 +35,13 @@
   // A extensao fala direto com a funcao do relatorio: o service worker do
   // Chrome nao sobrevive aos 60-90 segundos que ela leva para responder.
   var SIA_URL_RELATORIO = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/relatorio';
-  var SIA_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rZnJlZXpsaXpkYmZwampweG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MTczMTcsImV4cCI6MjEwMDQ5MzMxN30.ZavM7iPnecJdIfEyUMfStcShUEMjlUZf5GKfDaQ7zxQ';
+  // A CHAVE VEM DAS CONFIGURACOES, NUNCA DO CODIGO.
+  // Eu tinha escrito um JWT aqui sem ter acesso a chave real do projeto: o
+  // payload decodificava, mas a assinatura era invalida. O Supabase rejeitava
+  // com 401 ANTES da funcao rodar, e a resposta do gateway nao tem headers
+  // CORS — por isso o navegador acusava CORS e republicar a funcao nunca
+  // resolvia. Agora a pessoa cola a chave real uma vez e ela fica salva.
+  var SIA_ANON_KEY = '';
 
   /* =============================== ESTADO =============================== */
   var estado = {
@@ -2031,6 +2037,16 @@
       if (voltaA.getAttribute) {
         if (voltaA.tagName === 'INPUT' || voltaA.tagName === 'SELECT' || voltaA.tagName === 'TEXTAREA') return;
         if (voltaA.getAttribute('data-link-externo')) return;
+        if (voltaA.id === 'sia-anon-salvar') {
+          var ci = $('sia-anon');
+          if (ci && ci.value.trim()) {
+            estado.anonKey = ci.value.trim();
+            try { chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'anonKey', valor: estado.anonKey }, function () { void chrome.runtime.lastError; }); } catch (e4) { }
+            mostrarExpl('<b>Chave salva.</b> O relatorio e o panorama semanal ja podem ser gerados.');
+            render();
+          }
+          return;
+        }
         var _cs2 = voltaA.getAttribute('data-calc-salvar');
         if (_cs2) { salvarCalcDoCard(_cs2); return; }
         var _xc2 = voltaA.getAttribute('data-cofre-excluir');
@@ -5615,6 +5631,7 @@
 
     var h = '<div style="font-size:15px;color:var(--t1);line-height:1.6;margin-bottom:16px">' +
       'Panorama curto dos ultimos 7 dias, com a leitura do especialista produto a produto. Feito para mandar ao cliente.</div>';
+    if (!chaveSupabase()) return h + renderPedirChave();
 
     // aviso do periodo — a leitura herda o painel
     var dias = gg && gg.periodoDias;
@@ -5642,6 +5659,18 @@
     return h;
   }
 
+  function chaveSupabase() { return estado.anonKey || SIA_ANON_KEY || ''; }
+  function renderPedirChave() {
+    return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:16px;margin-bottom:14px">' +
+      '<div style="font-size:15px;font-weight:600;color:var(--t0);margin-bottom:6px">Falta a chave do Supabase</div>' +
+      '<div style="font-size:13.5px;color:var(--t1);line-height:1.55;margin-bottom:10px">' +
+      'O relatorio e o panorama semanal falam com a sua funcao no Supabase, e ela precisa da chave publica do projeto para aceitar a chamada. ' +
+      'Pegue em <b>Supabase &rsaquo; Project Settings &rsaquo; API &rsaquo; anon public</b> e cole aqui. Fica salva neste navegador.</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<input id="sia-anon" type="password" value="' + esc(estado.anonKey || '') + '" placeholder="cole a anon public key" ' +
+      'style="flex:1;min-width:200px;background:var(--b1);border:1px solid var(--li);border-radius:8px;padding:11px 12px;color:var(--t0);font-family:Space Mono,monospace;font-size:12px">' +
+      '<button id="sia-anon-salvar" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;padding:11px 18px;border-radius:8px;cursor:pointer">Salvar</button></div></div>';
+  }
   function gerarSemanal() {
     estado.semanal = estado.semanal || {};
     if (estado.semanal.gerando) return;
@@ -5667,7 +5696,7 @@
 
     fetch(SIA_URL_RELATORIO, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SIA_ANON_KEY, 'apikey': SIA_ANON_KEY },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chaveSupabase(), 'apikey': chaveSupabase() },
       body: JSON.stringify(payload)
     }).then(function (r) {
       var ct = r.headers.get('content-type') || '';
@@ -5727,6 +5756,7 @@
     for (var i = 0; i < meses.length; i++) h += '<option value="' + meses[i].v + '"' + (meses[i].v === sel ? ' selected' : '') + '>' + meses[i].r + '</option>';
     h += '</select>';
     h += '<div class="nota">Atual: <b>' + fa.rotulo + '</b><br>Anterior: <b>' + fp.rotulo + '</b></div>';
+    if (!chaveSupabase()) return h + renderPedirChave();
 
     // O relatorio coleta os dois meses sozinho, entao exigir coleta previa era
     // contraditorio — e pior: escondia o botao, e a pessoa clicava num lugar
@@ -5953,7 +5983,7 @@
             p2.parte = parte;
             fetch(SIA_URL_RELATORIO, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SIA_ANON_KEY, 'apikey': SIA_ANON_KEY },
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chaveSupabase(), 'apikey': chaveSupabase() },
               body: JSON.stringify(p2)
             }).then(function (r) {
               // A funcao agora responde em STREAM de texto puro. Ler por
@@ -7456,7 +7486,11 @@
   ligarTema();
   ligarGravacao();
   try {
-    chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'temaClaro' }, function (r) {
+    chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'anonKey' }, function (r) {
+    void chrome.runtime.lastError;
+    if (r && r.valor) { estado.anonKey = r.valor; }
+  });
+  chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'temaClaro' }, function (r) {
       void chrome.runtime.lastError;
       if (r && r.valor) aplicarTema(true);
     });
