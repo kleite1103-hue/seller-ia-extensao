@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.91.0';
+  var VERSAO = '0.92.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -354,6 +354,17 @@
         if (e.title) ent.nome = e.title;
         if (e.state) ent.estado = e.state;
         if (e.subtype) ent.tipo = e.subtype;
+        if (e.type) ent.type = e.type;
+        // O ID DO PRODUTO EXISTE e eu nao estava lendo: vem em
+        // manual_product_ads.item_id, e em mpd.item_list quando e Grupo de
+        // Anuncios. Sem isso a IA recebia campo vazio e inventava nome.
+        var mpa = e.manual_product_ads;
+        if (mpa && mpa.item_id) ent.produtoId = String(mpa.item_id);
+        if (!ent.produtoId && e.mpd && Array.isArray(e.mpd.item_list) && e.mpd.item_list.length) {
+          ent.itensGrupo = e.mpd.item_list.map(String);
+          if (e.mpd.item_list.length === 1) ent.produtoId = String(e.mpd.item_list[0]);
+        }
+        if (mpa && mpa.bidding_strategy) ent.estrategia = mpa.bidding_strategy;
         if (e.report) {
           var m = extrairMetricas(e.report, true);
           for (var k in m) ent.metricas[k] = m[k];
@@ -4687,7 +4698,10 @@
       if (!fmtCont[fm]) fmtCont[fm] = { rotulo: fm, qtd: 0, gasto: 0, gmvS: 0 };
       fmtCont[fm].qtd++; fmtCont[fm].gasto += (g || 0); fmtCont[fm].gmvS += (g || 0) * (ro || 0);
       camps.push({
-        nome: String(cp.nome || k).slice(0, 70), produtoId: cp.produtoId || null, formato: fm,
+        nome: String(cp.nome || k).slice(0, 70),
+        produtoId: cp.produtoId || null,
+        itensGrupo: cp.itensGrupo ? cp.itensGrupo.length : null,
+        formato: fm,
         gasto: g, gmv: (g != null && ro != null) ? g * ro : null, roas: ro,
         roasDireto: val(m.roasDireto), pedidos: ped,
         cpa: (g != null && ped) ? g / ped : null,
@@ -5670,6 +5684,30 @@
     return h;
   }
 
+  /* Barra de progresso com o que o consultor esta fazendo agora. Contar
+     caracteres nao diz nada a quem espera; dizer a etapa, sim. */
+  var ETAPAS_REL = [
+    'Lendo as informacoes gerenciais',
+    'Lendo o funil de vendas',
+    'Lendo os produtos',
+    'Lendo as campanhas de Ads',
+    'Cruzando os dois periodos',
+    'O consultor esta analisando a conta',
+    'Escrevendo o diagnostico',
+    'Analisando Ads e produtos',
+    'Montando o plano de 30 dias'
+  ];
+  function renderProgresso(etapaAtual, pct) {
+    var p2 = Math.max(3, Math.min(100, pct || 0));
+    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:16px;margin-top:12px">' +
+      '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">' +
+      '<span style="width:9px;height:9px;border-radius:50%;background:var(--mk);display:inline-block"></span>' +
+      '<b style="font-size:14.5px;color:var(--t0)">' + esc(etapaAtual || 'Trabalhando...') + '</b></div>' +
+      '<div style="height:6px;background:var(--b1);border-radius:99px;overflow:hidden">' +
+      '<div style="height:100%;width:' + p2 + '%;background:linear-gradient(90deg,var(--mk),var(--px));border-radius:99px;transition:width .4s"></div></div>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin-top:8px;line-height:1.5">Sao duas leituras completas da conta mais a analise. Pode deixar a gaveta aberta e continuar navegando.</div></div>';
+  }
+
   function renderSemanal() {
     var S = estado.semanal || {};
     var gg = null;
@@ -5693,8 +5731,10 @@
       h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px;margin-bottom:12px;font-size:14px;color:var(--t1);line-height:1.55">' + esc(S.erro) + '</div>';
     }
 
-    h += '<button id="sia-sem-gerar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer">' +
-      (S.gerando ? esc(S.etapa || 'Escrevendo...') : 'Gerar panorama da semana') + '</button>';
+    if (S.gerando) { h += renderProgresso(S.etapa, S.pct); }
+    else {
+      h += '<button id="sia-sem-gerar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer">Gerar panorama da semana</button>';
+    }
 
     if (S.markdown) {
       h += '<div style="display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap">' +
@@ -5731,7 +5771,8 @@
 
     estado.semanal.gerando = true;
     estado.semanal.erro = null;
-    estado.semanal.etapa = 'Montando os numeros...';
+    estado.semanal.etapa = 'Lendo os numeros da conta';
+    estado.semanal.pct = 20;
     render();
 
     var bloco = blocoPeriodo('ultimos 7 dias');
@@ -5743,7 +5784,8 @@
       atual: bloco
     };
 
-    estado.semanal.etapa = 'O especialista esta escrevendo...';
+    estado.semanal.etapa = 'O consultor esta analisando a semana';
+    estado.semanal.pct = 55;
     render();
 
     fetch(SIA_URL_RELATORIO, {
@@ -5765,7 +5807,7 @@
               return;
             }
             acc += dec.decode(res.value, { stream: true });
-            estado.semanal.etapa = Math.round(acc.length / 100) / 10 + ' mil caracteres';
+            estado.semanal.pct = Math.min(97, (estado.semanal.pct || 55) + 0.6);
             estado.sujo = true;
             return ler();
           });
@@ -5829,13 +5871,7 @@
       'style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer' + (R.gerando ? ';opacity:.6' : '') + '">' +
       (R.gerando ? 'Cancelar (' + esc(R.etapa || 'trabalhando') + ')' : 'Gerar relatorio') + '</button>';
     if (R.erro) h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 10px 10px 0;padding:12px 14px;margin-top:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' + esc(R.erro) + '</div>';
-    if (R.gerando) {
-      h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:11px;padding:14px;margin-top:12px">' +
-        '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">' +
-        '<span style="width:9px;height:9px;border-radius:50%;background:var(--mk);display:inline-block"></span>' +
-        '<b style="font-size:14px;color:var(--t0)">' + esc(R.etapa || 'Trabalhando...') + '</b></div>' +
-        '<div style="font-size:13px;color:var(--t2);line-height:1.5">Sao duas leituras completas da conta mais a analise. Leva alguns minutos. Pode deixar a gaveta aberta e continuar navegando.</div></div>';
-    }
+    if (R.gerando) h += renderProgresso(R.etapa, R.pct);
     return h;
   }
   function mdParaHtml(md) {
@@ -5924,12 +5960,12 @@
         try { if (window.SIA_Diamantes && window.SIA_Diamantes.zerar) window.SIA_Diamantes.zerar('troca de periodo do relatorio'); } catch (e) { /* noop */ }
       }
 
-      estado.rel.etapa = 'Lendo ' + faixaDoMes(sel).rotulo + '...'; render();
+      estado.rel.etapa = 'Lendo ' + faixaDoMes(sel).rotulo; estado.rel.pct = 8; render();
       zerar();
       // usa a Promise da coleta em vez de vigiar coletaProgresso: vigiar uma
       // variavel cria janela de corrida, que foi o que zerou o mes anterior.
       var prA = coletaCompleta(function (p) {
-        if (p) { estado.rel.etapa = 'Mes atual: ' + p; render(); }
+        if (p) { estado.rel.etapa = 'Lendo o mes atual \u00b7 ' + p; render(); }
       }, epochDoMes(sel));
       if (prA && prA.then) {
         prA.then(function () { if (esperaA) clearInterval(esperaA); concluirA(); });
@@ -5964,7 +6000,7 @@
           return;
         }
 
-        estado.rel.etapa = 'Lendo ' + faixaDoMes(mesAnterior(sel)).rotulo + '...'; render();
+        estado.rel.etapa = 'Lendo ' + faixaDoMes(mesAnterior(sel)).rotulo; estado.rel.pct = 35; render();
         zerar();
         // BUG QUE ZERAVA O MES ANTERIOR: o esperaB comecava a contar na hora,
         // mas a segunda coleta so disparava 3 segundos depois. Nessa janela
@@ -5976,7 +6012,7 @@
         var esperaB = null;
         setTimeout(function () {
           var pr = coletaCompleta(function (p) {
-            if (p) { estado.rel.etapa = 'Mes anterior: ' + p; render(); }
+            if (p) { estado.rel.etapa = 'Lendo o mes anterior \u00b7 ' + p; render(); }
           }, (function () {
           var fb = epochDoMes(mesAnterior(sel));
           // mesmo numero de dias, contados do inicio do mes anterior
@@ -6059,7 +6095,9 @@
                   return reader.read().then(function (res) {
                     if (res.done) { aoOk({ ok: true, markdown: acc }); return; }
                     acc += dec.decode(res.value, { stream: true });
-                    estado.rel.etapa = (parte === 1 ? 'Diagnostico' : 'Plano de 30 dias') + ': ' + Math.round(acc.length / 100) / 10 + ' mil caracteres';
+                    // sem contagem de caracteres: quem espera quer saber a
+                    // etapa, nao quantos bytes chegaram
+                    estado.rel.pct = Math.min(97, (estado.rel.pct || 60) + 0.4);
                     estado.sujo = true;
                     return ler();
                   });
@@ -6080,12 +6118,12 @@
           // TRES PARTES: 8 secoes em 9 mil tokens estourava o limite e o
           // relatorio era cortado no meio da secao 4, sumindo com as secoes
           // 5 a 8. Agora sao 1-4, 5-8 e 9-10.
-          estado.rel.etapa = 'Escrevendo o diagnostico...'; render();
+          estado.rel.etapa = 'O consultor esta escrevendo o diagnostico'; estado.rel.pct = 62; render();
           pedir(1, function (r1) {
             if (!r1 || !r1.ok) { falhouRelatorio(r1); return; }
-            estado.rel.etapa = 'Escrevendo Ads e produtos...'; render();
+            estado.rel.etapa = 'Analisando Ads e produtos'; estado.rel.pct = 78; render();
             pedir(3, function (r3) {
-            estado.rel.etapa = 'Escrevendo o plano de 30 dias...'; render();
+            estado.rel.etapa = 'Montando o plano de 30 dias'; estado.rel.pct = 91; render();
             pedir(2, function (r2) {
               estado.rel.gerando = false; estado.rel.etapa = '';
               estado.rel.markdown = r1.markdown +

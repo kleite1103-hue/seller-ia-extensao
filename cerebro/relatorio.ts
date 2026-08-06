@@ -177,6 +177,9 @@ function montarDados(b: any) {
 
   // produtos
   const prods = Array.isArray(A.produtos) ? A.produtos.slice(0, 25) : [];
+  if (Array.isArray(A.produtos) && A.produtos.length > 25) {
+    L.push(`OBS: a loja tem ${A.produtos.length} produtos; abaixo estao os 25 de maior venda. Analise esses e diga em uma linha quantos ficaram de fora.`);
+  }
   if (prods.length) {
     L.push("\n== PRODUTOS (periodo atual) ==");
     L.push("nome | id | visitantes | cliques | carrinho | unidades pagas | vendas R$ | conversao %");
@@ -190,7 +193,7 @@ function montarDados(b: any) {
   if (camps.length) {
     L.push("\n== CAMPANHAS (periodo atual) ==");
     L.push("nome da campanha | id do produto (quando a Shopee informa) | formato | investimento | GMV | ROAS amplo | ROAS direto | pedidos | CPA | meta atual | meta sugerida pela Shopee");
-    L.push("IMPORTANTE: quando o id do produto vier vazio, a Shopee nao vinculou aquela campanha a um item — nesse caso cite a CAMPANHA pelo nome e diga que o produto nao foi informado. NUNCA invente um id, e nunca escreva 'itens selecionados' ou 'sem ID visivel': nomeie a campanha.");
+    L.push("OBRIGATORIO: toda vez que citar uma campanha ou produto, escreva o NOME e o ID. O id vem na coluna acima. Grupo de Anuncios tem varios itens: nesse caso cite o nome da campanha e a quantidade de itens. NUNCA escreva 'itens selecionados', 'sem ID visivel' ou qualquer variante — o dado esta na tabela.");
     for (const c of camps) {
       L.push([c.nome, c.produtoId, c.formato, br(c.gasto), br(c.gmv),
         c.roas != null ? Number(c.roas).toFixed(2).replace(".", ",") : "nd",
@@ -338,7 +341,10 @@ Regras:
       },
       body: JSON.stringify({
         model: body.modelo || "claude-sonnet-4-5",
-        max_tokens: body.semanal ? 3000 : (parte ? 9000 : 16000),
+        // TETO GENEROSO: contas grandes geram relatorio longo, e cortar no
+        // meio e pior que gastar token a mais. 16 mil por parte cobre folgado
+        // ate as contas maiores da carteira.
+        max_tokens: body.semanal ? 4000 : 16000,
         stream: true,
         system: prompt,
         messages: [{
