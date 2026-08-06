@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.84.0';
+  var VERSAO = '0.85.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1952,6 +1952,7 @@
     { id: 'performance', rotulo: 'Funil de Produto' },
     { id: 'gprod', rotulo: 'Shopee Ads' },
     { id: 'espiao', rotulo: 'Espiao' },
+    { id: 'marketing', rotulo: 'Marketing' },
     { id: 'cofre', rotulo: 'Precificacao' },
     { id: 'palavras', rotulo: 'Palavras' },
     { id: 'semanal', rotulo: 'Semanal' },
@@ -2021,11 +2022,19 @@
         // botoes por id tambem precisam ser vistos aqui: a segunda passagem
         // so roda se nada antes fizer return, e o clique no TEXTO de um botao
         // dentro de um card era capturado pelo card
-        if (alvo.id === 'sia-sem-gerar') { try { gerarSemanal(); } catch (e3) { estado.semanal.erro = 'Erro ao gerar: ' + String(e3 && e3.message || e3); render(); } return; }
-        if (alvo.id === 'sia-sem-novo') { estado.semanal.markdown = null; render(); return; }
+        if (alvo.id === 'sia-sem-gerar') {
+          estado.semanal = estado.semanal || {};
+          try { gerarSemanal(); }
+          catch (e3) { estado.semanal.erro = 'Erro ao gerar: ' + String(e3 && e3.message || e3); render(); }
+          return;
+        }
+        if (alvo.id === 'sia-sem-novo') { estado.semanal = estado.semanal || {}; estado.semanal.markdown = null; render(); return; }
         if (alvo.id === 'sia-sem-pdf') { imprimirSemanal(); return; }
         if (alvo.id === 'sia-profunda') { if (estado.coletaProgresso === null) { coletaCompleta(function () { render(); }, null, 'profunda'); render(); } return; }
         if (alvo.getAttribute('data-calc') || alvo.getAttribute('data-prec') || alvo.getAttribute('data-custo')) return;
+        if (alvo.tagName === 'INPUT' || alvo.tagName === 'SELECT' || alvo.tagName === 'TEXTAREA') return;
+        var _cmp = alvo.getAttribute('data-comparar');
+        if (_cmp) { compararComVitrine(_cmp); return; }
       }
       alvo = alvo.parentNode;
     }
@@ -4147,6 +4156,7 @@
     if (idProduto) {
       var fq = funilDoProduto(idProduto);
       if (fq) {
+        h += renderComparacao(idProduto);
         h += olho('O CAMINHO ATE A VENDA', 'Cada degrau mostra quantas pessoas seguiram para a etapa seguinte. O degrau com a maior queda e onde vale colocar esforco primeiro: melhorar um degrau que ja esta bom rende quase nada.') + fq;
 
         // como este produto se compara com a media da loja
@@ -4734,7 +4744,10 @@
     }
 
     var co = CORES_SEM[nivel] || CORES_SEM.cinza;
-    var h = '<div data-card="campanha:' + esc(id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px">';
+    // O CARD INTEIRO expande. Antes ele tinha data-card, que levava para outra
+    // tela, e o link de expandir era filho dele — clicar em quase qualquer
+    // lugar abria a tela errada em vez de expandir.
+    var h = '<div data-exp-camp="' + esc(id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px">';
     h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">' +
       '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.25">' + esc(titulo) + '</span>' +
       (gasto != null ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(gasto) + '</span>' : '') + '</div>';
@@ -4765,8 +4778,8 @@
     }
     // ---- EXPANDIR: margem, leilao e o que a Shopee sabe ----
     var aberto = estado.campExpandida === String(id);
-    h += '<div data-exp-camp="' + esc(id) + '" style="margin-top:10px;padding-top:9px;border-top:1px solid var(--li);font-family:Space Mono,monospace;font-size:10.5px;color:var(--mk);cursor:pointer">' +
-      (aberto ? '\u2303 fechar analise' : '\u2304 analisar margem e leilao') + '</div>';
+    h += '<div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--li);font-family:Space Mono,monospace;font-size:10.5px;color:var(--mk)">' +
+      (aberto ? '\u2303 fechar' : '\u2304 toque para analisar margem, leilao e palavras') + '</div>';
 
     if (aberto) {
       var idProd = c.produtoId || campanhaDoProduto(c.produtoId);
@@ -5137,6 +5150,133 @@
      Os numeros da Conta 360 tambem estao no painel da Shopee. O que justifica
      a tela existir e o que fazemos com eles: dizer o que cada um significa
      nesta conta, cruzando uns com os outros, como um consultor faria. */
+  /* ============ COMPARACAO AUTOMATICA COM QUEM VENDE MAIS ============
+     Antes o card mandava "abra a pagina no celular e compare". Isso e devolver
+     trabalho: o Espiao ja sabe buscar a vitrine e trazer preco, avaliacao e
+     vendas dos concorrentes. Aqui a comparacao acontece sozinha e o card diz
+     o que esta diferente. */
+  function compararComVitrine(idProduto) {
+    var p = estado.produtos[idProduto];
+    if (!p || !p.nome) return;
+    estado.comparando = idProduto;
+    estado.compResultado = null;
+    render();
+    var termo = espTermo(p.nome);
+    espBuscar(termo, function (resp) {
+      estado.comparando = null;
+      if (!resp || !resp.ok) {
+        estado.compResultado = { id: idProduto, erro: (resp && resp.erro) || 'A busca nao voltou.' };
+        render(); return;
+      }
+      var lista = espMapear(resp.itens);
+      var meu = null, outros = [];
+      for (var i = 0; i < lista.length; i++) {
+        if (lista[i].eu) meu = lista[i]; else outros.push(lista[i]);
+      }
+      outros.sort(function (a, b) { return (b.faturamentoMes || 0) - (a.faturamentoMes || 0); });
+      var top3 = outros.slice(0, 3);
+      if (!top3.length) {
+        estado.compResultado = { id: idProduto, erro: 'Nao achei concorrentes para "' + termo + '".' };
+        render(); return;
+      }
+      function media(campo) {
+        var s = 0, n2 = 0;
+        for (var j = 0; j < top3.length; j++) if (top3[j][campo] != null) { s += top3[j][campo]; n2++; }
+        return n2 ? s / n2 : null;
+      }
+      estado.compResultado = {
+        id: idProduto, termo: termo, meu: meu, top3: top3,
+        precoMedio: media('preco'), avalMedia: media('avaliacoes'),
+        notaMedia: media('nota'), vendasMedia: media('vendasMes')
+      };
+      render();
+    });
+  }
+
+  function renderComparacao(idProduto) {
+    if (estado.comparando === idProduto) {
+      return '<div class="nota" style="color:var(--mk)">Buscando quem mais vende nesta categoria...</div>';
+    }
+    var C = estado.compResultado;
+    if (!C || C.id !== idProduto) {
+      return '<div data-comparar="' + esc(idProduto) + '" style="cursor:pointer;background:var(--b2);border:1px dashed var(--li2);border-radius:11px;padding:13px 15px;margin-top:10px;font-size:13.5px;color:var(--mk);text-align:center">' +
+        'Comparar com os 3 que mais vendem nesta busca' + '</div>';
+    }
+    if (C.erro) return '<div class="nota" style="color:var(--am)">' + esc(C.erro) + '</div>';
+
+    var p = estado.produtos[idProduto] || {};
+    var m = p.metricas || {};
+    var meuPreco = (C.meu && C.meu.preco) || m.ticket_pedido || (m.vendas_pagas && m.pedidos_pagos ? m.vendas_pagas / m.pedidos_pagos : null);
+    var meuAval = (C.meu && C.meu.avaliacoes) || null;
+    var meuNota = (C.meu && C.meu.nota) || null;
+
+    var achados = [];
+    if (meuPreco && C.precoMedio) {
+      var dif = ((meuPreco - C.precoMedio) / C.precoMedio) * 100;
+      if (Math.abs(dif) >= 8) {
+        achados.push({
+          rot: 'PRECO',
+          txt: dif > 0
+            ? 'Voce cobra ' + reais(meuPreco) + ' e os tres que mais vendem cobram em media ' + reais(C.precoMedio) + ' — ' + fmt(dif, 0) + '% mais caro. Na vitrine o preco aparece antes de qualquer outra coisa.'
+            : 'Voce cobra ' + reais(meuPreco) + ' contra ' + reais(C.precoMedio) + ' da media deles — ' + fmt(Math.abs(dif), 0) + '% mais barato. Preco nao e o seu problema aqui.',
+          ruim: dif > 0
+        });
+      }
+    }
+    if (C.avalMedia) {
+      var ma = meuAval || 0;
+      if (ma < C.avalMedia * 0.5) {
+        achados.push({
+          rot: 'AVALIACOES',
+          txt: 'Voce tem ' + fmt(ma, 0) + ' avaliacoes e eles tem em media ' + fmt(C.avalMedia, 0) + '. Na duvida entre dois produtos parecidos, o comprador escolhe o que outras pessoas ja aprovaram.',
+          ruim: true
+        });
+      }
+    }
+    if (meuNota && C.notaMedia && meuNota < C.notaMedia - 0.2) {
+      achados.push({
+        rot: 'NOTA',
+        txt: 'Sua nota e ' + fmt(meuNota, 1) + ' e a media deles e ' + fmt(C.notaMedia, 1) + '. Diferenca de nota pesa mais que diferenca de preco nessa faixa.',
+        ruim: true
+      });
+    }
+    var comAds = 0, comCupom = 0, comFrete = 0;
+    for (var k = 0; k < C.top3.length; k++) {
+      if (C.top3[k].ads) comAds++;
+      if (C.top3[k].cupom) comCupom++;
+      if (C.top3[k].freteGratis) comFrete++;
+    }
+    if (comCupom >= 2) achados.push({ rot: 'CUPOM', txt: comCupom + ' dos 3 que mais vendem tem cupom ativo na vitrine. Cupom aparece como selo no card e muda a decisao antes do clique.', ruim: true });
+    if (comAds === 0) achados.push({ rot: 'ANUNCIO', txt: 'Nenhum dos tres esta pagando anuncio nesta busca — eles chegaram ali por titulo, preco e avaliacao. Investir mais aqui nao resolve.', ruim: false });
+
+    var h = '<div style="background:var(--b1);border:1px solid var(--li);border-radius:12px;padding:14px;margin-top:11px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">O QUE OS 3 QUE MAIS VENDEM FAZEM DIFERENTE</div>';
+
+    for (var q = 0; q < C.top3.length; q++) {
+      var T = C.top3[q];
+      h += '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--li);font-size:12.5px">' +
+        '<span style="font-family:Bebas Neue,sans-serif;font-size:17px;color:var(--t2);width:18px">' + (q + 1) + '</span>' +
+        '<span style="flex:1;min-width:0;color:var(--t1)">' + esc(String(T.nome).slice(0, 40)) + '</span>' +
+        '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--t0)">R$' + fmt(T.preco, 2) + '</span>' +
+        (T.vendasMes != null ? '<span style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--vd)">' + fmt(T.vendasMes, 0) + '/30d</span>' : '') +
+        (T.link ? '<a data-link-externo="1" href="' + esc(T.link) + '" target="_blank" rel="noopener" style="color:var(--mk);text-decoration:none;font-size:15px">\u2197</a>' : '') +
+        '</div>';
+    }
+
+    if (achados.length) {
+      h += '<div style="margin-top:11px">';
+      for (q = 0; q < achados.length; q++) {
+        h += '<div style="border-left:2px solid ' + (achados[q].ruim ? 'var(--am)' : 'var(--vd)') + ';padding-left:11px;margin-bottom:9px">' +
+          '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);margin-bottom:3px">' + achados[q].rot + '</div>' +
+          '<div style="font-size:13.5px;color:var(--t1);line-height:1.5">' + esc(achados[q].txt) + '</div></div>';
+      }
+      h += '</div>';
+    } else {
+      h += '<div class="nota">Preco, nota e avaliacoes estao na mesma faixa dos tres. A diferenca deve estar na foto, no titulo ou no tempo de vitrine.</div>';
+    }
+    return h + '</div>';
+  }
+
   function leituraDaConta() {
     var D = null;
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return ''; }
@@ -5159,75 +5299,75 @@
     }
     var AF = (D.afiliados && D.afiliados.resumo) || {};
     var gmvAf = numeroPuro(AF.vendas) || 0;
-    var tacos = (gmv && gastoAds) ? (gastoAds / gmv) * 100 : null;
-    var depAds = (gmv && gmvAds) ? (gmvAds / gmv) * 100 : null;
+
+
 
     var itens = [];
 
-    // ---- ADS: investimento, ROAS e a leitura contra o periodo anterior ----
-    // A variacao vem da propria Shopee nos campos gerenciais. Cruzar
-    // investimento com faturamento responde a pergunta que importa: investiu
-    // mais e faturou menos? entao o retorno piorou, e o problema nao e verba.
+    // ---- ADS ----
+    // CORRECAO IMPORTANTE: eu somava gasto x ROAS de cada campanha e chamava
+    // isso de "GMV de Ads", comparando com o faturamento da loja. Nao da: o
+    // broad_roi da Shopee conta venda AMPLA, que inclui compra de outros
+    // produtos e venda que aconteceria de qualquer jeito. Somado, passa de
+    // 100% do faturamento real — foi o que produziu "Ads responde por 215%".
+    // Agora o retorno de Ads e apresentado como o que e: uma metrica DA
+    // Shopee sobre as campanhas, nunca como fatia do faturamento da loja.
     if (gastoAds) {
       var roasGeral = gmvAds / gastoAds;
       var margemC = margemMediaCofre();
       var pisoC = margemC ? 100 / margemC : null;
-      var cpaGeral = null;
       var pedAds = 0;
       for (var kp in estado.campanhas) pedAds += (estado.campanhas[kp].metricas || {}).pedidos || 0;
-      if (pedAds) cpaGeral = gastoAds / pedAds;
+      var cpaGeral = pedAds ? gastoAds / pedAds : null;
+      var nCamp = Object.keys(estado.campanhas).length;
 
-      var varGmv = (g.gmvPago && g.gmvPago.variacao != null) ? numeroPuro(g.gmvPago.variacao) : null;
-      var txtAds = 'Investiu ' + reais(gastoAds) + ' e trouxe ' + reais(gmvAds) + ', um retorno de ' + fmt(roasGeral, 1) + 'x.';
+      var txtAds = 'Somando as ' + nCamp + ' campanhas lidas: ' + reais(gastoAds) + ' investidos e retorno medio de ' + fmt(roasGeral, 1) + 'x pela conta da Shopee.';
       if (pisoC) {
         txtAds += roasGeral >= pisoC
-          ? ' Seu ponto de equilibrio e ' + fmt(pisoC, 1) + 'x, entao a conta esta lucrando com anuncio.'
-          : ' Seu ponto de equilibrio e ' + fmt(pisoC, 1) + 'x — abaixo disso cada venda por anuncio sai no negativo.';
+          ? ' Seu ponto de equilibrio e ' + fmt(pisoC, 1) + 'x, entao no conjunto o anuncio esta pagando.'
+          : ' Seu ponto de equilibrio e ' + fmt(pisoC, 1) + 'x — no conjunto, o anuncio esta abaixo dele.';
       } else {
         txtAds += ' Cadastre o custo dos produtos para eu dizer se esse retorno cobre a sua margem.';
       }
-      if (cpaGeral) txtAds += ' Cada pedido por anuncio custou ' + reais(cpaGeral) + (ticket ? ', contra um ticket de ' + reais(ticket) + '.' : '.');
-      if (varGmv != null) {
-        txtAds += varGmv < 0
-          ? ' O faturamento caiu ' + fmt(Math.abs(varGmv), 1) + '% contra o periodo anterior: se o investimento nao caiu junto, o retorno piorou e o problema nao e falta de verba.'
-          : ' O faturamento subiu ' + fmt(varGmv, 1) + '% contra o periodo anterior.';
+      if (cpaGeral && ticket) {
+        txtAds += ' Cada pedido por anuncio custou ' + reais(cpaGeral) + ', contra um ticket de ' + reais(ticket) +
+          (cpaGeral > ticket * 0.4 ? ' — ou seja, o anuncio consome mais de 40% do valor da venda.' : '.');
       }
+      txtAds += ' Este retorno e o que a Shopee chama de venda ampla: inclui compra de outros produtos da loja na mesma visita, entao nao da para somar com o faturamento total nem tirar percentual dele.';
       itens.push({
         rot: 'O QUE O ANUNCIO DEVOLVEU',
         txt: txtAds,
         nivel: (pisoC && roasGeral < pisoC) ? 'amarelo' : 'verde'
       });
+
+      // TACOS so faz sentido com gasto e GMV do MESMO periodo
+      if (gmv && gastoAds) {
+        var tacosReal = (gastoAds / gmv) * 100;
+        if (tacosReal <= 100) {
+          itens.push({
+            rot: 'QUANTO DA RECEITA VAI PARA ANUNCIO',
+            txt: fmt(tacosReal, 1) + '% de tudo que a loja faturou foi para Ads. ' +
+              (tacosReal > 15 ? 'Acima de 15% costuma corroer margem: confira se o retorno cobre o seu ponto de equilibrio antes de manter esse ritmo.'
+               : tacosReal < 5 ? 'Ha espaco para investir mais nas campanhas que ja entregam acima do seu equilibrio.'
+               : 'Dentro da faixa saudavel de 8 a 12%.'),
+            nivel: tacosReal > 15 ? 'amarelo' : 'verde'
+          });
+        } else {
+          // gasto maior que o faturamento: quase sempre recorte diferente
+          itens.push({
+            rot: 'ATENCAO NA LEITURA DE ADS',
+            txt: 'O investimento lido (' + reais(gastoAds) + ') e maior que o faturamento do periodo (' + reais(gmv) + '). ' +
+              'Isso normalmente significa que as campanhas foram lidas num recorte de datas diferente do resto da conta — e nao que a loja gastou mais do que vendeu. ' +
+              'Selecione o mesmo periodo em Informacoes Gerenciais e em Shopee Ads antes de comparar os dois.',
+            nivel: 'amarelo'
+          });
+        }
+      }
     } else if (Object.keys(estado.campanhas).length) {
       itens.push({
         rot: 'O QUE O ANUNCIO DEVOLVEU',
         txt: 'Ha ' + Object.keys(estado.campanhas).length + ' campanhas cadastradas e nenhum investimento no periodo lido. Ou estao pausadas, ou sem saldo, ou o recorte de datas nao pegou o gasto.',
         nivel: 'amarelo'
-      });
-    }
-
-    // 1) o que sustenta o faturamento
-    if (depAds != null) {
-      itens.push({
-        rot: 'DE ONDE VEM O FATURAMENTO',
-        txt: depAds >= 80
-          ? 'Ads responde por ' + fmt(depAds, 0) + '% do que a loja vende. Isso e dependencia: no dia em que a verba parar, o faturamento para junto. O organico precisa crescer para a conta ter piso.'
-          : depAds >= 40
-            ? 'Ads responde por ' + fmt(depAds, 0) + '% do faturamento e o resto vem de organico e afiliados. E uma divisao saudavel: ha o que escalar e ha piso se a verba parar.'
-            : 'So ' + fmt(depAds, 0) + '% do faturamento vem de Ads. A loja se sustenta no organico, o que da seguranca — e mostra que ha espaco para crescer com verba sem depender dela.',
-        nivel: depAds >= 80 ? 'amarelo' : 'verde'
-      });
-    }
-
-    // 2) TACOS
-    if (tacos != null) {
-      itens.push({
-        rot: 'QUANTO DA RECEITA VAI PARA ANUNCIO',
-        txt: tacos > 15
-          ? fmt(tacos, 1) + '% de tudo que a loja fatura vai para Ads. Acima de 15% costuma corroer margem: confira se o ROAS medio cobre o seu ponto de equilibrio antes de manter esse ritmo.'
-          : tacos < 5
-            ? 'Apenas ' + fmt(tacos, 1) + '% do faturamento vai para Ads. Ha espaco para investir mais nas campanhas que ja entregam acima do seu equilibrio.'
-            : fmt(tacos, 1) + '% do faturamento vai para Ads, dentro da faixa saudavel de 8 a 12%.',
-        nivel: tacos > 15 ? 'amarelo' : 'verde'
       });
     }
 
@@ -5362,7 +5502,7 @@
       // vindas dela. Isso muda a conta inteira e nao da para recomendar
       // entrada sem confrontar com a margem.
       var margemMkt = margemMediaCofre();
-      h += olho('CAMPANHAS DA SHOPEE ABERTAS (' + abertas.length + ')', '<b>Participar nao e gratuito.</b> A Shopee cobra um percentual sobre as vendas da loja no periodo da campanha \u2014 normalmente 3,5%, e sobre TODAS as vendas, nao apenas as que vieram dela. Em troca, o produto entra em vitrine que a loja nao alcanca sozinha.<br><br><b>A conta que decide:</b> o ganho de alcance precisa cobrir o percentual cobrado sobre o faturamento inteiro. Loja de margem apertada raramente compensa.');
+      h += olho('CAMPANHA DE DESTAQUE SHOPEE (' + abertas.length + ')', '<b>A Campanha de Destaque Shopee nao e gratuita.</b> A Shopee cobra um percentual sobre as vendas da loja no periodo da campanha \u2014 normalmente 3,5%, e sobre TODAS as vendas, nao apenas as que vieram dela. Em troca, o produto entra em vitrine que a loja nao alcanca sozinha.<br><br><b>A conta que decide:</b> o ganho de alcance precisa cobrir o percentual cobrado sobre o faturamento inteiro. Loja de margem apertada raramente compensa.');
       h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">Antes de entrar, faca a conta.</b> A taxa costuma ser de 3,5% sobre todo o faturamento do periodo. ' +
         (margemMkt
@@ -5468,6 +5608,7 @@
   }
 
   function gerarSemanal() {
+    estado.semanal = estado.semanal || {};
     if (estado.semanal.gerando) return;
     var nP = Object.keys(estado.produtos).length;
     if (!nP) { estado.semanal.erro = 'Colete a conta antes de gerar o panorama.'; render(); return; }
@@ -6408,7 +6549,7 @@
   // fechava sozinha.
   var TELAS_VALIDAS = ['semaforo','conta360','calc','cofre','espiao','card','diagnostico','visao',
     'campanhas','produtos','performance','afiliados','cadastro','diamantes','debug',
-    'relatorio','gprod','ferramentas','radar','busca','palavras','semanal'];
+    'relatorio','gprod','ferramentas','radar','busca','palavras','semanal','marketing'];
   /* ============ INTELIGENCIA DE PRODUTO (Performance) ============
      Le o funil de cada produto e devolve um veredito, nao uma linha de
      tabela. A ordem das perguntas segue o metodo: primeiro o dinheiro
@@ -6602,13 +6743,13 @@
       if (i > 0) {
         var q = quedas[i - 1];
         var ruim = pior && q && q.i === pior.i;
-        h += '<div style="flex:none;text-align:center;font-family:Space Mono,monospace;font-size:8.5px;color:' + (ruim ? 'var(--rd)' : 'var(--t3)') + ';padding-bottom:15px">\u203a<br>' +
+        h += '<div style="flex:none;text-align:center;font-family:Space Mono,monospace;font-size:10px;color:' + (ruim ? 'var(--rd)' : 'var(--t3)') + ';padding-bottom:18px">\u203a<br>' +
           (q ? '\u2212' + fmt(q.pct, 0) + '%' : '') + '</div>';
       }
       var ehUltimo = i === degraus.length - 1;
       h += '<div style="flex:1;text-align:center">' +
-        '<div style="font-family:Bebas Neue,sans-serif;font-size:19px;line-height:1;color:' + (ehUltimo && degraus[i].v === 0 ? 'var(--rd)' : 'var(--t0)') + '">' + fmt(degraus[i].v, 0) + '</div>' +
-        '<div style="font-family:Space Mono,monospace;font-size:7px;color:var(--t2);margin-top:3px;line-height:1.25">' + degraus[i].r + '</div></div>';
+        '<div style="font-family:Bebas Neue,sans-serif;font-size:27px;line-height:1;color:' + (ehUltimo && degraus[i].v === 0 ? 'var(--rd)' : 'var(--t0)') + '">' + fmt(degraus[i].v, 0) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:5px;line-height:1.3">' + degraus[i].r + '</div></div>';
     }
     h += '</div>';
 
@@ -6802,6 +6943,11 @@
       } catch (err) { corpo.innerHTML = telaDeErro('Palavras', err); }
       return;
     }
+    if (abaAtiva === 'marketing') {
+      try { corpo.innerHTML = capa('CUPONS E PROMOCOES', 'O', 'MARKETING', '04') + renderMarketing(); }
+      catch (err) { corpo.innerHTML = telaDeErro('Marketing', err); }
+      return;
+    }
     if (abaAtiva === 'semanal') {
       try { corpo.innerHTML = capa('OS ULTIMOS 7 DIAS', 'O', 'SEMANAL', '07') + renderSemanal(); }
       catch (err) { corpo.innerHTML = telaDeErro('Semanal', err); }
@@ -6942,21 +7088,46 @@
       // CARDS EM VEZ DE TABELA: tabela mostra numeros lado a lado e deixa a
       // leitura para o analista. Cada campanha vira um card com veredito,
       // as metricas que sustentam e o que fazer.
-      var vermC = [], amarC = [], verdC = [], cinzaC = [];
-      for (var j = 0; j < idsC.length; j++) {
-        var htmlC = cardCampanha(idsC[j]);
-        if (htmlC.indexOf('var(--rd)') >= 0 && htmlC.indexOf('border-left:3px solid var(--rd)') >= 0) vermC.push(htmlC);
-        else if (htmlC.indexOf('border-left:3px solid var(--am)') >= 0) amarC.push(htmlC);
-        else if (htmlC.indexOf('border-left:3px solid var(--vd)') >= 0) verdC.push(htmlC);
-        else cinzaC.push(htmlC);
+      // TOP 5 DE CADA LADO por investimento contra retorno, mais um seletor
+      // para abrir qualquer outra. Despejar 300 cards nao ajuda ninguem.
+      function lucroDe2(k) {
+        var m3 = estado.campanhas[k].metricas || {};
+        if (!m3.gasto) return null;
+        var mg = margemMediaCofre() || 25;
+        return m3.gasto * ((m3.roas || 0) * (mg / 100) - 1);
       }
+      var comGasto = idsC.filter(function (k) { return (estado.campanhas[k].metricas || {}).gasto; });
+      var ordL = comGasto.slice().sort(function (a, b) { return (lucroDe2(b) || 0) - (lucroDe2(a) || 0); });
+      var melhores = ordL.slice(0, 5);
+      var piores = ordL.slice(-5).reverse().filter(function (k) { return melhores.indexOf(k) < 0; });
+
       var h2 = '';
-      if (vermC.length) h2 += olho('CUSTANDO DINHEIRO (' + vermC.length + ')', 'Ordenado por quanto cada uma gasta. Resolver a primeira vale mais que resolver as ultimas juntas.') + vermC.slice(0, 12).join('');
-      if (verdC.length) h2 += olho('ONDE CABE MAIS INVESTIMENTO (' + verdC.length + ')', 'Entregam acima do seu ponto de equilibrio com folga. Subir orcamento aqui e o crescimento mais barato da conta.') + verdC.slice(0, 8).join('');
-      if (amarC.length) h2 += olho('DENTRO DO ESPERADO (' + amarC.length + ')', 'Acima do equilibrio, mas sem folga para escalar com seguranca.') + amarC.slice(0, 8).join('');
-      if (cinzaC.length) h2 += olho('SEM VOLUME PARA JULGAR (' + cinzaC.length + ')', 'Sem investimento no periodo ou com poucos cliques para concluir qualquer coisa.') + cinzaC.slice(0, 6).join('');
-      var totalMostrado = Math.min(vermC.length, 12) + Math.min(verdC.length, 8) + Math.min(amarC.length, 8) + Math.min(cinzaC.length, 6);
-      if (idsC.length > totalMostrado) h2 += '<div class="nota">Mostrando ' + totalMostrado + ' de ' + idsC.length + ' campanhas, as de maior investimento em cada grupo.</div>';
+      if (piores.length) {
+        h2 += olho('AS 5 QUE MAIS CUSTAM', 'Ordenado pelo resultado em reais: investimento contra o que voltou, ja descontada a margem. A primeira da lista e onde o dinheiro esta indo embora mais rapido.');
+        for (var pj2 = 0; pj2 < piores.length; pj2++) h2 += cardCampanha(piores[pj2]);
+      }
+      if (melhores.length) {
+        h2 += olho('AS 5 QUE MAIS RENDEM', 'As que devolvem mais em reais. Subir orcamento aqui e o crescimento mais barato que a conta tem.');
+        for (var mj2 = 0; mj2 < melhores.length; mj2++) h2 += cardCampanha(melhores[mj2]);
+      }
+
+      // seletor para qualquer outra
+      if (idsC.length > melhores.length + piores.length) {
+        h2 += olho('ANALISAR OUTRA CAMPANHA', 'Escolha qualquer campanha da conta para ver a analise completa, com margem, leilao e palavras.');
+        h2 += '<select id="sia-camp-sel" style="width:100%;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:10px">' +
+          '<option value="">Escolha uma campanha...</option>';
+        var ordSel = idsC.slice().sort(function (a, b) {
+          return ((estado.campanhas[b].metricas || {}).gasto || 0) - ((estado.campanhas[a].metricas || {}).gasto || 0);
+        });
+        for (var sj = 0; sj < ordSel.length; sj++) {
+          var cS = estado.campanhas[ordSel[sj]], mS = cS.metricas || {};
+          h2 += '<option value="' + esc(ordSel[sj]) + '"' + (estado.campSel === ordSel[sj] ? ' selected' : '') + '>' +
+            esc(String(cS.nome || cS.titulo || ordSel[sj]).slice(0, 52)) + (mS.gasto ? ' \u00b7 ' + reais(mS.gasto) : '') + '</option>';
+        }
+        h2 += '</select>';
+        if (estado.campSel && estado.campanhas[estado.campSel]) h2 += cardCampanha(estado.campSel);
+      }
+      if (!comGasto.length) h2 += '<div class="nota">Nenhuma campanha com investimento no periodo lido.</div>';
 
       // Cada bloco isolado: antes, um erro em qualquer um deles derrubava a
       // aba inteira e ela nao abria — que foi o que aconteceu.
@@ -6968,7 +7139,6 @@
         }
       }
       h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') +
-        seguro(renderMarketing, 'Campanhas de marketing') +
         seguro(renderPercentis, 'Percentis da categoria') +
         seguro(renderHoras, 'O dia hora a hora') +
         seguro(renderFiltroCampanhas, 'Filtro de campanhas') +
@@ -6976,6 +7146,8 @@
         seguro(renderImportador, 'Planilha do grupo');
       h2 += '<div class="nota">CPC e CPM sao derivados de gasto dividido por cliques e por impressoes: os campos cpc e cpm da API nao sao taxa e foram descartados. ROAS e o broad_roi da Shopee.</div>';
       corpo.innerHTML = h2;
+      var csel = $('sia-camp-sel');
+      if (csel) csel.addEventListener('change', function () { estado.campSel = this.value; estado.campExpandida = this.value; render(); });
       ligarCalculadora();
       ligarImportador();
 

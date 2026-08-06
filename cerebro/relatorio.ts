@@ -20,7 +20,7 @@ function json(body: unknown, status = 200) {
     headers: {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
     },
   });
@@ -184,7 +184,20 @@ function montarDados(b: any) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return json({ ok: true });
+  // O preflight precisa responder 204 com os headers completos. Responder
+  // com JSON funciona as vezes, mas o navegador rejeita quando o Content-Type
+  // nao bate — e ai a chamada seguinte morre em CORS antes de sair.
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
   if (req.method !== "POST") return json({ ok: false, erro: "use POST" }, 405);
 
   let body: any;
@@ -355,7 +368,8 @@ Regras:
       "X-Code-Version": CODE_VERSION,
       "X-Parte": String(parte),
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Expose-Headers": "X-Code-Version, X-Parte",
     },
   });
