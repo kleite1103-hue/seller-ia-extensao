@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.93.1';
+  var VERSAO = '0.94.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -4243,7 +4243,17 @@
 
     /* ---- 5. OURO DA SHOPEE (o espiao) ---- */
     var posLeilao = (pc && pc.leilao && pc.leilao.posicao) || (pp && pp.posicaoLeilao) || null;
+    // A competitividade vem da rota todo/list_task e e gravada em
+    // COFRE.porProduto pelo item_id. Se o card foi aberto por CAMPANHA, o pp
+    // pode nao ter sido resolvido — entao busca tambem pelo produto vinculado.
     var comp = pp && pp.competitividade != null ? pp.competitividade : null;
+    if (comp == null && idProduto) {
+      try {
+        var Dc = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null;
+        var pc3 = Dc && Dc.porProduto && Dc.porProduto[String(idProduto)];
+        if (pc3 && pc3.competitividade != null) comp = pc3.competitividade;
+      } catch (e) { /* noop */ }
+    }
     var st = (pp && pp.status) || null;
     var probl = (pc && pc.problema) || (meta.problema) || null;
     var DIAG = {
@@ -4900,11 +4910,11 @@
       texto = 'Entrega ' + fmt(roas, 1) + 'x e o equilibrio e ' + fmt(piso, 1) + 'x. ' +
         (perda < 0 ? 'Resultado no periodo: ' + reais(perda) + '.' : '') +
         (temCofre ? '' : ' Margem assumida de 25% — cadastre o custo no Cofre.');
-      passos = ['Suba a meta em degraus de 20% e meca 7 dias', 'Se o volume cair sem o lucro subir, o problema e a pagina'];
+      passos = ['Suba a meta em degraus de 20% e meça 7 dias', 'Se o volume cair sem o lucro subir, o problema e a pagina'];
     } else if (roas != null && roas >= piso * 1.5) {
       nivel = 'verde'; titulo = 'Aqui cabe mais investimento';
       texto = 'Entrega ' + fmt(roas, 1) + 'x contra o equilibrio de ' + fmt(piso, 1) + 'x. ' + reais(gmv) + ' com ' + reais(gasto) + '.';
-      passos = ['Suba o orcamento em 20%, nao mais que isso de uma vez', 'Meca 7 dias antes do proximo aumento'];
+      passos = ['Suba o orcamento em 20%, nao mais que isso de uma vez', 'Meça 7 dias antes do proximo aumento'];
     } else {
       nivel = 'amarelo'; titulo = 'Dentro do esperado';
       texto = 'Entrega ' + fmt(roas, 1) + 'x, acima do equilibrio de ' + fmt(piso, 1) + 'x, mas sem folga para escalar com seguranca.';
@@ -4944,6 +4954,44 @@
       for (var q = 0; q < passos.length; q++) h += '\u2192 ' + esc(passos[q]) + '<br>';
       h += '</div>';
     }
+    // ---- O FUNIL DESTA CAMPANHA ----
+    // Impressao -> clique -> carrinho -> pedido, com a queda de cada degrau.
+    // Estava faltando: o card mostrava os numeros soltos e nao onde quebra.
+    var atcC = (m.carrinho != null) ? m.carrinho : ((pcC.metricas && pcC.metricas.carrinho) != null ? pcC.metricas.carrinho : null);
+    var degC = [];
+    if (impr) degC.push({ r: 'IMPRESSOES', v: impr });
+    if (cliq != null) degC.push({ r: 'CLIQUES', v: cliq });
+    if (atcC != null) degC.push({ r: 'CARRINHO', v: atcC });
+    degC.push({ r: 'PEDIDOS', v: ped });
+    if (degC.length >= 2) {
+      var quedasC = [], piorC = null;
+      for (var dq = 1; dq < degC.length; dq++) {
+        if (!degC[dq - 1].v) continue;
+        var qc = { i: dq, de: degC[dq - 1].r, para: degC[dq].r, pct: (1 - degC[dq].v / degC[dq - 1].v) * 100 };
+        quedasC.push(qc);
+        if (!piorC || qc.pct > piorC.pct) piorC = qc;
+      }
+      h += '<div style="background:var(--b1);border:1px solid var(--li);border-radius:11px;padding:12px 10px;margin-bottom:10px">' +
+        '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.08em;margin-bottom:8px">O FUNIL DESTA CAMPANHA</div>' +
+        '<div style="display:flex;align-items:flex-end;gap:2px">';
+      for (var dc = 0; dc < degC.length; dc++) {
+        if (dc > 0) {
+          var qq = quedasC[dc - 1];
+          var ruimC = piorC && qq && qq.i === piorC.i;
+          h += '<div style="flex:none;text-align:center;font-family:Space Mono,monospace;font-size:9px;color:' + (ruimC ? 'var(--rd)' : 'var(--t3)') + ';padding-bottom:16px">\u203a<br>' + (qq ? '\u2212' + fmt(qq.pct, 0) + '%' : '') + '</div>';
+        }
+        h += '<div style="flex:1;text-align:center">' +
+          '<div style="font-family:Bebas Neue,sans-serif;font-size:23px;line-height:1;color:' + (dc === degC.length - 1 && !degC[dc].v ? 'var(--rd)' : 'var(--t0)') + '">' + fmt(degC[dc].v, 0) + '</div>' +
+          '<div style="font-family:Space Mono,monospace;font-size:7.5px;color:var(--t2);margin-top:4px">' + degC[dc].r + '</div></div>';
+      }
+      h += '</div>';
+      if (piorC) {
+        h += '<div style="font-size:12.5px;color:var(--t1);line-height:1.5;margin-top:9px;padding-top:8px;border-top:1px solid var(--li)">' +
+          '<b style="color:var(--t0)">Maior perda entre ' + piorC.de.toLowerCase() + ' e ' + piorC.para.toLowerCase() + '</b> \u2014 ' + fmt(piorC.pct, 0) + '%.</div>';
+      }
+      h += '</div>';
+    }
+
     // ---- EXPANDIR: margem, leilao e o que a Shopee sabe ----
     var aberto = estado.campExpandida === String(id);
     h += '<div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--li);font-family:Space Mono,monospace;font-size:10.5px;color:var(--mk)">' +
@@ -5143,10 +5191,17 @@
       var fr = new FileReader();
       fr.onload = function () {
         try {
-          var texto;
-          if (ehXlsx) texto = textoDoXlsx(new Uint8Array(fr.result));
-          else texto = String(fr.result || '');
-          estado.grupoImportado = lerCsvGrupo(texto, f.name);
+          if (ehXlsx) {
+            xlsxParaTexto(new Uint8Array(fr.result)).then(function (texto) {
+              estado.grupoImportado = lerCsvGrupo(texto, f.name);
+              estado.sujo = true; render();
+            }).catch(function (e2) {
+              mostrarExpl('<b>Nao consegui abrir o XLSX.</b> ' + esc(String(e2 && e2.message || e2)) +
+                '<br><br>Alternativa: abra no Excel e salve como CSV.');
+            });
+            return;
+          }
+          estado.grupoImportado = lerCsvGrupo(String(fr.result || ''), f.name);
           estado.sujo = true; render();
         } catch (e) {
           mostrarExpl('<b>Nao consegui ler a planilha.</b> ' + esc(String(e && e.message || e)) +
@@ -5160,6 +5215,59 @@
      Um .xlsx e um zip com XML dentro. Sem descompactar de verdade, da para
      achar as strings e os valores no sheet1 e remontar as linhas. Funciona
      para planilha simples de exportacao, que e o caso da Shopee. */
+  // O leitor manual nao descomprime o zip: XLSX moderno vem com deflate, e
+  // procurar as strings no binario cru so funciona em arquivo sem compressao.
+  // Por isso a planilha da Shopee nunca era lida. Agora a extensao usa a
+  // API nativa DecompressionStream, que existe no Chrome, para abrir o zip.
+  async function xlsxParaTexto(bytes) {
+    function u16(o) { return bytes[o] | (bytes[o + 1] << 8); }
+    function u32(o) { return (bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16) | (bytes[o + 3] << 24)) >>> 0; }
+    // varre as entradas locais do zip
+    var arquivos = {};
+    for (var i = 0; i < bytes.length - 4; i++) {
+      if (u32(i) !== 0x04034b50) continue;
+      var metodo = u16(i + 8);
+      var tamComp = u32(i + 18);
+      var tamNome = u16(i + 26), tamExtra = u16(i + 28);
+      var ini = i + 30;
+      var nome = '';
+      for (var j = 0; j < tamNome; j++) nome += String.fromCharCode(bytes[ini + j]);
+      var dados = bytes.subarray(ini + tamNome + tamExtra, ini + tamNome + tamExtra + tamComp);
+      if (/sharedStrings\.xml$|sheet1\.xml$/.test(nome)) arquivos[nome] = { metodo: metodo, dados: dados };
+      i = ini + tamNome + tamExtra + tamComp - 1;
+    }
+    async function inflar(e) {
+      if (!e) return '';
+      if (e.metodo === 0) return new TextDecoder().decode(e.dados);
+      var ds = new DecompressionStream('deflate-raw');
+      var stream = new Blob([e.dados]).stream().pipeThrough(ds);
+      return await new Response(stream).text();
+    }
+    var chaveSS = Object.keys(arquivos).find(function (k) { return /sharedStrings/.test(k); });
+    var chaveSh = Object.keys(arquivos).find(function (k) { return /sheet1/.test(k); });
+    var xmlSS = await inflar(arquivos[chaveSS]);
+    var xmlSh = await inflar(arquivos[chaveSh]);
+    if (!xmlSh) throw new Error('nao achei a primeira planilha dentro do arquivo');
+
+    var sst = [], mT, reT = /<t[^>]*>([\s\S]*?)<\/t>/g;
+    while ((mT = reT.exec(xmlSS)) !== null) sst.push(mT[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"'));
+
+    var linhas = [], mR, reR = /<row[^>]*>([\s\S]*?)<\/row>/g;
+    while ((mR = reR.exec(xmlSh)) !== null) {
+      var cols = [], mC, reC = /<c[^>]*?(?:t="([^"]*)")?[^>]*>(?:<v>([\s\S]*?)<\/v>|<is><t[^>]*>([\s\S]*?)<\/t><\/is>)?<\/c>|<c[^>]*\/>/g;
+      while ((mC = reC.exec(mR[1])) !== null) {
+        var tipo = mC[1], val = mC[2], inline = mC[3];
+        var v = '';
+        if (inline != null) v = inline;
+        else if (val != null) v = (tipo === 's') ? (sst[parseInt(val, 10)] || '') : val;
+        cols.push(String(v).replace(/;/g, ','));
+      }
+      if (cols.length) linhas.push(cols.join(';'));
+    }
+    if (linhas.length < 2) throw new Error('a planilha veio vazia ou em formato que nao consigo ler');
+    return linhas.join('\n');
+  }
+
   function textoDoXlsx(bytes) {
     var bruto = '';
     for (var i = 0; i < bytes.length; i++) bruto += String.fromCharCode(bytes[i]);
@@ -6881,7 +6989,7 @@
       r.titulo = comAds ? 'Vende bem e ja tem anuncio' : 'Vende bem sem nenhum anuncio';
       r.texto = 'De cada 100 pessoas que entram na pagina, ' + fmt(conv, 1) + ' compram. A media da loja e mais baixa que isso.';
       r.acao = comAds
-        ? 'Suba o orcamento em 20%, meca 7 dias e so entao suba de novo. Uma mudanca por vez: mexer em meta e orcamento juntos impede saber o que funcionou.'
+        ? 'Suba o orcamento em 20%, meça 7 dias e so entao suba de novo. Uma mudanca por vez: mexer em meta e orcamento juntos impede saber o que funcionou.'
         : 'A pagina ja vende sozinha. E o produto mais barato para comecar a anunciar, porque voce paga por visita que ja sabe converter.';
       return r;
     }
@@ -7030,6 +7138,9 @@
       // O veredito diz O QUE; o funil mostra ONDE. Sem ele o analista sabe
       // que ha problema e precisa ir procurar em qual degrau.
       funilDoProduto(c.id) +
+      // o texto mandava tocar em comparar e o botao so existia no card
+      // completo: agora ele esta aqui, onde a pessoa esta olhando
+      renderComparacao(c.id) +
       (c.acao ? '<div style="font-size:14px;color:' + co.dot + ';margin-top:8px;line-height:1.45">\u2192 ' + esc(c.acao) + '</div>' : '') +
       '</div>';
   }
@@ -7128,7 +7239,6 @@
         if (String(resto[q].id) === estado.prodSel) h += cartaoProduto(resto[q]);
       }
     }
-    h += renderChamadaCerebro();
     h += '<div class="nota">A leitura usa o funil que a Shopee entrega por produto. Produtos com menos de 100 visitantes ficam de fora do julgamento de proposito — abaixo disso, taxa e ruido.</div>';
     return h;
   }

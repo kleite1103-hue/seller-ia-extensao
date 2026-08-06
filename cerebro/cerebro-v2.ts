@@ -843,7 +843,7 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
           (lucro !== null ? ` Com ${dinheiro(gasto)} investidos, o resultado e ${dinheiro(lucro)}.` : "") +
           notaAqui + avisoGrupo,
         passos: [
-          "Suba a meta em degraus de 20% e meca 7 dias",
+          "Suba a meta em degraus de 20% e meça 7 dias",
           "Se o volume cair sem o lucro subir, o problema e a pagina, nao a meta",
         ],
         dinheiro: gasto,
@@ -862,7 +862,7 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
           notaAqui + avisoGrupo,
         passos: [
           "Suba o orcamento em 20%, nao mais que isso de uma vez",
-          "Meca 7 dias antes do proximo aumento",
+          "Meça 7 dias antes do proximo aumento",
         ],
         dinheiro: gasto,
       });
