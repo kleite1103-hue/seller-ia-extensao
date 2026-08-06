@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.88.0';
+  var VERSAO = '0.89.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1375,6 +1375,14 @@
     var jaResolveu = false;
     var travaSeguranca = null;
     lojaDoCiclo = estado.loja ? estado.loja.shop_id : null;
+    // LIMPAR ANTES DE LER. A coleta nunca zerava estado.campanhas e
+    // estado.produtos: campanhas lidas em recortes anteriores continuavam na
+    // memoria e somavam com as novas. Era por isso que apareciam 305
+    // campanhas e o investimento nao batia com o faturamento do periodo.
+    estado.campanhas = {};
+    estado.produtos = {};
+    estado.conta = { campos: {}, atualizadoEm: null };
+    try { if (window.SIA_Diamantes && window.SIA_Diamantes.zerar) window.SIA_Diamantes.zerar('inicio de coleta'); } catch (e) { /* noop */ }
     estado.faltando = [];
     MAPA_ADS = null;
     estado.diarioColeta = { etapas: [], periodo: null };
@@ -1980,14 +1988,13 @@
     '</div>';
 
   var $ = function (id) { return raiz.getElementById(id); };
-  var abaAtiva = 'semaforo';
+  var abaAtiva = 'conta360';
   // Uma aba por PERGUNTA que o analista faz, na ordem em que ele pergunta.
   // 'Ferramentas' saiu: era caixa sem dono. A Margem virou parte do Cofre,
   // que e onde ela e usada, e Performance ganhou tela propria porque e
   // leitura de FUNIL, nao de Ads — estava enterrada dentro de Produtos.
   var ABAS = [
-    { id: 'semaforo', rotulo: 'Inicio' },
-    { id: 'conta360', rotulo: 'Conta 360' },
+    { id: 'conta360', rotulo: 'Inicio' },
     { id: 'performance', rotulo: 'Funil de Produto' },
     { id: 'gprod', rotulo: 'Shopee Ads' },
     { id: 'espiao', rotulo: 'Espiao' },
@@ -2060,6 +2067,7 @@
       if (voltaA.getAttribute) {
         if (voltaA.tagName === 'INPUT' || voltaA.tagName === 'SELECT' || voltaA.tagName === 'TEXTAREA') return;
         if (voltaA.getAttribute('data-link-externo')) return;
+        if (voltaA.id === 'sia-prec-calcular') { estado.sujo = true; render(); return; }
         if (voltaA.id === 'sia-anon-salvar') {
           var ci = $('sia-anon');
           if (ci && ci.value.trim()) {
@@ -2070,6 +2078,8 @@
           }
           return;
         }
+        var _cc2 = voltaA.getAttribute('data-calc-calcular');
+        if (_cc2) { estado.sujo = true; render(); return; }
         var _cs2 = voltaA.getAttribute('data-calc-salvar');
         if (_cs2) { salvarCalcDoCard(_cs2); return; }
         var _xc2 = voltaA.getAttribute('data-cofre-excluir');
@@ -4895,7 +4905,7 @@
             '</div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">' +
             campoCalc('imposto', idProd, 'Imposto %', (estado.calcTmp && estado.calcTmp[idProd] && estado.calcTmp[idProd].imposto) || '') +
-            '<button data-calc-salvar="' + esc(idProd) + '" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;border-radius:8px;cursor:pointer;align-self:end;padding:9px">Calcular e salvar</button>' +
+            '<button data-calc-calcular="' + esc(idProd) + '" style="background:var(--b1);border:1px solid var(--mk);color:var(--mk);font-family:inherit;font-weight:600;font-size:13px;border-radius:8px;cursor:pointer;align-self:end;padding:9px">Calcular</button>' +
             '</div>';
           var tmp = (estado.calcTmp && estado.calcTmp[idProd]) || {};
           var cTmp = numeroPuro(tmp.custo), eTmp = numeroPuro(tmp.embalagem) || 0, iTmp = numeroPuro(tmp.imposto) || 0;
@@ -4910,8 +4920,9 @@
                   (roas != null ? ' e esta campanha entrega ' + fmt(roas, 1) + 'x — ' + (roas >= 100 / margT ? '<b style="color:var(--vd)">esta dando lucro</b>.' : '<b style="color:var(--rd)">esta no prejuizo</b>.') : '.')
                 : '<b style="color:var(--rd)">Este produto perde dinheiro em cada venda, antes mesmo do anuncio.</b> Nenhuma meta de ROAS resolve isso.') +
               '</div>';
+            h += '<button data-calc-salvar="' + esc(idProd) + '" style="width:100%;margin-top:10px;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;border-radius:9px;cursor:pointer;padding:11px">Salvar este custo no produto</button>';
           } else {
-            h += '<div style="font-size:12.5px;color:var(--t2);margin-top:9px;line-height:1.5">Preencha o custo para ver a margem real, o ponto de equilibrio e se esta campanha da lucro.</div>';
+            h += '<div style="font-size:12.5px;color:var(--t2);margin-top:9px;line-height:1.5">Preencha o custo e toque em <b>Calcular</b> para ver a margem real, o ponto de equilibrio e se esta campanha da lucro.</div>';
           }
           h += '</div>';
         } else {
@@ -4961,13 +4972,20 @@
       } else if (String(c.type || '') === 'shop_manual') {
         h += '<div class="nota">As palavras desta campanha vem na leitura profunda.</div>';
       } else {
-        h += '<div class="nota">Este formato nao tem lance por palavra: a Shopee escolhe sozinha onde mostrar o anuncio. Palavra com lance so existe em <b>Busca de Loja</b>.</div>';
+        // So mostra o aviso se a conta usa Busca de Loja em algum lugar.
+        // Numa conta 100% GMV Max isso e informacao inutil repetida em todo
+        // card.
+        var temBusca = false;
+        for (var kb4 in estado.campanhas) { if (String(estado.campanhas[kb4].type || '') === 'shop_manual') { temBusca = true; break; } }
+        if (temBusca) h += '<div class="nota">Este formato nao tem lance por palavra \u2014 palavra com lance so existe nas campanhas de <b>Busca de Loja</b>.</div>';
       }
     }
     return h + '</div>';
   }
 
-  function ligarCalculadora() {
+  // NOME DIFERENTE: existiam duas funcoes ligarCalculadora e a minha
+  // sobrescrevia a original da aba de margem, que por isso parou de responder.
+  function ligarCamposCalc() {
     var ins = corpoEl().querySelectorAll('[data-calc]');
     for (var i = 0; i < ins.length; i++) {
       ins[i].addEventListener('input', function () {
@@ -6493,9 +6511,10 @@
       campo('imposto', 'Imposto', C.imposto, '%', 'sobre o preco de venda') +
       '</div>';
 
+    h += '<button id="sia-prec-calcular" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:14.5px;padding:13px;border-radius:10px;cursor:pointer;margin-bottom:14px">Calcular o preco</button>';
     var custo = numeroPuro(C.custo), margem = numeroPuro(C.margem);
     if (!custo || !margem) {
-      return h + '<div class="nota">Preencha o custo e a margem para ver o preco.</div>';
+      return h + '<div class="nota">Preencha o custo e a margem que voce quer, e toque em <b>Calcular o preco</b>.</div>';
     }
     var emb = numeroPuro(C.embalagem) || 0, imp = numeroPuro(C.imposto) || 0;
 
@@ -7020,7 +7039,7 @@
     // ficava em branco sem explicacao — foi o caso do Espiao.
     if (!abaAtiva || TELAS_VALIDAS.indexOf(abaAtiva) < 0) {
       try { console.warn('[Seller.IA] aba sem tela:', abaAtiva); } catch (e) { }
-      abaAtiva = 'semaforo';
+      abaAtiva = 'conta360';
     }
     renderAbas();
     var corpo = $('sia-corpo');
@@ -7130,7 +7149,9 @@
       // A aba so despejava o JSON cru dos vereditos. Um especialista nao
       // entrega o dado bruto: ele diz o que esta acontecendo, por que, e o
       // que fazer primeiro. Agora ela ordena por dinheiro em jogo e escreve.
-      corpo.innerHTML = capa('A ANALISE COMPLETA', 'O', 'ESPECIALISTA', '07') + renderEspecialista();
+      // A fila de acao vivia no Inicio e agora vem para ca, junto do resto da
+      // analise: a Karina apontou que havia leitura espalhada em duas telas.
+      corpo.innerHTML = capa('A ANALISE COMPLETA', 'O', 'ESPECIALISTA', '07') + renderEspecialista() + renderSemaforo();
       ligarChamadaCerebro();
       ligarCalculadora();
       var be = $('sia-coletar-tudo');
@@ -7284,7 +7305,7 @@
       corpo.innerHTML = h2;
       var csel = $('sia-camp-sel');
       if (csel) csel.addEventListener('change', function () { estado.campSel = this.value; estado.campExpandida = this.value; render(); });
-      ligarCalculadora();
+      ligarCamposCalc();
       ligarImportador();
 
     } else if (abaAtiva === 'produtos') {

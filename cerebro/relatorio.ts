@@ -282,7 +282,10 @@ Estrutura obrigatoria, nesta ordem:
 
 Regras:
 - SEMPRE cite o produto pelo nome e pelo ID. Sem isso o lojista nao sabe em qual item mexer.
+- Se um item nao tiver ID nos dados, NAO escreva "sem ID visivel": use o nome da campanha como esta e diga que o ID nao veio nesta leitura, em uma unica vez no fim do relatorio.
+- Campanha e produto sao coisas diferentes: campanha tem nome, produto tem ID. Ao falar de gasto de campanha, cite o nome da campanha; ao falar de conversao e trafego, cite o produto e o ID.
 - Toda afirmacao com numero ao lado.
+- NUNCA use "minimo de 8x" quando a margem estiver disponivel nos dados: o piso e 1 dividido pela margem. So use 8x como padrao se a margem nao vier, e diga que e padrao.
 - Nada de "monitorar", "acompanhar" ou "avaliar": diga o que fazer.
 - No maximo 600 palavras no total.
 - Se faltar um dado, diga em uma linha e siga. Nao escreva secoes inteiras sobre o que falta.`;
