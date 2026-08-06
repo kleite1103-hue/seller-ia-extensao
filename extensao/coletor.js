@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.97.0';
+  var VERSAO = '0.97.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -117,7 +117,13 @@
   var CAMPOS_NOME = ['name', 'title', 'campaign_name', 'item_name', 'product_name', 'shop_item_name'];
 
   function numero(v) {
-    if (typeof v === 'number' && isFinite(v)) return v <= -999999 ? null : v;
+    // -1 na API da Shopee significa SEM DADO, nao o numero menos um. O filtro
+    // so pegava o sentinela grande (-1000000) e o -1 virava metrica na tela.
+    if (typeof v === 'number' && isFinite(v)) {
+      if (v <= -999999) return null;
+      if (v === -1) return null;
+      return v;
+    }
     if (typeof v === 'string' && v !== '' && /^-?\d+([.,]\d+)?%?$/.test(v.trim())) {
       var s = v.trim().replace('%', '').replace(',', '.');
       var n = parseFloat(s);
@@ -1907,7 +1913,7 @@
   raiz.innerHTML =
     '<style>' +
     /* PADRAO = bege claro. A classe .escuro inverte. */
-    ':host{all:initial;color:#2C2A26;' +
+    ':host{all:initial;color:#211F1B;' +
     '--b0:#FFFDFA;--b1:#FBF8F3;--b2:#F8F4ED;--li:#EFE8DC;--li2:#E7DFD2;' +
     '--t0:#211F1B;--t1:#4A443A;--t2:#7A7264;--t3:#9A9284;' +
     '--mk:#EE4D2D;--mk2:#F0764F;--vd:#1F8A5F;--rd:#D64545;--am:#C98A1E;--px:#8A5CD6;' +
@@ -3242,7 +3248,13 @@
     function fmtN(v) { return v == null ? '—' : Number(v).toLocaleString('pt-BR'); }
     // seta de variacao: sobe verde, desce vermelho (mas reembolso/cancelamento e o contrario)
     function varia(v, inverso) {
-      if (v == null) return '';
+      if (v == null || !isFinite(v)) return '';
+      // SEM TETO a variacao explodia: base quase zero no periodo anterior
+      // produzia "-1.000.000%" na tela. Acima de 999% a comparacao nao diz
+      // mais nada — o certo e dizer que o periodo anterior nao tinha base.
+      if (Math.abs(v) > 999) {
+        return ' <span style="color:var(--t2);font-size:10px">sem base anterior</span>';
+      }
       var bom = inverso ? v < 0 : v > 0;
       var cor = v === 0 ? 'var(--t2)' : (bom ? 'var(--vd)' : 'var(--rd)');
       var seta = v > 0 ? '\u25b2' : (v < 0 ? '\u25bc' : '');
@@ -6646,9 +6658,17 @@
   }
   function guardarConta(id) {
     if (!id) return;
+    // CÓPIA, nao referencia. Guardar o proprio objeto fazia a coleta seguinte
+    // alterar o snapshot da conta anterior junto — os dois apontavam para a
+    // mesma memoria. Era assim que produto de uma loja aparecia em outra
+    // mesmo depois de trocar de conta.
+    function copiar(o) {
+      try { return JSON.parse(JSON.stringify(o || {})); } catch (e) { return {}; }
+    }
     var foto = {
-      campanhas: estado.campanhas, produtos: estado.produtos,
-      conta: estado.conta, diagnostico: estado.diagnostico, lidoEm: estado.lidoEm || null
+      campanhas: copiar(estado.campanhas), produtos: copiar(estado.produtos),
+      conta: copiar(estado.conta), diagnostico: copiar(estado.diagnostico),
+      lidoEm: estado.lidoEm || null
     };
     estado.contas[id] = foto;
     // TETO NA MEMORIA DA GUIA: os brutos ja tinham limite, os snapshots nao.
@@ -6685,8 +6705,10 @@
   }
   function restaurarConta(id) {
     var g = estado.contas[id] || contaVazia();
-    estado.campanhas = podarCampanhas(g.campanhas); estado.produtos = g.produtos;
-    estado.conta = g.conta; estado.diagnostico = g.diagnostico; estado.lidoEm = g.lidoEm;
+    function copiaR(o) { try { return JSON.parse(JSON.stringify(o || {})); } catch (e) { return {}; } }
+    estado.campanhas = podarCampanhas(copiaR(g.campanhas));
+    estado.produtos = copiaR(g.produtos);
+    estado.conta = copiaR(g.conta); estado.diagnostico = copiaR(g.diagnostico); estado.lidoEm = g.lidoEm;
     estado.espiao = { termo: '', buscando: false, erro: null, res: null, radar: null };
     estado.card = null; estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
     estado.vereditos = null; estado.fonteVeredito = 'local'; estado.versaoRegras = null;
