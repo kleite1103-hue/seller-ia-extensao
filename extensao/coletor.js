@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.95.1';
+  var VERSAO = '0.95.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2034,6 +2034,15 @@
     '</div>';
 
   var $ = function (id) { return raiz.getElementById(id); };
+  // Ligar listener em elemento que nao existe derruba o arquivo INTEIRO e a
+  // extensao abre vazia. Foi o que aconteceu ao remover o botao limpar no
+  // redesign: o codigo continuou tentando ligar nele.
+  function ligar(id, evento, fn) {
+    var el = $(id);
+    if (el) el.addEventListener(evento, fn);
+    return !!el;
+  }
+
   var abaAtiva = 'conta360';
   // Uma aba por PERGUNTA que o analista faz, na ordem em que ele pergunta.
   // 'Ferramentas' saiu: era caixa sem dono. A Margem virou parte do Cofre,
@@ -2115,11 +2124,11 @@
     return h + '</div>';
   }
 
-  $('sia-abrir').addEventListener('click', function () { $('sia-painel').classList.toggle('aberto'); render(); });
-  $('sia-abrir').addEventListener('dblclick', function (ev) {
+  ligar('sia-abrir', 'click', function () { $('sia-painel').classList.toggle('aberto'); render(); });
+  ligar('sia-abrir', 'dblclick', function (ev) {
     ev.preventDefault(); estado.modoTecnico = !estado.modoTecnico; render();
   });
-  $('sia-corpo').addEventListener('click', function (ev) {
+  ligar('sia-corpo', 'click', function (ev) {
     // PRIMEIRA PASSAGEM: acoes internas do card (expandir, excluir, calcular).
     // Sem isto o div do card, que e pai, capturava o clique e abria a tela do
     // card em vez de expandir — clicar no texto do link nao funcionava.
@@ -2282,8 +2291,8 @@
       el = el.parentNode;
     }
   });
-  $('sia-fechar').addEventListener('click', function () { $('sia-painel').classList.remove('aberto'); });
-  $('sia-limpar').addEventListener('click', function () {
+  ligar('sia-fechar', 'click', function () { $('sia-painel').classList.remove('aberto'); });
+  ligar('sia-limpar', 'click', function () {
     estado.campanhas = {}; estado.produtos = {};
     estado.conta = { campos: {}, atualizadoEm: null };
     estado.afiliados = { campos: {}, atualizadoEm: null };
@@ -2291,7 +2300,7 @@
     try { chrome.runtime.sendMessage({ tipo: 'sia:limpar' }, function () { void chrome.runtime.lastError; }); } catch (e) { /* noop */ }
     render();
   });
-  $('sia-exportar').addEventListener('click', function () {
+  ligar('sia-exportar', 'click', function () {
     var pacote = fotoDoEstado();
     pacote.chamadas = estado.chamadas;
     pacote.brutos = estado.brutos;
