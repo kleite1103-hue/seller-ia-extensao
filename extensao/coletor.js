@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.93.0';
+  var VERSAO = '0.93.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -168,7 +168,12 @@
     return estado.produtos[id];
   }
   function entidadeCampanha(id) {
-    if (!estado.campanhas[id]) estado.campanhas[id] = { id: id, metricas: {} };
+    if (!estado.campanhas[id]) {
+      // teto absoluto: 200 ativas + 60 pausadas e o que a coleta pede.
+      // Acima disso e acumulo de navegacao, nao leitura.
+      if (Object.keys(estado.campanhas).length >= 280) return { id: id, metricas: {} };
+      estado.campanhas[id] = { id: id, metricas: {} };
+    }
     return estado.campanhas[id];
   }
 
@@ -594,6 +599,17 @@
   window.addEventListener('SIA_DADOS', function (ev) {
     var pacote;
     try { pacote = JSON.parse(ev.detail); } catch (e) { return; }
+    // O interceptor entrega TUDO que a Shopee pede enquanto a pessoa navega.
+    // Sem filtro, cada pagina do painel de Ads que ela abre acrescenta
+    // campanhas ao estado — foi assim que a conta chegou a mais de 400
+    // campanhas mesmo com a coleta limitada a 260.
+    // Regra: a lista de campanhas so entra quando VEIO DA NOSSA COLETA.
+    // O resto (produto aberto, metrica de uma tela) continua sendo absorvido,
+    // porque e ali que a lente funciona.
+    if (estado.coletaProgresso === null && /pas\/v1\/homepage\/query/.test(String(pacote && pacote.url || ''))) {
+      return;
+    }
+    pacote.loja = pacote.loja || (estado.loja ? estado.loja.shop_id : null);
     processarPacote(pacote);
   });
 
