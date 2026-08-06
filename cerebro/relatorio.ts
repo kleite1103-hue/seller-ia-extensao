@@ -55,8 +55,8 @@ function montarDados(b: any) {
   L.push(`LOJA: ${b.loja_nome || b.loja || "nao informado"}`);
   L.push(`PERIODO ATUAL: ${A.periodo || "nao informado"}`);
   L.push(`PERIODO ANTERIOR: ${P.periodo || "nao informado"}`);
-  if (body.equalizado) {
-    L.push(`ATENCAO: o periodo atual tem ${body.equalizado} dias — provavelmente um mes em curso. O periodo anterior foi recortado nos mesmos ${body.equalizado} PRIMEIROS dias do mes, para a comparacao ser dia a dia e nao mes inteiro contra parcial. Diga isso logo na Identificacao, com as duas datas exatas. Analisar mes em curso e legitimo: nao trate como limitacao nem se recuse a concluir. Se projetar o mes fechado, deixe explicito que e projecao e mostre a conta.`);
+  if (b.equalizado) {
+    L.push(`ATENCAO: o periodo atual tem ${b.equalizado} dias — provavelmente um mes em curso. O periodo anterior foi recortado nos mesmos ${b.equalizado} PRIMEIROS dias do mes, para a comparacao ser dia a dia e nao mes inteiro contra parcial. Diga isso logo na Identificacao, com as duas datas exatas. Analisar mes em curso e legitimo: nao trate como limitacao nem se recuse a concluir. Se projetar o mes fechado, deixe explicito que e projecao e mostre a conta.`);
   }
   if (n(b.margemMediaPct) !== null) {
     L.push(`MARGEM LIQUIDA MEDIA INFORMADA PELO LOJISTA: ${pc(b.margemMediaPct)}`);
