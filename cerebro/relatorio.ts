@@ -184,6 +184,16 @@ function montarDados(b: any) {
 }
 
 Deno.serve(async (req) => {
+  try {
+    return await atender(req);
+  } catch (e) {
+    // sem isto, qualquer excecao nao prevista vira "Internal Server Error"
+    // sem uma linha sequer sobre o que aconteceu
+    return json({ ok: false, erro: "erro interno da funcao: " + String((e as Error)?.message || e) }, 500);
+  }
+});
+
+async function atender(req: Request): Promise<Response> {
   // O preflight precisa responder 204 com os headers completos. Responder
   // com JSON funciona as vezes, mas o navegador rejeita quando o Content-Type
   // nao bate — e ai a chamada seguinte morre em CORS antes de sair.
@@ -213,7 +223,25 @@ Deno.serve(async (req) => {
   const chave = Deno.env.get("ANTHROPIC_API_KEY");
   if (!chave) return json({ ok: false, erro: "falta a secret ANTHROPIC_API_KEY na funcao" }, 500);
 
-  const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  // createClient estava FORA do try: quando uma das secrets nao existe, ele
+  // lanca e a funcao morre com 500 generico, sem dizer qual falta. Era isso
+  // que devolvia "Internal Server Error" sem explicacao nenhuma.
+  const urlSupa = Deno.env.get("SUPABASE_URL");
+  const keySupa = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!urlSupa || !keySupa) {
+    return json({
+      ok: false,
+      erro: "faltam secrets na funcao: " +
+        (!urlSupa ? "SUPABASE_URL " : "") + (!keySupa ? "SUPABASE_SERVICE_ROLE_KEY" : "") +
+        ". Cadastre em Edge Functions > Secrets e publique a funcao de novo.",
+    }, 500);
+  }
+  let supa;
+  try {
+    supa = createClient(urlSupa, keySupa);
+  } catch (e) {
+    return json({ ok: false, erro: "nao consegui conectar ao banco: " + String(e) }, 500);
+  }
 
   // o metodo vem da tabela, nunca do codigo
   let prompt = "";
@@ -373,4 +401,4 @@ Regras:
       "Access-Control-Expose-Headers": "X-Code-Version, X-Parte",
     },
   });
-});
+}
