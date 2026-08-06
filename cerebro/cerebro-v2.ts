@@ -758,7 +758,7 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
           passos.push("Confira frete e prazo — e onde a desistencia acontece");
           passos.push("Teste um cupom pequeno em vez de baixar o preco");
         } else {
-          passos.push("Abra a pagina no celular e compare com quem aparece na mesma busca");
+          passos.push("Compare com os 3 que mais vendem nesta busca — a extensao faz isso no card do produto");
           passos.push("Verifique variacao sem estoque e avaliacoes sem resposta");
         }
         passos.push("Enquanto a pagina nao fechar venda, mais trafego so aumenta a perda");

@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.85.0';
+  var VERSAO = '0.86.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1430,10 +1430,20 @@
           // que e o que a Shopee disponibiliza. Testado: funciona (v0.23.6).
           fim = hoje0;
         }
-        // se estiver na tela de Ads com janela selecionada, espelha (alinhado ao dia)
+        // A URL da tela de Ads tem from/to proprios, e quando a pessoa esta
+        // com "Todo o periodo" selecionado ali, isso SOBRESCREVIA o recorte da
+        // conta inteira — era assim que apareciam 305 campanhas com gasto de
+        // um intervalo completamente diferente do faturamento lido. Agora so
+        // aceita a janela do Ads se ela for compativel: no maximo 90 dias e
+        // terminando no mesmo periodo da conta.
         var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
         var mTo = location.search.match(/[?&]to=(\d{9,11})/);
-        if (mFrom && mTo && !periodoForcado) { ini = inicioDoDiaBRT(parseInt(mFrom[1], 10)); fim = inicioDoDiaBRT(parseInt(mTo[1], 10)); }
+        if (mFrom && mTo && !periodoForcado) {
+          var iA = inicioDoDiaBRT(parseInt(mFrom[1], 10)), fA = inicioDoDiaBRT(parseInt(mTo[1], 10));
+          var diasAds = (fA - iA) / 86400;
+          var diasConta = (fim - ini) / 86400;
+          if (diasAds > 0 && diasAds <= 92 && Math.abs(diasAds - diasConta) <= 3) { ini = iA; fim = fA; }
+        }
         var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
         var totalChamadas = 0;
         CONTAGEM_BUSCA.ok = 0; CONTAGEM_BUSCA.falhas = 0;
@@ -2011,32 +2021,38 @@
     // Sem isto o div do card, que e pai, capturava o clique e abria a tela do
     // card em vez de expandir — clicar no texto do link nao funcionava.
     var alvo = ev.target;
-    while (alvo && alvo !== this) {
-      if (alvo.getAttribute) {
-        var _ec = alvo.getAttribute('data-exp-camp');
-        if (_ec) { estado.campExpandida = (estado.campExpandida === _ec) ? null : _ec; render(); return; }
-        var _xc = alvo.getAttribute('data-cofre-excluir');
-        if (_xc) { excluirDoCofre(_xc); return; }
-        var _cs = alvo.getAttribute('data-calc-salvar');
-        if (_cs) { salvarCalcDoCard(_cs); return; }
-        // botoes por id tambem precisam ser vistos aqui: a segunda passagem
-        // so roda se nada antes fizer return, e o clique no TEXTO de um botao
-        // dentro de um card era capturado pelo card
-        if (alvo.id === 'sia-sem-gerar') {
-          estado.semanal = estado.semanal || {};
-          try { gerarSemanal(); }
-          catch (e3) { estado.semanal.erro = 'Erro ao gerar: ' + String(e3 && e3.message || e3); render(); }
-          return;
-        }
-        if (alvo.id === 'sia-sem-novo') { estado.semanal = estado.semanal || {}; estado.semanal.markdown = null; render(); return; }
-        if (alvo.id === 'sia-sem-pdf') { imprimirSemanal(); return; }
-        if (alvo.id === 'sia-profunda') { if (estado.coletaProgresso === null) { coletaCompleta(function () { render(); }, null, 'profunda'); render(); } return; }
-        if (alvo.getAttribute('data-calc') || alvo.getAttribute('data-prec') || alvo.getAttribute('data-custo')) return;
-        if (alvo.tagName === 'INPUT' || alvo.tagName === 'SELECT' || alvo.tagName === 'TEXTAREA') return;
-        var _cmp = alvo.getAttribute('data-comparar');
-        if (_cmp) { compararComVitrine(_cmp); return; }
+    // ORDEM IMPORTA. O card inteiro tem data-exp-camp, e os controles internos
+    // (calculadora, excluir, botoes) sao FILHOS dele. Se o expandir for testado
+    // primeiro, ele vence ao subir a arvore e nada mais funciona — foi o que
+    // aconteceu. Agora ha duas voltas: a primeira procura so os controles
+    // especificos, a segunda o expandir.
+    var voltaA = ev.target;
+    while (voltaA && voltaA !== this) {
+      if (voltaA.getAttribute) {
+        if (voltaA.tagName === 'INPUT' || voltaA.tagName === 'SELECT' || voltaA.tagName === 'TEXTAREA') return;
+        if (voltaA.getAttribute('data-link-externo')) return;
+        var _cs2 = voltaA.getAttribute('data-calc-salvar');
+        if (_cs2) { salvarCalcDoCard(_cs2); return; }
+        var _xc2 = voltaA.getAttribute('data-cofre-excluir');
+        if (_xc2) { excluirDoCofre(_xc2); return; }
+        var _cmp2 = voltaA.getAttribute('data-comparar');
+        if (_cmp2) { compararComVitrine(_cmp2); return; }
+        if (voltaA.id === 'sia-sem-gerar') { estado.semanal = estado.semanal || {}; try { gerarSemanal(); } catch (e3) { estado.semanal.erro = 'Erro: ' + String(e3 && e3.message || e3); render(); } return; }
+        if (voltaA.id === 'sia-sem-novo') { estado.semanal = estado.semanal || {}; estado.semanal.markdown = null; render(); return; }
+        if (voltaA.id === 'sia-sem-pdf') { imprimirSemanal(); return; }
+        if (voltaA.id === 'sia-profunda') { if (estado.coletaProgresso === null) { coletaCompleta(function () { render(); }, null, 'profunda'); render(); } return; }
+        if (voltaA.id === 'sia-rel-gerar' || voltaA.id === 'sia-rel-pdf' || voltaA.id === 'sia-rel-copiar' || voltaA.id === 'sia-rel-novo') break;
       }
-      alvo = alvo.parentNode;
+      voltaA = voltaA.parentNode;
+    }
+    // SEGUNDA VOLTA: expandir card de campanha
+    var voltaB = ev.target;
+    while (voltaB && voltaB !== this) {
+      if (voltaB.getAttribute) {
+        var _ec3 = voltaB.getAttribute('data-exp-camp');
+        if (_ec3) { estado.campExpandida = (estado.campExpandida === _ec3) ? null : _ec3; render(); return; }
+      }
+      voltaB = voltaB.parentNode;
     }
 
     var el = ev.target;
@@ -3178,6 +3194,25 @@
       });
     }
     h += bloco('3 · OS QUE MAIS FATURARAM', cp, 'abra Produtos na Central de Dados');
+
+    // ---- RESUMO DE ADS, no mesmo formato dos outros blocos do 360 ----
+    var cads = '';
+    var gA = 0, impA = 0, cliA = 0, pedA = 0, gmvA = 0, ativasA = 0;
+    for (var ka in estado.campanhas) {
+      var ma = estado.campanhas[ka].metricas || {};
+      var ea = String(estado.campanhas[ka].estado || estado.campanhas[ka].state || '').toLowerCase();
+      if (ea !== 'paused' && ea !== 'ended' && ea !== 'closed') ativasA++;
+      gA += ma.gasto || 0; impA += ma.impressoes || 0; cliA += ma.cliques || 0; pedA += ma.pedidos || 0;
+      if (ma.gasto && ma.roas) gmvA += ma.gasto * ma.roas;
+    }
+    if (gA) {
+      cads += '<div class="ld">Investimento: <b>' + reais(gA) + '</b> em ' + ativasA + ' campanhas ativas</div>';
+      cads += '<div class="ld">Retorno (venda ampla da Shopee): <b>' + reais(gmvA) + '</b> = ' + fmt(gmvA / gA, 1) + 'x</div>';
+      if (impA) cads += '<div class="ld">Impressoes: <b>' + fmt(impA, 0) + '</b> &middot; cliques: <b>' + fmt(cliA, 0) + '</b> &middot; CTR ' + fmt((cliA / impA) * 100, 2) + '%</div>';
+      if (impA) cads += '<div class="ld">CPM: <b>R$ ' + fmt((gA / impA) * 1000, 2) + '</b>' + (cliA ? ' &middot; CPC: <b>R$ ' + fmt(gA / cliA, 2) + '</b>' : '') + '</div>';
+      if (pedA) cads += '<div class="ld">Pedidos por anuncio: <b>' + fmt(pedA, 0) + '</b> &middot; custo por pedido: <b>' + reais(gA / pedA) + '</b></div>';
+      h += bloco('4 &middot; SHOPEE ADS NO PERIODO', cads, '');
+    }
 
     // ---- 4) SAUDE / AVALIACOES ----
     var ca4 = '';
@@ -4724,7 +4759,7 @@
       } else {
         titulo = 'Recebe clique e nao vende';
         texto = fmt(cliq, 0) + ' cliques, ' + reais(gasto) + ' gastos e nenhuma venda. O card funciona; o freio esta na pagina.';
-        passos = ['Abra a pagina no celular', 'Preco, variacao sem estoque e avaliacoes sem resposta sao as causas comuns'];
+        passos = ['Abra o card do produto e toque em comparar com os 3 que mais vendem', 'A Seller.IA busca a vitrine e mostra o que eles fazem diferente'];
       }
     } else if (roas != null && roas < piso) {
       nivel = 'vermelho'; titulo = 'Vende, mas abaixo do seu equilibrio';
@@ -6605,7 +6640,7 @@
       r.nivel = 'vermelho';
       r.titulo = 'Recebe clique e nao vende';
       r.texto = 'O card funciona: ' + fmt(ctr, 1) + ' de cada 100 clicam. Mas de cada 100 que entram na pagina, menos de 1 compra.';
-      r.acao = 'Abra a pagina no celular e compare com o concorrente: preco, variacao sem estoque e avaliacoes sem resposta sao os tres motivos mais comuns.';
+      r.acao = 'Abra este card e toque em comparar: a Seller.IA busca os 3 que mais vendem nesta categoria e mostra a diferenca de preco, avaliacao e cupom.';
       return r;
     }
     // 3) entra e sai na hora
@@ -7102,6 +7137,15 @@
       var piores = ordL.slice(-5).reverse().filter(function (k) { return melhores.indexOf(k) < 0; });
 
       var h2 = '';
+      // "ainda cedo para julgar" nao ocupa card inteiro: vira linha, porque
+      // nao ha decisao a tomar ali ainda.
+      var cedo = comGasto.filter(function (k) {
+        var m4 = estado.campanhas[k].metricas || {};
+        return (m4.pedidos || 0) === 0 && (m4.cliques || 0) < 40;
+      });
+      melhores = melhores.filter(function (k) { return cedo.indexOf(k) < 0; });
+      piores = piores.filter(function (k) { return cedo.indexOf(k) < 0; });
+
       if (piores.length) {
         h2 += olho('AS 5 QUE MAIS CUSTAM', 'Ordenado pelo resultado em reais: investimento contra o que voltou, ja descontada a margem. A primeira da lista e onde o dinheiro esta indo embora mais rapido.');
         for (var pj2 = 0; pj2 < piores.length; pj2++) h2 += cardCampanha(piores[pj2]);
@@ -7126,6 +7170,16 @@
         }
         h2 += '</select>';
         if (estado.campSel && estado.campanhas[estado.campSel]) h2 += cardCampanha(estado.campSel);
+      }
+      if (cedo.length) {
+        h2 += olho('AINDA SEM VOLUME PARA JULGAR (' + cedo.length + ')', 'Gastaram pouco e receberam poucos cliques: qualquer conclusao aqui seria chute. Ficam em lista simples ate terem volume.');
+        for (var cj = 0; cj < Math.min(cedo.length, 12); cj++) {
+          var kc2 = cedo[cj], cc2 = estado.campanhas[kc2], mc2 = cc2.metricas || {};
+          h2 += '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--li);font-size:13px">' +
+            '<span style="flex:1;min-width:0;color:var(--t2)">' + sig(String(cc2.nome || kc2).slice(0, 44)) + '</span>' +
+            '<span style="font-family:Space Mono,monospace;font-size:11px;color:var(--t3)">' + reais(mc2.gasto || 0) + ' \u00b7 ' + fmt(mc2.cliques || 0, 0) + ' cliques</span></div>';
+        }
+        if (cedo.length > 12) h2 += '<div class="nota">e mais ' + (cedo.length - 12) + '.</div>';
       }
       if (!comGasto.length) h2 += '<div class="nota">Nenhuma campanha com investimento no periodo lido.</div>';
 
