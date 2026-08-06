@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.95.0';
+  var VERSAO = '0.95.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1899,7 +1899,10 @@
   document.documentElement.appendChild(host);
   var raiz = host.attachShadow({ mode: 'closed' });
 
-  var LOGO = '<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d1c"/><stop offset="1" stop-color="#7B2FFF"/></linearGradient></defs><rect x="4" y="4" width="120" height="120" rx="30" fill="#07080a"/><rect x="4" y="4" width="120" height="120" rx="30" fill="none" stroke="url(#g)" stroke-width="5"/><path d="M 90 38 H 56 a 17 17 0 0 0 0 34 h 16 a 17 17 0 0 1 0 34 H 38" fill="none" stroke="url(#g)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><circle cx="93" cy="99" r="9" fill="#ff4d1c"/></svg>';
+  var LOGO = '<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">' +
+    '<rect x="0" y="0" width="128" height="128" rx="30" fill="#1C1A17"/>' +
+    '<text x="46" y="88" font-family="Archivo,Outfit,Arial" font-size="74" font-weight="500" fill="#FBF8F3" text-anchor="middle" letter-spacing="-2">S</text>' +
+    '<circle cx="88" cy="80" r="8" fill="#EE4D2D"/></svg>';
 
   raiz.innerHTML =
     '<style>' +
@@ -1922,7 +1925,8 @@
     '.painel,.painel *{color:inherit}' +
     'select,input,textarea,button{color:var(--t0);background-color:var(--b2)}' +
     'option{background:var(--b2);color:var(--t0)}' +
-    '.botao{position:fixed;bottom:22px;right:22px;width:54px;height:54px;z-index:2147483001;border-radius:50%;cursor:pointer;box-shadow:0 4px 18px var(--shb);transition:transform .15s;background:var(--b0);border:none;padding:6px}' +
+    '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;z-index:2147483001;border-radius:17px;cursor:pointer;box-shadow:0 8px 24px var(--sh),0 2px 6px var(--shb);transition:transform .15s;background:none;border:none;padding:0;overflow:hidden}' +
+    '.botao svg{display:block;width:100%;height:100%}' +
     '.botao:hover{transform:scale(1.08)}' +
     '.botao svg{width:100%;height:100%}' +
     '.painel{position:fixed;top:0;right:0;height:100vh;width:min(760px,100vw);background:var(--b1);border-left:1px solid var(--li);border-radius:var(--r-painel,30px) 0 0 var(--r-painel,30px);box-shadow:-18px 0 60px var(--sh),0 6px 18px var(--shb);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
