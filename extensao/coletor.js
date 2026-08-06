@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.96.0';
+  var VERSAO = '0.97.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1909,7 +1909,7 @@
     /* PADRAO = bege claro. A classe .escuro inverte. */
     ':host{all:initial;color:#2C2A26;' +
     '--b0:#FFFDFA;--b1:#FBF8F3;--b2:#F8F4ED;--li:#EFE8DC;--li2:#E7DFD2;' +
-    '--t0:#2C2A26;--t1:#6B6355;--t2:#9C9484;--t3:#A39A88;' +
+    '--t0:#211F1B;--t1:#4A443A;--t2:#7A7264;--t3:#9A9284;' +
     '--mk:#EE4D2D;--mk2:#F0764F;--vd:#1F8A5F;--rd:#D64545;--am:#C98A1E;--px:#8A5CD6;' +
     '--tin:9%;--r-card:22px;--r-btn:14px;--r-painel:30px;' +
     '--sh:rgba(72,56,38,.22);--shb:rgba(72,56,38,.10)}' +
@@ -2560,10 +2560,21 @@
       'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px"></div>';
     h += '<div class="leitura"><div class="fr">' + frase + '</div><div class="ex">' + expl + '</div></div>';
 
-    h += '<div class="tres">' +
-      '<div><div class="v" style="color:var(--rd)">' + R.contagem.vermelho + '</div><div class="l">NO PREJUIZO</div><div class="s">' + reais(gastoRuim) + '</div></div>' +
-      '<div><div class="v" style="color:var(--am)">' + R.contagem.amarelo + '</div><div class="l">SUFOCADAS</div><div class="s">meta apertada</div></div>' +
-      '<div><div class="v" style="color:var(--vd)">' + R.contagem.verde + '</div><div class="l">ESCALANDO</div><div class="s">com folga</div></div></div>';
+    // ROSCA no lugar dos tres numeros soltos: e o grafico do layout, e ele
+    // mostra a proporcao entre as categorias, nao so a contagem.
+    h += roscaSemaforo([
+      { n: R.contagem.vermelho, rot: 'sangrando', cor: 'var(--rd)' },
+      { n: R.contagem.verde, rot: 'saudaveis', cor: 'var(--vd)' },
+      { n: R.contagem.amarelo, rot: 'sufocadas', cor: 'var(--am)' },
+      { n: R.contagem.cinza || 0, rot: 'aprendendo', cor: 'var(--li2)' }
+    ], R.total, 'CAMPANHAS');
+
+    if (gastoRuim) {
+      h += '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b0));border:1px solid color-mix(in srgb,var(--rd) 22%,var(--li));border-radius:var(--r-card,22px);padding:16px 20px;margin-bottom:16px">' +
+        '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);letter-spacing:.1em">EM RISCO</span>' +
+        '<span style="font-family:Archivo,Outfit,Arial;font-weight:500;font-size:29px;color:var(--rd);letter-spacing:-.02em">' + reais(gastoRuim) + '</span>' +
+        '<span style="font-size:13.5px;color:var(--t1)">e o que essas campanhas consomem sem devolver</span></div>';
+    }
 
     h += '<div class="nota" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">' +
       seloFonte() +
@@ -2986,6 +2997,18 @@
     }
     h += '<div class="leitura"><div class="fr">' + fr + '</div><div class="ex">' + ex + '</div></div>';
 
+    // barras em vez de tabela: participacao se le melhor com barra
+    var itensB = [];
+    for (i = 0; i < O.canais.length; i++) {
+      var cB = O.canais[i];
+      if (cB.pctVendas < 0.5) continue;
+      itensB.push({
+        rot: cB.origem, v: cB.pctVendas,
+        txt: fmt(cB.pctVendas, 1) + '%' + (cB.ticket != null ? '  \u00b7  ticket ' + reais(cB.ticket) : ''),
+        cor: cB.origem === 'Busca' ? 'var(--vd)' : (cB.origem === 'Recomendacao' ? 'var(--am)' : 'var(--li2)')
+      });
+    }
+    h += barraPct(itensB);
     h += '<table><tr><th>ORIGEM</th><th class="num">% VENDAS</th><th class="num">CLIQUE&rarr;PEDIDO</th><th class="num">TICKET</th></tr>';
     for (i = 0; i < O.canais.length; i++) {
       var c = O.canais[i];
@@ -5669,6 +5692,65 @@
       h += '</div>';
     } else {
       h += '<div class="nota">Preco, nota e avaliacoes estao na mesma faixa dos tres. A diferenca deve estar na foto, no titulo ou no tempo de vitrine.</div>';
+    }
+    return h + '</div>';
+  }
+
+  /* ============ ROSCA DO SEMAFORO ============
+     O layout tem um grafico de rosca com o total no centro e as quatro
+     categorias ao lado. Sem ele o painel vira lista de numeros. */
+  function roscaSemaforo(dados, total, rotuloCentro) {
+    var raio = 52, esp = 15, circ = 2 * Math.PI * raio;
+    var soma = 0;
+    for (var i = 0; i < dados.length; i++) soma += dados[i].n || 0;
+    if (!soma) return '';
+    var offset = 0;
+    var svg = '<svg width="150" height="150" viewBox="0 0 150 150" style="flex:none">' +
+      '<circle cx="75" cy="75" r="' + raio + '" fill="none" stroke="var(--li)" stroke-width="' + esp + '"/>';
+    for (i = 0; i < dados.length; i++) {
+      var frac = (dados[i].n || 0) / soma;
+      if (!frac) continue;
+      var tam = circ * frac;
+      svg += '<circle cx="75" cy="75" r="' + raio + '" fill="none" stroke="' + dados[i].cor + '" stroke-width="' + esp + '" ' +
+        'stroke-dasharray="' + tam.toFixed(2) + ' ' + (circ - tam).toFixed(2) + '" ' +
+        'stroke-dashoffset="' + (-offset).toFixed(2) + '" transform="rotate(-90 75 75)" stroke-linecap="butt"/>';
+      offset += tam;
+    }
+    svg += '<text x="75" y="72" text-anchor="middle" font-family="Archivo,Outfit,Arial" font-weight="500" font-size="30" letter-spacing="-1" fill="var(--t0)">' + fmt(total, 0) + '</text>' +
+      '<text x="75" y="90" text-anchor="middle" font-family="Space Mono,monospace" font-size="8.5" letter-spacing="1.4" fill="var(--t2)">' + esc(rotuloCentro || '') + '</text>' +
+      '</svg>';
+
+    var legenda = '<div style="flex:1;min-width:200px;display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;align-content:center">';
+    for (i = 0; i < dados.length; i++) {
+      var d = dados[i];
+      legenda += '<div style="display:flex;align-items:center;gap:9px">' +
+        '<span style="width:10px;height:10px;border-radius:50%;background:' + d.cor + ';flex:none"></span>' +
+        '<span style="font-family:Archivo,Outfit,Arial;font-weight:500;font-size:23px;color:var(--t0);letter-spacing:-.02em">' + fmt(d.n, 0) + '</span>' +
+        '<span style="font-size:14px;color:var(--t1)">' + esc(d.rot) + '</span>' +
+        (d.delta != null && d.delta !== 0
+          ? '<span style="font-family:Space Mono,monospace;font-size:11px;color:' + (d.deltaBom ? 'var(--vd)' : 'var(--rd)') + '">' + (d.delta > 0 ? '\u2191' : '\u2193') + ' ' + Math.abs(d.delta) + '</span>'
+          : '') +
+        '</div>';
+    }
+    legenda += '</div>';
+    return '<div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap;background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:20px 22px;margin-bottom:16px">' +
+      svg + legenda + '</div>';
+  }
+
+  /* Barra horizontal simples, para participacao e comparacoes */
+  function barraPct(itens) {
+    var max = 0;
+    for (var i = 0; i < itens.length; i++) max = Math.max(max, itens[i].v || 0);
+    if (!max) return '';
+    var h = '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:18px 20px;margin-bottom:16px">';
+    for (i = 0; i < itens.length; i++) {
+      var it = itens[i], pct = ((it.v || 0) / max) * 100;
+      h += '<div style="margin-bottom:' + (i === itens.length - 1 ? 0 : 13) + 'px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">' +
+        '<span style="font-size:14px;color:var(--t1)">' + esc(it.rot) + '</span>' +
+        '<span style="font-family:Space Mono,monospace;font-size:13px;color:var(--t0)">' + esc(it.txt) + '</span></div>' +
+        '<div style="height:8px;background:var(--b2);border-radius:99px;overflow:hidden">' +
+        '<div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + (it.cor || 'var(--mk)') + ';border-radius:99px"></div></div></div>';
     }
     return h + '</div>';
   }
