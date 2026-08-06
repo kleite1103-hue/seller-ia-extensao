@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.95.2';
+  var VERSAO = '0.96.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -896,7 +896,7 @@
     } else {
       pos = 'top:72px;right:14px;';
     }
-    cardLente.style.cssText = 'all:initial;position:fixed;' + pos + 'z-index:2147483200;width:min(430px,94vw);max-height:70vh;display:flex;flex-direction:column;background:var(--b1);border:1px solid var(--li2);border-top:3px solid var(--mk);border-radius:12px;box-shadow:0 16px 50px rgba(0,0,0,.6);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
+    cardLente.style.cssText = 'all:initial;position:fixed;' + pos + 'z-index:2147483200;width:min(430px,94vw);max-height:70vh;display:flex;flex-direction:column;background:var(--b1);border:1px solid var(--li2);border-top:3px solid var(--mk);border-radius:18px;box-shadow:0 16px 50px rgba(0,0,0,.6);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
     cardLente.innerHTML =
       '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--li);flex:none">' +
       '<span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(120deg,var(--mk),var(--px));display:inline-block"></span>' +
@@ -1933,14 +1933,14 @@
     '.painel.aberto{transform:translateX(0)}' +
     '@media(prefers-reduced-motion:reduce){.painel{transition:none}}' +
     '.cab{display:flex;align-items:center;gap:12px;padding:18px 22px 15px;border-bottom:1px solid var(--li);background:var(--b0);flex-wrap:wrap}' +
-    '.cab .marca-ic{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:13px;background:var(--t0);box-shadow:0 5px 14px var(--shb);font:500 26px Archivo,Outfit,Arial;letter-spacing:-.04em;color:var(--b1);flex:none}' +
+    '.cab .marca-ic{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:18px;background:var(--t0);box-shadow:0 5px 14px var(--shb);font:500 26px Archivo,Outfit,Arial;letter-spacing:-.04em;color:var(--b1);flex:none}' +
     '.cab .marca-ic em{font-style:normal;color:var(--mk)}' +
     '.cab svg{width:28px;height:28px;flex:none}' +
     '.cab .titulo{font:500 25px Archivo,Outfit,Arial;letter-spacing:-.035em;line-height:1;color:var(--t0)}' +
     '.cab .titulo em{font-style:normal;color:var(--mk)}' +
     '.cab .info{font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2);width:100%;order:3;margin-top:2px}' +
     '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
-    '.cab button{background:var(--b1);border:1px solid var(--li2);color:var(--t1);font-family:Space Mono,monospace;font-size:11px;padding:8px 13px;border-radius:12px;cursor:pointer}' +
+    '.cab button{background:var(--b1);border:1px solid var(--li2);color:var(--t1);font-family:Space Mono,monospace;font-size:11px;padding:8px 13px;border-radius:18px;cursor:pointer}' +
     '.cab button.ico{width:34px;height:34px;padding:0;display:grid;place-items:center}' +
     '.cab button.rec{display:flex;align-items:center;gap:8px;border-radius:999px;letter-spacing:.08em}' +
     '.cab button.rec i{width:9px;height:9px;border-radius:50%;background:var(--li2);display:block}' +
@@ -1952,43 +1952,48 @@
     
     '.aba.ativa{color:var(--mk);border-bottom-color:var(--mk);background:none}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
-    '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:Space Mono,monospace;font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
+    '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:Space Mono,monospace;font-size:12px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer}' +
     '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
     '.aba{display:flex;align-items:center;gap:7px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t2);font-family:Space Mono,monospace;font-size:12.5px;letter-spacing:.02em;padding:10px 11px 11px;border-radius:0;white-space:nowrap;cursor:pointer}' +
     '.aba:hover{color:var(--mk)}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
-    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 20px 34px}' +
+    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:24px 24px 96px;scrollbar-width:none;background:var(--b2)}' +
+    '.corpo::-webkit-scrollbar{width:0;height:0}' +
+    '.rodape{position:absolute;left:0;right:0;bottom:0;padding:14px 18px 18px;background:linear-gradient(to top,var(--b1) 72%,transparent);pointer-events:none}' +
+    '.rodape button{pointer-events:auto;width:100%;background:var(--mk);border:none;color:#fff;font-family:Outfit,Arial;font-weight:600;font-size:15.5px;padding:16px;border-radius:var(--r-btn,14px);cursor:pointer;box-shadow:0 8px 22px color-mix(in srgb,var(--mk) 34%,transparent)}' +
+    '.rodape button:hover{background:var(--mk2)}' +
+    '.rodape button:disabled{opacity:.65;cursor:default}' +
     /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
-    '.olho{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2);letter-spacing:.14em;margin:32px 0 14px}' +
+    '.olho{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.13em;margin:30px 0 13px}' +
     '.olho:first-child{margin-top:0}' +
     '.olho::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
-    '.leitura{margin-bottom:20px}' +
+    '.leitura{margin-bottom:24px}' +
     '.leitura .fr{font-size:26px;font-weight:500;line-height:1.28;color:var(--t0);letter-spacing:-.02em}' +
     '.leitura .fr .d{color:var(--rd)}.leitura .fr .w{color:var(--am)}.leitura .fr .u{color:var(--vd)}' +
     '.leitura .ex{font-size:15.5px;color:var(--t1);margin-top:11px;line-height:1.6}' +
-    '.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--li);border:1px solid var(--li);border-radius:13px;overflow:hidden;margin-bottom:18px}' +
+    '.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--li);border:1px solid var(--li);border-radius:18px;overflow:hidden;margin-bottom:18px}' +
     '.tres>div{background:var(--b2);padding:19px 12px;text-align:center}' +
     '.tres .v{font-family:"Bebas Neue";font-size:40px;line-height:1}' +
     '.tres .l{font-family:Space Mono,monospace;font-size:10px;color:var(--t2);letter-spacing:.07em;margin-top:7px}' +
     '.tres .s{font-size:12.5px;color:var(--t2);margin-top:3px}' +
     /* cabecalho de tela: olho + display + numero fantasma, como no Club */
-    '.capa{position:relative;padding:0 0 14px;margin-bottom:14px;border-bottom:1px solid var(--li)}' +
+    '.capa{position:relative;padding:6px 0 18px;margin-bottom:18px;border-bottom:1px solid var(--li)}' +
     '.capa .ol{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:11px;color:var(--mk);letter-spacing:.14em;margin-bottom:9px}' +
     '.capa .ol::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
     '.capa .dp{font-family:"Bebas Neue";font-size:30px;line-height:1;letter-spacing:.02em;color:var(--t0)}' +
     '.capa .dp small{font-family:"Bebas Neue";font-size:30px;color:var(--t2);margin-left:7px}' +
     '.capa .gh{position:absolute;top:-2px;right:0;font-family:"Bebas Neue";font-size:38px;line-height:1;color:var(--li);pointer-events:none;user-select:none}' +
-    '.tit{font-family:"Bebas Neue";font-size:34px;letter-spacing:.02em;line-height:1.05;color:var(--t0);margin-bottom:6px}' +
+    '.tit{font-family:Archivo,Outfit,Arial;font-weight:400;font-size:33px;letter-spacing:-.025em;line-height:1.1;color:var(--t0);margin-bottom:8px}' +
     '.lead{font-size:14px;color:var(--t1);line-height:1.55;margin-bottom:4px}' +
     '.corpo table{display:block;overflow-x:auto;white-space:nowrap}' +
-    'table{width:100%;border-collapse:collapse;font-size:14.5px}' +
+    'table{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);overflow:hidden;margin:6px 0 14px}' +
     'th{text-align:left;color:var(--t2);font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid var(--mk);position:sticky;top:-14px;background:var(--b1)}' +
     'td{padding:11px 9px;border-bottom:1px solid var(--li);color:var(--t1);white-space:nowrap}' +
     'td.nome{white-space:normal;min-width:160px;color:var(--t0)}' +
     'tr:hover td{background:var(--b2)}' +
     '.num{text-align:right;font-variant-numeric:tabular-nums}' +
     '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:9px;margin-bottom:20px}' +
-    '.kpi{background:var(--b2);border:1px solid var(--li);border-radius:13px;padding:15px 13px}' +
+    '.kpi{background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:15px 13px}' +
     '.kpi .v{font-family:"Bebas Neue";font-size:38px;line-height:1;color:var(--mk)}' +
     '.kpi .l{font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:6px;text-transform:uppercase;letter-spacing:.07em;line-height:1.35}' +
     '.vazio{color:var(--t2);font-size:15.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
@@ -2024,12 +2029,12 @@
     '    <div class="acoes">' +
     '      <button id="sia-gravar" class="rec" title="Modo gravacao: borra nomes da conta"><i></i>REC</button>' +
     '      <button id="sia-tema" class="ico" title="Alternar claro e escuro">' + ICONE_LUA + '</button>' +
-    '      <button id="sia-exportar" class="ico" title="Exportar coleta">&lt;/&gt;</button>' +
     '      <button id="sia-fechar" class="ico" title="Fechar">\u2715</button>' +
     '    </div>' +
     '  </div>' +
     '  <div class="abas" id="sia-abas"></div>' +
     '  <div class="corpo" id="sia-corpo"></div>' +
+    '  <div class="rodape"><button id="sia-recoletar">Recoletar conta + Analisar</button></div>' +
     '  <div class="expl" id="sia-expl"></div>' +
     '</div>';
 
@@ -2290,6 +2295,12 @@
       }
       el = el.parentNode;
     }
+  });
+  ligar('sia-recoletar', 'click', function () {
+    if (estado.coletaProgresso !== null) return;
+    coletaJaTentada = true;
+    coletaCompleta(function () { render(); });
+    render();
   });
   ligar('sia-fechar', 'click', function () { $('sia-painel').classList.remove('aberto'); });
   ligar('sia-limpar', 'click', function () {
@@ -2573,7 +2584,7 @@
       var mostrar = estado.filaCompleta ? R.fila : R.fila.slice(0, LIMITE);
       mostrar.forEach(function (c) {
         var co = CORES_SEM[c.nivel];
-        h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px;transition:border-color .15s">';
+        h += '<div' + (c.id ? ' data-card="campanha:' + esc(c.id) + '" style="cursor:pointer;' : ' style="') + 'background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:var(--r-card,22px);padding:15px 16px;margin-bottom:9px;transition:border-color .15s">';
         h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
           '<span style="flex:1;font-size:17.5px;font-weight:600;color:var(--t0);line-height:1.25;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
           '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
@@ -2826,7 +2837,7 @@
     for (i = 0; i < quedas.length; i++) if (quedas[i].pct != null && (!pior || quedas[i].pct > pior.pct)) pior = quedas[i];
 
     var h = olho('O CAMINHO ATE A VENDA', '<b>O funil da loja inteira.</b> Cada degrau mostra quantas pessoas passaram para a etapa seguinte. A queda entre dois degraus e onde voce perde gente. O degrau com a maior queda e onde vale colocar esforco primeiro — melhorar um degrau que ja esta bom rende pouco.');
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:14px 10px;display:flex;align-items:flex-end;gap:3px;margin-bottom:11px">';
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:14px 10px;display:flex;align-items:flex-end;gap:3px;margin-bottom:11px">';
     for (i = 0; i < etapas.length; i++) {
       if (i > 0) {
         var q = quedas[i - 1];
@@ -2846,7 +2857,7 @@
       if (paraTxt.indexOf('visitantes') >= 0) conselho = 'Quem ve o card nao entra. O que decide isso e a primeira foto, o preco no card e o comeco do titulo.';
       else if (paraTxt.indexOf('carrinho') >= 0) conselho = 'Quem entra na pagina nao se convence. Preco contra o concorrente, variacao sem estoque e avaliacoes sem resposta sao as causas mais comuns.';
       else conselho = 'Quem guardou no carrinho nao fechou. Frete, prazo de entrega e o preco final na hora de pagar sao o que costuma travar.';
-      h += '<div style="background:var(--b2);border-left:3px solid var(--rd);border-radius:0 10px 10px 0;padding:12px 14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      h += '<div style="background:var(--b2);border-left:3px solid var(--rd);border-radius:0 16px 16px 0;padding:12px 14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">A maior perda esta aqui:</b> de ' + fmt(quantosAntes, 0) + ' que chegaram em ' + deTxt + ', ' + fmt(quantosDepois, 0) + ' seguiram para ' + paraTxt + '. ' +
         '<span style="color:var(--rd)">Perde ' + fmt(pior.pct, 0) + '% neste degrau.</span><br>' + conselho + '</div>';
     }
@@ -2898,7 +2909,7 @@
       h += '<div class="nota" style="color:var(--mk)">Lendo: ' + esc(String(estado.coletaProgresso)) + '</div>';
     } else {
       h += '<div class="nota" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' +
-        '<button id="sia-profunda" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Leitura profunda</button>' +
+        '<button id="sia-profunda" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Leitura profunda</button>' +
         '<span>Acrescenta a serie hora a hora e as palavras por produto. Leva alguns minutos.</span></div>';
     }
     return h;
@@ -2908,14 +2919,14 @@
     var h = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">';
     for (var i = 0; i < PERIODOS.length; i++) {
       var p = PERIODOS[i], on = p.id === atual;
-      h += '<button data-per360="' + p.id + '" style="background:' + (on ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (on ? 'var(--mk)' : 'var(--li)') + ';color:' + (on ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">' + p.rot + '</button>';
+      h += '<button data-per360="' + p.id + '" style="background:' + (on ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (on ? 'var(--mk)' : 'var(--li)') + ';color:' + (on ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">' + p.rot + '</button>';
     }
     h += '</div>';
     if (estado.coletaProgresso !== null) {
       h += '<div class="nota" style="color:var(--mk)">Lendo: ' + esc(String(estado.coletaProgresso)) + '</div>';
     } else {
       h += '<div class="nota" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' +
-        '<button id="sia-profunda" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Leitura profunda</button>' +
+        '<button id="sia-profunda" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Leitura profunda</button>' +
         '<span>A leitura normal cobre conta, produtos e campanhas. A profunda acrescenta a serie hora a hora e as palavras-chave, e leva alguns minutos.</span></div>';
     }
     return h;
@@ -3014,7 +3025,7 @@
     var grave = P.perdaPct >= 15;
     var naoPagos = P.totalColocado - P.totalConfirmado;
     var h = olho('PEDIDOS QUE NAO FORAM PAGOS', 'O comprador finalizou o pedido e nao pagou: boleto vencido, Pix nao concluido ou cartao recusado. O vendedor nao escolhe os meios de pagamento na Shopee, entao o que da para mexer e o que acontece ANTES de pagar: cupom, frete e lembrete por chat. O painel deixa filtrar pago ou nao pago, mas nao mostra a TAXA entre os dois ao longo dos dias \u2014 e e a taxa que revela se e normal da categoria ou se algo mudou no seu checkout.');
-    h += '<div style="background:color-mix(in srgb,' + (grave ? 'var(--rd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (grave ? 'var(--rd)' : 'var(--am)') + ';border-radius:0 12px 12px 0;padding:15px 16px;margin-bottom:12px">' +
+    h += '<div style="background:color-mix(in srgb,' + (grave ? 'var(--rd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (grave ? 'var(--rd)' : 'var(--am)') + ';border-radius:0 18px 18px 0;padding:15px 16px;margin-bottom:12px">' +
       '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">' + fmt(naoPagos, 0) + ' pedidos nao foram pagos (' + fmt(P.perdaPct, 1) + '%)</div>' +
       '<div style="font-size:14px;color:var(--t1);line-height:1.55">De ' + fmt(P.totalColocado, 0) + ' pedidos feitos no periodo, ' + fmt(P.totalConfirmado, 0) + ' foram pagos. ' +
       (P.diasRuins ? 'Em ' + P.diasRuins + ' dia' + (P.diasRuins > 1 ? 's' : '') + ' a taxa passou de 10%.' : '') +
@@ -3098,7 +3109,7 @@
 
     if (piso) {
       var abaixo = P.exato < piso;
-      h += '<div style="background:color-mix(in srgb,' + (abaixo ? 'var(--rd)' : 'var(--vd)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (abaixo ? 'var(--rd)' : 'var(--vd)') + ';border-radius:0 11px 11px 0;padding:14px 15px;margin-top:12px;font-size:14px;color:var(--t1);line-height:1.55">' +
+      h += '<div style="background:color-mix(in srgb,' + (abaixo ? 'var(--rd)' : 'var(--vd)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (abaixo ? 'var(--rd)' : 'var(--vd)') + ';border-radius:0 16px 16px 0;padding:14px 15px;margin-top:12px;font-size:14px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">Seu ponto de equilibrio e ' + fmt(piso, 1) + 'x</b>, pela margem cadastrada no Cofre. ' +
         (abaixo
           ? 'A mediana da categoria (' + fmt(P.exato, 1) + 'x) esta <b style="color:var(--rd)">abaixo do seu equilibrio</b>. Seguir a sugestao da Shopee faria cada venda sair no prejuizo — e explica por que a recomendacao dela nunca deve ser aceita sem confronto.'
@@ -3182,7 +3193,7 @@
     for (var hz = 0; hz < 24; hz++) if (H[hz] && H[hz].gasto > 0) horasComGasto.push(hz);
     var ultima = horasComGasto.length ? horasComGasto[horasComGasto.length - 1] : null;
     if (ultima != null && ultima < 20) {
-      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin-top:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 16px 16px 0;padding:13px 15px;margin-top:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">O gasto para as ' + ultima + 'h.</b> Depois disso a conta nao aparece mais na vitrine paga. ' +
         'Se a noite converte melhor que o resto do dia, o orcamento esta acabando justamente antes do melhor horario.</div>';
     }
@@ -3198,7 +3209,7 @@
     // saber se a conta e assim ou se a leitura falhou.
     var avisoFalta = '';
     if (estado.faltando && estado.faltando.length) {
-      avisoFalta = '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:12px 14px;margin-bottom:14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      avisoFalta = '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 16px 16px 0;padding:12px 14px;margin-bottom:14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">Esta leitura veio incompleta.</b> Nao consegui ler: ' + esc(estado.faltando.join(', ')) +
         '. Rode a coleta de novo; se persistir, a Shopee pode ter mudado essas telas.</div>';
     }
@@ -3700,7 +3711,7 @@
       if (m) onde = ' (coletor.js linha ' + m[1] + ')';
     } catch (e) { /* noop */ }
     try { console.error('[Seller.IA] ' + tela + ':', err); } catch (e) { /* noop */ }
-    return '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:12px;padding:18px;margin-top:12px">' +
+    return '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:18px;padding:18px;margin-top:12px">' +
       '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:6px">A aba ' + esc(tela) + ' nao conseguiu abrir</div>' +
       '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(msg) + esc(onde) + '</div>' +
       '<div style="font-size:13px;color:var(--t2);margin-top:9px;line-height:1.5">Manda esta mensagem que eu corrijo. As outras abas continuam funcionando.</div></div>';
@@ -3714,7 +3725,7 @@
     var nC = Object.keys(estado.campanhas).length, nP = Object.keys(estado.produtos).length;
 
     var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">' + seloFonte() +
-      '<button id="sia-coletar-tudo" style="background:var(--mk);border:none;color:#fff;font-weight:600;font-size:13px;padding:9px 16px;border-radius:8px;cursor:pointer">' +
+      '<button id="sia-coletar-tudo" style="background:var(--mk);border:none;color:#fff;font-weight:600;font-size:13px;padding:9px 16px;border-radius:var(--r-btn,14px);cursor:pointer">' +
       (estado.coletaProgresso !== null ? esc(String(estado.coletaProgresso)) : 'Ler a conta de novo') + '</button></div>';
 
     if (!nC && !nP) {
@@ -3761,7 +3772,7 @@
         var co = CORES_SEM[v.nivel] || CORES_SEM.cinza;
         var alvo = v.escopo === 'produto' ? (estado.produtos[v.id] && estado.produtos[v.id].nome)
           : (estado.campanhas[v.id] && (estado.campanhas[v.id].nome || estado.campanhas[v.id].titulo));
-        s += '<div data-card="' + esc(v.escopo) + ':' + esc(v.id || '') + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px">' +
+        s += '<div data-card="' + esc(v.escopo) + ':' + esc(v.id || '') + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:var(--r-card,22px);padding:15px 16px;margin-bottom:9px">' +
           '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">' +
           '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.25">' + esc(v.titulo) + '</span>' +
           (v.dinheiro ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(v.dinheiro) + '</span>' : '') + '</div>' +
@@ -3814,13 +3825,13 @@
       h += '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
         '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="termo da busca (deixe em branco para usar o titulo)" ' +
         'style="flex:1;min-width:190px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px">' +
-        '<button id="sia-esp-analisar" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:9px;cursor:pointer">' +
+        '<button id="sia-esp-analisar" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:var(--r-btn,14px);cursor:pointer">' +
         (e.buscando ? 'Comparando...' : 'Comparar') + '</button></div></div>';
     } else {
       h += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
         '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="digite o termo que o comprador pesquisa" ' +
         'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px">' +
-        '<button id="sia-esp-ir" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:9px;cursor:pointer">' + (e.buscando ? 'Espiando...' : 'Espiar') + '</button></div>';
+        '<button id="sia-esp-ir" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:var(--r-btn,14px);cursor:pointer">' + (e.buscando ? 'Espiando...' : 'Espiar') + '</button></div>';
     }
 
     h += '<div class="nota" style="margin-top:0">A busca abre a vitrine numa aba em segundo plano e le a resposta que a propria Shopee entrega — nao fabricamos chamada, so escutamos. Cada termo leva alguns segundos. O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
@@ -3830,18 +3841,18 @@
     // linha do Radar parecia nao fazer nada: a tela voltava a desenhar o
     // proprio Radar e o resultado nunca aparecia.
     if (e.buscando) {
-      return h + '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:18px;margin-top:12px">' +
+      return h + '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:18px;margin-top:12px">' +
         '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">' +
         '<span style="width:9px;height:9px;border-radius:50%;background:var(--mk);display:inline-block"></span>' +
         '<b style="font-size:15px;color:var(--t0)">Espiando "' + esc(e.termo || '') + '"</b></div>' +
         '<div style="font-size:13.5px;color:var(--t2);line-height:1.55">A Seller.IA abre a vitrine da Shopee numa aba invisivel, le os resultados como um comprador veria e volta com o comparativo. Leva ate 40 segundos.</div></div>';
     }
     if (e.erro) {
-      return h + '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:12px;padding:16px;margin-top:12px">' +
+      return h + '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:18px;padding:16px;margin-top:12px">' +
         '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:6px">Nao consegui espiar "' + esc(e.termo || '') + '"</div>' +
         '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(e.erro) + '</div>' +
         '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-top:9px">Confira se voce esta logada em <b>shopee.com.br</b>, nao so no Seller Centre, e recarregue esta pagina.</div>' +
-        '<button data-voltar-radar="1" style="margin-top:12px;background:var(--b2);border:1px solid var(--li2);color:var(--t0);font-family:inherit;font-size:13px;padding:9px 15px;border-radius:8px;cursor:pointer">Voltar ao Radar</button></div>';
+        '<button data-voltar-radar="1" style="margin-top:12px;background:var(--b2);border:1px solid var(--li2);color:var(--t0);font-family:inherit;font-size:13px;padding:9px 15px;border-radius:var(--r-btn,14px);cursor:pointer">Voltar ao Radar</button></div>';
     }
 
     /* ---- RADAR EM LISTA (desativado: virou seletor) ---- */
@@ -3857,7 +3868,7 @@
           else if (L.barreira && L.meuFat >= L.barreira) { txt = 'voce vende mais que eles'; cor = 'var(--vd)'; }
           else if (L.barreira) { txt = 'eles vendem ' + fmt(L.barreira / L.meuFat, 1) + 'x mais que voce'; cor = L.barreira / L.meuFat > 2 ? 'var(--rd)' : 'var(--am)'; }
         }
-        h += '<button data-espiar="' + esc(L.termo) + '" data-prod="' + esc(L.produto) + '" style="display:block;width:100%;text-align:left;cursor:pointer;font-family:inherit;background:var(--b2);border:1px solid var(--li);border-left:3px solid ' + cor + ';border-radius:12px;padding:14px 15px;margin-bottom:9px">' +
+        h += '<button data-espiar="' + esc(L.termo) + '" data-prod="' + esc(L.produto) + '" style="display:block;width:100%;text-align:left;cursor:pointer;font-family:inherit;background:var(--b2);border:1px solid var(--li);border-left:3px solid ' + cor + ';border-radius:18px;padding:14px 15px;margin-bottom:9px">' +
           '<div style="display:flex;gap:8px;align-items:center">' +
           '<span style="font-family:monospace;font-size:15px;color:' + cor + ';width:26px">' + posTxt + '</span>' +
           '<span style="flex:1;font-size:12.5px">' + esc(String(L.produto).slice(0, 52)) + '</span>' +
@@ -3935,7 +3946,7 @@
       var meuFora = (!meus.length && b && estado.espiao.meuProduto);
       if (meuFora) {
         var mp = estado.espiao.meuProduto;
-        h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-radius:12px;padding:15px 16px;margin:16px 0 4px">' +
+        h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-radius:18px;padding:15px 16px;margin:16px 0 4px">' +
           '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">Voce nao aparece nesta busca</div>' +
           '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(String(mp.nome).slice(0, 60)) + ' nao esta entre os ' + lista.length + ' primeiros de <b>' + esc(e.res.termo) + '</b>. Os cinco primeiros faturam ' + espDinheiro(b.faturamentoMes) + ' por mes cada, na media — esse mercado passa longe de voce.</div></div>';
       }
@@ -4179,7 +4190,7 @@
       : null;
     var margemPct = (liquido != null && preco) ? (liquido / preco) * 100 : null;
 
-    h += '<div style="border:1px solid var(--li);border-radius:12px;padding:12px;margin-bottom:11px">' +
+    h += '<div style="border:1px solid var(--li);border-radius:18px;padding:12px;margin-bottom:11px">' +
       olho('A CONTA DE UM PEDIDO', 'A conta de um pedido: o que entra e o que sai em UMA venda deste produto. Ticket medio menos comissao da Shopee, menos o que o anuncio custou por pedido, menos custo, embalagem e imposto quando cadastrados no Cofre. O que sobra e o seu lucro por unidade vendida.');
     function linhaR(l, v, forte) {
       return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:4px 0;color:' + (forte ? 'var(--t0)' : 'var(--t1)') + '"><span>' + l + '</span><span style="font-family:monospace">' + v + '</span></div>';
@@ -4228,7 +4239,7 @@
       h += '<div style="background:var(--b2);border-left:3px solid var(--px);border-radius:0 9px 9px 0;padding:10px 12px;margin-bottom:11px;font-size:13px;color:var(--t1);line-height:1.5">' +
         'Este produto nao tem anuncio ativo nesta coleta, entao nao ha ROAS para explicar. O julgamento acima vem do funil organico da pagina.</div>';
     } else {
-    h += '<div style="border:1px solid var(--li);border-radius:12px;padding:12px;margin-bottom:11px">' +
+    h += '<div style="border:1px solid var(--li);border-radius:18px;padding:12px;margin-bottom:11px">' +
       '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--px);letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;text-align:center">' +
       '<div><div style="font-size:18px;color:var(--am)">' + (meta.atual != null ? fmt(meta.atual, 1) + 'x' : '—') + '</div><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">VOCE PEDE</div></div>' +
@@ -4275,7 +4286,7 @@
     } catch (e) { /* noop */ }
     var dp = (R.tipo === 'produto' && R.idProduto && estado.produtos[R.idProduto]) ? diagProduto(R.idProduto) : null;
     var fraseCard = (dp && dp.titulo) || (diag && (diag.titulo || diag.frase)) || cardFraseLocal(pc, pp);
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:13px;margin-bottom:11px">' +
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:13px;margin-bottom:11px">' +
       '<div style="font-size:19px;color:var(--mk);line-height:1.25;margin-bottom:6px">' + esc(fraseCard) + '</div>';
     if (dp && dp.texto) h += '<div style="font-size:13px;color:var(--t1);line-height:1.5;margin-bottom:8px">' + esc(dp.texto) + '</div>';
     var passos = (diag && diag.acoes) || (dp && dp.acao ? [dp.acao] : null);
@@ -4342,7 +4353,7 @@
         var mediaConv = nConv ? somaConv / nConv : null, mediaCtr = nCtr ? somaCtr / nCtr : null;
         if (mediaConv != null && convP != null) {
           var razao = convP / mediaConv;
-          h += '<div style="background:color-mix(in srgb,' + (razao >= 1 ? 'var(--vd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (razao >= 1 ? 'var(--vd)' : 'var(--am)') + ';border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+          h += '<div style="background:color-mix(in srgb,' + (razao >= 1 ? 'var(--vd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (razao >= 1 ? 'var(--vd)' : 'var(--am)') + ';border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
             '<b style="color:var(--t0)">Contra a media da sua loja:</b> este produto converte ' + fmt(convP, 1) + '% e a media e ' + fmt(mediaConv, 1) + '%' +
             (razao >= 1.3 ? ' — ' + fmt(razao, 1) + 'x melhor que o resto do catalogo.'
              : razao >= 1 ? ', ou seja esta na faixa da loja.'
@@ -4366,14 +4377,14 @@
     var apr = temAds ? (pc && pc.aprendizado) : null;
     if (apr) {
       if (apr.emAprendizado) {
-        h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
           '<b style="color:var(--t0)">Em aprendizado agora</b> \u2014 a propria Shopee marca esta campanha como em fase de aprendizado. ' +
           'Enquanto isso durar, o resultado dela ainda nao representa o que ela vai entregar. Mexer agora reinicia a contagem.</div>';
       }
       if (apr.ultimaTroca) {
         var tt = apr.ultimaTroca;
         var quando = tt.em ? new Date(tt.em * 1000) : null;
-        h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
           '<b style="color:var(--t0)">A meta foi alterada' + (quando ? ' em ' + quando.toLocaleDateString('pt-BR') : '') + '</b>: de ' +
           fmt(tt.de, 1) + 'x para ' + fmt(tt.para, 1) + 'x' + (apr.trocasDeMeta.length > 1 ? ', e foram ' + apr.trocasDeMeta.length + ' mudancas no periodo' : '') + '. ' +
           'Cada alteracao reinicia o aprendizado \u2014 o numero que voce esta vendo mistura o antes e o depois.</div>';
@@ -4402,7 +4413,7 @@
       if (tkt && cvv && ctrv && metaV) {
         var alvo = (tkt * (cvv / 100) * (ctrv / 100) * 1000) / metaV;
         var acimaAlvo = cpmReal != null && cpmReal > alvo * 1.2;
-        h += '<div style="background:var(--b2);border-left:3px solid ' + (acimaAlvo ? 'var(--am)' : 'var(--vd)') + ';border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        h += '<div style="background:var(--b2);border-left:3px solid ' + (acimaAlvo ? 'var(--am)' : 'var(--vd)') + ';border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
           '<b style="color:var(--t0)">Pela matematica deste produto, o CPM que sustenta a meta de ' + fmt(metaV, 1) + 'x e R$' + fmt(alvo, 2) + '.</b> ' +
           (cpmReal == null ? '' : acimaAlvo
             ? 'Voce esta pagando R$' + fmt(cpmReal, 2) + ' \u2014 acima do que ticket, conversao e clique deste produto aguentam nessa meta.'
@@ -4413,7 +4424,7 @@
     var fase = faseAprendizado(pc && pc.campanha ? pc.campanha : pc);
     if (apr) fase = null;   // dado real ganha da estimativa por idade
     if (fase) {
-      h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">Ainda em aprendizado &mdash; faltam ' + fase.faltam + ' dia' + (fase.faltam === 1 ? '' : 's') + '</b><br>' + esc(fase.texto) + '</div>';
     }
     h += olho('O QUE A SHOPEE SABE E NAO MOSTRA', '<b>Estes quatro numeros existem na API da Shopee e nao aparecem no painel dela.</b> Posicao no leilao e onde seu anuncio cai na disputa. Competitividade e como o seu preco esta contra a categoria, na regua dela. Status diz se o produto tem alcance limitado. Diagnostico e o problema que ela mesma aponta.') +
@@ -4430,7 +4441,7 @@
     if (roasRec != null) {
       var pisoAqui = (estado.cofre && margemMediaCofre()) ? 100 / margemMediaCofre() : null;
       var abaixo = pisoAqui != null && roasRec < pisoAqui;
-      h += '<div style="background:color-mix(in srgb,' + (abaixo ? 'var(--rd)' : 'var(--px)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (abaixo ? 'var(--rd)' : 'var(--px)') + ';border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      h += '<div style="background:color-mix(in srgb,' + (abaixo ? 'var(--rd)' : 'var(--px)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (abaixo ? 'var(--rd)' : 'var(--px)') + ';border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">A Shopee recomenda meta de ' + fmt(roasRec, 1) + 'x para este produto</b>' +
         (pp.roiEstimadoMin != null && pp.roiEstimadoMax != null ? ', e estima retorno entre ' + fmt(pp.roiEstimadoMin, 1) + 'x e ' + fmt(pp.roiEstimadoMax, 1) + 'x' : '') + '.' +
         (abaixo
@@ -4461,7 +4472,7 @@
       ];
     }
     h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;margin-bottom:7px">' + tituloFunil + '</div>' +
-      '<div style="display:flex;align-items:center;gap:4px;background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:12px 8px">';
+      '<div style="display:flex;align-items:center;gap:4px;background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:12px 8px">';
     for (var i = 0; i < etapas.length; i++) {
       if (i > 0) {
         var ant = null;
@@ -4974,7 +4985,7 @@
     // O CARD INTEIRO expande. Antes ele tinha data-card, que levava para outra
     // tela, e o link de expandir era filho dele — clicar em quase qualquer
     // lugar abria a tela errada em vez de expandir.
-    var h = '<div data-exp-camp="' + esc(id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px">';
+    var h = '<div data-exp-camp="' + esc(id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:var(--r-card,22px);padding:15px 16px;margin-bottom:9px">';
     h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">' +
       '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.25">' + esc(titulo) + '</span>' +
       (gasto != null ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(gasto) + '</span>' : '') + '</div>';
@@ -5020,7 +5031,7 @@
         quedasC.push(qc);
         if (!piorC || qc.pct > piorC.pct) piorC = qc;
       }
-      h += '<div style="background:var(--b1);border:1px solid var(--li);border-radius:11px;padding:12px 10px;margin-bottom:10px">' +
+      h += '<div style="background:var(--b1);border:1px solid var(--li);border-radius:16px;padding:12px 10px;margin-bottom:10px">' +
         '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.08em;margin-bottom:8px">O FUNIL DESTA CAMPANHA</div>' +
         '<div style="display:flex;align-items:flex-end;gap:2px">';
       for (var dc = 0; dc < degC.length; dc++) {
@@ -5053,7 +5064,7 @@
       var ticket = mp2.ticket_pedido || (mp2.vendas_pagas && mp2.pedidos_pagos ? mp2.vendas_pagas / mp2.pedidos_pagos : (ped && gmv ? gmv / ped : null));
       var custo = (estado.cofre && estado.cofre.custos && idProd) ? estado.cofre.custos[idProd] : null;
 
-      h += '<div style="background:var(--b1);border:1px solid var(--li);border-radius:11px;padding:13px;margin-top:10px">';
+      h += '<div style="background:var(--b1);border:1px solid var(--li);border-radius:16px;padding:13px;margin-top:10px">';
       h += '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:9px">A CONTA DE UM PEDIDO</div>';
       if (ticket) {
         var com2 = ticket < 80 ? ticket * 0.20 + 4 : (ticket < 100 ? ticket * 0.14 + 16 : (ticket < 200 ? ticket * 0.14 + 20 : ticket * 0.14 + 26));
@@ -5081,7 +5092,7 @@
             '</div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">' +
             campoCalc('imposto', idProd, 'Imposto %', (estado.calcTmp && estado.calcTmp[idProd] && estado.calcTmp[idProd].imposto) || '') +
-            '<button data-calc-calcular="' + esc(idProd) + '" style="background:var(--b1);border:1px solid var(--mk);color:var(--mk);font-family:inherit;font-weight:600;font-size:13px;border-radius:8px;cursor:pointer;align-self:end;padding:9px">Calcular</button>' +
+            '<button data-calc-calcular="' + esc(idProd) + '" style="background:var(--b1);border:1px solid var(--mk);color:var(--mk);font-family:inherit;font-weight:600;font-size:13px;border-radius:var(--r-btn,14px);cursor:pointer;align-self:end;padding:9px">Calcular</button>' +
             '</div>';
           var tmp = (estado.calcTmp && estado.calcTmp[idProd]) || {};
           var cTmp = numeroPuro(tmp.custo), eTmp = numeroPuro(tmp.embalagem) || 0, iTmp = numeroPuro(tmp.imposto) || 0;
@@ -5096,7 +5107,7 @@
                   (roas != null ? ' e esta campanha entrega ' + fmt(roas, 1) + 'x — ' + (roas >= 100 / margT ? '<b style="color:var(--vd)">esta dando lucro</b>.' : '<b style="color:var(--rd)">esta no prejuizo</b>.') : '.')
                 : '<b style="color:var(--rd)">Este produto perde dinheiro em cada venda, antes mesmo do anuncio.</b> Nenhuma meta de ROAS resolve isso.') +
               '</div>';
-            h += '<button data-calc-salvar="' + esc(idProd) + '" style="width:100%;margin-top:10px;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;border-radius:9px;cursor:pointer;padding:11px">Salvar este custo no produto</button>';
+            h += '<button data-calc-salvar="' + esc(idProd) + '" style="width:100%;margin-top:10px;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;border-radius:var(--r-btn,14px);cursor:pointer;padding:11px">Salvar este custo no produto</button>';
           } else {
             h += '<div style="font-size:12.5px;color:var(--t2);margin-top:9px;line-height:1.5">Preencha o custo e toque em <b>Calcular</b> para ver a margem real, o ponto de equilibrio e se esta campanha da lucro.</div>';
           }
@@ -5130,7 +5141,7 @@
           'AS PALAVRAS DESTA CAMPANHA' +
           dica('<b>So a Busca de Loja tem lance por palavra</b> — nos outros formatos a Shopee escolhe sozinha onde mostrar. Aqui da para ver qual termo esta ativo, quanto voce paga por clique nele e quanto a Shopee recomenda. <b>Lance abaixo do recomendado significa perder leilao</b>: seu anuncio deixa de aparecer para quem buscou aquele termo, e o concorrente que paga mais leva.') + '</div>';
         if (perdendo.length) {
-          h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:9px;font-size:13.5px;color:var(--t1);line-height:1.5">' +
+          h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:9px;font-size:13.5px;color:var(--t1);line-height:1.5">' +
             '<b style="color:var(--t0)">' + perdendo.length + ' de ' + pal.length + ' palavras com lance abaixo do recomendado.</b> ' +
             'Nelas voce aparece menos do que poderia — quem paga mais leva a impressao.</div>';
         }
@@ -5183,15 +5194,15 @@
     if (!pausadas) return '';
     var vendo = estado.verPausadas ? 'pausadas' : 'ativas';
     return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 10px">' +
-      '<button data-camp-filtro="ativas" style="background:' + (vendo === 'ativas' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (vendo === 'ativas' ? 'var(--mk)' : 'var(--li)') + ';color:' + (vendo === 'ativas' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Ativas (' + ativas + ')</button>' +
-      '<button data-camp-filtro="pausadas" style="background:' + (vendo === 'pausadas' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (vendo === 'pausadas' ? 'var(--mk)' : 'var(--li)') + ';color:' + (vendo === 'pausadas' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Pausadas (' + pausadas + ')</button>' +
+      '<button data-camp-filtro="ativas" style="background:' + (vendo === 'ativas' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (vendo === 'ativas' ? 'var(--mk)' : 'var(--li)') + ';color:' + (vendo === 'ativas' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Ativas (' + ativas + ')</button>' +
+      '<button data-camp-filtro="pausadas" style="background:' + (vendo === 'pausadas' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (vendo === 'pausadas' ? 'var(--mk)' : 'var(--li)') + ';color:' + (vendo === 'pausadas' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Pausadas (' + pausadas + ')</button>' +
       '<span class="nota" style="margin:0;align-self:center">' +
       (estado.verPausadas ? 'Ordenadas por retorno: o que elas geravam antes de parar.' : 'As pausadas ficam de fora da lista por padrao.') + '</span></div>';
   }
   function renderImportador() {
     var g = estado.grupoImportado;
     var h = olho('PLANILHA DO GRUPO DE ANUNCIOS', 'A Shopee nao entrega o desempenho por produto dentro de um Grupo de Anuncios pela API — so o total do grupo. A exportacao do painel entrega. Suba o arquivo aqui e a leitura passa a ser item a item.');
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:16px;margin-bottom:12px">' +
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:16px;margin-bottom:12px">' +
       '<div style="font-size:13.5px;color:var(--t1);line-height:1.6;margin-bottom:12px">' +
       '<b style="color:var(--t0)">Como pegar:</b> Shopee Ads &rsaquo; abra o Grupo de Anuncios &rsaquo; Exportar. ' +
       'Aceita CSV ou XLSX salvo como CSV.</div>' +
@@ -5219,7 +5230,7 @@
       h += '</table>';
       var piores = g.linhas.filter(function (x) { return (x.gasto || 0) > tot * 0.1 && (x.pedidos || 0) === 0; });
       if (piores.length) {
-        h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px 15px;margin-top:12px;font-size:14px;color:var(--t1);line-height:1.55">' +
+        h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 16px 16px 0;padding:14px 15px;margin-top:12px;font-size:14px;color:var(--t1);line-height:1.55">' +
           '<b style="color:var(--t0)">' + piores.length + ' produto(s) consomem o grupo sem vender.</b> ' +
           'Juntos levam ' + reais(piores.reduce(function (s2, x) { return s2 + (x.gasto || 0); }, 0)) + ' do orcamento e nao geraram pedido. ' +
           'Tirar do grupo devolve essa verba para quem esta vendendo.</div>';
@@ -5451,10 +5462,10 @@
     var K = (D && D.busca && D.busca.keywords) || [];
 
     if (!K.length) {
-      return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:16px">' +
+      return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 18px 18px 0;padding:16px">' +
         '<div style="font-size:15px;font-weight:600;color:var(--t0);margin-bottom:5px">Ainda nao li as palavras desta conta</div>' +
         '<div style="font-size:13.5px;color:var(--t1);line-height:1.55">Elas vem da tela de criacao de campanha de Busca de Loja. Se a conta nao tem campanha desse tipo, a Shopee pode nao devolver nada.</div>' +
-        '<button id="sia-kw-coletar" style="margin-top:11px;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;padding:10px 16px;border-radius:8px;cursor:pointer">' +
+        '<button id="sia-kw-coletar" style="margin-top:11px;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;padding:10px 16px;border-radius:var(--r-btn,14px);cursor:pointer">' +
         (estado.coletaProgresso !== null ? esc(String(estado.coletaProgresso)) : 'Buscar as palavras agora') + '</button></div>';
     }
 
@@ -5584,7 +5595,7 @@
     }
     var C = estado.compResultado;
     if (!C || C.id !== idProduto) {
-      return '<div data-comparar="' + esc(idProduto) + '" style="cursor:pointer;background:var(--b2);border:1px dashed var(--li2);border-radius:11px;padding:13px 15px;margin-top:10px;font-size:13.5px;color:var(--mk);text-align:center">' +
+      return '<div data-comparar="' + esc(idProduto) + '" style="cursor:pointer;background:var(--b2);border:1px dashed var(--li2);border-radius:16px;padding:13px 15px;margin-top:10px;font-size:13.5px;color:var(--mk);text-align:center">' +
         'Comparar com os 3 que mais vendem nesta busca' + '</div>';
     }
     if (C.erro) return '<div class="nota" style="color:var(--am)">' + esc(C.erro) + '</div>';
@@ -5634,7 +5645,7 @@
     if (comCupom >= 2) achados.push({ rot: 'CUPOM', txt: comCupom + ' dos 3 que mais vendem tem cupom ativo na vitrine. Cupom aparece como selo no card e muda a decisao antes do clique.', ruim: true });
     if (comAds === 0) achados.push({ rot: 'ANUNCIO', txt: 'Nenhum dos tres esta pagando anuncio nesta busca — eles chegaram ali por titulo, preco e avaliacao. Investir mais aqui nao resolve.', ruim: false });
 
-    var h = '<div style="background:var(--b1);border:1px solid var(--li);border-radius:12px;padding:14px;margin-top:11px">' +
+    var h = '<div style="background:var(--b1);border:1px solid var(--li);border-radius:18px;padding:14px;margin-top:11px">' +
       '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">O QUE OS 3 QUE MAIS VENDEM FAZEM DIFERENTE</div>';
 
     for (var q = 0; q < C.top3.length; q++) {
@@ -5761,7 +5772,10 @@
       itens.push({
         rot: 'O QUE ACONTECE COM QUEM ENTRA',
         txt: 'De cada 100 visitantes, ' + fmt(conv, 1) + ' compram.' +
-          (pagPorVisita ? ' Cada visitante ve ' + fmt(pagPorVisita, 1) + ' paginas' + (pagPorVisita < 1.5 ? ', o que e pouco: quem chega nao navega pelo catalogo, entra e sai.' : ', entao ha navegacao pelo catalogo.') : '') +
+          (pagPorVisita ? ' Cada visitante ve ' + fmt(pagPorVisita, 1) + ' paginas' +
+            (pagPorVisita < 2 ? ', o que e pouco: quem chega ve um produto e sai, sem passear pelo catalogo. Produto relacionado e combo sao o caminho para segurar a visita.'
+             : pagPorVisita < 3 ? ', dentro do esperado para marketplace.'
+             : ', o que e bom: quem entra circula pelo catalogo.') : '') +
           (conv < 1 ? ' Conversao abaixo de 1% costuma ser preco, foto ou avaliacao — nao falta de trafego.' : ''),
         nivel: conv < 1 ? 'amarelo' : 'verde'
       });
@@ -5798,7 +5812,7 @@
     for (var i = 0; i < itens.length; i++) {
       var it = itens[i];
       var cor = it.nivel === 'amarelo' ? 'var(--am)' : 'var(--vd)';
-      h += '<div style="border-left:3px solid ' + cor + ';background:color-mix(in srgb,' + cor + ' var(--tin,7%),var(--b2));border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:9px">' +
+      h += '<div style="border-left:3px solid ' + cor + ';background:color-mix(in srgb,' + cor + ' var(--tin,7%),var(--b2));border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:9px">' +
         '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.07em;margin-bottom:5px">' + it.rot + '</div>' +
         '<div style="font-size:14.5px;color:var(--t1);line-height:1.55">' + esc(it.txt) + '</div></div>';
     }
@@ -5855,7 +5869,7 @@
 
     h += olho('O QUE ESTA NO AR AGORA (' + ativas.length + ')', 'Cupom, Oferta Relampago e Desconto ativos, com a data em que cada um termina. Campanha que vence sem substituta deixa buraco: o preco volta ao cheio e a conversao cai sem ninguem perceber.');
     if (vencendo.length) {
-      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">' + vencendo.length + ' ' + (vencendo.length > 1 ? 'campanhas vencem' : 'campanha vence') + ' em ate 7 dias.</b> ' +
         'Sem renovar, o preco volta ao cheio e a conversao cai sem aviso.</div>';
     }
@@ -5888,7 +5902,7 @@
       // entrada sem confrontar com a margem.
       var margemMkt = margemMediaCofre();
       h += olho('CAMPANHA DE DESTAQUE SHOPEE (' + abertas.length + ')', '<b>A Campanha de Destaque Shopee nao e gratuita.</b> A Shopee cobra um percentual sobre as vendas da loja no periodo da campanha \u2014 normalmente 3,5%, e sobre TODAS as vendas, nao apenas as que vieram dela. Em troca, o produto entra em vitrine que a loja nao alcanca sozinha.<br><br><b>A conta que decide:</b> o ganho de alcance precisa cobrir o percentual cobrado sobre o faturamento inteiro. Loja de margem apertada raramente compensa.');
-      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 11px 11px 0;padding:13px 15px;margin-bottom:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">Antes de entrar, faca a conta.</b> A taxa costuma ser de 3,5% sobre todo o faturamento do periodo. ' +
         (margemMkt
           ? 'Com a sua margem de ' + fmt(margemMkt, 0) + '%, isso consome <b style="color:var(--t0)">' + fmt((3.5 / margemMkt) * 100, 0) + '% do que sobra</b> em cada venda \u2014 inclusive nas que voce faria de qualquer jeito.'
@@ -5973,7 +5987,7 @@
   ];
   function renderProgresso(etapaAtual, pct) {
     var p2 = Math.max(3, Math.min(100, pct || 0));
-    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:16px;margin-top:12px">' +
+    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:16px;margin-top:12px">' +
       '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">' +
       '<span style="width:9px;height:9px;border-radius:50%;background:var(--mk);display:inline-block"></span>' +
       '<b style="font-size:14.5px;color:var(--t0)">' + esc(etapaAtual || 'Trabalhando...') + '</b></div>' +
@@ -5993,7 +6007,7 @@
     // aviso do periodo — a leitura herda o painel
     var dias = gg && gg.periodoDias;
     var certo = dias != null && dias >= 6 && dias <= 8;
-    h += '<div style="background:color-mix(in srgb,' + (certo ? 'var(--vd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (certo ? 'var(--vd)' : 'var(--am)') + ';border-radius:0 12px 12px 0;padding:14px 15px;margin-bottom:14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+    h += '<div style="background:color-mix(in srgb,' + (certo ? 'var(--vd)' : 'var(--am)') + ' var(--tin,9%),var(--b2));border-left:3px solid ' + (certo ? 'var(--vd)' : 'var(--am)') + ';border-radius:0 18px 18px 0;padding:14px 15px;margin-bottom:14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
       (certo
         ? '<b style="color:var(--t0)">Periodo certo.</b> A leitura atual cobre ' + dias + ' dias.'
         : '<b style="color:var(--t0)">Antes de gerar, ajuste o painel.</b> Va em <b>Informacoes Gerenciais</b> da Shopee e selecione <b>Ultimos 7 dias</b>, depois colete a conta. ' +
@@ -6002,19 +6016,19 @@
 
     if (S.pedirChave && !chaveSupabase()) h += renderPedirChave();
     if (S.erro) {
-      h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px;margin-bottom:12px;font-size:14px;color:var(--t1);line-height:1.55">' + esc(S.erro) + '</div>';
+      h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 16px 16px 0;padding:14px;margin-bottom:12px;font-size:14px;color:var(--t1);line-height:1.55">' + esc(S.erro) + '</div>';
     }
 
     if (S.gerando) { h += renderProgresso(S.etapa, S.pct); }
     else {
-      h += '<button id="sia-sem-gerar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer">Gerar panorama da semana</button>';
+      h += '<button id="sia-sem-gerar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:16px;cursor:pointer">Gerar panorama da semana</button>';
     }
 
     if (S.markdown) {
       h += '<div style="display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap">' +
-        '<button id="sia-sem-pdf" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:9px;cursor:pointer">Salvar em PDF</button>' +
-        '<button id="sia-sem-novo" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:13px;padding:11px 16px;border-radius:9px;cursor:pointer">Gerar de novo</button></div>';
-      h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:13px;padding:18px;font-size:14.5px;color:var(--t1);line-height:1.65">' + mdParaHtml(S.markdown) + '</div>';
+        '<button id="sia-sem-pdf" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:var(--r-btn,14px);cursor:pointer">Salvar em PDF</button>' +
+        '<button id="sia-sem-novo" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:13px;padding:11px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Gerar de novo</button></div>';
+      h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:18px;font-size:14.5px;color:var(--t1);line-height:1.65">' + mdParaHtml(S.markdown) + '</div>';
     }
     return h;
   }
@@ -6027,7 +6041,7 @@
     return h2;
   }
   function renderPedirChave() {
-    return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:16px;margin-bottom:14px">' +
+    return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 18px 18px 0;padding:16px;margin-bottom:14px">' +
       '<div style="font-size:15px;font-weight:600;color:var(--t0);margin-bottom:6px">Falta a chave do Supabase</div>' +
       '<div style="font-size:13.5px;color:var(--t1);line-height:1.55;margin-bottom:10px">' +
       'O relatorio e o panorama semanal falam com a sua funcao no Supabase, e ela precisa da chave publica do projeto para aceitar a chamada. ' +
@@ -6035,7 +6049,7 @@
       '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
       '<input id="sia-anon" type="password" value="' + esc(estado.anonKey || '') + '" placeholder="cole a anon public key" ' +
       'style="flex:1;min-width:200px;background:var(--b1);border:1px solid var(--li);border-radius:8px;padding:11px 12px;color:var(--t0);font-family:Space Mono,monospace;font-size:12px">' +
-      '<button id="sia-anon-salvar" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;padding:11px 18px;border-radius:8px;cursor:pointer">Salvar</button></div></div>';
+      '<button id="sia-anon-salvar" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13px;padding:11px 18px;border-radius:var(--r-btn,14px);cursor:pointer">Salvar</button></div></div>';
   }
   function gerarSemanal() {
     estado.semanal = estado.semanal || {};
@@ -6113,10 +6127,10 @@
 
     if (R.markdown) {
       h += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
-        '<button id="sia-rel-pdf" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:9px;cursor:pointer">Salvar em PDF</button>' +
-        '<button id="sia-rel-copiar" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:9px;cursor:pointer">Copiar texto</button>' +
-        '<button id="sia-rel-novo" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:9px;cursor:pointer">Gerar outro</button></div>';
-      h += '<div id="sia-rel-corpo" style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:18px;font-size:14px;line-height:1.65;color:var(--t1);max-height:62vh;overflow:auto">' + mdParaHtml(R.markdown) + '</div>';
+        '<button id="sia-rel-pdf" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:var(--r-btn,14px);cursor:pointer">Salvar em PDF</button>' +
+        '<button id="sia-rel-copiar" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Copiar texto</button>' +
+        '<button id="sia-rel-novo" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Gerar outro</button></div>';
+      h += '<div id="sia-rel-corpo" style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:18px;font-size:14px;line-height:1.65;color:var(--t1);max-height:62vh;overflow:auto">' + mdParaHtml(R.markdown) + '</div>';
       return h;
     }
 
@@ -6137,14 +6151,14 @@
     // contraditorio — e pior: escondia o botao, e a pessoa clicava num lugar
     // onde nao havia botao nenhum e nada acontecia.
 
-    h += '<div style="background:var(--b2);border-left:3px solid var(--vd);border-radius:0 11px 11px 0;padding:13px 15px;margin:14px 0;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+    h += '<div style="background:var(--b2);border-left:3px solid var(--vd);border-radius:0 16px 16px 0;padding:13px 15px;margin:14px 0;font-size:13.5px;color:var(--t1);line-height:1.55">' +
       '<b style="color:var(--t0)">A coleta e automatica.</b> Ao gerar, a Seller.IA le os dois meses direto da Shopee, um de cada vez, sem voce precisar trocar nada no painel. ' +
       'Leva alguns minutos porque sao duas leituras completas da conta.</div>';
 
     h += '<button id="sia-rel-gerar" ' +
-      'style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:11px;cursor:pointer' + (R.gerando ? ';opacity:.6' : '') + '">' +
+      'style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:15px;padding:15px;border-radius:16px;cursor:pointer' + (R.gerando ? ';opacity:.6' : '') + '">' +
       (R.gerando ? 'Cancelar (' + esc(R.etapa || 'trabalhando') + ')' : 'Gerar relatorio') + '</button>';
-    if (R.erro) h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 10px 10px 0;padding:12px 14px;margin-top:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' + esc(R.erro) + '</div>';
+    if (R.erro) h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 16px 16px 0;padding:12px 14px;margin-top:11px;font-size:13.5px;color:var(--t1);line-height:1.55">' + esc(R.erro) + '</div>';
     if (R.gerando) h += renderProgresso(R.etapa, R.pct);
     return h;
   }
@@ -6573,9 +6587,23 @@
       chrome.runtime.sendMessage({ tipo: 'sia:conta-salvar', loja: id, dados: foto }, function () { void chrome.runtime.lastError; });
     } catch (e) { /* noop */ }
   }
+  // Poda o que veio do disco. O snapshot guardava campanhas acumuladas de
+  // leituras antigas — foi assim que apareceram 847 campanhas com gasto de
+  // varios recortes somados, mesmo com o teto na criacao.
+  function podarCampanhas(mapa) {
+    var ids = Object.keys(mapa || {});
+    if (ids.length <= 280) return mapa || {};
+    ids.sort(function (a, b) {
+      var ma = (mapa[a].metricas || {}), mb = (mapa[b].metricas || {});
+      return (mb.gasto || 0) - (ma.gasto || 0);
+    });
+    var out = {};
+    for (var i = 0; i < 280; i++) out[ids[i]] = mapa[ids[i]];
+    return out;
+  }
   function restaurarConta(id) {
     var g = estado.contas[id] || contaVazia();
-    estado.campanhas = g.campanhas; estado.produtos = g.produtos;
+    estado.campanhas = podarCampanhas(g.campanhas); estado.produtos = g.produtos;
     estado.conta = g.conta; estado.diagnostico = g.diagnostico; estado.lidoEm = g.lidoEm;
     estado.espiao = { termo: '', buscando: false, erro: null, res: null, radar: null };
     estado.card = null; estado.cofre = { custos: {}, embalagem: 0, imposto: 0 };
@@ -6664,10 +6692,10 @@
   function renderChamadaCerebro() {
     if (estado.fonteVeredito === 'cerebro') return '';
     if (!Object.keys(estado.campanhas).length && !Object.keys(estado.produtos).length) return '';
-    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:11px;padding:13px;margin-top:14px">' +
+    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:16px;padding:13px;margin-top:14px">' +
       '<div style="font-size:14px;color:var(--t0);font-weight:500;margin-bottom:4px">A analise completa ainda nao rodou</div>' +
       '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:10px">O que esta na tela e a leitura local. A completa traz o diagnostico da propria Shopee, o piso de ROAS pela sua margem e a leitura por formato de anuncio.</div>' +
-      '<button id="sia-analisar-agora" style="background:var(--mk);border:none;color:#fff;font-weight:600;font-size:13px;padding:9px 16px;border-radius:8px;cursor:pointer">' +
+      '<button id="sia-analisar-agora" style="background:var(--mk);border:none;color:#fff;font-weight:600;font-size:13px;padding:9px 16px;border-radius:var(--r-btn,14px);cursor:pointer">' +
       (estado.analisando ? 'Analisando...' : 'Analisar esta conta') + '</button></div>';
   }
   function ligarChamadaCerebro() {
@@ -6717,7 +6745,7 @@
       av.unshift(uc.falhas + ' de ' + (uc.ok + uc.falhas) + ' consultas a Shopee falharam nesta leitura.');
     }
     if (!av.length) return '';
-    return '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:12px;padding:15px 16px;margin-bottom:14px">' +
+    return '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:18px;padding:15px 16px;margin-bottom:14px">' +
       '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">A leitura desta conta pode estar incompleta</div>' +
       '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(av.join(' ')) +
       ' A Shopee pode ter mudado algo no painel. <b>Enquanto isso nao for verificado, a ausencia de alertas nesta tela nao significa que esta tudo bem.</b></div></div>';
@@ -6725,7 +6753,7 @@
 
   function renderBannerConta() {
     if (!estado.loja) {
-      return '<div style="background:var(--b2);border-left:3px solid var(--am);border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1)">Identificando a loja... navegue uma vez no painel para a Seller.IA reconhecer a conta.</div>';
+      return '<div style="background:var(--b2);border-left:3px solid var(--am);border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1)">Identificando a loja... navegue uma vez no painel para a Seller.IA reconhecer a conta.</div>';
     }
     var n = Object.keys(estado.campanhas).length, p = Object.keys(estado.produtos).length;
     var vazio = (n + p) === 0;
@@ -6734,13 +6762,13 @@
     var cor = vazio ? 'var(--am)' : 'var(--vd)';
     var rodando = estado.coletaProgresso !== null;
     if (vazio && rodando) {
-      return '<div style="background:var(--b2);border-left:3px solid var(--mk);border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' +
+      return '<div style="background:var(--b2);border-left:3px solid var(--mk);border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' +
         'Lendo <b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> agora \u2014 ' + esc(String(estado.coletaProgresso)) + '</div>';
     }
     var txt = vazio
       ? '<b>' + sig(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> ainda nao foi lida nesta sessao.'
       : '<b>' + sig(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> — dado desta conta, lido ' + (lidoHa() || 'agora') + '.';
-    return '<div style="background:var(--b2);border-left:3px solid ' + cor + ';border-radius:0 10px 10px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' + txt +
+    return '<div style="background:var(--b2);border-left:3px solid ' + cor + ';border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' + txt +
       (vazio ? ' <button id="sia-coletar-agora" style="background:var(--mk);border:none;color:var(--t0);font-weight:600;font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;margin-left:6px">Coletar esta conta</button>' : '') +
       '<div style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2);margin-top:6px">' +
       '<label style="cursor:pointer"><input type="checkbox" id="sia-auto-troca"' + (estado.autoColeta ? ' checked' : '') + '> ler a conta sozinha ao abrir</label>' +
@@ -6869,7 +6897,7 @@
       if (cand >= minimo && cand < limites[faixa]) { preco = cand; break; }
     }
     if (!preco) {
-      return h + '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px;font-size:14px;color:var(--t1);line-height:1.55">' +
+      return h + '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 16px 16px 0;padding:14px;font-size:14px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">Essa margem nao cabe.</b> Somando comissao e imposto, nao existe preco que deixe ' + fmt(margem, 0) + '% sobrando com esse custo. Reduza a margem alvo ou o custo.</div>';
     }
 
@@ -6878,7 +6906,7 @@
     var sobra = preco - com - custo - emb - impV;
     var pisoRoasP = 100 / margem;
 
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:13px;padding:17px;margin-bottom:12px">' +
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:17px;margin-bottom:12px">' +
       '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">O PRECO QUE ENTREGA ESSA MARGEM</div>' +
       '<div style="font-family:Bebas Neue,sans-serif;font-size:46px;line-height:1;color:var(--mk)">' + reais(preco) + '</div>' +
       '<div style="font-size:13.5px;color:var(--t2);margin-top:6px">deixa ' + reais(sobra) + ' por venda</div></div>';
@@ -6888,7 +6916,7 @@
         '<span>' + rot + '</span><span style="font-family:Space Mono,monospace">' + v2 + '</span></div>';
     }
     h += olho('DE ONDE SAI CADA REAL');
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:14px">';
+    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:14px">';
     h += ln2('Preco de venda', reais(preco), 'var(--t0)');
     h += ln2('\u2212 Comissao Shopee', '\u2212 ' + reais(com), 'var(--t2)');
     h += ln2('\u2212 Custo do produto', '\u2212 ' + reais(custo), 'var(--t2)');
@@ -6899,7 +6927,7 @@
       '<span style="font-family:Bebas Neue,sans-serif;font-size:26px;color:var(--vd)">' + reais(sobra) + '</span></div></div>';
 
     h += olho('O QUE ISSO SIGNIFICA PARA O ANUNCIO', 'Com esta margem, cada real investido em Shopee Ads precisa devolver pelo menos este valor para a venda nao sair no prejuizo. Abaixo disso voce paga para vender.');
-    h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 12px 12px 0;padding:15px 16px;font-size:14.5px;color:var(--t1);line-height:1.55">' +
+    h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 18px 18px 0;padding:15px 16px;font-size:14.5px;color:var(--t1);line-height:1.55">' +
       '<b style="color:var(--t0)">ROAS minimo: ' + fmt(pisoRoasP, 1) + 'x</b><br>' +
       'Com margem de ' + fmt(margem, 0) + '%, abaixo de ' + fmt(pisoRoasP, 1) + 'x cada venda sai no negativo. ' +
       'Para ter folga de verdade, trabalhe a partir de ' + fmt(pisoRoasP * 1.5, 1) + 'x.</div>';
@@ -6949,7 +6977,7 @@
 
     h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">' +
       '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;flex:1">CUSTO POR PRODUTO — ' + preenchidos + ' de ' + lista.length + ' cadastrados</span>' +
-      '<button id="sia-cf-salvar" style="background:var(--mk);border:none;color:var(--t0);font-weight:700;font-size:12px;padding:8px 16px;border-radius:8px;cursor:pointer">Salvar</button></div>';
+      '<button id="sia-cf-salvar" style="background:var(--mk);border:none;color:var(--t0);font-weight:700;font-size:12px;padding:8px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Salvar</button></div>';
 
     if (!lista.length) return h + '<div class="vazio">Nenhum produto lido ainda. Rode a coleta na aba Inicio.</div>';
 
@@ -7192,7 +7220,7 @@
     var pior = null;
     for (i = 0; i < quedas.length; i++) if (!pior || quedas[i].pct > pior.pct) pior = quedas[i];
 
-    var h = '<div style="background:var(--b1);border:1px solid var(--li);border-radius:11px;padding:13px 11px;margin-top:11px">' +
+    var h = '<div style="background:var(--b1);border:1px solid var(--li);border-radius:16px;padding:13px 11px;margin-top:11px">' +
       '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:9px">ONDE AS PESSOAS PARAM</div>' +
       '<div style="display:flex;align-items:flex-end;gap:2px">';
     for (i = 0; i < degraus.length; i++) {
@@ -7229,7 +7257,7 @@
 
   function cartaoProduto(c) {
     var co = CORES_SEM[c.nivel] || CORES_SEM.cinza;
-    return '<div data-card="produto:' + esc(c.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:14px;padding:15px 16px;margin-bottom:9px">' +
+    return '<div data-card="produto:' + esc(c.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:var(--r-card,22px);padding:15px 16px;margin-bottom:9px">' +
       '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
       '<span style="flex:1;font-size:17.5px;font-weight:600;color:var(--t0);line-height:1.25;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
       (c.venda ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(c.venda) + '</span>' : '') +
@@ -7346,6 +7374,15 @@
 
   function render() {
     DICAS = {}; seqDica = 0;
+    try {
+      var br2 = $('sia-recoletar');
+      if (br2) {
+        var rodando = estado.coletaProgresso !== null;
+        br2.disabled = rodando;
+        br2.textContent = rodando ? String(estado.coletaProgresso)
+          : (Object.keys(estado.produtos).length ? 'Recoletar conta + Analisar' : 'Coletar conta completa + Analisar');
+      }
+    } catch (e) { /* noop */ }
     // ANTES DE REDESENHAR, guarda o que esta digitado nos campos. O render
     // recria o innerHTML e apagava tudo — era por isso que a calculadora
     // limpava sozinha assim que a tela atualizava.
