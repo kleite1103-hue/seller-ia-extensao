@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.87.0';
+  var VERSAO = '0.87.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1445,9 +1445,14 @@
         var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
         var mTo = location.search.match(/[?&]to=(\d{9,11})/);
         if (mFrom && mTo && !periodoForcado) {
-          var iA = inicioDoDiaBRT(parseInt(mFrom[1], 10)), fA = inicioDoDiaBRT(parseInt(mTo[1], 10));
-          var diasAds = (fA - iA) / 86400;
-          var diasConta = (fim - ini) / 86400;
+          // O 'to' da URL vem como 23:59:59 do ultimo dia. Alinhar para 00:00
+          // encurtava a janela em um dia e a checagem de compatibilidade
+          // falhava — por isso o periodo do Ads nunca era aceito e ele seguia
+          // usando outro recorte. Soma-se 1 dia ao fim antes de alinhar.
+          var iA = inicioDoDiaBRT(parseInt(mFrom[1], 10));
+          var fA = inicioDoDiaBRT(parseInt(mTo[1], 10) + 60);
+          var diasAds = Math.round((fA - iA) / 86400);
+          var diasConta = Math.round((fim - ini) / 86400);
           if (diasAds > 0 && diasAds <= 92 && Math.abs(diasAds - diasConta) <= 3) { ini = iA; fim = fA; }
         }
         var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
@@ -5726,7 +5731,13 @@
       });
     }).catch(function (e) {
       estado.semanal.gerando = false;
-      estado.semanal.erro = 'Nao consegui alcancar a funcao: ' + String(e && e.message || e);
+      // "Failed to fetch" com CORS quase sempre e 401 do gateway do Supabase,
+      // que responde ANTES da funcao e sem os headers dela.
+      estado.semanal.erro = 'Nao consegui alcancar a funcao. ' +
+        (chaveSupabase()
+          ? 'A chave foi enviada, entao o mais provavel e que a funcao esteja exigindo autenticacao do gateway. No Supabase, abra Edge Functions, clique em relatorio, e desligue "Verify JWT with legacy secret" (ou Enforce JWT). Depois publique de novo.'
+          : 'Cole a chave anon do projeto no campo acima.') +
+        ' Detalhe tecnico: ' + String(e && e.message || e);
       render();
     });
   }
@@ -6436,7 +6447,8 @@
      onde a decisao acontece. Aqui fica a pergunta que antecede tudo: dado
      este custo e esta margem alvo, por quanto eu preciso vender? */
   function renderPrecificacao() {
-    var C = estado.precific || {};
+    estado.precific = estado.precific || {};
+    var C = estado.precific;
     function campo(id2, rot, valor, sufixo, ajuda) {
       return '<div><div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-bottom:5px">' + rot + '</div>' +
         '<div style="display:flex;align-items:center;gap:6px">' +
@@ -6746,7 +6758,7 @@
      nenhum anuncio", e a dica errada ia junto. */
   var MAPA_ADS = null;
   function produtoTemAds(id) {
-    if (!id) return false;
+    if (!id) { MAPA_ADS = MAPA_ADS || {}; return false; }
     if (!MAPA_ADS) {
       MAPA_ADS = {};
       var D = null;
@@ -6766,7 +6778,14 @@
     }
     return !!MAPA_ADS[String(id)];
   }
-  function campanhaDoProduto(id) { produtoTemAds(id); return MAPA_ADS[String(id)] || null; }
+  function campanhaDoProduto(id) {
+    // produtoTemAds retorna cedo quando id e vazio e deixa MAPA_ADS em null:
+    // o acesso seguinte estourava e derrubava a aba de Ads inteira, que era
+    // o "Cannot read properties of null" do console.
+    if (!id) return null;
+    produtoTemAds(id);
+    return (MAPA_ADS && MAPA_ADS[String(id)]) || null;
+  }
 
   function funilDoProduto(id) {
     var p = estado.produtos[id] || {};
@@ -7045,7 +7064,10 @@
       corpo.innerHTML = capa('POR QUANTO VENDER', 'A', 'PRECIFICACAO', '05') + renderSubAbas('cofre') + renderPrecificacao();
       var pi = corpoEl().querySelectorAll('[data-prec]');
       for (var pj = 0; pj < pi.length; pj++) {
-        pi[pj].addEventListener('input', function () { estado.precific[this.getAttribute('data-prec')] = this.value; });
+        pi[pj].addEventListener('input', function () {
+          estado.precific = estado.precific || {};
+          estado.precific[this.getAttribute('data-prec')] = this.value;
+        });
         pi[pj].addEventListener('change', function () { estado.sujo = true; });
       }
       ligarCofre();
@@ -7176,13 +7198,20 @@
       melhores = melhores.filter(function (k) { return cedo.indexOf(k) < 0; });
       piores = piores.filter(function (k) { return cedo.indexOf(k) < 0; });
 
+      function cardSeguro(k) {
+        try { return cardCampanha(k); }
+        catch (e5) {
+          try { console.error('[Seller.IA] card ' + k + ':', e5); } catch (e6) { }
+          return '<div class="nota" style="color:var(--rd)">Nao consegui montar o card desta campanha: ' + esc(String(e5 && e5.message || e5)) + '</div>';
+        }
+      }
       if (piores.length) {
         h2 += olho('AS 5 QUE MAIS CUSTAM', 'Ordenado pelo resultado em reais: investimento contra o que voltou, ja descontada a margem. A primeira da lista e onde o dinheiro esta indo embora mais rapido.');
-        for (var pj2 = 0; pj2 < piores.length; pj2++) h2 += cardCampanha(piores[pj2]);
+        for (var pj2 = 0; pj2 < piores.length; pj2++) h2 += cardSeguro(piores[pj2]);
       }
       if (melhores.length) {
         h2 += olho('AS 5 QUE MAIS RENDEM', 'As que devolvem mais em reais. Subir orcamento aqui e o crescimento mais barato que a conta tem.');
-        for (var mj2 = 0; mj2 < melhores.length; mj2++) h2 += cardCampanha(melhores[mj2]);
+        for (var mj2 = 0; mj2 < melhores.length; mj2++) h2 += cardSeguro(melhores[mj2]);
       }
 
       // seletor para qualquer outra
@@ -7199,7 +7228,7 @@
             esc(String(cS.nome || cS.titulo || ordSel[sj]).slice(0, 52)) + (mS.gasto ? ' \u00b7 ' + reais(mS.gasto) : '') + '</option>';
         }
         h2 += '</select>';
-        if (estado.campSel && estado.campanhas[estado.campSel]) h2 += cardCampanha(estado.campSel);
+        if (estado.campSel && estado.campanhas[estado.campSel]) h2 += cardSeguro(estado.campSel);
       }
       if (cedo.length) {
         h2 += olho('AINDA SEM VOLUME PARA JULGAR (' + cedo.length + ')', 'Gastaram pouco e receberam poucos cliques: qualquer conclusao aqui seria chute. Ficam em lista simples ate terem volume.');
