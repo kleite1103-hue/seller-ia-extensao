@@ -1,11 +1,14 @@
 -- ============================================================
 -- SELLER.IA · ATUALIZA O PROMPT DO RELATORIO
--- Rodar no SQL Editor do Supabase (substitui o texto atual)
+-- Rodar no SQL Editor do Supabase
 -- ============================================================
--- Inclui a correcao sobre campanhas oficiais da Shopee: elas NAO sao
--- alcance gratuito, cobram cerca de 3,5% sobre TODO o faturamento da loja
--- no periodo, e nao apenas sobre as vendas vindas delas. O relatorio nunca
--- deve recomendar entrada sem confrontar com a margem da conta.
+-- Inclui os quatro erros encontrados na revisao do relatorio real:
+-- 1) nunca calcular participacao de Ads no GMV, porque o broad_roi e venda
+--    ampla e passa de 100% do faturamento;
+-- 2) nao confundir comissao de afiliados com GMV do canal;
+-- 3) um ID e um produto so, nunca dois nomes para o mesmo item;
+-- 4) Grupo de Anuncios nao tem metrica por produto, entao nao recomendar
+--    cruzar campaign_id para achar ROAS individual dentro dele.
 
 update conhecimento
 set veredito = jsonb_build_object('texto', $PROMPT$# PROMPT DE RELATÓRIO — v2
@@ -162,6 +165,38 @@ Analisar obrigatoriamente, quando os dados existirem:
 - **Creators disponíveis** por nicho, quando informado, como oportunidade de expansão sem custo de mídia
 
 Alerta obrigatório: se o custo por venda do afiliado for **menor** que o CPA de Ads, dizer que o canal está subaproveitado e quantificar quanto de GMV migraria se ele dobrasse de tamanho.
+
+---
+
+## QUATRO ERROS QUE O RELATÓRIO NÃO PODE COMETER
+
+Encontrados na revisão de 06/08/2026. Cada um já apareceu em relatório gerado.
+
+### 1 · Nunca calcular "participação de Ads no GMV"
+
+O GMV de Ads vem do `broad_roi` da Shopee, que é **venda ampla**: inclui compra de outros produtos da loja na mesma visita e venda que aconteceria de qualquer jeito. Somado, ele passa de 100% do faturamento real.
+
+**Proibido:** dividir GMV de Ads pelo GMV total e apresentar como percentual, ou concluir "dependência de Ads de X%".
+
+**Permitido:** apresentar o GMV de Ads como métrica da própria Shopee sobre as campanhas, sempre dizendo que é venda ampla. Para medir dependência, use **TACOS** (investimento ÷ GMV total), que é matematicamente válido.
+
+### 2 · Afiliados: não confundir comissão com GMV
+
+Se o valor do canal de afiliados for muito menor que `pedidos × ticket médio`, ele é **comissão paga**, não GMV. Um relatório já declarou "GMV do Canal R$ 98,96" para 71 pedidos de ticket R$ 29,24 — o GMV seria R$ 2.076.
+
+**Regra:** confira a coerência antes de nomear o número. E nunca declare "não disponível" no snapshot e um valor na seção detalhada — se o dado existe, ele aparece nos dois lugares.
+
+### 3 · Um ID é um produto só
+
+Nunca atribuir nomes diferentes ao mesmo ID em pontos diferentes do relatório. Um relatório já recomendou **pausar** e **escalar** o mesmo item, chamando-o de dois produtos.
+
+**Regra:** antes de escrever a ação, confira se aquele ID já apareceu antes e com qual nome.
+
+### 4 · Grupo de Anúncios não tem métrica por produto
+
+Nunca recomendar "cruzar campaign_id para achar o ROAS individual dentro do grupo": **esse dado não existe**. A Shopee entrega apenas o agregado.
+
+Ao recomendar Grupo de Anúncios, declarar essa limitação junto. Para análise item a item, a saída é exportar a planilha do grupo no painel.
 
 ---
 

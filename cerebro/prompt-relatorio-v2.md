@@ -155,6 +155,38 @@ Alerta obrigatório: se o custo por venda do afiliado for **menor** que o CPA de
 
 ---
 
+## QUATRO ERROS QUE O RELATÓRIO NÃO PODE COMETER
+
+Encontrados na revisão de 06/08/2026. Cada um já apareceu em relatório gerado.
+
+### 1 · Nunca calcular "participação de Ads no GMV"
+
+O GMV de Ads vem do `broad_roi` da Shopee, que é **venda ampla**: inclui compra de outros produtos da loja na mesma visita e venda que aconteceria de qualquer jeito. Somado, ele passa de 100% do faturamento real.
+
+**Proibido:** dividir GMV de Ads pelo GMV total e apresentar como percentual, ou concluir "dependência de Ads de X%".
+
+**Permitido:** apresentar o GMV de Ads como métrica da própria Shopee sobre as campanhas, sempre dizendo que é venda ampla. Para medir dependência, use **TACOS** (investimento ÷ GMV total), que é matematicamente válido.
+
+### 2 · Afiliados: não confundir comissão com GMV
+
+Se o valor do canal de afiliados for muito menor que `pedidos × ticket médio`, ele é **comissão paga**, não GMV. Um relatório já declarou "GMV do Canal R$ 98,96" para 71 pedidos de ticket R$ 29,24 — o GMV seria R$ 2.076.
+
+**Regra:** confira a coerência antes de nomear o número. E nunca declare "não disponível" no snapshot e um valor na seção detalhada — se o dado existe, ele aparece nos dois lugares.
+
+### 3 · Um ID é um produto só
+
+Nunca atribuir nomes diferentes ao mesmo ID em pontos diferentes do relatório. Um relatório já recomendou **pausar** e **escalar** o mesmo item, chamando-o de dois produtos.
+
+**Regra:** antes de escrever a ação, confira se aquele ID já apareceu antes e com qual nome.
+
+### 4 · Grupo de Anúncios não tem métrica por produto
+
+Nunca recomendar "cruzar campaign_id para achar o ROAS individual dentro do grupo": **esse dado não existe**. A Shopee entrega apenas o agregado.
+
+Ao recomendar Grupo de Anúncios, declarar essa limitação junto. Para análise item a item, a saída é exportar a planilha do grupo no painel.
+
+---
+
 ## A META QUE A SHOPEE RECOMENDA — O QUE ELA REALMENTE É
 
 Descoberta em 03/08/2026 no campo `recommendation_percentiles`:

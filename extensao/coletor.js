@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.89.0';
+  var VERSAO = '0.90.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -5677,7 +5677,6 @@
 
     var h = '<div style="font-size:15px;color:var(--t1);line-height:1.6;margin-bottom:16px">' +
       'Panorama curto dos ultimos 7 dias, com a leitura do especialista produto a produto. Feito para mandar ao cliente.</div>';
-    if (!chaveSupabase()) return h + renderPedirChave();
 
     // aviso do periodo — a leitura herda o painel
     var dias = gg && gg.periodoDias;
@@ -5689,6 +5688,7 @@
           (dias != null ? 'A leitura atual e de ' + dias + ' dias.' : 'Ainda nao identifiquei o periodo lido.')) +
       '</div>';
 
+    if (S.pedirChave && !chaveSupabase()) h += renderPedirChave();
     if (S.erro) {
       h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border-left:3px solid var(--rd);border-radius:0 11px 11px 0;padding:14px;margin-bottom:12px;font-size:14px;color:var(--t1);line-height:1.55">' + esc(S.erro) + '</div>';
     }
@@ -5706,6 +5706,12 @@
   }
 
   function chaveSupabase() { return estado.anonKey || SIA_ANON_KEY || ''; }
+  function cabecalhosFuncao() {
+    var h2 = { 'Content-Type': 'application/json' };
+    var k = chaveSupabase();
+    if (k) { h2['Authorization'] = 'Bearer ' + k; h2['apikey'] = k; }
+    return h2;
+  }
   function renderPedirChave() {
     return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b2));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:16px;margin-bottom:14px">' +
       '<div style="font-size:15px;font-weight:600;color:var(--t0);margin-bottom:6px">Falta a chave do Supabase</div>' +
@@ -5742,7 +5748,9 @@
 
     fetch(SIA_URL_RELATORIO, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chaveSupabase(), 'apikey': chaveSupabase() },
+      // A chave so vai junto quando existir: com Verify JWT desligado na
+      // funcao, ela nao e necessaria, e mandar cabecalho vazio atrapalha.
+      headers: cabecalhosFuncao(),
       body: JSON.stringify(payload)
     }).then(function (r) {
       var ct = r.headers.get('content-type') || '';
@@ -5808,7 +5816,6 @@
     for (var i = 0; i < meses.length; i++) h += '<option value="' + meses[i].v + '"' + (meses[i].v === sel ? ' selected' : '') + '>' + meses[i].r + '</option>';
     h += '</select>';
     h += '<div class="nota">Atual: <b>' + fa.rotulo + '</b><br>Anterior: <b>' + fp.rotulo + '</b></div>';
-    if (!chaveSupabase()) return h + renderPedirChave();
 
     // O relatorio coleta os dois meses sozinho, entao exigir coleta previa era
     // contraditorio — e pior: escondia o botao, e a pessoa clicava num lugar
@@ -6035,7 +6042,9 @@
             p2.parte = parte;
             fetch(SIA_URL_RELATORIO, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + chaveSupabase(), 'apikey': chaveSupabase() },
+              // A chave so vai junto quando existir: com Verify JWT desligado na
+      // funcao, ela nao e necessaria, e mandar cabecalho vazio atrapalha.
+      headers: cabecalhosFuncao(),
               body: JSON.stringify(p2)
             }).then(function (r) {
               // A funcao agora responde em STREAM de texto puro. Ler por
