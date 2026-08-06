@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.94.1';
+  var VERSAO = '0.95.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -43,6 +43,9 @@
   // resolvia. Agora a pessoa cola a chave real uma vez e ela fica salva.
   var SIA_ANON_KEY = '';
 
+  var ICONE_SOL = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></svg>';
+  var ICONE_LUA = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>';
+
   /* =============================== ESTADO =============================== */
   var estado = {
     interceptorVersao: null,
@@ -68,7 +71,7 @@
     rel: { mes: null, gerando: false, markdown: null, erro: null, etapa: '', loja: null },
     espiaoModo: 'radar',     // 'radar' (meus produtos) | 'busca' (termo livre)
     modoTecnico: false,      // mostra a aba Debug (duplo clique no logo)
-    temaClaro: false,        // tema claro (nude) ou escuro
+    temaEscuro: false,       // bege e o padrao; escuro e o alternativo
     vereditos: null,         // vereditos vindos do cerebro
     fonteVeredito: 'local',  // 'cerebro' | 'local'
     versaoRegras: null,
@@ -1886,7 +1889,7 @@
     var l = document.createElement('link');
     l.id = 'sia-fontes';
     l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap';
+    l.href = 'https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap';
     (document.head || document.documentElement).appendChild(l);
   })();
 
@@ -1900,16 +1903,19 @@
 
   raiz.innerHTML =
     '<style>' +
-    ':host{all:initial;color:#f2f2f4;' +
-    '--b0:#07080a;--b1:#0c0e12;--b2:#12151b;--li:#1d212a;--li2:#2a2f3a;' +
-    '--t0:#f2f2f4;--t1:#c5c9d2;--t2:#969ca8;--t3:#6b7280;' +
-    '--mk:#ff4d1c;--mk2:#ff7a4d;--vd:#2ecc71;--rd:#e74c3c;--am:#f5b041;--px:#c08bff;' +
-    '--sh:rgba(0,0,0,.55);--shb:rgba(0,0,0,.45)}' +
-    ':host(.claro){color:#0d0d0f;' +
-    '--b0:#ffffff;--b1:#fbfaf8;--b2:#f4f2ee;--li:#ddd8cd;--li2:#c8c2b4;' +
-    '--t0:#0d0d0f;--t1:#33363d;--t2:#63676f;--t3:#8c9098;' +
-    '--mk:#e0400f;--mk2:#f06a33;--vd:#1c8a52;--rd:#c42a2f;--am:#a8700a;--px:#6b28d9;' +
-    '--sh:rgba(60,50,40,.16);--shb:rgba(60,50,40,.22)}' +
+    /* PADRAO = bege claro. A classe .escuro inverte. */
+    ':host{all:initial;color:#2C2A26;' +
+    '--b0:#FFFDFA;--b1:#FBF8F3;--b2:#F8F4ED;--li:#EFE8DC;--li2:#E7DFD2;' +
+    '--t0:#2C2A26;--t1:#6B6355;--t2:#9C9484;--t3:#A39A88;' +
+    '--mk:#EE4D2D;--mk2:#F0764F;--vd:#1F8A5F;--rd:#D64545;--am:#C98A1E;--px:#8A5CD6;' +
+    '--tin:9%;--r-card:22px;--r-btn:14px;--r-painel:30px;' +
+    '--sh:rgba(72,56,38,.22);--shb:rgba(72,56,38,.10)}' +
+    ':host(.escuro){color:#F2F4F7;' +
+    '--b0:#151920;--b1:#0F1115;--b2:#1A1F27;--li:#232833;--li2:#2A303B;' +
+    '--t0:#F2F4F7;--t1:#AEB5C0;--t2:#79818D;--t3:#6A727E;' +
+    '--mk:#FF6A3D;--mk2:#FF8A63;--vd:#2ECC8F;--rd:#FF6B6B;--am:#E8B14A;--px:#B06CFF;' +
+    '--tin:14%;' +
+    '--sh:rgba(0,0,0,.50);--shb:rgba(0,0,0,.28)}' +
     '*{box-sizing:border-box;margin:0;padding:0;font-family:"Outfit",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-weight:300}' +
     /* sem isto, elemento sem cor explicita herdava o preto do documento da
        Shopee e sumia no tema escuro */
@@ -1919,24 +1925,33 @@
     '.botao{position:fixed;bottom:22px;right:22px;width:54px;height:54px;z-index:2147483001;border-radius:50%;cursor:pointer;box-shadow:0 4px 18px var(--shb);transition:transform .15s;background:var(--b0);border:none;padding:6px}' +
     '.botao:hover{transform:scale(1.08)}' +
     '.botao svg{width:100%;height:100%}' +
-    '.painel{position:fixed;top:0;right:0;height:100vh;width:min(760px,100vw);background:var(--b1);border-left:1px solid var(--li);box-shadow:-18px 0 50px var(--sh);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
+    '.painel{position:fixed;top:0;right:0;height:100vh;width:min(760px,100vw);background:var(--b1);border-left:1px solid var(--li);border-radius:var(--r-painel,30px) 0 0 var(--r-painel,30px);box-shadow:-18px 0 60px var(--sh),0 6px 18px var(--shb);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
     '.painel.aberto{transform:translateX(0)}' +
     '@media(prefers-reduced-motion:reduce){.painel{transition:none}}' +
-    '.cab{display:flex;align-items:center;gap:11px;padding:16px 20px 14px;border-bottom:1px solid var(--li);background:var(--b0);flex-wrap:wrap}' +
+    '.cab{display:flex;align-items:center;gap:12px;padding:18px 22px 15px;border-bottom:1px solid var(--li);background:var(--b0);flex-wrap:wrap}' +
+    '.cab .marca-ic{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:13px;background:var(--t0);box-shadow:0 5px 14px var(--shb);font:500 26px Archivo,Outfit,Arial;letter-spacing:-.04em;color:var(--b1);flex:none}' +
+    '.cab .marca-ic em{font-style:normal;color:var(--mk)}' +
     '.cab svg{width:28px;height:28px;flex:none}' +
-    '.cab .titulo{font-family:"Bebas Neue";font-weight:400;font-size:29px;letter-spacing:.05em;line-height:1}' +
+    '.cab .titulo{font:500 25px Archivo,Outfit,Arial;letter-spacing:-.035em;line-height:1;color:var(--t0)}' +
     '.cab .titulo em{font-style:normal;color:var(--mk)}' +
     '.cab .info{font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2);width:100%;order:3;margin-top:2px}' +
     '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
-    '.cab button{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:Space Mono,monospace;font-size:11px;padding:7px 11px;border-radius:7px;cursor:pointer}' +
-    '.cab button:hover{border-color:var(--mk);color:var(--t0)}' +
+    '.cab button{background:var(--b1);border:1px solid var(--li2);color:var(--t1);font-family:Space Mono,monospace;font-size:11px;padding:8px 13px;border-radius:12px;cursor:pointer}' +
+    '.cab button.ico{width:34px;height:34px;padding:0;display:grid;place-items:center}' +
+    '.cab button.rec{display:flex;align-items:center;gap:8px;border-radius:999px;letter-spacing:.08em}' +
+    '.cab button.rec i{width:9px;height:9px;border-radius:50%;background:var(--li2);display:block}' +
+    '.cab button.rec.on{background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b1));border-color:var(--rd);color:var(--rd)}' +
+    '.cab button.rec.on i{background:var(--rd);animation:siaPulse 1.2s infinite}' +
+    '@keyframes siaPulse{0%,100%{opacity:1}50%{opacity:.3}}' +
+    '.cab button:hover{border-color:var(--mk);color:var(--mk)}' +
     '.abas{display:flex;flex-wrap:wrap;gap:3px;background:var(--b0);padding:8px 14px 0;border-bottom:1px solid var(--li)}' +
-    '.aba{border-radius:8px 8px 0 0}' +
-    '.aba.ativa{background:var(--b2)}' +
+    
+    '.aba.ativa{color:var(--mk);border-bottom-color:var(--mk);background:none}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
     '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:Space Mono,monospace;font-size:12px;padding:8px 14px;border-radius:8px;cursor:pointer}' +
     '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
-    '.aba{background:none;border:none;color:var(--t2);font-family:Space Mono,monospace;font-size:12.5px;letter-spacing:.02em;padding:10px 13px;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}' +
+    '.aba{display:flex;align-items:center;gap:7px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t2);font-family:Space Mono,monospace;font-size:12.5px;letter-spacing:.02em;padding:10px 11px 11px;border-radius:0;white-space:nowrap;cursor:pointer}' +
+    '.aba:hover{color:var(--mk)}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
     '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 20px 34px}' +
     /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
@@ -1998,15 +2013,15 @@
     '</style>' +
     '<button class="botao" id="sia-abrir" title="Seller.IA">' + LOGO + '</button>' +
     '<div class="painel" id="sia-painel">' +
-    '  <div class="cab">' + LOGO +
-    '    <span class="titulo">SELLER<em>.IA</em></span>' +
+    '  <div class="cab">' +
+    '    <span class="marca-ic">S<em>.</em></span>' +
+    '    <span class="titulo">Seller<em>.</em>ia</span>' +
     '    <span class="info" id="sia-info"></span>' +
     '    <div class="acoes">' +
-    '      <button id="sia-gravar" title="Modo gravacao: borra nomes da conta">gravar</button>' +
-    '      <button id="sia-tema" title="Alternar claro e escuro">tema</button>' +
-    '      <button id="sia-exportar" title="Exportar coleta">exportar</button>' +
-    '      <button id="sia-limpar" title="Limpar coleta">limpar</button>' +
-    '      <button id="sia-fechar" title="Fechar">\u2715</button>' +
+    '      <button id="sia-gravar" class="rec" title="Modo gravacao: borra nomes da conta"><i></i>REC</button>' +
+    '      <button id="sia-tema" class="ico" title="Alternar claro e escuro">' + ICONE_LUA + '</button>' +
+    '      <button id="sia-exportar" class="ico" title="Exportar coleta">&lt;/&gt;</button>' +
+    '      <button id="sia-fechar" class="ico" title="Fechar">\u2715</button>' +
     '    </div>' +
     '  </div>' +
     '  <div class="abas" id="sia-abas"></div>' +
@@ -2020,6 +2035,27 @@
   // 'Ferramentas' saiu: era caixa sem dono. A Margem virou parte do Cofre,
   // que e onde ela e usada, e Performance ganhou tela propria porque e
   // leitura de FUNIL, nao de Ads — estava enterrada dentro de Produtos.
+  var ICONES_ABA = {
+    conta360:    'M3.5 12.5 12 4l8.5 8.5M6 11v9h12v-9',
+    performance: 'M3.5 4.5h17l-6.5 8v7l-4 2v-9z',
+    gprod:       'M3.5 20.5V13M9 20.5V7M14.5 20.5v-5M20 20.5V3.5',
+    campanhas:   'M3.5 20.5V13M9 20.5V7M14.5 20.5v-5M20 20.5V3.5',
+    espiao:      'M1.8 12S5.6 5.5 12 5.5 22.2 12 22.2 12 18.4 18.5 12 18.5 1.8 12 1.8 12zM12 8.9a3.1 3.1 0 1 1 0 6.2 3.1 3.1 0 0 1 0-6.2z',
+    marketing:   'M20.5 12a2.2 2.2 0 0 1 0-4V4.5h-17V8a2.2 2.2 0 0 1 0 8v3.5h17V16a2.2 2.2 0 0 1 0-4z',
+    cofre:       'M7.5 4.5h9a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3zM8.5 8.5h7M9 13h1.5M14 13h1.5M9 16.5h1.5M14 16.5h1.5',
+    palavras:    'M13.5 3.5 20.5 10.5 12 19H5v-7zM16.5 14.5H9',
+    semanal:     'M4.5 4.5h15a1.5 1.5 0 0 1 1.5 1.5v13a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V6a1.5 1.5 0 0 1 1.5-1.5zM3 9h18M8 3v3M16 3v3',
+    relatorio:   'M6.5 3.5h7l4.5 4.5v12a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20V5a1.5 1.5 0 0 1 1.5-1.5zM13.5 3.5V8H18M8.5 13h7M8.5 16.5h4',
+    diagnostico: 'M12 3.5l2 5 5 2-5 2-2 5-2-5-5-2 5-2zM18.5 16.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z',
+    debug:       'M9 6 3.5 12 9 18M15 6l5.5 6L15 18'
+  };
+  function svgAba(id) {
+    var d = ICONES_ABA[id];
+    if (!d) return '';
+    return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg>';
+  }
+
   var ABAS = [
     { id: 'conta360', rotulo: 'Inicio' },
     { id: 'performance', rotulo: 'Funil de Produto' },
@@ -2295,7 +2331,7 @@
       // levada para o Ads. Agora ele destaca a aba DE ONDE veio.
       var ativo = (a.id === abaAtiva) || (SUB[a.id] && grupoDe(abaAtiva) === a.id) ||
         (abaAtiva === 'card' && a.id === (estado.cardVoltaPara || 'gprod'));
-      h += '<button class="aba' + (ativo ? ' ativa' : '') + '" data-aba="' + a.id + '">' + a.rotulo + '</button>';
+      h += '<button class="aba' + (ativo ? ' ativa' : '') + '" data-aba="' + a.id + '">' + svgAba(a.id) + a.rotulo + '</button>';
     }
     $('sia-abas').innerHTML = h;
     var botoes = $('sia-abas').querySelectorAll('.aba');
@@ -4474,9 +4510,11 @@
     var x = $('sia-expl-x');
     if (x) x.addEventListener('click', function () { e.classList.remove('on'); });
   }
-  function aplicarTema(claro) {
-    estado.temaClaro = !!claro;
-    try { host.classList.toggle('claro', !!claro); } catch (e) { /* noop */ }
+  function aplicarTema(escuro) {
+    estado.temaEscuro = !!escuro;
+    try { host.classList.toggle('escuro', !!escuro); } catch (e) { /* noop */ }
+    var b = $('sia-tema');
+    if (b) b.innerHTML = escuro ? ICONE_SOL : ICONE_LUA;
   }
   function ligarGravacao() {
     var b = $('sia-gravar');
@@ -4484,9 +4522,7 @@
     b.addEventListener('click', function () {
       estado.gravando = !estado.gravando;
       try { host.classList.toggle('gravando', estado.gravando); } catch (e) { /* noop */ }
-      b.textContent = estado.gravando ? 'gravando' : 'gravar';
-      b.style.color = estado.gravando ? 'var(--mk)' : '';
-      b.style.borderColor = estado.gravando ? 'var(--mk)' : '';
+      b.classList.toggle('on', estado.gravando);
       if (estado.gravando) {
         mostrarExpl('<b>Modo gravacao ligado.</b> O nome da loja e os nomes dos seus produtos ficam borrados. Numeros, vereditos e os dados do Espiao continuam visiveis, porque sao o que voce quer mostrar. Passe o mouse sobre um nome borrado para ver por um instante.');
       }
@@ -4497,8 +4533,8 @@
     var b = $('sia-tema');
     if (!b) return;
     b.addEventListener('click', function () {
-      aplicarTema(!estado.temaClaro);
-      try { chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'temaClaro', valor: estado.temaClaro }, function () { void chrome.runtime.lastError; }); } catch (e) { /* noop */ }
+      aplicarTema(!estado.temaEscuro);
+      try { chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'temaEscuro', valor: estado.temaEscuro }, function () { void chrome.runtime.lastError; }); } catch (e) { /* noop */ }
     });
   }
 
@@ -6432,7 +6468,7 @@
   function imprimirSemanal() {
     var nome = (estado.loja && estado.loja.nome) || 'Loja';
     var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Semanal ' + esc(nome) + '</title>' +
-      '<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">' +
+      '<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">' +
       '<style>@page{margin:12mm 11mm}body{font-family:Outfit,Arial,sans-serif;font-weight:300;color:#15161a;line-height:1.5;margin:0;padding:0;font-size:10.5pt}' +
       'h1{font-family:Bebas Neue;font-size:26pt;margin:0 0 2px}' +
       'table{width:100%;border-collapse:collapse;margin:8px 0;font-size:9pt;page-break-inside:avoid}' +
@@ -6463,7 +6499,7 @@
   function __htmlRelatorio() {
     var nome = (estado.loja && estado.loja.nome) || 'Loja';
     return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatorio ' + esc(nome) + '</title>' +
-      '<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">' +
+      '<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">' +
       '<style>@page{margin:12mm 10mm}' +
       'body{font-family:Outfit,Arial,sans-serif;font-weight:300;color:#15161a;line-height:1.45;max-width:none;margin:0;padding:0;font-size:9.5pt}' +
       'h1{font-family:Bebas Neue;font-size:24pt;letter-spacing:.02em;margin:0 0 2px}' +
@@ -7846,7 +7882,7 @@
     void chrome.runtime.lastError;
     if (r && r.valor) { estado.anonKey = r.valor; }
   });
-  chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'temaClaro' }, function (r) {
+  chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'temaEscuro' }, function (r) {
       void chrome.runtime.lastError;
       if (r && r.valor) aplicarTema(true);
     });
