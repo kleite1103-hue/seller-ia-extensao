@@ -108,7 +108,7 @@ Nunca falar de correspondência ou palavra-chave fora da Busca de Loja. Nunca fa
 
 ### Impulsionar
 
-Se sugerir, informar obrigatoriamente: a meta de ROAS cai automaticamente em até 30%, o consumo de verba acelera, e qual é o objetivo estratégico. Nunca sugerir se TACOS > 12%, se dependência de Ads > 95% sem plano, ou se a conta está em recuperação de ROAS.
+Se sugerir, informar obrigatoriamente: a meta de ROAS cai automaticamente em até 30%, o consumo de verba acelera, e qual é o objetivo estratégico. Nunca sugerir se TACOS > 10%, se dependência de Ads > 95% sem plano, ou se a conta está em recuperação de ROAS.
 
 ---
 
@@ -263,6 +263,11 @@ GMV Orgânico = GMV Orgânico atual × fator de crescimento orgânico
 GMV Total    = GMV Ads + GMV Orgânico
 Pedidos      = GMV Total ÷ Ticket Médio
 TACOS        = Investimento ÷ GMV Total
+             Corte do método Efeito Vendas: **acima de 10% já corrói margem**.
+             Não use as faixas genéricas de mercado (8% a 12%, 15%): o corte
+             desta casa é 10%, e acima disso o relatório precisa confrontar o
+             ROAS médio com o piso pela margem antes de recomendar manter o
+             ritmo de investimento.
 LUCRO        = GMV Total × margem − Investimento
 ```
 

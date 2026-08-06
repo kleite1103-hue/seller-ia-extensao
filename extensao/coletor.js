@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.94.0';
+  var VERSAO = '0.94.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -5297,10 +5297,54 @@
   }
 
   function lerCsvGrupo(txt, nome) {
-    var sep = (txt.indexOf(';') >= 0 && txt.indexOf(';') < txt.indexOf('\n')) ? ';' : ',';
+    // CSV da Shopee tem tres armadilhas que quebravam a leitura:
+    // 1) BOM no inicio do arquivo, que colava no primeiro nome de coluna;
+    // 2) o cabecalho nem sempre e a primeira linha — costuma vir depois de
+    //    linhas de titulo e periodo;
+    // 3) campos com virgula dentro de aspas, que o split simples partia no
+    //    meio do nome do produto.
+    txt = String(txt || '').replace(/^\uFEFF/, '');
     var linhas = txt.split(/\r?\n/).filter(function (l) { return l.trim(); });
-    if (linhas.length < 2) throw new Error('a planilha parece vazia');
-    var cab = linhas[0].split(sep).map(function (x) { return x.replace(/^"|"$/g, '').trim().toLowerCase(); });
+    if (linhas.length < 2) throw new Error('o arquivo parece vazio');
+
+    function partir(linha, sep) {
+      var out = [], atual = '', dentro = false;
+      for (var i = 0; i < linha.length; i++) {
+        var ch = linha[i];
+        if (ch === '"') {
+          if (dentro && linha[i + 1] === '"') { atual += '"'; i++; }
+          else dentro = !dentro;
+        } else if (ch === sep && !dentro) { out.push(atual); atual = ''; }
+        else atual += ch;
+      }
+      out.push(atual);
+      return out.map(function (x) { return x.trim(); });
+    }
+
+    // separador: o que aparece mais na linha com mais colunas
+    var sep = ',';
+    var testeP = linhas[0].split(';').length, testeV = linhas[0].split(',').length, testeT = linhas[0].split('\t').length;
+    if (testeP >= testeV && testeP >= testeT) sep = ';';
+    else if (testeT > testeV) sep = '\t';
+
+    // acha a linha que e o cabecalho de verdade
+    var PISTAS = ['produto', 'anuncio', 'anúncio', 'item', 'nome', 'sku', 'campanha', 'despesa', 'gasto', 'roas', 'pedido'];
+    var iCab = 0, melhor = -1;
+    for (var L = 0; L < Math.min(linhas.length, 15); L++) {
+      var cols = partir(linhas[L], sep).map(function (x) { return x.toLowerCase(); });
+      if (cols.length < 3) continue;
+      var pontos = 0;
+      for (var c = 0; c < cols.length; c++) {
+        for (var q = 0; q < PISTAS.length; q++) if (cols[c].indexOf(PISTAS[q]) >= 0) { pontos++; break; }
+      }
+      if (pontos > melhor) { melhor = pontos; iCab = L; }
+    }
+    if (melhor < 1) {
+      throw new Error('nao reconheci o cabecalho. As primeiras colunas que li foram: ' +
+        partir(linhas[0], sep).slice(0, 6).join(' | '));
+    }
+
+    var cab = partir(linhas[iCab], sep).map(function (x) { return x.toLowerCase(); });
     function acha() {
       for (var a = 0; a < arguments.length; a++) {
         for (var i = 0; i < cab.length; i++) if (cab[i].indexOf(arguments[a]) >= 0) return i;
@@ -5311,23 +5355,31 @@
     var iGasto = acha('despesa', 'gasto', 'investimento', 'custo', 'expense', 'spend');
     var iRoas = acha('roas', 'retorno', 'roi');
     var iPed = acha('pedido', 'conversõ', 'conversao', 'venda', 'order');
+    var iImpr = acha('impress', 'visualiza');
+    var iCliq = acha('clique', 'click');
     if (iNome < 0) {
-      throw new Error('nao achei a coluna de produto. As colunas que li foram: ' + cab.slice(0, 8).join(', '));
+      throw new Error('nao achei a coluna de produto. As colunas do arquivo sao: ' + cab.slice(0, 10).join(' | '));
     }
+
     var out = [];
-    for (var l = 1; l < linhas.length; l++) {
-      var col = linhas[l].split(sep).map(function (x) { return x.replace(/^"|"$/g, '').trim(); });
-      if (!col[iNome]) continue;
+    for (var l = iCab + 1; l < linhas.length; l++) {
+      var col = partir(linhas[l], sep);
+      if (!col[iNome] || col.length < 2) continue;
+      if (/^(total|soma|resumo)/i.test(col[iNome])) continue;   // linha de totalizacao
       out.push({
         nome: col[iNome],
         gasto: iGasto >= 0 ? numeroPuro(col[iGasto]) : null,
         roas: iRoas >= 0 ? numeroPuro(col[iRoas]) : null,
-        pedidos: iPed >= 0 ? numeroPuro(col[iPed]) : null
+        pedidos: iPed >= 0 ? numeroPuro(col[iPed]) : null,
+        impressoes: iImpr >= 0 ? numeroPuro(col[iImpr]) : null,
+        cliques: iCliq >= 0 ? numeroPuro(col[iCliq]) : null
       });
     }
+    if (!out.length) throw new Error('li o cabecalho mas nenhuma linha de produto abaixo dele');
     out.sort(function (a, b) { return (b.gasto || 0) - (a.gasto || 0); });
-    return { nome: nome, linhas: out, em: Date.now() };
+    return { nome: nome, linhas: out, em: Date.now(), colunas: cab.length, linhaCabecalho: iCab + 1 };
   }
+
 
   /* ============ PALAVRAS-CHAVE COM VOLUME ============
      A Shopee entrega o volume mensal real de busca de cada termo que ela
@@ -5631,10 +5683,10 @@
           itens.push({
             rot: 'QUANTO DA RECEITA VAI PARA ANUNCIO',
             txt: fmt(tacosReal, 1) + '% de tudo que a loja faturou foi para Ads. ' +
-              (tacosReal > 15 ? 'Acima de 15% costuma corroer margem: confira se o retorno cobre o seu ponto de equilibrio antes de manter esse ritmo.'
+              (tacosReal > 10 ? 'Acima de 10% ja corroi margem no metodo da casa: confira se o retorno cobre o seu ponto de equilibrio antes de manter esse ritmo.'
                : tacosReal < 5 ? 'Ha espaco para investir mais nas campanhas que ja entregam acima do seu equilibrio.'
-               : 'Dentro da faixa saudavel de 8 a 12%.'),
-            nivel: tacosReal > 15 ? 'amarelo' : 'verde'
+               : 'Dentro da faixa de trabalho, ate 10%.'),
+            nivel: tacosReal > 10 ? 'amarelo' : 'verde'
           });
         } else {
           // gasto maior que o faturamento: quase sempre recorte diferente

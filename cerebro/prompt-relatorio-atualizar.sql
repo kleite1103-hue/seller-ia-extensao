@@ -2,13 +2,9 @@
 -- SELLER.IA · ATUALIZA O PROMPT DO RELATORIO
 -- Rodar no SQL Editor do Supabase
 -- ============================================================
--- Inclui os quatro erros encontrados na revisao do relatorio real:
--- 1) nunca calcular participacao de Ads no GMV, porque o broad_roi e venda
---    ampla e passa de 100% do faturamento;
--- 2) nao confundir comissao de afiliados com GMV do canal;
--- 3) um ID e um produto so, nunca dois nomes para o mesmo item;
--- 4) Grupo de Anuncios nao tem metrica por produto, entao nao recomendar
---    cruzar campaign_id para achar ROAS individual dentro dele.
+-- Inclui o corte de TACOS do metodo da casa: 10%, e nao as faixas genericas
+-- de mercado. Acima de 10% ja corroi margem e o relatorio deve confrontar o
+-- ROAS medio com o piso pela margem antes de recomendar manter o ritmo.
 
 update conhecimento
 set veredito = jsonb_build_object('texto', $PROMPT$# PROMPT DE RELATÓRIO — v2
@@ -121,7 +117,7 @@ Nunca falar de correspondência ou palavra-chave fora da Busca de Loja. Nunca fa
 
 ### Impulsionar
 
-Se sugerir, informar obrigatoriamente: a meta de ROAS cai automaticamente em até 30%, o consumo de verba acelera, e qual é o objetivo estratégico. Nunca sugerir se TACOS > 12%, se dependência de Ads > 95% sem plano, ou se a conta está em recuperação de ROAS.
+Se sugerir, informar obrigatoriamente: a meta de ROAS cai automaticamente em até 30%, o consumo de verba acelera, e qual é o objetivo estratégico. Nunca sugerir se TACOS > 10%, se dependência de Ads > 95% sem plano, ou se a conta está em recuperação de ROAS.
 
 ---
 
@@ -276,6 +272,11 @@ GMV Orgânico = GMV Orgânico atual × fator de crescimento orgânico
 GMV Total    = GMV Ads + GMV Orgânico
 Pedidos      = GMV Total ÷ Ticket Médio
 TACOS        = Investimento ÷ GMV Total
+             Corte do método Efeito Vendas: **acima de 10% já corrói margem**.
+             Não use as faixas genéricas de mercado (8% a 12%, 15%): o corte
+             desta casa é 10%, e acima disso o relatório precisa confrontar o
+             ROAS médio com o piso pela margem antes de recomendar manter o
+             ritmo de investimento.
 LUCRO        = GMV Total × margem − Investimento
 ```
 
@@ -373,6 +374,3 @@ A plataforma nunca é apresentada como vilã. Quando a recomendação dela diver
 $PROMPT$),
     atualizado_em = now()
 where dominio = 'prompt' and chave = 'relatorio';
-
--- confere:
--- select length(veredito->>'texto') from conhecimento where dominio='prompt' and chave='relatorio';
