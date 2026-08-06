@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.87.1';
+  var VERSAO = '0.88.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1507,7 +1507,12 @@
           .sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); }).slice(0, 30);
         for (var t2 = 0; t2 < idsTop.length; t2++) {
           prog('Aprofundando campanha ' + (t2 + 1) + ' de ' + idsTop.length + '...');
-          var corpoR = JSON.stringify({ start_time: ini, end_time: fim, campaign_type: 'product', agg_type: 'campaign_id', filter_params: { campaign_id: parseInt(idsTop[t2], 10) }, need_ratio: true });
+          var corpoR = JSON.stringify({
+            start_time: ini, end_time: fimAds, campaign_type: 'product',
+            agg_type: 'campaign_id',
+            filter_params: { campaign_id: parseInt(idsTop[t2], 10) },
+            need_ratio: true
+          });
           var rr = await buscar('/api/pas/v1/report/get/?' + spcQ, 'POST', corpoR);
           totalChamadas++;
           if (rr.ok && rr.dados) processarPacote({ url: '/api/pas/v1/report/get/', metodo: 'POST', corpo: corpoR, dados: rr.dados, ts: Date.now() });
@@ -1586,13 +1591,26 @@
               processarPacote({ url: '/api/pas/v1/diagnosis/homepage_batch_list_verdict/', metodo: 'POST', corpo: corpoV, dados: rv.dados, ts: Date.now(), loja: lojaDoCiclo });
             }
             await pausa(250);   // rajada sem intervalo e o padrao que dispara antifraude
-            var corpoPI = JSON.stringify({ campaign_id_list: lote20, start_time: ini, end_time: fimAds });
-            var rpi = await buscar('/api/pas/v1/campaign/get_product_performance_info/?' + spcQ, 'POST', corpoPI);
-            totalChamadas++;
-            if (rpi.ok && rpi.dados) {
-              processarPacote({ url: '/api/pas/v1/campaign/get_product_performance_info/', metodo: 'POST', corpo: corpoPI, dados: rpi.dados, ts: Date.now(), loja: lojaDoCiclo });
+            // ROTA CORRIGIDA: /api/pas/v1/campaign/get_product_performance_info
+            // nao existe — dava 404 em toda coleta, e aparecia repetido no
+            // console. A rota real que liga produto a campanha e
+            // /api/v3/opt/product/get_campaign_info_by_item_list, e ela recebe
+            // ITENS, nao campanhas.
+            var itensLote = [];
+            for (var ilp in estado.produtos) {
+              if (itensLote.length >= 50) break;
+              var idn = parseInt(ilp, 10);
+              if (idn) itensLote.push(idn);
             }
-            await pausa(250);
+            if (itensLote.length) {
+              var corpoPI = JSON.stringify({ item_id_list: itensLote });
+              var rpi = await buscar('/api/v3/opt/product/get_campaign_info_by_item_list/?' + spcQ, 'POST', corpoPI);
+              totalChamadas++;
+              if (rpi.ok && rpi.dados) {
+                processarPacote({ url: '/api/v3/opt/product/get_campaign_info_by_item_list/', metodo: 'POST', corpo: corpoPI, dados: rpi.dados, ts: Date.now(), loja: lojaDoCiclo });
+              }
+              await pausa(250);
+            }
           }
         }
 
@@ -1770,7 +1788,7 @@
         totalChamadas++;
         if (raf.ok && raf.dados) processarPacote({ url: urlAf, metodo: 'GET', corpo: null, dados: raf.dados, ts: Date.now(), loja: lojaDoCiclo });
         await pausa(150);
-        var urlTop = '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + ini + '&end_time=' + (fim - 1) + '&order_type=2&channel=0&has_meta_feature=1';
+        var urlTop = '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + ini + '&end_time=' + fimAds + '&order_type=2&channel=0&has_meta_feature=1&sm_parameter=0&sort_rule=3&is_real_time=0&period_type=1' + ini + '&end_time=' + (fim - 1) + '&order_type=2&channel=0&has_meta_feature=1';
         var rtop = await buscar(urlTop, 'GET', null);
         totalChamadas++;
         if (rtop.ok && rtop.dados) processarPacote({ url: urlTop, metodo: 'GET', corpo: null, dados: rtop.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -4514,6 +4532,11 @@
   // epochDoMes: ReferenceError na hora de gerar o relatorio, que e o motivo
   // real do botao "nao fazer nada". Agora vive no escopo do modulo.
   var BRT_OFFSET = 3 * 3600;
+  // varias rotas exigem um reference_id no corpo; sem ele a Shopee recusa
+  function uuidSimples() {
+    function h4() { return Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1); }
+    return h4() + h4() + '-' + h4() + '-' + h4() + '-' + h4() + '-' + h4() + h4() + h4();
+  }
   function inicioDoDiaBRT(ts) {
     // 00:00 BRT = 03:00 UTC. Vai pro dia UTC deslocado, arredonda, volta.
     return Math.floor((ts - BRT_OFFSET) / 86400) * 86400 + BRT_OFFSET;
