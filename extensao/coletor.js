@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.8';
+  var VERSAO = '1.1.9';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1888,7 +1888,12 @@
         totalChamadas++;
         if (raf.ok && raf.dados) processarPacote({ url: urlAf, metodo: 'GET', corpo: null, dados: raf.dados, ts: Date.now(), loja: lojaDoCiclo });
         await pausa(150);
-        var urlTop = '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + ini + '&end_time=' + fimAds + '&order_type=2&channel=0&has_meta_feature=1&sm_parameter=0&sort_rule=3&is_real_time=0&period_type=1' + ini + '&end_time=' + (fim - 1) + '&order_type=2&channel=0&has_meta_feature=1';
+        // Minha substituicao na v0.88.0 deixou o resto da URL antiga colado:
+        // virava period_type=1 seguido do timestamp, e a Shopee devolvia 400
+        // em toda coleta.
+        var urlTop = '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + ini +
+          '&end_time=' + fimAds +
+          '&order_type=2&channel=0&has_meta_feature=1&sm_parameter=0&sort_rule=3&is_real_time=0&period_type=1';
         var rtop = await buscar(urlTop, 'GET', null);
         totalChamadas++;
         if (rtop.ok && rtop.dados) processarPacote({ url: urlTop, metodo: 'GET', corpo: null, dados: rtop.dados, ts: Date.now(), loja: lojaDoCiclo });
@@ -1973,15 +1978,15 @@
   raiz.innerHTML =
     '<style>' +
     /* PADRAO = bege claro. A classe .escuro inverte. */
-    ':host{all:initial;color:#211F1B;' +
-    '--b0:#FFFFFF;--b1:#FEFCF9;--b2:#F7F3EC;--li:#EDE6D9;--li2:#DFD6C6;' +
-    '--t0:#12100D;--t1:#3A342B;--t2:#6E665A;--t3:#928A7C;' +
+    ':host{all:initial;color:#000000;' +
+    '--b0:#FFFFFF;--b1:#FEFCF9;--b2:#F7F3EC;--li:#D9CFBC;--li2:#C4B79F;' +
+    '--t0:#000000;--t1:#241F18;--t2:#5A5245;--t3:#847C6E;' +
     '--mk:#EE4D2D;--mk2:#F0764F;--vd:#1F8A5F;--rd:#D64545;--am:#C98A1E;--px:#8A5CD6;' +
     '--tin:9%;--r-card:22px;--r-btn:14px;--r-painel:30px;' +
     '--sh:rgba(72,56,38,.22);--shb:rgba(72,56,38,.10)}' +
     ':host(.escuro){color:#F2F4F7;' +
-    '--b0:#151920;--b1:#0F1115;--b2:#1A1F27;--li:#232833;--li2:#2A303B;' +
-    '--t0:#FFFFFF;--t1:#D3D9E2;--t2:#969EAA;--t3:#7C8490;' +
+    '--b0:#151920;--b1:#0F1115;--b2:#1A1F27;--li:#333A47;--li2:#414A59;' +
+    '--t0:#FFFFFF;--t1:#E4E9F0;--t2:#A8B0BC;--t3:#8A929E;' +
     '--mk:#FF6A3D;--mk2:#FF8A63;--vd:#2ECC8F;--rd:#FF6B6B;--am:#E8B14A;--px:#B06CFF;' +
     '--tin:14%;' +
     '--sh:rgba(0,0,0,.50);--shb:rgba(0,0,0,.28)}' +
