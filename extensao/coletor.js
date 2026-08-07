@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.9';
+  var VERSAO = '1.2.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2435,6 +2435,33 @@
       el = el.parentNode;
     }
   });
+  // O handler estava dentro do listener do CORPO, e o botao vive no
+  // CABECALHO: o clique nunca chegava nele. Ligado direto, como os outros.
+  ligar('sia-esp-exportar', 'click', function () {
+    if (!estado.espiaoCru) {
+      mostrarExpl('<b>Nenhuma busca do Espiao ainda.</b> Abra o Espiao, faca uma busca ou uma comparacao, e toque aqui de novo.');
+      return;
+    }
+    var txtCru = JSON.stringify(estado.espiaoCru, null, 1);
+    var ok = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txtCru); ok = true; }
+    } catch (e) { /* noop */ }
+    if (!ok) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = txtCru;
+        ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+        document.documentElement.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        document.documentElement.removeChild(ta);
+      } catch (e2) { /* noop */ }
+    }
+    mostrarExpl(ok
+      ? '<b>Copiado.</b> Cole na conversa com a Seller.IA \u2014 sao os cinco primeiros itens exatamente como a Shopee devolveu.'
+      : '<b>Nao consegui copiar.</b> Abra o console com F12 e procure por [Seller.IA].');
+  });
   ligar('sia-recoletar', 'click', function () {
     if (estado.coletaProgresso !== null) return;
     coletaJaTentada = true;
@@ -3842,6 +3869,13 @@
     try {
       chrome.runtime.sendMessage({ tipo: 'sia:busca-publica', termo: termo }, function (resp) {
         void chrome.runtime.lastError;
+        // guarda o cru de TODA busca, na origem: e daqui que o botao de
+        // exportar tira o material de diagnostico
+        try {
+          if (resp && resp.ok && resp.itens && resp.itens.length) {
+            estado.espiaoCru = { termo: termo, em: Date.now(), itens: resp.itens.slice(0, 5) };
+          }
+        } catch (e2) { /* noop */ }
         aoTerminar(resp || { ok: false, erro: 'Sem resposta do Seller.IA.' });
       });
     } catch (e) {
