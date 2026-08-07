@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.6';
+  var VERSAO = '1.1.7';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3650,9 +3650,16 @@
       // de adivinhar. So no primeiro item, para nao poluir.
       if (mes == null && i === 0) {
         try {
-          console.debug('[Seller.IA] campo de vendas ausente. Chaves de item_data:', Object.keys(d).join(', '));
-          console.debug('[Seller.IA] chaves de sold_count:', Object.keys(sc).join(', '));
-          console.debug('[Seller.IA] item completo:', JSON.stringify(it).slice(0, 1200));
+          // guarda na tela, nao so no console: assim da para ver sem F12
+          estado.espiaoDiag = {
+            chavesItem: Object.keys(it).join(', '),
+            chavesData: Object.keys(d).join(', '),
+            chavesSold: Object.keys(sc).join(', '),
+            amostraSold: JSON.stringify(sc).slice(0, 200)
+          };
+          console.debug('[Seller.IA] campo de vendas ausente. item:', Object.keys(it).join(', '));
+          console.debug('[Seller.IA] item_data:', Object.keys(d).join(', '));
+          console.debug('[Seller.IA] sold_count:', JSON.stringify(sc));
         } catch (e) { /* noop */ }
       }
 
@@ -5948,6 +5955,14 @@
     var h = '<div style="background:var(--b1);border:1px solid var(--li);border-radius:18px;padding:14px;margin-top:11px">' +
       '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">O QUE OS 3 QUE MAIS VENDEM FAZEM DIFERENTE</div>';
 
+    if (estado.espiaoDiag) {
+      h += '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b0));border-left:3px solid var(--am);border-radius:0 12px 12px 0;padding:12px 14px;margin-bottom:10px;font-size:12px;color:var(--t1);line-height:1.5">' +
+        '<b style="color:var(--t0)">A Shopee nao mandou o volume de vendas nesta busca.</b><br>' +
+        '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);word-break:break-all">' +
+        'sold_count: ' + esc(estado.espiaoDiag.amostraSold || '(vazio)') + '<br>' +
+        'campos do item: ' + esc(String(estado.espiaoDiag.chavesData || '').slice(0, 260)) +
+        '</span></div>';
+    }
     if (C.comDado != null && C.comDado < C.top3.length) {
       h += '<div class="nota" style="color:var(--am);margin-bottom:8px">A Shopee informou o volume de ' + C.comDado + ' de ' + C.top3.length +
         ' concorrentes nesta busca. Os sem numero aparecem por ultimo, na ordem em que estao na vitrine.</div>';
@@ -7294,8 +7309,17 @@
   }
   function ehProdutoDeVerdade(nome) {
     if (!nome) return false;
-    if (/cr[eé]dito|saldo|recarga|ajuste|reembolso|taxa|cupom da loja|voucher|bonifica|desconto da loja|frete gr[aá]tis/i.test(nome)) return false;
-    if (!/[a-zA-Zà-úÀ-Ú]{4}/.test(nome)) return false;
+    var n = String(nome).trim();
+    // Linhas que NAO sao produto entram na coleta com nome proprio: credito de
+    // Ads, saldo, cupom, e ate "Shopee Ads" como se fosse item. No seletor
+    // isso e ruido puro — a pessoa nao vai buscar "Shopee Ads" na vitrine.
+    if (/^(shopee\s*ads?|gmv\s*max|shop\s*gmv|ads?|an[uú]ncio|campanha|cupom|voucher|live|v[ií]deo|afiliado)s?\b/i.test(n)) return false;
+    if (/cr[eé]dito|saldo|recarga|ajuste|reembolso|^taxa|cupom|voucher|bonifica|desconto da loja|frete gr[aá]tis|impuls[aã]o|programa de|assinatura|mensalidade/i.test(n)) return false;
+    if (/^(total|soma|resumo|subtotal|outros?)\b/i.test(n)) return false;
+    // produto de verdade tem nome com pelo menos duas palavras de 3 letras
+    var palavras = n.split(/\s+/).filter(function (w) { return /[a-zA-Zà-úÀ-Ú]{3}/.test(w); });
+    if (palavras.length < 2) return false;
+    if (n.length < 8) return false;
     return true;
   }
   /* ============ CALCULADORA DE PRECIFICACAO ============
