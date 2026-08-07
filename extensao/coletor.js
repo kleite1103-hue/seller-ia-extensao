@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.0';
+  var VERSAO = '1.1.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3621,7 +3621,36 @@
       var sc = d.item_card_display_sold_count || {};
       var rt = d.item_rating || {};
       var preco = dp.price != null ? Number(dp.price) / 100000 : null;
-      var mes = sc.monthly_sold_count != null ? Number(sc.monthly_sold_count) : null;
+      // A Shopee mudou de lugar esse campo mais de uma vez. Em vez de apostar
+      // num caminho, procura em todos os que ja existiram — e, se nada vier
+      // como numero, le do TEXTO que ela mostra no card ("1,2mil vendidos").
+      var mes = null;
+      var CAMINHOS = [
+        sc.monthly_sold_count, sc.sold_count, sc.count,
+        d.monthly_sold_count, d.sold_count, d.historical_sold_count,
+        (d.item_card_display_sold_count || {}).monthly_sold_count,
+        (it.item_basic || {}).sold, (it.item_basic || {}).historical_sold,
+        it.monthly_sold_count, it.sold
+      ];
+      for (var cm = 0; cm < CAMINHOS.length; cm++) {
+        var vc = CAMINHOS[cm];
+        if (typeof vc === 'number' && isFinite(vc) && vc >= 0) { mes = vc; break; }
+      }
+      if (mes == null) {
+        // texto do card: "500 vendidos", "1,2mil vendidos", "10RIL vendidos"
+        var txtV = sc.sold_count_text || sc.text || d.sold_count_text ||
+          (d.item_card_display_sold_count || {}).sold_count_text || '';
+        if (txtV) {
+          var mt = String(txtV).match(/([\d.,]+)\s*(mil|k|m)?/i);
+          if (mt) {
+            var base = parseFloat(String(mt[1]).replace(/\./g, '').replace(',', '.'));
+            if (isFinite(base)) {
+              var suf = (mt[2] || '').toLowerCase();
+              mes = Math.round(base * (suf === 'mil' || suf === 'k' ? 1000 : (suf === 'm' ? 1000000 : 1)));
+            }
+          }
+        }
+      }
       var voucher = d.recommended_shop_voucher_info || dp.recommended_shop_voucher_info || null;
       lista.push({
         pos: i + 1,
@@ -4091,7 +4120,9 @@
           '<span style="flex:1;color:' + (x.eu ? 'var(--vd)' : 'var(--t1)') + (x.eu ? ';font-weight:600' : '') + '">' + (x.eu ? sig(x.nome.slice(0, 44)) + ' (voce)' : esc(x.nome.slice(0, 44))) + '</span>' +
           (x.ads ? '<span style="font-family:monospace;font-size:10px;color:var(--mk);border:1px solid var(--mk);border-radius:99px;padding:1px 6px">ADS</span>' : '') +
           '<span style="text-align:right"><span style="font-family:monospace;font-size:10.5px;display:block">' + (x.preco != null ? 'R$' + fmt(x.preco, 2) : '—') + '</span>' +
-          '<span style="font-family:monospace;font-size:11px;color:var(--vd)">' + (x.vendasMes != null ? x.vendasMes + '/mes · ' + espDinheiro(x.faturamentoMes) : 'sem dado') + '</span></span>' +
+          '<span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--vd)">' +
+          (x.vendasMes != null ? x.vendasMes + '/mes \u00b7 ' + espDinheiro(x.faturamentoMes)
+           : (x.avaliacoes ? fmt(x.avaliacoes, 0) + ' avaliacoes' : 'R$' + fmt(x.preco, 2))) + '</span></span>' +
           // O link para o anuncio do concorrente foi perdido numa edicao
           // anterior: por isso o Espiao nunca levava ate o campeao.
           (x.link && !x.eu ? '<a data-link-externo="1" href="' + esc(x.link) + '" target="_blank" rel="noopener" title="abrir o anuncio dele" style="flex:none;color:var(--mk);text-decoration:none;font-size:18px;padding:0 4px">\u2197</a>' : '') +
