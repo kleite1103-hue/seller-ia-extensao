@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.5';
+  var VERSAO = '1.1.6';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3839,7 +3839,14 @@
       // pessoa: produto parado e justamente o que ela quer investigar no
       // Espiao. O isolamento entre contas ja e garantido pelo carimbo de
       // loja, entao esse filtro nao e mais necessario aqui.
-      if (p.loja && estado.loja && estado.loja.shop_id && String(p.loja) !== String(estado.loja.shop_id)) continue;
+      // Sem carimbo de loja o produto e de leitura anterior a v1.0.0 e nao da
+      // para saber de quem e — foi isso que trouxe produto de outra conta de
+      // volta quando removi o filtro de metrica. Na duvida, fica de fora.
+      var lojaAtualSel = estado.loja ? String(estado.loja.shop_id) : null;
+      if (lojaAtualSel) {
+        if (!p.loja) continue;
+        if (String(p.loja) !== lojaAtualSel) continue;
+      }
       var m = p.metricas || {};
       arr.push({ id: id, nome: p.nome, gmv: m.gmv || 0 });
     }
@@ -6999,7 +7006,8 @@
     var n = 0, id;
     for (id in estado.produtos) {
       var pl = estado.produtos[id] && estado.produtos[id].loja;
-      if (pl && pl !== atual) { delete estado.produtos[id]; n++; }
+      // sem carimbo = leitura antiga, de dono desconhecido: sai tambem
+      if (!pl || pl !== atual) { delete estado.produtos[id]; n++; }
     }
     // periodo mais recente entre as campanhas: o que nao for dele sai, porque
     // somar gasto de recortes diferentes produz o total que nao bate com o
@@ -7066,7 +7074,19 @@
         window.SIA_Diamantes.definirLoja(nova.shop_id);
       }
     } catch (e) { /* noop */ }
+    // Produto criado ANTES de a loja ser identificada fica sem carimbo. Se
+    // a conta nao mudou, ele e desta sessao e pode ser adotado; se mudou, a
+    // limpeza cuida dele. Sem isso a leitura legitima seria apagada junto.
     var antigo = estado.loja ? estado.loja.shop_id : null;
+    if (!antigo && nova && nova.shop_id) {
+      var novoId = String(nova.shop_id), adotados = 0;
+      for (var ka in estado.produtos) {
+        if (!estado.produtos[ka].loja) { estado.produtos[ka].loja = novoId; adotados++; }
+      }
+      for (var kb in estado.campanhas) {
+        if (!estado.campanhas[kb].loja) estado.campanhas[kb].loja = novoId;
+      }
+    }
     // Se o relatorio esta lendo periodos e a conta muda, os dois blocos
     // ficariam de lojas diferentes. Aborta com aviso em vez de gerar
     // um relatorio que mistura clientes.
