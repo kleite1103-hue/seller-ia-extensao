@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.7';
+  var VERSAO = '1.1.8';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2235,13 +2235,30 @@
             return;
           }
           try {
-            var bl = new Blob([JSON.stringify(estado.espiaoCru, null, 1)], { type: 'application/json' });
-            var ur = URL.createObjectURL(bl);
-            var aE = document.createElement('a');
-            aE.href = ur; aE.download = 'espiao-bruto-' + (estado.espiaoCru.termo || 'busca').replace(/[^\w]/g, '-') + '.json';
-            document.body.appendChild(aE); aE.click(); document.body.removeChild(aE);
-            setTimeout(function () { try { URL.revokeObjectURL(ur); } catch (e) { } }, 30000);
-          } catch (e) { mostrarExpl('Nao consegui gerar o arquivo: ' + esc(String(e))); }
+            var txtCru = JSON.stringify(estado.espiaoCru, null, 1);
+            // O download por link dentro do shadow nem sempre dispara. A
+            // copia para a area de transferencia funciona sempre e resolve o
+            // mesmo problema: e so colar na conversa.
+            var okCopia = false;
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(txtCru);
+                okCopia = true;
+              }
+            } catch (e2) { /* noop */ }
+            if (!okCopia) {
+              var ta = document.createElement('textarea');
+              ta.value = txtCru;
+              ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+              document.documentElement.appendChild(ta);
+              ta.select();
+              try { document.execCommand('copy'); okCopia = true; } catch (e3) { /* noop */ }
+              document.documentElement.removeChild(ta);
+            }
+            mostrarExpl(okCopia
+              ? '<b>Dados da busca copiados.</b> Cole na conversa com a Seller.IA \u2014 sao os cinco primeiros itens exatamente como a Shopee devolveu.'
+              : '<b>Nao consegui copiar.</b> Abra o console com F12 e procure as linhas [Seller.IA].');
+          } catch (e) { mostrarExpl('Nao consegui gerar: ' + esc(String(e))); }
           return;
         }
         if (voltaA.id === 'sia-prec-calcular') {
@@ -7862,11 +7879,16 @@
       h += olho('OS QUE ESTAO INDO BEM', 'Convertem acima da media da loja. A regra aqui e proteger, nao otimizar. Se algum deles nao tem Shopee Ads, e por ele que se comeca a investir.');
       melhores.forEach(function (c) { h += cartaoProduto(c); });
     }
-    if (resto.length) {
-      h += olho('VER UM PRODUTO ESPECIFICO');
+    // O seletor mostrava so o RESTO, o que sobrou depois dos destaques —
+    // por isso aparecia meia duzia. Ele deve listar a loja inteira, porque e
+    // por ele que a pessoa procura um produto especifico.
+    var todosSel = lidos.slice().filter(function (c) { return ehProdutoDeVerdade(c.nome); });
+    todosSel.sort(function (a, b) { return (b.venda || 0) - (a.venda || 0); });
+    if (todosSel.length) {
+      h += olho('VER UM PRODUTO ESPECIFICO', 'Todos os produtos desta conta, do que mais fatura para o que menos fatura. O circulo cheio marca os que estao com problema.');
       h += '<select id="sia-prod-sel" style="width:100%;background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:13px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:11px">' +
-        '<option value="">Escolha entre os outros ' + resto.length + ' produtos...</option>';
-      resto.forEach(function (c) {
+        '<option value="">Escolha entre os ' + todosSel.length + ' produtos da loja...</option>';
+      todosSel.forEach(function (c) {
         var marca = c.nivel === 'vermelho' ? '\u25cf ' : (c.nivel === 'amarelo' ? '\u25cb ' : '');
         h += '<option value="' + esc(c.id) + '"' + (estado.prodSel === String(c.id) ? ' selected' : '') + '>' + marca + esc(String(c.nome).slice(0, 52)) + ' \u00b7 ' + reais(c.venda || 0) + '</option>';
       });
