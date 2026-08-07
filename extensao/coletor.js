@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.3.0';
+  var VERSAO = '1.4.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1703,10 +1703,23 @@
         if (alvoLeilao.length) {
 
         prog('Lendo posicao no leilao e diagnostico da Shopee...');
-          for (var lv = 0; lv < alvoLeilao.length; lv += 20) {
-            var lote20 = alvoLeilao.slice(lv, lv + 20).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return !!x; });
+          // O DIAGNOSTICO e barato: 20 campanhas por chamada e nenhuma volta
+          // pesada. Nao faz sentido limita-lo ao alvo do leilao — ele traz a
+          // competitividade, que a Karina precisa em TODA campanha ativa.
+          var alvoDiag = Object.keys(estado.campanhas).filter(function (k) {
+            var cD = estado.campanhas[k] || {};
+            var eD = String(cD.estado || cD.state || '').toLowerCase();
+            return eD !== 'paused' && eD !== 'ended' && eD !== 'closed';
+          }).slice(0, 200);
+          for (var lv = 0; lv < alvoDiag.length; lv += 20) {
+            var lote20 = alvoDiag.slice(lv, lv + 20).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return !!x; });
             if (!lote20.length) continue;
-            var corpoV = JSON.stringify({ campaign_id_list: lote20, start_time: ini, end_time: fimAds });
+            // CORPO EXATO da captura: a rota quer campaign_id_list e um
+            // reference_id, e NAO aceita start_time nem end_time. Eu mandava
+            // os dois que nao existem e omitia o obrigatorio — a Shopee
+            // recusava e o diagnostico, que traz a competitividade, nunca
+            // chegava para campanha nenhuma.
+            var corpoV = JSON.stringify({ campaign_id_list: lote20, reference_id: uuidSimples() });
             var rv = await buscar('/api/pas/v1/diagnosis/homepage_batch_list_verdict/?' + spcQ, 'POST', corpoV);
             totalChamadas++;
             if (rv.ok && rv.dados) {
@@ -5581,6 +5594,83 @@
     return saida;
   }
 
+  /* ============ COMPETITIVIDADE DA CONTA ============
+     A Shopee calcula um veredito de competitividade por campanha e nao mostra
+     em lugar nenhum do painel. Reunido, ele responde onde a conta perde a
+     disputa: preco, lance, orcamento ou anuncio. */
+  function renderCompetitividade() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return ''; }
+    var PC = (D && D.porCampanha) || {};
+    var TRAD = {
+      competitiveness: 'competitividade de preco', bidding: 'lance',
+      budget: 'orcamento', roi_target: 'meta de ROAS', continuance: 'continuidade',
+      listing: 'qualidade do anuncio', keyword: 'palavras', creative: 'criativo'
+    };
+    var RUIM = /bad|poor|low/i, BOM = /good|excellent|healthy/i;
+
+    var porEixo = {}, totalCamp = 0;
+    for (var k in PC) {
+      var eixos = PC[k] && PC[k].eixos;
+      if (!eixos || !eixos.length) continue;
+      totalCamp++;
+      for (var i = 0; i < eixos.length; i++) {
+        var nome = String(eixos[i].eixo || '').replace(/_v2$/, '');
+        var nota = String(eixos[i].nota || '');
+        porEixo[nome] = porEixo[nome] || { ruim: 0, bom: 0, medio: 0, campanhasRuins: [] };
+        if (RUIM.test(nota)) {
+          porEixo[nome].ruim++;
+          var c = estado.campanhas[k];
+          var gasto = (c && c.metricas && c.metricas.gasto) || 0;
+          porEixo[nome].campanhasRuins.push({ id: k, nome: (c && c.nome) || k, gasto: gasto });
+        } else if (BOM.test(nota)) porEixo[nome].bom++;
+        else porEixo[nome].medio++;
+      }
+    }
+    if (!totalCamp) {
+      return olho('ONDE A CONTA PERDE A DISPUTA') +
+        '<div class="nota" style="color:var(--am)">O diagnostico da Shopee nao chegou nesta leitura. Ele vem junto com a coleta da conta.</div>';
+    }
+
+    var lista = [];
+    for (var e2 in porEixo) {
+      lista.push({ eixo: e2, rot: TRAD[e2] || e2.replace(/_/g, ' '), d: porEixo[e2] });
+    }
+    lista.sort(function (a, b) { return b.d.ruim - a.d.ruim; });
+
+    var h = olho('ONDE A CONTA PERDE A DISPUTA', 'A Shopee calcula um veredito por campanha em cada frente da disputa e nao mostra isso em lugar nenhum do painel. Aqui eles aparecem reunidos: em quantas campanhas cada frente esta ruim, e quanto dinheiro esta nelas. <b>Competitividade de preco</b> compara o seu preco com quem disputa a mesma vitrine.');
+    h += '<div class="nota">Diagnostico lido em ' + totalCamp + ' campanhas.</div>';
+
+    for (var j = 0; j < lista.length; j++) {
+      var L = lista[j], dd = L.d;
+      if (!dd.ruim && !dd.bom && !dd.medio) continue;
+      var total = dd.ruim + dd.bom + dd.medio;
+      var pctRuim = total ? (dd.ruim / total) * 100 : 0;
+      var gastoRuim = 0;
+      for (var g = 0; g < dd.campanhasRuins.length; g++) gastoRuim += dd.campanhasRuins[g].gasto || 0;
+
+      h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:15px 17px;margin-bottom:10px">' +
+        '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">' +
+        '<span style="flex:1;font-size:16px;font-weight:600;color:var(--t0);text-transform:capitalize">' + esc(L.rot) + '</span>' +
+        '<span style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:22px;color:' + (dd.ruim ? 'var(--rd)' : 'var(--vd)') + '">' + dd.ruim + '</span>' +
+        '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">DE ' + total + '</span></div>' +
+        '<div style="height:7px;background:var(--b2);border-radius:99px;overflow:hidden;margin-bottom:8px">' +
+        '<div style="height:100%;width:' + fmt(pctRuim, 0) + '%;background:var(--rd);border-radius:99px"></div></div>';
+
+      if (dd.ruim) {
+        dd.campanhasRuins.sort(function (a, b) { return b.gasto - a.gasto; });
+        h += '<div style="font-size:13.5px;color:var(--t1);line-height:1.5">' +
+          (gastoRuim ? '<b style="color:var(--t0)">' + reais(gastoRuim) + '</b> esta investido nas campanhas com problema aqui. ' : '') +
+          'A maior e <b style="color:var(--t0)">' + sig(String(dd.campanhasRuins[0].nome).slice(0, 34)) + '</b>' +
+          (dd.campanhasRuins[0].gasto ? ', com ' + reais(dd.campanhasRuins[0].gasto) : '') + '.</div>';
+      } else {
+        h += '<div style="font-size:13.5px;color:var(--vd);line-height:1.5">Nenhuma campanha com problema nesta frente.</div>';
+      }
+      h += '</div>';
+    }
+    return h;
+  }
+
   function renderPausadasQueRendiam() {
     var lista = pausadasDescobertas();
     if (!lista.length) return '';
@@ -8396,6 +8486,7 @@
       h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') +
         seguro(renderPercentis, 'Percentis da categoria') +
         seguro(renderHoras, 'O dia hora a hora') +
+        seguro(renderCompetitividade, 'Onde a conta perde a disputa') +
         seguro(renderPausadasQueRendiam, 'Pausadas que rendiam') +
         seguro(renderFiltroCampanhas, 'Filtro de campanhas') +
         h2 +
