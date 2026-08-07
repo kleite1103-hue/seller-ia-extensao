@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.2';
+  var VERSAO = '1.1.3';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3629,6 +3629,17 @@
       var mes = (sc.monthly_sold_count != null && Number(sc.monthly_sold_count) >= 0)
         ? Number(sc.monthly_sold_count) : null;
 
+      // Quando o campo nao vier, registra no console TODAS as chaves que
+      // existem no item, para eu descobrir onde a Shopee pos o numero em vez
+      // de adivinhar. So no primeiro item, para nao poluir.
+      if (mes == null && i === 0) {
+        try {
+          console.debug('[Seller.IA] campo de vendas ausente. Chaves de item_data:', Object.keys(d).join(', '));
+          console.debug('[Seller.IA] chaves de sold_count:', Object.keys(sc).join(', '));
+          console.debug('[Seller.IA] item completo:', JSON.stringify(it).slice(0, 1200));
+        } catch (e) { /* noop */ }
+      }
+
       var voucher = d.recommended_shop_voucher_info || dp.recommended_shop_voucher_info || null;
       lista.push({
         pos: i + 1,
@@ -3807,12 +3818,12 @@
       // (credito de Ads, saldo, ajuste). Buscar isso na vitrine e ruido.
       if (/cr[eé]dito|saldo|recarga|ajuste|reembolso|taxa|cupom da loja/i.test(p.nome)) continue;
       if (!/[a-zA-Zà-ú]{4}/.test(p.nome)) continue;
-      // So entra produto com metrica DESTA coleta. Sem isto, nome que sobrou
-      // de leitura anterior virava linha no Radar e a busca era feita para
-      // produto que nao e da loja aberta.
-      var mm = p.metricas || {};
-      var temMetrica = (mm.visitantes != null) || (mm.vendas_pagas != null) || (mm.cliques != null) || (mm.pedidos_pagos != null);
-      if (!temMetrica) continue;
+      // O filtro de metrica cortava todo produto sem trafego no periodo, e o
+      // seletor trazia so um punhado. Mas quem escolhe o que analisar e a
+      // pessoa: produto parado e justamente o que ela quer investigar no
+      // Espiao. O isolamento entre contas ja e garantido pelo carimbo de
+      // loja, entao esse filtro nao e mais necessario aqui.
+      if (p.loja && estado.loja && estado.loja.shop_id && String(p.loja) !== String(estado.loja.shop_id)) continue;
       var m = p.metricas || {};
       arr.push({ id: id, nome: p.nome, gmv: m.gmv || 0 });
     }
