@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.3';
+  var VERSAO = '1.1.4';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2228,6 +2228,17 @@
       if (voltaA.getAttribute) {
         if (voltaA.tagName === 'INPUT' || voltaA.tagName === 'SELECT' || voltaA.tagName === 'TEXTAREA') return;
         if (voltaA.getAttribute('data-link-externo')) return;
+        if (voltaA.id === 'sia-esp-exportar') {
+          try {
+            var bl = new Blob([JSON.stringify(estado.espiaoCru, null, 1)], { type: 'application/json' });
+            var ur = URL.createObjectURL(bl);
+            var aE = document.createElement('a');
+            aE.href = ur; aE.download = 'espiao-bruto-' + (estado.espiaoCru.termo || 'busca').replace(/[^\w]/g, '-') + '.json';
+            document.body.appendChild(aE); aE.click(); document.body.removeChild(aE);
+            setTimeout(function () { try { URL.revokeObjectURL(ur); } catch (e) { } }, 30000);
+          } catch (e) { mostrarExpl('Nao consegui gerar o arquivo: ' + esc(String(e))); }
+          return;
+        }
         if (voltaA.id === 'sia-prec-calcular') {
           // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
           // render recria os campos e a ligacao se perde, entao o valor
@@ -3863,9 +3874,11 @@
         // ORDENA POR FATURAMENTO, nao por posicao na pagina: o que interessa
         // e quem VENDE mais, nao quem aparece primeiro. Era isso que a Karina
         // vinha pedindo e o Radar nunca fez.
-        var ordenada = lista.slice().sort(function (a, b) {
-          return (b.faturamentoMes || 0) - (a.faturamentoMes || 0);
-        });
+        var cd2 = lista.filter(function (x) { return x.faturamentoMes != null && x.faturamentoMes > 0; });
+        var sd2 = lista.filter(function (x) { return !(x.faturamentoMes != null && x.faturamentoMes > 0); });
+        cd2.sort(function (a, b) { return b.faturamentoMes - a.faturamentoMes; });
+        sd2.sort(function (a, b) { return (a.pos || 99) - (b.pos || 99); });
+        var ordenada = cd2.concat(sd2);
         for (var q = 0; q < ordenada.length; q++) ordenada[q].posVenda = q + 1;
         estado.espiao.res = {
           termo: resp.termo, lista: lista, ordenada: ordenada,
@@ -5814,13 +5827,23 @@
         estado.compResultado = { id: idProduto, erro: (resp && resp.erro) || 'A busca nao voltou.' };
         render(); return;
       }
+      // guarda o cru da ultima busca para o exportador de diagnostico
+      try { estado.espiaoCru = { termo: termo, em: Date.now(), itens: (resp.itens || []).slice(0, 5) }; } catch (e) { /* noop */ }
       var lista = espMapear(resp.itens);
       var meu = null, outros = [];
       for (var i = 0; i < lista.length; i++) {
         if (lista[i].eu) meu = lista[i]; else outros.push(lista[i]);
       }
-      outros.sort(function (a, b) { return (b.faturamentoMes || 0) - (a.faturamentoMes || 0); });
+      // Quem NAO tem dado virava zero no ordenador e podia aparecer em
+      // primeiro lugar como se nao vendesse nada. Agora quem tem numero vem
+      // sempre antes de quem nao tem, e o ranking so promete o que sabe.
+      var comDado = outros.filter(function (x) { return x.faturamentoMes != null && x.faturamentoMes > 0; });
+      var semDado = outros.filter(function (x) { return !(x.faturamentoMes != null && x.faturamentoMes > 0); });
+      comDado.sort(function (a, b) { return b.faturamentoMes - a.faturamentoMes; });
+      semDado.sort(function (a, b) { return (a.pos || 99) - (b.pos || 99); });
+      outros = comDado.concat(semDado);
       var top3 = outros.slice(0, 3);
+      var quantosComDado = comDado.length;
       if (!top3.length) {
         estado.compResultado = { id: idProduto, erro: 'Nao achei concorrentes para "' + termo + '".' };
         render(); return;
@@ -5837,6 +5860,7 @@
       }
       estado.compResultado = {
         id: idProduto, termo: termo, meu: meu, top3: top3,
+        comDado: quantosComDado, total: outros.length,
         precoMedio: media('preco'), avalMedia: media('avaliacoes'),
         notaMedia: media('nota'), vendasMedia: media('vendasMes'),
         fatMedio: media('faturamentoMes'),
@@ -5912,6 +5936,10 @@
     var h = '<div style="background:var(--b1);border:1px solid var(--li);border-radius:18px;padding:14px;margin-top:11px">' +
       '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">O QUE OS 3 QUE MAIS VENDEM FAZEM DIFERENTE</div>';
 
+    if (C.comDado != null && C.comDado < C.top3.length) {
+      h += '<div class="nota" style="color:var(--am);margin-bottom:8px">A Shopee informou o volume de ' + C.comDado + ' de ' + C.top3.length +
+        ' concorrentes nesta busca. Os sem numero aparecem por ultimo, na ordem em que estao na vitrine.</div>';
+    }
     for (var q = 0; q < C.top3.length; q++) {
       var T = C.top3[q];
       h += '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--li);font-size:12.5px">' +
@@ -5964,6 +5992,12 @@
       h += '</div>';
     } else {
       h += '<div class="nota">Preco, nota e avaliacoes estao na mesma faixa dos tres. A diferenca deve estar na foto, no titulo ou no tempo de vitrine.</div>';
+    }
+    // Exportador de diagnostico: baixa o que a Shopee devolveu de verdade,
+    // para eu ver onde ela pos o campo de vendas em vez de adivinhar.
+    if (estado.espiaoCru) {
+      h += '<div style="margin-top:12px;text-align:right">' +
+        '<span id="sia-esp-exportar" style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t3);cursor:pointer;text-decoration:underline">baixar dados brutos desta busca</span></div>';
     }
     return h + '</div>';
   }
