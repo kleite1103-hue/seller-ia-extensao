@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.98.1';
+  var VERSAO = '0.98.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1947,6 +1947,7 @@
     '.painel,.painel *{color:inherit}' +
     'select,input,textarea,button{color:var(--t0);background-color:var(--b2)}' +
     'option{background:var(--b2);color:var(--t0)}' +
+    '.painel.aberto ~ .botao,.botao.escondido{opacity:0;pointer-events:none;transform:scale(.8)}' +
     '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;z-index:2147483001;border-radius:17px;cursor:pointer;box-shadow:0 8px 24px var(--sh),0 2px 6px var(--shb);transition:transform .15s;background:none;border:none;padding:0;overflow:hidden}' +
     '.botao svg{display:block;width:100%;height:100%}' +
     '.botao:hover{transform:scale(1.08)}' +
@@ -1979,10 +1980,10 @@
     '.aba{display:flex;align-items:center;gap:7px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t2);font-family:Space Mono,monospace;font-size:12.5px;letter-spacing:.02em;padding:10px 11px 11px;border-radius:0;white-space:nowrap;cursor:pointer}' +
     '.aba:hover{color:var(--mk)}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
-    '.corpo{flex:1;overflow-y:auto;overflow-x:hidden;padding:24px 24px 96px;scrollbar-width:none;background:var(--b2)}' +
+    '.corpo{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px 24px 30px;scrollbar-width:none;background:var(--b2)}' +
     '.corpo::-webkit-scrollbar{width:0;height:0}' +
-    '.rodape{position:absolute;left:0;right:0;bottom:0;padding:14px 18px 18px;background:linear-gradient(to top,var(--b1) 72%,transparent);pointer-events:none}' +
-    '.rodape button{pointer-events:auto;width:100%;background:var(--mk);border:none;color:#fff;font-family:Outfit,Arial;font-weight:600;font-size:15.5px;padding:16px;border-radius:var(--r-btn,14px);cursor:pointer;box-shadow:0 8px 22px color-mix(in srgb,var(--mk) 34%,transparent)}' +
+    '.rodape{position:relative;flex:none;padding:12px 18px 16px;background:var(--b1);border-top:1px solid var(--li)}' +
+    '.rodape button{width:100%;background:var(--mk);border:none;color:#fff;font-family:Outfit,Arial;font-weight:600;font-size:15.5px;padding:16px;border-radius:var(--r-btn,14px);cursor:pointer;box-shadow:0 8px 22px color-mix(in srgb,var(--mk) 34%,transparent)}' +
     '.rodape button:hover{background:var(--mk2)}' +
     '.rodape button:disabled{opacity:.65;cursor:default}' +
     /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
@@ -2002,7 +2003,8 @@
     '.capa{position:relative;padding:6px 0 18px;margin-bottom:18px;border-bottom:1px solid var(--li)}' +
     '.capa .ol{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:11px;color:var(--mk);letter-spacing:.14em;margin-bottom:9px}' +
     '.capa .ol::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
-    '.capa .dp{font-family:"Bebas Neue";font-size:30px;line-height:1;letter-spacing:.02em;color:var(--t0)}' +
+    '.capa .dp{font-family:Archivo,Outfit,Arial;font-weight:400;font-size:31px;line-height:1.1;letter-spacing:-.025em;color:var(--t0)}' +
+    '.capa .dp small{font-weight:600;font-size:inherit;color:var(--t0)}' +
     '.capa .dp small{font-family:"Bebas Neue";font-size:30px;color:var(--t2);margin-left:7px}' +
     '.capa .gh{position:absolute;top:-2px;right:0;font-family:"Bebas Neue";font-size:38px;line-height:1;color:var(--li);pointer-events:none;user-select:none}' +
     '.tit{font-family:Archivo,Outfit,Arial;font-weight:400;font-size:33px;letter-spacing:-.025em;line-height:1.1;color:var(--t0);margin-bottom:8px}' +
@@ -2151,7 +2153,14 @@
     return h + '</div>';
   }
 
-  ligar('sia-abrir', 'click', function () { $('sia-painel').classList.toggle('aberto'); render(); });
+  ligar('sia-abrir', 'click', function () {
+    var pn = $('sia-painel'), bt = $('sia-abrir');
+    pn.classList.toggle('aberto');
+    // o botao flutuante sobre o rodape laranja era o "cinza escuro fixo" que
+    // a Karina via: com o painel aberto ele nao tem funcao nenhuma
+    if (bt) bt.classList.toggle('escondido', pn.classList.contains('aberto'));
+    render();
+  });
   ligar('sia-abrir', 'dblclick', function (ev) {
     ev.preventDefault(); estado.modoTecnico = !estado.modoTecnico; render();
   });
@@ -2324,7 +2333,11 @@
     coletaCompleta(function () { render(); });
     render();
   });
-  ligar('sia-fechar', 'click', function () { $('sia-painel').classList.remove('aberto'); });
+  ligar('sia-fechar', 'click', function () {
+    $('sia-painel').classList.remove('aberto');
+    var bt2 = $('sia-abrir');
+    if (bt2) bt2.classList.remove('escondido');
+  });
   ligar('sia-limpar', 'click', function () {
     estado.campanhas = {}; estado.produtos = {};
     estado.conta = { campos: {}, atualizadoEm: null };
@@ -7494,6 +7507,12 @@
 
   function render() {
     DICAS = {}; seqDica = 0;
+    // A poda so rodava ao TROCAR de conta: quem ficou na mesma conta continuou
+    // com as 847 acumuladas. Agora ela roda tambem no render, fora da coleta.
+    if (estado.coletaProgresso === null && Object.keys(estado.campanhas).length > 280) {
+      estado.campanhas = podarCampanhas(estado.campanhas);
+      estado.sujo = true;
+    }
     try {
       var br2 = $('sia-recoletar');
       if (br2) {
