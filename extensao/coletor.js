@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.4';
+  var VERSAO = '1.1.5';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2103,6 +2103,7 @@
     '    <span class="info" id="sia-info"></span>' +
     '    <div class="acoes">' +
     '      <button id="sia-gravar" class="rec" title="Modo gravacao: borra nomes da conta"><i></i>REC</button>' +
+    '      <button id="sia-esp-exportar" class="ico" title="Baixar dados brutos da ultima busca do Espiao">&#8681;</button>' +
     '      <button id="sia-tema" class="ico" title="Alternar claro e escuro">' + ICONE_LUA + '</button>' +
     '      <button id="sia-fechar" class="ico" title="Fechar">\u2715</button>' +
     '    </div>' +
@@ -2229,6 +2230,10 @@
         if (voltaA.tagName === 'INPUT' || voltaA.tagName === 'SELECT' || voltaA.tagName === 'TEXTAREA') return;
         if (voltaA.getAttribute('data-link-externo')) return;
         if (voltaA.id === 'sia-esp-exportar') {
+          if (!estado.espiaoCru) {
+            mostrarExpl('<b>Nenhuma busca do Espiao ainda.</b> Faca uma comparacao ou uma busca no Espiao e toque aqui de novo: o arquivo traz o que a Shopee devolveu de verdade.');
+            return;
+          }
           try {
             var bl = new Blob([JSON.stringify(estado.espiaoCru, null, 1)], { type: 'application/json' });
             var ur = URL.createObjectURL(bl);
