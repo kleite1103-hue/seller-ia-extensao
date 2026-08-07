@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.98.0';
+  var VERSAO = '0.98.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -914,7 +914,7 @@
     } else {
       pos = 'top:72px;right:14px;';
     }
-    cardLente.style.cssText = 'all:initial;position:fixed;' + pos + 'z-index:2147483200;width:min(430px,94vw);max-height:70vh;display:flex;flex-direction:column;background:var(--b1);border:1px solid var(--li2);border-top:3px solid var(--mk);border-radius:18px;box-shadow:0 16px 50px rgba(0,0,0,.6);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
+    cardLente.style.cssText = 'all:initial;position:fixed;' + pos + 'z-index:2147483200;width:min(430px,94vw);max-height:70vh;display:flex;flex-direction:column;background:#FBF8F3;border:1px solid #E7DFD2;border-top:3px solid #EE4D2D;border-radius:22px;box-shadow:0 16px 50px rgba(72,56,38,.22);color:#211F1B;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
     cardLente.innerHTML =
       '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--li);flex:none">' +
       '<span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(120deg,var(--mk),var(--px));display:inline-block"></span>' +
@@ -967,7 +967,7 @@
         var leRapida = item.leitura ? item.leitura() : null;
         selo.textContent = (leRapida && leRapida.valor) ? ('Seller.IA · ' + leRapida.valor) : 'Seller.IA · leitura';
         selo.title = 'O que e, como esta o seu e o que fazer';
-        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:220px;margin-top:4px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,var(--mk),var(--px));color:var(--t0);font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;' + (leRapida ? 'box-shadow:0 0 0 1px ' + (leRapida.bom ? 'var(--vd)' : 'var(--am)') + ' inset;' : '');
+        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:220px;margin-top:4px;padding:2px 10px;border-radius:4px;background:#EE4D2D;color:#fff;font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;' + (leRapida ? 'box-shadow:0 0 0 1px ' + (leRapida.bom ? 'var(--vd)' : 'var(--am)') + ' inset;' : '');
         (function (itemF) {
           selo.addEventListener('click', function (ev) {
             ev.stopPropagation(); ev.preventDefault();
@@ -1071,7 +1071,7 @@
         var selo = document.createElement('span');
         selo.setAttribute('data-sia-barra-camp', nomes[j].id);
         selo.title = 'Veredito desta campanha';
-        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:230px;margin-top:3px;padding:2px 10px;border-radius:4px;background:linear-gradient(120deg,var(--mk),var(--px));color:var(--t0);font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;';
+        selo.style.cssText = 'all:initial;display:block;width:fit-content;max-width:230px;margin-top:3px;padding:2px 10px;border-radius:4px;background:#EE4D2D;color:#fff;font:700 8.5px/1.5 Arial;letter-spacing:.05em;cursor:pointer;';
         vestirBarraCampanha(selo, nomes[j].id);
         (function (idF, nomeF) {
           selo.addEventListener('click', function (ev) {
@@ -1913,7 +1913,11 @@
 
   var host = document.createElement('div');
   host.id = 'seller-ia-host';
-  host.style.cssText = 'all:initial;position:fixed;z-index:2147483000;bottom:0;right:0;';
+  // 'all:initial' no STYLE INLINE do host anula as variaveis CSS declaradas
+  // no :host de dentro do shadow — o inline sempre ganha. Era por isso que
+  // trocar a paleta nao mudava nada e o painel ficava com as cores do
+  // navegador. O reset continua no :host de dentro, que e o lugar certo.
+  host.style.cssText = 'position:fixed;z-index:2147483000;bottom:0;right:0;margin:0;padding:0;border:0;';
   document.documentElement.appendChild(host);
   var raiz = host.attachShadow({ mode: 'closed' });
 
