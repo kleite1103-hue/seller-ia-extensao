@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.1.1';
+  var VERSAO = '1.1.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3621,36 +3621,14 @@
       var sc = d.item_card_display_sold_count || {};
       var rt = d.item_rating || {};
       var preco = dp.price != null ? Number(dp.price) / 100000 : null;
-      // A Shopee mudou de lugar esse campo mais de uma vez. Em vez de apostar
-      // num caminho, procura em todos os que ja existiram — e, se nada vier
-      // como numero, le do TEXTO que ela mostra no card ("1,2mil vendidos").
-      var mes = null;
-      var CAMINHOS = [
-        sc.monthly_sold_count, sc.sold_count, sc.count,
-        d.monthly_sold_count, d.sold_count, d.historical_sold_count,
-        (d.item_card_display_sold_count || {}).monthly_sold_count,
-        (it.item_basic || {}).sold, (it.item_basic || {}).historical_sold,
-        it.monthly_sold_count, it.sold
-      ];
-      for (var cm = 0; cm < CAMINHOS.length; cm++) {
-        var vc = CAMINHOS[cm];
-        if (typeof vc === 'number' && isFinite(vc) && vc >= 0) { mes = vc; break; }
-      }
-      if (mes == null) {
-        // texto do card: "500 vendidos", "1,2mil vendidos", "10RIL vendidos"
-        var txtV = sc.sold_count_text || sc.text || d.sold_count_text ||
-          (d.item_card_display_sold_count || {}).sold_count_text || '';
-        if (txtV) {
-          var mt = String(txtV).match(/([\d.,]+)\s*(mil|k|m)?/i);
-          if (mt) {
-            var base = parseFloat(String(mt[1]).replace(/\./g, '').replace(',', '.'));
-            if (isFinite(base)) {
-              var suf = (mt[2] || '').toLowerCase();
-              mes = Math.round(base * (suf === 'mil' || suf === 'k' ? 1000 : (suf === 'm' ? 1000000 : 1)));
-            }
-          }
-        }
-      }
+      // monthly_sold_count e o numero EXATO dos ultimos 30 dias, dito pela
+      // API. Nao usar o texto do card: ele mistura periodos — produto de
+      // inverno que vendeu 10 mil ha 60 dias mostraria isso como se fosse
+      // agora. Se o campo nao vier, e melhor nao ter numero do que ter um
+      // numero errado.
+      var mes = (sc.monthly_sold_count != null && Number(sc.monthly_sold_count) >= 0)
+        ? Number(sc.monthly_sold_count) : null;
+
       var voucher = d.recommended_shop_voucher_info || dp.recommended_shop_voucher_info || null;
       lista.push({
         pos: i + 1,
