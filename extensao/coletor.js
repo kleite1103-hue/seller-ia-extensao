@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.98.2';
+  var VERSAO = '0.98.3';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1955,7 +1955,7 @@
     '.painel{position:fixed;top:0;right:0;height:100vh;width:min(760px,100vw);background:var(--b1);border-left:1px solid var(--li);border-radius:var(--r-painel,30px) 0 0 var(--r-painel,30px);box-shadow:-18px 0 60px var(--sh),0 6px 18px var(--shb);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
     '.painel.aberto{transform:translateX(0)}' +
     '@media(prefers-reduced-motion:reduce){.painel{transition:none}}' +
-    '.cab{display:flex;align-items:center;gap:12px;padding:18px 22px 15px;border-bottom:1px solid var(--li);background:var(--b0);flex-wrap:wrap}' +
+    '.cab{display:flex;align-items:center;gap:12px;padding:18px 22px 15px;background:var(--b1);flex-wrap:wrap}' +
     '.cab .marca-ic{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:18px;background:var(--t0);box-shadow:0 5px 14px var(--shb);font:500 26px Archivo,Outfit,Arial;letter-spacing:-.04em;color:var(--b1);flex:none}' +
     '.cab .marca-ic em{font-style:normal;color:var(--mk)}' +
     '.cab svg{width:28px;height:28px;flex:none}' +
@@ -1971,7 +1971,7 @@
     '.cab button.rec.on i{background:var(--rd);animation:siaPulse 1.2s infinite}' +
     '@keyframes siaPulse{0%,100%{opacity:1}50%{opacity:.3}}' +
     '.cab button:hover{border-color:var(--mk);color:var(--mk)}' +
-    '.abas{display:flex;flex-wrap:wrap;gap:3px;background:var(--b0);padding:8px 14px 0;border-bottom:1px solid var(--li)}' +
+    '.abas{display:flex;flex-wrap:wrap;gap:3px;background:var(--b1);padding:8px 18px 0;border-bottom:1px solid var(--li)}' +
     
     '.aba.ativa{color:var(--mk);border-bottom-color:var(--mk);background:none}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
@@ -1980,9 +1980,9 @@
     '.aba{display:flex;align-items:center;gap:7px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t2);font-family:Space Mono,monospace;font-size:12.5px;letter-spacing:.02em;padding:10px 11px 11px;border-radius:0;white-space:nowrap;cursor:pointer}' +
     '.aba:hover{color:var(--mk)}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
-    '.corpo{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px 24px 30px;scrollbar-width:none;background:var(--b2)}' +
+    '.corpo{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px 24px 30px;scrollbar-width:none;background:var(--b1)}' +
     '.corpo::-webkit-scrollbar{width:0;height:0}' +
-    '.rodape{position:relative;flex:none;padding:12px 18px 16px;background:var(--b1);border-top:1px solid var(--li)}' +
+    '.rodape{position:relative;flex:none;padding:12px 18px 16px;background:var(--b1)}' +
     '.rodape button{width:100%;background:var(--mk);border:none;color:#fff;font-family:Outfit,Arial;font-weight:600;font-size:15.5px;padding:16px;border-radius:var(--r-btn,14px);cursor:pointer;box-shadow:0 8px 22px color-mix(in srgb,var(--mk) 34%,transparent)}' +
     '.rodape button:hover{background:var(--mk2)}' +
     '.rodape button:disabled{opacity:.65;cursor:default}' +
@@ -2017,7 +2017,7 @@
     'tr:hover td{background:var(--b2)}' +
     '.num{text-align:right;font-variant-numeric:tabular-nums}' +
     '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:9px;margin-bottom:20px}' +
-    '.kpi{background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:15px 13px}' +
+    '.kpi{background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:15px 13px}' +
     '.kpi .v{font-family:"Bebas Neue";font-size:38px;line-height:1;color:var(--mk)}' +
     '.kpi .l{font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:6px;text-transform:uppercase;letter-spacing:.07em;line-height:1.35}' +
     '.vazio{color:var(--t2);font-size:15.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
@@ -2037,7 +2037,7 @@
     '.expl b{color:var(--t0)}' +
     '.expl .x{float:right;background:none;border:none;color:var(--t2);cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 10px}' +
     '.nota{font-size:14px;color:var(--t2);margin:12px 0;line-height:1.6}' +
-    '.bloco-d{background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:10px 12px;margin-bottom:9px}' +
+    '.bloco-d{background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:10px 12px;margin-bottom:9px}' +
     '.bloco-d .td{font-family:Space Mono,monospace;font-size:11px;letter-spacing:.06em;color:var(--mk);margin-bottom:7px}' +
     '.bloco-d .ld{font-size:13.5px;color:var(--t1);line-height:1.65;padding:2px 0}' +
     '.bloco-d .ld b{color:var(--t0)}' +
@@ -2592,7 +2592,7 @@
     var busca = (estado.buscaPalavra || '').toLowerCase().trim();
     var h = '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
       '<input id="sia-kw-busca" value="' + esc(estado.buscaPalavra || '') + '" placeholder="procurar um termo na lista" ' +
-      'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px"></div>';
+      'style="flex:1;min-width:200px;background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px"></div>';
     h += '<div class="leitura"><div class="fr">' + frase + '</div><div class="ex">' + expl + '</div></div>';
 
     // ROSCA no lugar dos tres numeros soltos: e o grafico do layout, e ele
@@ -2883,7 +2883,7 @@
     for (i = 0; i < quedas.length; i++) if (quedas[i].pct != null && (!pior || quedas[i].pct > pior.pct)) pior = quedas[i];
 
     var h = olho('O CAMINHO ATE A VENDA', '<b>O funil da loja inteira.</b> Cada degrau mostra quantas pessoas passaram para a etapa seguinte. A queda entre dois degraus e onde voce perde gente. O degrau com a maior queda e onde vale colocar esforco primeiro — melhorar um degrau que ja esta bom rende pouco.');
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:14px 10px;display:flex;align-items:flex-end;gap:3px;margin-bottom:11px">';
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:14px 10px;display:flex;align-items:flex-end;gap:3px;margin-bottom:11px">';
     for (i = 0; i < etapas.length; i++) {
       if (i > 0) {
         var q = quedas[i - 1];
@@ -2903,7 +2903,7 @@
       if (paraTxt.indexOf('visitantes') >= 0) conselho = 'Quem ve o card nao entra. O que decide isso e a primeira foto, o preco no card e o comeco do titulo.';
       else if (paraTxt.indexOf('carrinho') >= 0) conselho = 'Quem entra na pagina nao se convence. Preco contra o concorrente, variacao sem estoque e avaliacoes sem resposta sao as causas mais comuns.';
       else conselho = 'Quem guardou no carrinho nao fechou. Frete, prazo de entrega e o preco final na hora de pagar sao o que costuma travar.';
-      h += '<div style="background:var(--b2);border-left:3px solid var(--rd);border-radius:0 16px 16px 0;padding:12px 14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+      h += '<div style="background:var(--b0);border-left:3px solid var(--rd);border-radius:0 16px 16px 0;padding:12px 14px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
         '<b style="color:var(--t0)">A maior perda esta aqui:</b> de ' + fmt(quantosAntes, 0) + ' que chegaram em ' + deTxt + ', ' + fmt(quantosDepois, 0) + ' seguiram para ' + paraTxt + '. ' +
         '<span style="color:var(--rd)">Perde ' + fmt(pior.pct, 0) + '% neste degrau.</span><br>' + conselho + '</div>';
     }
@@ -2955,7 +2955,7 @@
       h += '<div class="nota" style="color:var(--mk)">Lendo: ' + esc(String(estado.coletaProgresso)) + '</div>';
     } else {
       h += '<div class="nota" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' +
-        '<button id="sia-profunda" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Leitura profunda</button>' +
+        '<button id="sia-profunda" style="background:var(--b0);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Leitura profunda</button>' +
         '<span>Acrescenta a serie hora a hora e as palavras por produto. Leva alguns minutos.</span></div>';
     }
     return h;
@@ -2972,7 +2972,7 @@
       h += '<div class="nota" style="color:var(--mk)">Lendo: ' + esc(String(estado.coletaProgresso)) + '</div>';
     } else {
       h += '<div class="nota" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' +
-        '<button id="sia-profunda" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Leitura profunda</button>' +
+        '<button id="sia-profunda" style="background:var(--b0);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Leitura profunda</button>' +
         '<span>A leitura normal cobre conta, produtos e campanhas. A profunda acrescenta a serie hora a hora e as palavras-chave, e leva alguns minutos.</span></div>';
     }
     return h;
@@ -3300,7 +3300,7 @@
 
     var h = '<div style="padding:2px">';
     // ---- COLETA AUTOMATICA (coletor em lote) ----
-    h += '<div id="sia-lote-box" style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:12px;margin-bottom:12px">';
+    h += '<div id="sia-lote-box" style="background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:12px;margin-bottom:12px">';
     h += '<div style="display:flex;align-items:center;gap:8px">';
     h += '<button id="sia-btn-coletar" style="all:unset;cursor:pointer;background:linear-gradient(135deg,var(--mk),var(--px));color:var(--t0);font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:8px;text-align:center">Coletar conta agora</button>';
     h += '<div id="sia-lote-status" style="font-size:11px;color:var(--t2);flex:1">Clique para a extensao buscar tudo sozinha</div>';
@@ -3879,7 +3879,7 @@
         return h;
       }
       h += '<div style="margin-top:12px">' +
-        '<select id="sia-esp-prod" style="width:100%;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:9px">' +
+        '<select id="sia-esp-prod" style="width:100%;background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:12px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:9px">' +
         '<option value="">Escolha o produto que quer comparar...</option>';
       for (var mp = 0; mp < meus.length; mp++) {
         var selMp = estado.espiao.meuProduto && String(estado.espiao.meuProduto.id) === String(meus[mp].id);
@@ -3888,13 +3888,13 @@
       h += '</select>';
       h += '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
         '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="termo da busca (deixe em branco para usar o titulo)" ' +
-        'style="flex:1;min-width:190px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px">' +
+        'style="flex:1;min-width:190px;background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px">' +
         '<button id="sia-esp-analisar" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:var(--r-btn,14px);cursor:pointer">' +
         (e.buscando ? 'Comparando...' : 'Comparar') + '</button></div></div>';
     } else {
       h += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
         '<input id="sia-esp-termo" value="' + esc(e.termo || '') + '" placeholder="digite o termo que o comprador pesquisa" ' +
-        'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px">' +
+        'style="flex:1;min-width:200px;background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px">' +
         '<button id="sia-esp-ir" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:var(--r-btn,14px);cursor:pointer">' + (e.buscando ? 'Espiando...' : 'Espiar') + '</button></div>';
     }
 
@@ -3905,7 +3905,7 @@
     // linha do Radar parecia nao fazer nada: a tela voltava a desenhar o
     // proprio Radar e o resultado nunca aparecia.
     if (e.buscando) {
-      return h + '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:18px;margin-top:12px">' +
+      return h + '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:18px;margin-top:12px">' +
         '<div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">' +
         '<span style="width:9px;height:9px;border-radius:50%;background:var(--mk);display:inline-block"></span>' +
         '<b style="font-size:15px;color:var(--t0)">Espiando "' + esc(e.termo || '') + '"</b></div>' +
@@ -3916,7 +3916,7 @@
         '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:6px">Nao consegui espiar "' + esc(e.termo || '') + '"</div>' +
         '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(e.erro) + '</div>' +
         '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-top:9px">Confira se voce esta logada em <b>shopee.com.br</b>, nao so no Seller Centre, e recarregue esta pagina.</div>' +
-        '<button data-voltar-radar="1" style="margin-top:12px;background:var(--b2);border:1px solid var(--li2);color:var(--t0);font-family:inherit;font-size:13px;padding:9px 15px;border-radius:var(--r-btn,14px);cursor:pointer">Voltar ao Radar</button></div>';
+        '<button data-voltar-radar="1" style="margin-top:12px;background:var(--b0);border:1px solid var(--li2);color:var(--t0);font-family:inherit;font-size:13px;padding:9px 15px;border-radius:var(--r-btn,14px);cursor:pointer">Voltar ao Radar</button></div>';
     }
 
     /* ---- RADAR EM LISTA (desativado: virou seletor) ---- */
@@ -3932,7 +3932,7 @@
           else if (L.barreira && L.meuFat >= L.barreira) { txt = 'voce vende mais que eles'; cor = 'var(--vd)'; }
           else if (L.barreira) { txt = 'eles vendem ' + fmt(L.barreira / L.meuFat, 1) + 'x mais que voce'; cor = L.barreira / L.meuFat > 2 ? 'var(--rd)' : 'var(--am)'; }
         }
-        h += '<button data-espiar="' + esc(L.termo) + '" data-prod="' + esc(L.produto) + '" style="display:block;width:100%;text-align:left;cursor:pointer;font-family:inherit;background:var(--b2);border:1px solid var(--li);border-left:3px solid ' + cor + ';border-radius:18px;padding:14px 15px;margin-bottom:9px">' +
+        h += '<button data-espiar="' + esc(L.termo) + '" data-prod="' + esc(L.produto) + '" style="display:block;width:100%;text-align:left;cursor:pointer;font-family:inherit;background:var(--b0);border:1px solid var(--li);border-left:3px solid ' + cor + ';border-radius:18px;padding:14px 15px;margin-bottom:9px">' +
           '<div style="display:flex;gap:8px;align-items:center">' +
           '<span style="font-family:monospace;font-size:15px;color:' + cor + ';width:26px">' + posTxt + '</span>' +
           '<span style="flex:1;font-size:12.5px">' + esc(String(L.produto).slice(0, 52)) + '</span>' +
@@ -3988,9 +3988,9 @@
       }
 
       h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 10px">' +
-        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">ANUNCIOS</div><div style="font-size:20px;color:var(--mk)">' + nAds + '<span style="font-size:12px;color:var(--t2)">/' + lista.length + '</span></div></div>' +
-        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">PRECO TOP 5</div><div style="font-size:20px">' + (b && b.preco != null ? 'R$' + fmt(b.preco, 0) : '—') + '</div></div>' +
-        '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">BARREIRA/MES</div><div style="font-size:20px;color:var(--vd)">' + (b ? espDinheiro(b.faturamentoMes) : '—') + '</div></div></div>';
+        '<div style="background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">ANUNCIOS</div><div style="font-size:20px;color:var(--mk)">' + nAds + '<span style="font-size:12px;color:var(--t2)">/' + lista.length + '</span></div></div>' +
+        '<div style="background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">PRECO TOP 5</div><div style="font-size:20px">' + (b && b.preco != null ? 'R$' + fmt(b.preco, 0) : '—') + '</div></div>' +
+        '<div style="background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:9px;text-align:center"><div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">BARREIRA/MES</div><div style="font-size:20px;color:var(--vd)">' + (b ? espDinheiro(b.faturamentoMes) : '—') + '</div></div></div>';
 
       for (i = 0; i < lista.length; i++) {
         var x = lista[i];
@@ -4041,7 +4041,7 @@
 
         var falta = (b.faturamentoMes != null && m.faturamentoMes != null) ? b.faturamentoMes - m.faturamentoMes : null;
         var faltaUn = (b.vendasMes != null && m.vendasMes != null) ? Math.round(b.vendasMes - m.vendasMes) : null;
-        h += '<div style="background:var(--b2);border-left:3px solid var(--mk);border-radius:0 9px 9px 0;padding:11px 13px;margin-top:12px;font-size:12px;color:var(--t1);line-height:1.5">';
+        h += '<div style="background:var(--b0);border-left:3px solid var(--mk);border-radius:0 9px 9px 0;padding:11px 13px;margin-top:12px;font-size:12px;color:var(--t1);line-height:1.5">';
         if (falta != null && falta > 0) {
           h += '<b style="color:var(--t0)">Para chegar no topo:</b> faltam <b style="color:var(--mk)">' + espDinheiro(falta) + '/mes</b> para encostar no padrao do topo' +
             (faltaUn > 0 ? ' — em unidades, de ' + m.vendasMes + ' para cerca de ' + fmt(b.vendasMes, 0) + ' vendas/mes.' : '.');
@@ -4201,7 +4201,7 @@
   }
 
   function chip(rot, val, sub, cor) {
-    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:9px 10px">' +
+    return '<div style="background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:9px 10px">' +
       '<div style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2);letter-spacing:.05em">' + rot + '</div>' +
       '<div style="font-family:Bebas Neue,sans-serif;font-size:26px;line-height:1.1;margin-top:3px;color:' + (cor || 'var(--t0)') + '">' + val + '</div>' +
       '<div style="font-size:12px;color:var(--t2);margin-top:2px">' + sub + '</div></div>';
@@ -4213,7 +4213,7 @@
     var h = '';
 
     h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
-      '<button data-voltar="1" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">‹ voltar</button>' +
+      '<button data-voltar="1" style="background:var(--b0);border:1px solid var(--li2);color:var(--t1);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">‹ voltar</button>' +
       '<div style="flex:1"><div style="font-size:14px;font-weight:600;line-height:1.25">' + esc(String(R.nome).slice(0, 62)) + '</div>' +
       '<div style="font-family:monospace;font-size:9.5px;color:var(--t2)">' + (R.tipo === 'produto' ? 'produto · ID ' + esc(R.idProduto || '—') : 'campanha · ' + esc(R.idCamp || '—')) + '</div></div></div>';
 
@@ -4271,7 +4271,7 @@
     if (!custoProd) {
       var lp = listaProdutos();
       if (lp.length) {
-        h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:9px 11px;margin-top:9px">' +
+        h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:9px 11px;margin-top:9px">' +
           '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);margin-bottom:6px">QUAL PRODUTO E ESTA CAMPANHA?</div>' +
           '<div style="display:flex;gap:6px"><select id="sia-vinc" style="flex:1;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:7px;color:var(--t0);font-size:11.5px"><option value="">escolha o produto...</option>';
         for (var vp = 0; vp < lp.length; vp++) {
@@ -4281,10 +4281,10 @@
       }
     }
     if (custoProd) {
-      h += '<div style="background:var(--b2);border-left:3px solid var(--vd);border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:var(--t1)">' +
+      h += '<div style="background:var(--b0);border-left:3px solid var(--vd);border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:var(--t1)">' +
         'Margem real de <b style="color:var(--vd)">' + (margemPct != null ? fmt(margemPct, 1) + '%' : '—') + '</b> — custo, embalagem e imposto ja descontados.' + (R.autoNome ? ' <span style="color:var(--am)">Produto identificado pelo nome — confira se e este mesmo.</span>' : '') + '</div></div>';
     } else {
-      h += '<div style="background:var(--b2);border-left:3px solid var(--px);border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:var(--t1)">' +
+      h += '<div style="background:var(--b0);border-left:3px solid var(--px);border-radius:0 8px 8px 0;padding:8px 11px;margin-top:9px;font-size:11.5px;color:var(--t1)">' +
         'Falta o custo deste produto. Cadastre na aba <b style="color:var(--t0)">Cofre</b> e esta sobra vira lucro de verdade.</div></div>';
     }
 
@@ -4300,7 +4300,7 @@
     var equil = temCusto ? teto : null;
     var temAds = !!(pc && (pc.resultado || pc.leilao));
     if (!temAds) {
-      h += '<div style="background:var(--b2);border-left:3px solid var(--px);border-radius:0 9px 9px 0;padding:10px 12px;margin-bottom:11px;font-size:13px;color:var(--t1);line-height:1.5">' +
+      h += '<div style="background:var(--b0);border-left:3px solid var(--px);border-radius:0 9px 9px 0;padding:10px 12px;margin-bottom:11px;font-size:13px;color:var(--t1);line-height:1.5">' +
         'Este produto nao tem anuncio ativo nesta coleta, entao nao ha ROAS para explicar. O julgamento acima vem do funil organico da pagina.</div>';
     } else {
     h += '<div style="border:1px solid var(--li);border-radius:18px;padding:12px;margin-bottom:11px">' +
@@ -4350,7 +4350,7 @@
     } catch (e) { /* noop */ }
     var dp = (R.tipo === 'produto' && R.idProduto && estado.produtos[R.idProduto]) ? diagProduto(R.idProduto) : null;
     var fraseCard = (dp && dp.titulo) || (diag && (diag.titulo || diag.frase)) || cardFraseLocal(pc, pp);
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:13px;margin-bottom:11px">' +
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:13px;margin-bottom:11px">' +
       '<div style="font-size:19px;color:var(--mk);line-height:1.25;margin-bottom:6px">' + esc(fraseCard) + '</div>';
     if (dp && dp.texto) h += '<div style="font-size:13px;color:var(--t1);line-height:1.5;margin-bottom:8px">' + esc(dp.texto) + '</div>';
     var passos = (diag && diag.acoes) || (dp && dp.acao ? [dp.acao] : null);
@@ -4477,7 +4477,7 @@
       if (tkt && cvv && ctrv && metaV) {
         var alvo = (tkt * (cvv / 100) * (ctrv / 100) * 1000) / metaV;
         var acimaAlvo = cpmReal != null && cpmReal > alvo * 1.2;
-        h += '<div style="background:var(--b2);border-left:3px solid ' + (acimaAlvo ? 'var(--am)' : 'var(--vd)') + ';border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+        h += '<div style="background:var(--b0);border-left:3px solid ' + (acimaAlvo ? 'var(--am)' : 'var(--vd)') + ';border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:12px;font-size:13.5px;color:var(--t1);line-height:1.55">' +
           '<b style="color:var(--t0)">Pela matematica deste produto, o CPM que sustenta a meta de ' + fmt(metaV, 1) + 'x e R$' + fmt(alvo, 2) + '.</b> ' +
           (cpmReal == null ? '' : acimaAlvo
             ? 'Voce esta pagando R$' + fmt(cpmReal, 2) + ' \u2014 acima do que ticket, conversao e clique deste produto aguentam nessa meta.'
@@ -4536,7 +4536,7 @@
       ];
     }
     h += '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);letter-spacing:.06em;margin-bottom:7px">' + tituloFunil + '</div>' +
-      '<div style="display:flex;align-items:center;gap:4px;background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:12px 8px">';
+      '<div style="display:flex;align-items:center;gap:4px;background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:12px 8px">';
     for (var i = 0; i < etapas.length; i++) {
       if (i > 0) {
         var ant = null;
@@ -5060,7 +5060,7 @@
     // os numeros que sustentam o veredito
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:1px;background:var(--li);border:1px solid var(--li);border-radius:10px;overflow:hidden;margin-bottom:10px">';
     function celula(rot, val2, cor) {
-      return '<div style="background:var(--b2);padding:9px 6px;text-align:center">' +
+      return '<div style="background:var(--b0);padding:9px 6px;text-align:center">' +
         '<div style="font-family:Space Mono,monospace;font-size:13px;color:' + (cor || 'var(--t0)') + '">' + val2 + '</div>' +
         '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:3px">' + rot + '</div></div>';
     }
@@ -5148,7 +5148,7 @@
         if (!custo) {
           // Calculadora no proprio card, como a Karina desenhou: preencher
           // aqui e mais rapido que ir ao Cofre, e o resultado aparece na hora.
-          h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:12px;margin-top:10px">' +
+          h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:12px;margin-top:10px">' +
             '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:9px">CALCULADORA DE MARGEM</div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
             campoCalc('custo', idProd, 'Custo do produto', (estado.calcTmp && estado.calcTmp[idProd] && estado.calcTmp[idProd].custo) || '') +
@@ -5266,7 +5266,7 @@
   function renderImportador() {
     var g = estado.grupoImportado;
     var h = olho('PLANILHA DO GRUPO DE ANUNCIOS', 'A Shopee nao entrega o desempenho por produto dentro de um Grupo de Anuncios pela API — so o total do grupo. A exportacao do painel entrega. Suba o arquivo aqui e a leitura passa a ser item a item.');
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:16px;margin-bottom:12px">' +
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:16px;margin-bottom:12px">' +
       '<div style="font-size:13.5px;color:var(--t1);line-height:1.6;margin-bottom:12px">' +
       '<b style="color:var(--t0)">Como pegar:</b> Shopee Ads &rsaquo; abra o Grupo de Anuncios &rsaquo; Exportar. ' +
       'Aceita CSV ou XLSX salvo como CSV.</div>' +
@@ -5563,7 +5563,7 @@
     var filtro = (estado.buscaPalavra || '').toLowerCase().trim();
     var h = '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
       '<input id="sia-kw-busca" value="' + esc(estado.buscaPalavra || '') + '" placeholder="filtrar esta lista" ' +
-      'style="flex:1;min-width:200px;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px"></div>';
+      'style="flex:1;min-width:200px;background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px"></div>';
 
     h += '<div class="leitura"><div class="fr">' +
       (perdidas.length ? '<span class="w">' + fmt(somaP, 0) + ' buscas por mes</span> em termos que voce nao usa.'
@@ -5659,7 +5659,7 @@
     }
     var C = estado.compResultado;
     if (!C || C.id !== idProduto) {
-      return '<div data-comparar="' + esc(idProduto) + '" style="cursor:pointer;background:var(--b2);border:1px dashed var(--li2);border-radius:16px;padding:13px 15px;margin-top:10px;font-size:13.5px;color:var(--mk);text-align:center">' +
+      return '<div data-comparar="' + esc(idProduto) + '" style="cursor:pointer;background:var(--b0);border:1px dashed var(--li2);border-radius:16px;padding:13px 15px;margin-top:10px;font-size:13.5px;color:var(--mk);text-align:center">' +
         'Comparar com os 3 que mais vendem nesta busca' + '</div>';
     }
     if (C.erro) return '<div class="nota" style="color:var(--am)">' + esc(C.erro) + '</div>';
@@ -5790,7 +5790,7 @@
         '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">' +
         '<span style="font-size:14px;color:var(--t1)">' + esc(it.rot) + '</span>' +
         '<span style="font-family:Space Mono,monospace;font-size:13px;color:var(--t0)">' + esc(it.txt) + '</span></div>' +
-        '<div style="height:8px;background:var(--b2);border-radius:99px;overflow:hidden">' +
+        '<div style="height:8px;background:var(--b0);border-radius:99px;overflow:hidden">' +
         '<div style="height:100%;width:' + pct.toFixed(1) + '%;background:' + (it.cor || 'var(--mk)') + ';border-radius:99px"></div></div></div>';
     }
     return h + '</div>';
@@ -6110,7 +6110,7 @@
   ];
   function renderProgresso(etapaAtual, pct) {
     var p2 = Math.max(3, Math.min(100, pct || 0));
-    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:16px;margin-top:12px">' +
+    return '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:16px;margin-top:12px">' +
       '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">' +
       '<span style="width:9px;height:9px;border-radius:50%;background:var(--mk);display:inline-block"></span>' +
       '<b style="font-size:14.5px;color:var(--t0)">' + esc(etapaAtual || 'Trabalhando...') + '</b></div>' +
@@ -6150,8 +6150,8 @@
     if (S.markdown) {
       h += '<div style="display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap">' +
         '<button id="sia-sem-pdf" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:var(--r-btn,14px);cursor:pointer">Salvar em PDF</button>' +
-        '<button id="sia-sem-novo" style="background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:13px;padding:11px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Gerar de novo</button></div>';
-      h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:18px;font-size:14.5px;color:var(--t1);line-height:1.65">' + mdParaHtml(S.markdown) + '</div>';
+        '<button id="sia-sem-novo" style="background:var(--b0);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:13px;padding:11px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Gerar de novo</button></div>';
+      h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:18px;font-size:14.5px;color:var(--t1);line-height:1.65">' + mdParaHtml(S.markdown) + '</div>';
     }
     return h;
   }
@@ -6251,9 +6251,9 @@
     if (R.markdown) {
       h += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
         '<button id="sia-rel-pdf" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:13.5px;padding:11px 18px;border-radius:var(--r-btn,14px);cursor:pointer">Salvar em PDF</button>' +
-        '<button id="sia-rel-copiar" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Copiar texto</button>' +
-        '<button id="sia-rel-novo" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Gerar outro</button></div>';
-      h += '<div id="sia-rel-corpo" style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:18px;font-size:14px;line-height:1.65;color:var(--t1);max-height:62vh;overflow:auto">' + mdParaHtml(R.markdown) + '</div>';
+        '<button id="sia-rel-copiar" style="background:var(--b0);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Copiar texto</button>' +
+        '<button id="sia-rel-novo" style="background:var(--b0);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:11px 16px;border-radius:var(--r-btn,14px);cursor:pointer">Gerar outro</button></div>';
+      h += '<div id="sia-rel-corpo" style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:18px;font-size:14px;line-height:1.65;color:var(--t1);max-height:62vh;overflow:auto">' + mdParaHtml(R.markdown) + '</div>';
       return h;
     }
 
@@ -6265,7 +6265,7 @@
       '<div class="ex">Compara o mes escolhido com o anterior e devolve o diagnostico no formato dos seus relatorios, com plano tatico de 30 dias e projecao com lucro.</div></div>';
 
     h += olho('MES DO RELATORIO');
-    h += '<select id="sia-rel-mes" style="width:100%;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:10px">';
+    h += '<select id="sia-rel-mes" style="width:100%;background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:12px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:10px">';
     for (var i = 0; i < meses.length; i++) h += '<option value="' + meses[i].v + '"' + (meses[i].v === sel ? ' selected' : '') + '>' + meses[i].r + '</option>';
     h += '</select>';
     h += '<div class="nota">Atual: <b>' + fa.rotulo + '</b><br>Anterior: <b>' + fp.rotulo + '</b></div>';
@@ -6274,7 +6274,7 @@
     // contraditorio — e pior: escondia o botao, e a pessoa clicava num lugar
     // onde nao havia botao nenhum e nada acontecia.
 
-    h += '<div style="background:var(--b2);border-left:3px solid var(--vd);border-radius:0 16px 16px 0;padding:13px 15px;margin:14px 0;font-size:13.5px;color:var(--t1);line-height:1.55">' +
+    h += '<div style="background:var(--b0);border-left:3px solid var(--vd);border-radius:0 16px 16px 0;padding:13px 15px;margin:14px 0;font-size:13.5px;color:var(--t1);line-height:1.55">' +
       '<b style="color:var(--t0)">A coleta e automatica.</b> Ao gerar, a Seller.IA le os dois meses direto da Shopee, um de cada vez, sem voce precisar trocar nada no painel. ' +
       'Leva alguns minutos porque sao duas leituras completas da conta.</div>';
 
@@ -6825,7 +6825,7 @@
   function renderChamadaCerebro() {
     if (estado.fonteVeredito === 'cerebro') return '';
     if (!Object.keys(estado.campanhas).length && !Object.keys(estado.produtos).length) return '';
-    return '<div style="background:var(--b2);border:1px solid var(--li);border-radius:16px;padding:13px;margin-top:14px">' +
+    return '<div style="background:var(--b0);border:1px solid var(--li);border-radius:16px;padding:13px;margin-top:14px">' +
       '<div style="font-size:14px;color:var(--t0);font-weight:500;margin-bottom:4px">A analise completa ainda nao rodou</div>' +
       '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:10px">O que esta na tela e a leitura local. A completa traz o diagnostico da propria Shopee, o piso de ROAS pela sua margem e a leitura por formato de anuncio.</div>' +
       '<button id="sia-analisar-agora" style="background:var(--mk);border:none;color:#fff;font-weight:600;font-size:13px;padding:9px 16px;border-radius:var(--r-btn,14px);cursor:pointer">' +
@@ -6886,7 +6886,7 @@
 
   function renderBannerConta() {
     if (!estado.loja) {
-      return '<div style="background:var(--b2);border-left:3px solid var(--am);border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1)">Identificando a loja... navegue uma vez no painel para a Seller.IA reconhecer a conta.</div>';
+      return '<div style="background:var(--b0);border-left:3px solid var(--am);border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1)">Identificando a loja... navegue uma vez no painel para a Seller.IA reconhecer a conta.</div>';
     }
     var n = Object.keys(estado.campanhas).length, p = Object.keys(estado.produtos).length;
     var vazio = (n + p) === 0;
@@ -6895,13 +6895,13 @@
     var cor = vazio ? 'var(--am)' : 'var(--vd)';
     var rodando = estado.coletaProgresso !== null;
     if (vazio && rodando) {
-      return '<div style="background:var(--b2);border-left:3px solid var(--mk);border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' +
+      return '<div style="background:var(--b0);border-left:3px solid var(--mk);border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' +
         'Lendo <b>' + esc(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> agora \u2014 ' + esc(String(estado.coletaProgresso)) + '</div>';
     }
     var txt = vazio
       ? '<b>' + sig(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> ainda nao foi lida nesta sessao.'
       : '<b>' + sig(estado.loja.nome || ('loja ' + estado.loja.shop_id)) + '</b> — dado desta conta, lido ' + (lidoHa() || 'agora') + '.';
-    return '<div style="background:var(--b2);border-left:3px solid ' + cor + ';border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' + txt +
+    return '<div style="background:var(--b0);border-left:3px solid ' + cor + ';border-radius:0 16px 16px 0;padding:11px 13px;margin-bottom:12px;font-size:13px;color:var(--t1);line-height:1.5">' + txt +
       (vazio ? ' <button id="sia-coletar-agora" style="background:var(--mk);border:none;color:var(--t0);font-weight:600;font-size:12px;padding:6px 12px;border-radius:7px;cursor:pointer;margin-left:6px">Coletar esta conta</button>' : '') +
       '<div style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2);margin-top:6px">' +
       '<label style="cursor:pointer"><input type="checkbox" id="sia-auto-troca"' + (estado.autoColeta ? ' checked' : '') + '> ler a conta sozinha ao abrir</label>' +
@@ -6985,7 +6985,7 @@
       return '<div><div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-bottom:5px">' + rot + '</div>' +
         '<div style="display:flex;align-items:center;gap:6px">' +
         '<input data-prec="' + id2 + '" value="' + esc(String(valor || '')) + '" placeholder="0,00" ' +
-        'style="flex:1;background:var(--b2);border:1px solid var(--li);border-radius:8px;padding:10px 11px;color:var(--t0);font-family:Space Mono,monospace;font-size:14px">' +
+        'style="flex:1;background:var(--b0);border:1px solid var(--li);border-radius:8px;padding:10px 11px;color:var(--t0);font-family:Space Mono,monospace;font-size:14px">' +
         (sufixo ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2)">' + sufixo + '</span>' : '') + '</div>' +
         (ajuda ? '<div style="font-size:11.5px;color:var(--t3);margin-top:4px;line-height:1.4">' + ajuda + '</div>' : '') + '</div>';
     }
@@ -7039,7 +7039,7 @@
     var sobra = preco - com - custo - emb - impV;
     var pisoRoasP = 100 / margem;
 
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:17px;margin-bottom:12px">' +
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:17px;margin-bottom:12px">' +
       '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">O PRECO QUE ENTREGA ESSA MARGEM</div>' +
       '<div style="font-family:Bebas Neue,sans-serif;font-size:46px;line-height:1;color:var(--mk)">' + reais(preco) + '</div>' +
       '<div style="font-size:13.5px;color:var(--t2);margin-top:6px">deixa ' + reais(sobra) + ' por venda</div></div>';
@@ -7049,7 +7049,7 @@
         '<span>' + rot + '</span><span style="font-family:Space Mono,monospace">' + v2 + '</span></div>';
     }
     h += olho('DE ONDE SAI CADA REAL');
-    h += '<div style="background:var(--b2);border:1px solid var(--li);border-radius:18px;padding:14px">';
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:14px">';
     h += ln2('Preco de venda', reais(preco), 'var(--t0)');
     h += ln2('\u2212 Comissao Shopee', '\u2212 ' + reais(com), 'var(--t2)');
     h += ln2('\u2212 Custo do produto', '\u2212 ' + reais(custo), 'var(--t2)');
@@ -7101,10 +7101,10 @@
     h += '<div class="nota" style="margin-top:0">Cadastre o custo <b>uma vez</b> por produto. Embalagem e imposto sao da loja inteira — preenche aqui em cima e vale pra todos. Sem isso, o card mostra teto, nao lucro.</div>';
 
     h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0">' +
-      '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:10px">' +
+      '<div style="background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:10px">' +
       '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">EMBALAGEM POR PEDIDO (R$)</div>' +
       '<input id="sia-cf-emb" value="' + (cf.embalagem ? String(cf.embalagem).replace('.', ',') : '') + '" placeholder="0,00" style="width:100%;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:7px 9px;color:var(--t0);font-family:monospace;font-size:13px;margin-top:5px"></div>' +
-      '<div style="background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:10px">' +
+      '<div style="background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:10px">' +
       '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">IMPOSTO SOBRE A VENDA (%)</div>' +
       '<input id="sia-cf-imp" value="' + (cf.imposto ? String(cf.imposto).replace('.', ',') : '') + '" placeholder="0" style="width:100%;background:var(--b1);border:1px solid var(--li);border-radius:7px;padding:7px 9px;color:var(--t0);font-family:monospace;font-size:13px;margin-top:5px"></div></div>';
 
@@ -7490,7 +7490,7 @@
     }
     if (resto.length) {
       h += olho('VER UM PRODUTO ESPECIFICO');
-      h += '<select id="sia-prod-sel" style="width:100%;background:var(--b2);border:1px solid var(--li);border-radius:10px;padding:13px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:11px">' +
+      h += '<select id="sia-prod-sel" style="width:100%;background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:13px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:11px">' +
         '<option value="">Escolha entre os outros ' + resto.length + ' produtos...</option>';
       resto.forEach(function (c) {
         var marca = c.nivel === 'vermelho' ? '\u25cf ' : (c.nivel === 'amarelo' ? '\u25cb ' : '');
@@ -7769,7 +7769,7 @@
       // seletor para qualquer outra
       if (idsC.length > melhores.length + piores.length) {
         h2 += olho('ANALISAR OUTRA CAMPANHA', 'Escolha qualquer campanha da conta para ver a analise completa, com margem, leilao e palavras.');
-        h2 += '<select id="sia-camp-sel" style="width:100%;background:var(--b2);border:1px solid var(--li);border-radius:9px;padding:12px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:10px">' +
+        h2 += '<select id="sia-camp-sel" style="width:100%;background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:12px;color:var(--t0);font-family:inherit;font-size:14px;margin-bottom:10px">' +
           '<option value="">Escolha uma campanha...</option>';
         var ordSel = idsC.slice().sort(function (a, b) {
           return ((estado.campanhas[b].metricas || {}).gasto || 0) - ((estado.campanhas[a].metricas || {}).gasto || 0);
