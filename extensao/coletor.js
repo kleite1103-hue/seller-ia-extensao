@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.0.0';
+  var VERSAO = '1.0.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -547,6 +547,23 @@
   function processarPacote(pacote) {
     // guarda o periodo do pacote para carimbar as entidades criadas por ele
     PERIODO_PACOTE = (pacote && pacote.periodo) || null;
+
+    // IDENTIDADE PELA URL. Depender so de shop_info deixava a conta sem dono
+    // ate essa rota chegar — e todo dado lido antes disso entrava sem carimbo.
+    // O SPC_CDS muda a cada conta e vem em quase toda chamada do painel.
+    try {
+      var mSpc = String(pacote && pacote.url || '').match(/SPC_CDS=([\w-]{8,})/);
+      if (mSpc && mSpc[1] !== estado.spcCorrente) {
+        if (estado.spcCorrente) {
+          // sessao diferente = outra conta: limpa tudo antes de aceitar dado
+          estado.campanhas = {}; estado.produtos = {};
+          estado.conta = { campos: {}, atualizadoEm: null };
+          try { if (window.SIA_Diamantes && window.SIA_Diamantes.zerar) window.SIA_Diamantes.zerar('SPC_CDS mudou'); } catch (e2) { }
+          MAPA_ADS = null;
+        }
+        estado.spcCorrente = mSpc[1];
+      }
+    } catch (e) { /* noop */ }
     // ULTIMA LINHA DE DEFESA contra dado de outra conta. Se o pacote foi
     // carimbado com uma loja e ela nao e a atual, descarta. Sem isso, pacote
     // em voo da conta anterior grava na nova.
@@ -1976,7 +1993,7 @@
     /* O seletor irmao nao servia: o botao vem ANTES do painel no HTML e o til
        so alcanca irmaos posteriores. Classe direta resolve, e precisa vir
        DEPOIS da regra base para vencer na cascata. */
-    '.botao.escondido{opacity:0;pointer-events:none;transform:scale(.75)}' +
+
     '.botao svg{width:100%;height:100%}' +
     '.painel{position:fixed;top:0;right:0;height:100vh;width:min(760px,100vw);background:var(--b1);border-left:1px solid var(--li);border-radius:var(--r-painel,30px) 0 0 var(--r-painel,30px);box-shadow:-18px 0 60px var(--sh),0 6px 18px var(--shb);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
     '.painel.aberto{transform:translateX(0)}' +
@@ -2180,11 +2197,9 @@
   }
 
   ligar('sia-abrir', 'click', function () {
-    var pn = $('sia-painel'), bt = $('sia-abrir');
-    pn.classList.toggle('aberto');
-    // o botao flutuante sobre o rodape laranja era o "cinza escuro fixo" que
-    // a Karina via: com o painel aberto ele nao tem funcao nenhuma
-    if (bt) bt.classList.toggle('escondido', pn.classList.contains('aberto'));
+    // O botao fica SEMPRE visivel, como era antes de eu mexer: esconder
+    // obrigava a fechar o painel para reabrir.
+    $('sia-painel').classList.toggle('aberto');
     render();
   });
   ligar('sia-abrir', 'dblclick', function (ev) {
@@ -2361,8 +2376,6 @@
   });
   ligar('sia-fechar', 'click', function () {
     $('sia-painel').classList.remove('aberto');
-    var bt2 = $('sia-abrir');
-    if (bt2) bt2.classList.remove('escondido');
   });
   ligar('sia-limpar', 'click', function () {
     estado.campanhas = {}; estado.produtos = {};
