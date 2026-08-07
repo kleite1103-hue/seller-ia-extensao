@@ -1386,7 +1386,20 @@
   // O COFRE e global e acumulava produto de todas as contas: a Conta 360 le
   // dele, entao continuava mostrando produto da loja anterior mesmo depois de
   // o coletor carimbar os pacotes. Zerar na troca e obrigatorio.
+  // O COFRE nao tinha dono. Todas as protecoes de conta que eu fiz foram no
+  // estado do coletor, mas a lista de produtos da tela le DAQUI — por isso
+  // produto de outra loja continuava aparecendo depois de cada correcao.
+  // Agora ele sabe de quem e, e se recusa a aceitar dado de outra conta.
+  var LOJA_DONA = null;
+  function definirLoja(id) {
+    var novo = id ? String(id) : null;
+    if (!novo) return;
+    if (LOJA_DONA && LOJA_DONA !== novo) { zerar('troca de conta: ' + LOJA_DONA + ' -> ' + novo); }
+    LOJA_DONA = novo;
+  }
+  function lojaDona() { return LOJA_DONA; }
   function zerar(motivo) {
+    LOJA_DONA = null;
     COFRE.porProduto = {};
     COFRE.porCampanha = {};
     COFRE.conta = {};
@@ -1401,5 +1414,5 @@
     COFRE.busca = {};
     try { console.debug('[Seller.IA] cofre zerado:', motivo || ''); } catch (e) { /* noop */ }
   }
-  window.SIA_Diamantes = { versao: VERSAO, processar: processar, estado: estado, resumo: resumo, persistir: persistir, carregar: carregar, zerar: zerar };
+  window.SIA_Diamantes = { versao: VERSAO, processar: processar, estado: estado, resumo: resumo, persistir: persistir, carregar: carregar, zerar: zerar, definirLoja: definirLoja, lojaDona: lojaDona };
 })();

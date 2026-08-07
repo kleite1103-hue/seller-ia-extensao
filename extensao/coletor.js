@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.99.1';
+  var VERSAO = '1.0.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -193,12 +193,17 @@
     var lojaC = estado.loja ? String(estado.loja.shop_id) : null;
     if (!estado.campanhas[id]) {
       if (Object.keys(estado.campanhas).length >= 280) return { id: id, metricas: {} };
-      estado.campanhas[id] = { id: id, metricas: {}, loja: lojaC };
+      estado.campanhas[id] = { id: id, metricas: {}, loja: lojaC, periodo: PERIODO_PACOTE };
     } else if (lojaC && estado.campanhas[id].loja && estado.campanhas[id].loja !== lojaC) {
-      estado.campanhas[id] = { id: id, metricas: {}, loja: lojaC };
+      estado.campanhas[id] = { id: id, metricas: {}, loja: lojaC, periodo: PERIODO_PACOTE };
     } else if (lojaC && !estado.campanhas[id].loja) {
       estado.campanhas[id].loja = lojaC;
     }
+    // periodo diferente do ultimo lido: as metricas antigas nao valem mais
+    if (PERIODO_PACOTE && estado.campanhas[id].periodo && estado.campanhas[id].periodo !== PERIODO_PACOTE) {
+      estado.campanhas[id].metricas = {};
+    }
+    if (PERIODO_PACOTE) estado.campanhas[id].periodo = PERIODO_PACOTE;
     return estado.campanhas[id];
   }
 
@@ -540,6 +545,8 @@
   /* ============================== RECEPCAO ============================== */
   var lojaDoCiclo = null;   // de qual loja e a coleta em andamento
   function processarPacote(pacote) {
+    // guarda o periodo do pacote para carimbar as entidades criadas por ele
+    PERIODO_PACOTE = (pacote && pacote.periodo) || null;
     // ULTIMA LINHA DE DEFESA contra dado de outra conta. Se o pacote foi
     // carimbado com uma loja e ela nao e a atual, descarta. Sem isso, pacote
     // em voo da conta anterior grava na nova.
@@ -1565,7 +1572,7 @@
               return (fimC ? fimC >= corte : iniC >= corte);
             });
           }
-          processarPacote({ url: '/api/pas/v1/homepage/query/', metodo: 'POST', corpo: corpoC, dados: rc.dados, ts: Date.now(), loja: lojaDoCiclo });
+          processarPacote({ url: '/api/pas/v1/homepage/query/', metodo: 'POST', corpo: corpoC, dados: rc.dados, ts: Date.now(), loja: lojaDoCiclo, periodo: ini + '_' + fimAds });
           var lote = rc.dados.data && rc.dados.data.entry_list ? rc.dados.data.entry_list.length : 0;
           prog((faseAtual.estado === 'ongoing' ? 'Campanhas ativas' : 'Campanhas pausadas') + ': ' + Object.keys(estado.campanhas).length + '...');
           if (lote < 20) break;
@@ -1963,7 +1970,7 @@
     '.painel,.painel *{color:inherit}' +
     'select,input,textarea,button{color:var(--t0);background-color:var(--b2)}' +
     'option{background:var(--b2);color:var(--t0)}' +
-    '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;z-index:2147483001;border-radius:17px;cursor:pointer;box-shadow:0 8px 24px var(--sh),0 2px 6px var(--shb);transition:transform .15s;background:none;border:none;padding:0;overflow:hidden}' +
+    '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;z-index:2147483010;border-radius:17px;cursor:pointer;box-shadow:0 8px 24px var(--sh),0 2px 6px var(--shb);transition:transform .15s;background:none;border:none;padding:0;overflow:hidden}' +
     '.botao svg{display:block;width:100%;height:100%}' +
     '.botao:hover{transform:scale(1.08)}' +
     /* O seletor irmao nao servia: o botao vem ANTES do painel no HTML e o til
@@ -5220,11 +5227,15 @@
           if (/competitiveness/.test(String(pcC.eixos[ex].eixo || ''))) { eixoComp = pcC.eixos[ex]; break; }
         }
       }
-      var TRAD_NOTA = { good: 'boa', normal: 'media', bad: 'ruim', na: '\u2014' };
+      var TRAD_NOTA = {
+        good: 'boa', normal: 'media', bad: 'ruim', poor: 'ruim', na: '\u2014',
+        excellent: 'excelente', fair: 'razoavel', low: 'baixa', high: 'alta',
+        medium: 'media', healthy: 'saudavel', limited: 'limitada'
+      };
       var valComp = compet != null ? fmt(compet, 0) + '/100'
-        : (eixoComp ? (TRAD_NOTA[eixoComp.nota] || eixoComp.nota) : '\u2014');
+        : (eixoComp ? (TRAD_NOTA[String(eixoComp.nota || '').toLowerCase()] || eixoComp.nota) : '\u2014');
       var corComp = compet != null ? (compet < 40 ? 'var(--rd)' : null)
-        : (eixoComp && eixoComp.nota === 'bad' ? 'var(--rd)' : (eixoComp && eixoComp.nota === 'good' ? 'var(--vd)' : null));
+        : (eixoComp && /bad|poor|low/.test(String(eixoComp.nota)) ? 'var(--rd)' : (eixoComp && /good|excellent|healthy/.test(String(eixoComp.nota)) ? 'var(--vd)' : null));
       h += celula('COMPETITIVIDADE', valComp, corComp);
       h += celula('IMPRESSOES', impr != null ? fmt(impr, 0) : '\u2014');
       h += celula('GMV', gmv != null ? reais(gmv) : '\u2014');
@@ -5234,15 +5245,22 @@
           dica('Estes sao os vereditos que a propria Shopee calcula para a campanha e nao mostra em lugar nenhum do painel. Competitividade e como o seu preco e lance se comparam com quem disputa a mesma vitrine.') + '</div>';
         h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
         var TRAD_EIXO = {
-          competitiveness_v2: 'competitividade', budget_v2: 'orcamento', roi_target_v2: 'meta de ROAS',
-          continuance_v2: 'continuidade', listing_v2: 'anuncio', bid_v2: 'lance', keyword_v2: 'palavras'
+          competitiveness: 'competitividade', competitiveness_v2: 'competitividade',
+          budget: 'orcamento', budget_v2: 'orcamento',
+          roi_target: 'meta de ROAS', roi_target_v2: 'meta de ROAS',
+          continuance: 'continuidade', continuance_v2: 'continuidade',
+          listing: 'anuncio', listing_v2: 'anuncio',
+          bid: 'lance', bid_v2: 'lance', bidding: 'lance',
+          keyword: 'palavras', keyword_v2: 'palavras',
+          creative: 'criativo', audience: 'publico', placement: 'posicionamento',
+          conversion: 'conversao', traffic: 'trafego', delivery: 'entrega do anuncio'
         };
         for (var ez = 0; ez < pcC.eixos.length; ez++) {
           var E2 = pcC.eixos[ez];
           var rot2 = TRAD_EIXO[E2.eixo] || String(E2.eixo || '').replace(/_v2$/, '').replace(/_/g, ' ');
           var cor2 = E2.nota === 'bad' ? 'var(--rd)' : (E2.nota === 'good' ? 'var(--vd)' : 'var(--t2)');
           h += '<span style="font-family:Space Mono,monospace;font-size:10.5px;padding:5px 11px;border-radius:99px;border:1px solid ' + cor2 + ';color:' + cor2 + '">' +
-            esc(rot2) + ': ' + esc(TRAD_NOTA[E2.nota] || E2.nota) + '</span>';
+            esc(rot2) + ': ' + esc(TRAD_NOTA[String(E2.nota || '').toLowerCase()] || String(E2.nota || '').replace(/_/g, ' ')) + '</span>';
         }
         h += '</div>';
       } else if (pos == null && compet == null) {
@@ -6821,9 +6839,20 @@
       var pl = estado.produtos[id] && estado.produtos[id].loja;
       if (pl && pl !== atual) { delete estado.produtos[id]; n++; }
     }
+    // periodo mais recente entre as campanhas: o que nao for dele sai, porque
+    // somar gasto de recortes diferentes produz o total que nao bate com o
+    // faturamento do periodo
+    var perAtual = null, ts;
     for (id in estado.campanhas) {
-      var cl = estado.campanhas[id] && estado.campanhas[id].loja;
-      if (cl && cl !== atual) { delete estado.campanhas[id]; n++; }
+      var pp2 = estado.campanhas[id] && estado.campanhas[id].periodo;
+      if (!pp2) continue;
+      ts = parseInt(String(pp2).split('_')[1] || '0', 10);
+      if (!perAtual || ts > parseInt(String(perAtual).split('_')[1] || '0', 10)) perAtual = pp2;
+    }
+    for (id in estado.campanhas) {
+      var c2 = estado.campanhas[id] || {};
+      if (c2.loja && c2.loja !== atual) { delete estado.campanhas[id]; n++; continue; }
+      if (perAtual && c2.periodo && c2.periodo !== perAtual) { delete estado.campanhas[id]; n++; }
     }
     return n;
   }
@@ -6868,6 +6897,13 @@
     } catch (e) { /* noop */ }
   }
   function aplicarLoja(nova) {
+    // avisa o Cofre ANTES de qualquer coisa: ele se zera sozinho se a conta
+    // mudou, e passa a recusar dado que nao seja desta loja
+    try {
+      if (nova && nova.shop_id && window.SIA_Diamantes && window.SIA_Diamantes.definirLoja) {
+        window.SIA_Diamantes.definirLoja(nova.shop_id);
+      }
+    } catch (e) { /* noop */ }
     var antigo = estado.loja ? estado.loja.shop_id : null;
     // Se o relatorio esta lendo periodos e a conta muda, os dois blocos
     // ficariam de lojas diferentes. Aborta com aviso em vez de gerar
@@ -7396,6 +7432,7 @@
      por isso um produto com campanha ativa aparecia como "vende bem sem
      nenhum anuncio", e a dica errada ia junto. */
   var MAPA_ADS = null;
+  var PERIODO_PACOTE = null;
   function produtoTemAds(id) {
     if (!id) { MAPA_ADS = MAPA_ADS || {}; return false; }
     if (!MAPA_ADS) {
