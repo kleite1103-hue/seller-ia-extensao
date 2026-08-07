@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.0.1';
+  var VERSAO = '1.0.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2025,8 +2025,8 @@
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
     '.corpo{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px 24px 30px;scrollbar-width:none;background:var(--b1)}' +
     '.corpo::-webkit-scrollbar{width:0;height:0}' +
-    '.rodape{position:relative;flex:none;padding:12px 18px 16px;background:var(--b1)}' +
-    '.rodape button{width:100%;background:var(--mk);border:none;color:#fff;font-family:Outfit,Arial;font-weight:600;font-size:15.5px;padding:16px;border-radius:var(--r-btn,14px);cursor:pointer;box-shadow:0 8px 22px color-mix(in srgb,var(--mk) 34%,transparent)}' +
+    '.rodape{position:relative;flex:none;padding:10px 18px 14px;background:var(--b1);display:flex;justify-content:center}' +
+    '.rodape button{width:auto;min-width:260px;max-width:80%;background:var(--mk);border:none;color:#fff;font-family:Outfit,Arial;font-weight:600;font-size:14.5px;padding:12px 28px;border-radius:999px;cursor:pointer;box-shadow:0 6px 18px color-mix(in srgb,var(--mk) 30%,transparent)}' +
     '.rodape button:hover{background:var(--mk2)}' +
     '.rodape button:disabled{opacity:.65;cursor:default}' +
     /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
@@ -2220,7 +2220,17 @@
       if (voltaA.getAttribute) {
         if (voltaA.tagName === 'INPUT' || voltaA.tagName === 'SELECT' || voltaA.tagName === 'TEXTAREA') return;
         if (voltaA.getAttribute('data-link-externo')) return;
-        if (voltaA.id === 'sia-prec-calcular') { estado.sujo = true; render(); return; }
+        if (voltaA.id === 'sia-prec-calcular') {
+          // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
+          // render recria os campos e a ligacao se perde, entao o valor
+          // digitado nunca chegava em estado.precific e a conta nao saia.
+          estado.precific = estado.precific || {};
+          var campos = corpoEl().querySelectorAll('[data-prec]');
+          for (var cp2 = 0; cp2 < campos.length; cp2++) {
+            estado.precific[campos[cp2].getAttribute('data-prec')] = campos[cp2].value;
+          }
+          estado.sujo = true; render(); return;
+        }
         if (voltaA.id === 'sia-anon-salvar') {
           var ci = $('sia-anon');
           if (ci && ci.value.trim()) {
@@ -2232,7 +2242,17 @@
           return;
         }
         var _cc2 = voltaA.getAttribute('data-calc-calcular');
-        if (_cc2) { estado.sujo = true; render(); return; }
+        if (_cc2) {
+          // idem para a calculadora do card
+          estado.calcTmp = estado.calcTmp || {};
+          estado.calcTmp[_cc2] = estado.calcTmp[_cc2] || {};
+          var camposC = corpoEl().querySelectorAll('[data-calc]');
+          for (var cc3 = 0; cc3 < camposC.length; cc3++) {
+            var pr3 = camposC[cc3].getAttribute('data-calc').split(':');
+            if (pr3[1] === _cc2) estado.calcTmp[_cc2][pr3[0]] = camposC[cc3].value;
+          }
+          estado.sujo = true; render(); return;
+        }
         var _cs2 = voltaA.getAttribute('data-calc-salvar');
         if (_cs2) { salvarCalcDoCard(_cs2); return; }
         var _xc2 = voltaA.getAttribute('data-cofre-excluir');
@@ -2817,6 +2837,16 @@
   }
 
   function salvarCalcDoCard(id) {
+    // le do DOM antes de salvar, pelo mesmo motivo
+    try {
+      estado.calcTmp = estado.calcTmp || {};
+      estado.calcTmp[id] = estado.calcTmp[id] || {};
+      var cs3 = corpoEl().querySelectorAll('[data-calc]');
+      for (var q4 = 0; q4 < cs3.length; q4++) {
+        var pr4 = cs3[q4].getAttribute('data-calc').split(':');
+        if (pr4[1] === id) estado.calcTmp[id][pr4[0]] = cs3[q4].value;
+      }
+    } catch (e) { /* noop */ }
     var tmpC = (estado.calcTmp && estado.calcTmp[id]) || {};
     var vc = numeroPuro(tmpC.custo);
     if (!vc) { mostrarExpl('<b>Preencha o custo do produto</b> para o sistema calcular a margem real.'); return; }
@@ -3385,7 +3415,21 @@
       });
       if (f.naoUsa && f.naoUsa.length) cf += '<div class="ld" style="color:var(--am);font-size:11px">Nao usa: ' + f.naoUsa.join(', ') + ' — canais parados</div>';
     }
-    h += bloco('2 · FUNIL / ORIGEM DO DINHEIRO', cf, 'abra Fluxo de Visitantes na Central de Dados');
+    // O bloco lia de D.funil.canais, mas quem grava a origem das vendas e o
+    // exOrigem, em COFRE.origem — por isso ficava sempre vazio pedindo para
+    // abrir uma tela que a coleta ja le sozinha.
+    if (!cf && D.origem && D.origem.canais && D.origem.canais.length) {
+      for (var oc2 = 0; oc2 < D.origem.canais.length; oc2++) {
+        var cn2 = D.origem.canais[oc2];
+        if (!cn2.pctVendas || cn2.pctVendas < 0.5) continue;
+        cf += '<div class="ld">' + esc(cn2.origem) + ': <b>' + fmt(cn2.pctVendas, 1) + '%</b>' +
+          (cn2.vendas != null ? ' <span style="color:var(--t2);font-size:11px">(' + reais(cn2.vendas) + ')</span>' : '') +
+          (cn2.variacao != null ? varia(cn2.variacao) : '') + '</div>';
+      }
+      if (D.origem.adsPago) cf += '<div class="ld">Shopee Ads: <b>' + reais(D.origem.adsPago) + '</b>' + (D.origem.adsVar != null ? varia(D.origem.adsVar) : '') + '</div>';
+      if (D.origem.afiliados) cf += '<div class="ld">Afiliados: <b>' + reais(D.origem.afiliados) + '</b> <span style="color:var(--t2);font-size:11px">(' + fmt(D.origem.afiliadosRatio, 1) + '% do total)</span></div>';
+    }
+    h += bloco('2 · DE ONDE VEM O DINHEIRO', cf, 'a coleta traz isto sozinha — se estiver vazio, rode a leitura de novo');
 
     // ---- 3) PERFORMANCE DE PRODUTO (top por venda) ----
     var prods = D.produtos ? null : null;
@@ -5535,9 +5579,16 @@
     else if (testeT > testeV) sep = '\t';
 
     // acha a linha que e o cabecalho de verdade
-    var PISTAS = ['produto', 'anuncio', 'anúncio', 'item', 'nome', 'sku', 'campanha', 'despesa', 'gasto', 'roas', 'pedido'];
+    // O CSV da Shopee comeca com o titulo do relatorio, algo como
+    // "Ad Group - EF - Cortador De Biscoito Report - Shopee Brasil", e o
+    // cabecalho real vem varias linhas abaixo. Procurar so nas 15 primeiras
+    // com poucas pistas nao bastava.
+    var PISTAS = ['produto', 'anuncio', 'anúncio', 'item', 'nome', 'sku', 'campanha',
+      'despesa', 'gasto', 'roas', 'pedido', 'impress', 'clique', 'click', 'ctr',
+      'conversa', 'conversã', 'venda', 'gmv', 'custo', 'orcamento', 'orçamento',
+      'expense', 'spend', 'order', 'product', 'name', 'status'];
     var iCab = 0, melhor = -1;
-    for (var L = 0; L < Math.min(linhas.length, 15); L++) {
+    for (var L = 0; L < Math.min(linhas.length, 40); L++) {
       var cols = partir(linhas[L], sep).map(function (x) { return x.toLowerCase(); });
       if (cols.length < 3) continue;
       var pontos = 0;
@@ -5547,8 +5598,12 @@
       if (pontos > melhor) { melhor = pontos; iCab = L; }
     }
     if (melhor < 1) {
-      throw new Error('nao reconheci o cabecalho. As primeiras colunas que li foram: ' +
-        partir(linhas[0], sep).slice(0, 6).join(' | '));
+      // mostra o que existe no arquivo para a pessoa poder me dizer
+      var amostra = [];
+      for (var la = 0; la < Math.min(linhas.length, 6); la++) {
+        amostra.push('linha ' + (la + 1) + ': ' + partir(linhas[la], sep).slice(0, 5).join(' | '));
+      }
+      throw new Error('nao reconheci o cabecalho neste arquivo. Foi isto que eu li:\n' + amostra.join('\n'));
     }
 
     var cab = partir(linhas[iCab], sep).map(function (x) { return x.toLowerCase(); });
@@ -5797,7 +5852,14 @@
       if (C.top3[k].freteGratis) comFrete++;
     }
     if (comCupom >= 2) achados.push({ rot: 'CUPOM', txt: comCupom + ' dos 3 que mais vendem tem cupom ativo na vitrine. Cupom aparece como selo no card e muda a decisao antes do clique.', ruim: true });
-    if (comAds === 0) achados.push({ rot: 'ANUNCIO', txt: 'Nenhum dos tres esta pagando anuncio nesta busca — eles chegaram ali por titulo, preco e avaliacao. Investir mais aqui nao resolve.', ruim: false });
+    // A vitrine so marca ADS quando o anuncio aparece como patrocinado NAQUELA
+    // posicao da busca. Nao marcar nao prova que o concorrente nao anuncia —
+    // eu estava afirmando mais do que o dado permite.
+    if (comAds === 0) {
+      achados.push({ rot: 'ANUNCIO', txt: 'Nenhum dos tres aparece como patrocinado nesta busca: eles estao ali no organico. Isso nao prova que nao anunciam em outros termos, mas mostra que nesta busca a posicao veio de titulo, preco e avaliacao.', ruim: false });
+    } else {
+      achados.push({ rot: 'ANUNCIO', txt: comAds + ' de 3 aparecem como patrocinados nesta busca. Voce disputa a mesma posicao pagando.', ruim: false });
+    }
 
     var h = '<div style="background:var(--b1);border:1px solid var(--li);border-radius:18px;padding:14px;margin-top:11px">' +
       '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">O QUE OS 3 QUE MAIS VENDEM FAZEM DIFERENTE</div>';
@@ -7583,7 +7645,22 @@
     var lidos = [];
     var doCerebro = vereditosDe('produto');
     if (doCerebro.length) {
-      // o cerebro julgou: a extensao so desenha
+      // O cerebro julga so o que tem volume, mas o SELETOR precisa ter todos:
+      // a pessoa escolhe qual produto quer analisar, nao a ferramenta.
+      var julgados = {};
+      for (var jc = 0; jc < doCerebro.length; jc++) julgados[doCerebro[jc].id] = 1;
+      for (var idr in estado.produtos) {
+        if (julgados[idr]) continue;
+        var prr = estado.produtos[idr] || {}, mmr = prr.metricas || {};
+        if (!ehProdutoDeVerdade(prr.nome)) continue;
+        lidos.push({
+          id: idr, nome: prr.nome || ('Produto ' + idr),
+          venda: mmr.vendas_pagas || 0, nivel: 'cinza',
+          titulo: 'Sem volume para julgar',
+          texto: 'Este produto nao tem visitas suficientes no periodo para uma leitura confiavel. Ele aparece aqui para voce poder abrir e ver os numeros.',
+          acao: ''
+        });
+      }
       for (var c = 0; c < doCerebro.length; c++) {
         var vv = doCerebro[c];
         var pr = estado.produtos[vv.id] || {};
