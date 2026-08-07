@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.4.0';
+  var VERSAO = '1.5.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2034,6 +2034,14 @@
     '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;z-index:2147483010;border-radius:17px;cursor:pointer;box-shadow:0 8px 24px var(--sh),0 2px 6px var(--shb);transition:transform .15s;background:none;border:none;padding:0;overflow:hidden}' +
     '.botao svg{display:block;width:100%;height:100%}' +
     '.botao:hover{transform:scale(1.08)}' +
+    '.menu-flut{position:fixed;bottom:84px;right:22px;z-index:2147483009;background:var(--b0);border:1px solid var(--li);border-radius:18px;box-shadow:0 14px 40px var(--sh),0 3px 10px var(--shb);padding:7px;min-width:212px;opacity:0;transform:translateY(8px) scale(.96);pointer-events:none;transition:opacity .16s,transform .16s}' +
+    '.menu-flut.on{opacity:1;transform:none;pointer-events:auto}' +
+    '.menu-flut button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--t1);font-family:Outfit,Arial;font-size:13.5px;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}' +
+    '.menu-flut button:hover{background:var(--b2);color:var(--t0)}' +
+    '.menu-flut button b{color:var(--mk);font-weight:600}' +
+    '.menu-flut .sep{height:1px;background:var(--li);margin:5px 8px}' +
+    '.menu-flut .rod{font-family:Space Mono,monospace;font-size:9.5px;color:var(--t3);padding:7px 12px 4px;letter-spacing:.05em}' +
+
     /* O seletor irmao nao servia: o botao vem ANTES do painel no HTML e o til
        so alcanca irmaos posteriores. Classe direta resolve, e precisa vir
        DEPOIS da regra base para vencer na cascata. */
@@ -2136,6 +2144,14 @@
     '.tag-ads{color:var(--mk)}.tag-conta{color:var(--px)}.tag-cadastro{color:var(--vd)}.tag-marketing{color:var(--am)}.tag-outra{color:var(--t2)}.tag-afiliados{color:#e91e8c}.tag-performance{color:#3ab7f5}' +
     '</style>' +
     '<button class="botao" id="sia-abrir" title="Seller.IA">' + LOGO + '</button>' +
+    '<div class="menu-flut" id="sia-menu">' +
+    '  <button data-menu="atualizar"><span>\u21bb</span><span>Buscar atualizacao</span></button>' +
+    '  <button data-menu="suporte"><span>\u2709</span><span>Falar com o suporte</span></button>' +
+    '  <button data-menu="clipseller"><span>\u25b6</span><span>Abrir o ClipSeller</span></button>' +
+    '  <div class="sep"></div>' +
+    '  <button data-menu="assinatura"><span>\u2605</span><span>Minha assinatura</span></button>' +
+    '  <div class="rod" id="sia-menu-versao"></div>' +
+    '</div>' +
     '<div class="painel" id="sia-painel">' +
     '  <div class="cab">' +
     '    <span class="marca-ic">S<em>.</em></span>' +
@@ -2143,7 +2159,6 @@
     '    <span class="info" id="sia-info"></span>' +
     '    <div class="acoes">' +
     '      <button id="sia-gravar" class="rec" title="Modo gravacao: borra nomes da conta"><i></i>REC</button>' +
-    '      <button id="sia-esp-exportar" class="ico" title="Baixar dados brutos da ultima busca do Espiao">&#8681;</button>' +
     '      <button id="sia-tema" class="ico" title="Alternar claro e escuro">' + ICONE_LUA + '</button>' +
     '      <button id="sia-fechar" class="ico" title="Fechar">\u2715</button>' +
     '    </div>' +
@@ -2316,6 +2331,64 @@
           for (var pt2 = 0; pt2 < cps2.length; pt2++) estado.precific[cps2[pt2].getAttribute('data-prec')] = cps2[pt2].value;
           estado.precific.tipoVendedor = _pt;
           estado.sujo = true; render(); return;
+        }
+        if (voltaA.id === 'sia-serv-voltar') { estado.telaServico = null; render(); return; }
+        if (voltaA.id === 'sia-serv-atualizar') {
+          estado.atualizacao = 'Procurando...';
+          render();
+          try {
+            chrome.runtime.sendMessage({ tipo: 'sia:checar-atualizacao' }, function (r) {
+              void chrome.runtime.lastError;
+              estado.atualizacao = (r && r.mensagem) ||
+                'Pedido enviado ao navegador. Se houver versao nova, ela e aplicada ao recarregar a extensao em chrome://extensions.';
+              render();
+            });
+          } catch (e) {
+            estado.atualizacao = 'Recarregue a extensao em chrome://extensions para aplicar a versao mais recente.';
+            render();
+          }
+          return;
+        }
+        if (voltaA.id === 'sia-sup-enviar') {
+          var ta2 = $('sia-sup-texto');
+          var txt2 = (ta2 && ta2.value || '').trim();
+          if (!txt2) { mostrarExpl('Escreva o que aconteceu antes de enviar.'); return; }
+          estado.suporte.texto = txt2;
+          estado.suporte.enviando = true;
+          estado.suporte.erro = null;
+          render();
+          var pacoteSup = {
+            texto: txt2, versao: VERSAO,
+            loja: estado.loja ? estado.loja.shop_id : null,
+            lojaNome: estado.loja ? estado.loja.nome : null,
+            url: location.href.slice(0, 200),
+            ultimoErro: estado.ultimoErro || null,
+            em: new Date().toISOString()
+          };
+          fetch(SIA_URL_RELATORIO.replace('/relatorio', '/suporte'), {
+            method: 'POST', headers: cabecalhosFuncao(), body: JSON.stringify(pacoteSup)
+          }).then(function (r) {
+            estado.suporte.enviando = false;
+            if (r.ok) { estado.suporte.ok = true; }
+            else { estado.suporte.erro = 'Nao consegui enviar agora. Copie o texto e mande no WhatsApp da Efeito Vendas.'; }
+            render();
+          }).catch(function () {
+            estado.suporte.enviando = false;
+            estado.suporte.erro = 'Sem conexao com o servidor. Copie o texto e mande no WhatsApp da Efeito Vendas.';
+            render();
+          });
+          return;
+        }
+        if (voltaA.id === 'sia-ass-entrar') {
+          var em2 = $('sia-ass-email');
+          var email2 = (em2 && em2.value || '').trim();
+          if (!email2 || email2.indexOf('@') < 0) { mostrarExpl('Digite o email usado na compra.'); return; }
+          mostrarExpl('<b>Em breve.</b> A validacao de assinatura esta sendo construida \u2014 por enquanto o acesso segue liberado.');
+          return;
+        }
+        if (voltaA.id === 'sia-ass-renovar') {
+          try { window.open('https://clipseller.com.br/assinatura', '_blank', 'noopener'); } catch (e) { /* noop */ }
+          return;
         }
         if (voltaA.id === 'sia-prec-calcular') {
           // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
@@ -2513,6 +2586,50 @@
       ? '<b>Copiado.</b> Cole na conversa com a Seller.IA \u2014 sao os cinco primeiros itens exatamente como a Shopee devolveu.'
       : '<b>Nao consegui copiar.</b> Abra o console com F12 e procure por [Seller.IA].');
   });
+  /* ===== MENU DO BOTAO FLUTUANTE ===== */
+  var menuTimer = null;
+  function mostrarMenu(v) {
+    var m = $('sia-menu');
+    if (!m) return;
+    if (v) {
+      var vs = $('sia-menu-versao');
+      if (vs) vs.textContent = 'Seller.IA v' + VERSAO;
+    }
+    m.classList.toggle('on', !!v);
+  }
+  ligar('sia-abrir', 'mouseenter', function () {
+    if (menuTimer) clearTimeout(menuTimer);
+    if (!$('sia-painel').classList.contains('aberto')) mostrarMenu(true);
+  });
+  ligar('sia-abrir', 'mouseleave', function () {
+    menuTimer = setTimeout(function () { mostrarMenu(false); }, 420);
+  });
+  ligar('sia-menu', 'mouseenter', function () { if (menuTimer) clearTimeout(menuTimer); });
+  ligar('sia-menu', 'mouseleave', function () { menuTimer = setTimeout(function () { mostrarMenu(false); }, 260); });
+  ligar('sia-menu', 'click', function (ev) {
+    var el = ev.target;
+    while (el && el !== this && !(el.getAttribute && el.getAttribute('data-menu'))) el = el.parentNode;
+    var acao = el && el.getAttribute && el.getAttribute('data-menu');
+    if (!acao) return;
+    mostrarMenu(false);
+    if (acao === 'atualizar') {
+      $('sia-painel').classList.add('aberto');
+      abaAtiva = 'conta360';
+      estado.telaServico = 'atualizar';
+      render();
+    } else if (acao === 'suporte') {
+      $('sia-painel').classList.add('aberto');
+      estado.telaServico = 'suporte';
+      render();
+    } else if (acao === 'assinatura') {
+      $('sia-painel').classList.add('aberto');
+      estado.telaServico = 'assinatura';
+      render();
+    } else if (acao === 'clipseller') {
+      try { window.open('https://clipseller.com.br', '_blank', 'noopener'); } catch (e) { /* noop */ }
+    }
+  });
+
   ligar('sia-recoletar', 'click', function () {
     if (estado.coletaProgresso !== null) return;
     coletaJaTentada = true;
@@ -5598,6 +5715,75 @@
      A Shopee calcula um veredito de competitividade por campanha e nao mostra
      em lugar nenhum do painel. Reunido, ele responde onde a conta perde a
      disputa: preco, lance, orcamento ou anuncio. */
+  /* ============ TELAS DE SERVICO ============
+     Atualizacao, suporte e assinatura. Ficam fora das abas porque nao sao
+     analise: sao o que a pessoa faz quando algo precisa de atencao. */
+  function renderServico() {
+    var qual = estado.telaServico;
+    var h = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">' +
+      '<button id="sia-serv-voltar" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:Space Mono,monospace;font-size:11px;padding:8px 14px;border-radius:999px;cursor:pointer">\u2190 voltar</button></div>';
+
+    if (qual === 'atualizar') {
+      h += capa('MANTER EM DIA', 'A', 'ATUALIZACAO', '');
+      h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:20px">' +
+        '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:8px">VERSAO INSTALADA</div>' +
+        '<div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:34px;color:var(--t0);letter-spacing:-.02em;line-height:1">v' + VERSAO + '</div>' +
+        '<div style="font-size:14px;color:var(--t1);line-height:1.6;margin:14px 0">' +
+        'A Seller.IA se atualiza sozinha quando ha versao nova, mas o navegador so aplica quando a extensao e recarregada. ' +
+        'Se algo estiver diferente do combinado, tocar aqui forca a checagem.</div>' +
+        '<button id="sia-serv-atualizar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:15px;padding:14px;border-radius:var(--r-btn,14px);cursor:pointer">Procurar versao nova</button>' +
+        (estado.atualizacao ? '<div class="nota" style="margin-top:10px">' + esc(estado.atualizacao) + '</div>' : '') +
+        '</div>';
+      return h;
+    }
+
+    if (qual === 'suporte') {
+      h += capa('ESTAMOS AQUI', 'O', 'SUPORTE', '');
+      var S = estado.suporte || {};
+      if (S.ok) {
+        h += '<div style="background:color-mix(in srgb,var(--vd) var(--tin,9%),var(--b0));border-left:3px solid var(--vd);border-radius:0 18px 18px 0;padding:18px">' +
+          '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:6px">Recebemos a sua mensagem</div>' +
+          '<div style="font-size:14px;color:var(--t1);line-height:1.55">Vamos responder no email cadastrado. Se for urgente, chame no WhatsApp da Efeito Vendas.</div></div>';
+        return h;
+      }
+      h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:20px">' +
+        '<div style="font-size:14.5px;color:var(--t1);line-height:1.6;margin-bottom:14px">' +
+        'Conte o que aconteceu. Se puder, diga em qual tela e o que voce esperava ver \u2014 isso encurta muito o caminho ate a solucao.</div>' +
+        '<textarea id="sia-sup-texto" placeholder="Descreva o problema..." style="width:100%;box-sizing:border-box;min-height:130px;background:var(--b1);border:1px solid var(--li);border-radius:14px;padding:13px;color:var(--t0);font-family:inherit;font-size:14px;line-height:1.5;resize:vertical">' + esc(S.texto || '') + '</textarea>' +
+        '<div class="nota">Enviamos junto a versao instalada, a loja aberta e o ultimo erro registrado. Nenhum dado de venda vai junto.</div>' +
+        '<button id="sia-sup-enviar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:15px;padding:14px;border-radius:var(--r-btn,14px);cursor:pointer;margin-top:8px">' +
+        (S.enviando ? 'Enviando...' : 'Enviar para o suporte') + '</button>' +
+        (S.erro ? '<div class="nota" style="color:var(--rd)">' + esc(S.erro) + '</div>' : '') +
+        '</div>';
+      return h;
+    }
+
+    // assinatura
+    h += capa('SEU ACESSO', 'A', 'ASSINATURA', '');
+    var A = estado.assinatura || null;
+    if (!A) {
+      h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:20px">' +
+        '<div style="font-size:15px;color:var(--t1);line-height:1.6;margin-bottom:14px">' +
+        'Ainda nao consegui ler a sua assinatura neste navegador. Entre com o email usado na compra para liberar o acesso.</div>' +
+        '<input id="sia-ass-email" type="email" placeholder="seu@email.com" style="width:100%;box-sizing:border-box;background:var(--b1);border:1px solid var(--li);border-radius:12px;padding:13px;color:var(--t0);font-family:inherit;font-size:14.5px;margin-bottom:10px">' +
+        '<button id="sia-ass-entrar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:15px;padding:14px;border-radius:var(--r-btn,14px);cursor:pointer">Liberar acesso</button>' +
+        '<div class="nota">O acesso segue a sua assinatura: enquanto ela estiver ativa, a Seller.IA funciona em qualquer navegador com o mesmo email.</div></div>';
+      return h;
+    }
+    var venceEmDias = A.expiraEm ? Math.floor((A.expiraEm - Date.now() / 1000) / 86400) : null;
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:20px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:8px">PLANO</div>' +
+      '<div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:28px;color:var(--t0);letter-spacing:-.02em">' + esc(A.plano || 'Seller.IA') + '</div>' +
+      '<div style="font-size:14px;color:var(--t1);margin-top:10px;line-height:1.55">' + esc(A.email || '') +
+      (venceEmDias != null ? '<br>' + (venceEmDias > 0 ? 'Renova em ' + venceEmDias + ' dia' + (venceEmDias > 1 ? 's' : '') + '.' : '<b style="color:var(--rd)">Assinatura vencida.</b>') : '') +
+      '</div>' +
+      (venceEmDias != null && venceEmDias <= 7
+        ? '<button id="sia-ass-renovar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:15px;padding:14px;border-radius:var(--r-btn,14px);cursor:pointer;margin-top:14px">Renovar assinatura</button>'
+        : '') +
+      '</div>';
+    return h;
+  }
+
   function renderCompetitividade() {
     var D = null;
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return ''; }
@@ -6285,10 +6471,6 @@
     }
     // Exportador de diagnostico: baixa o que a Shopee devolveu de verdade,
     // para eu ver onde ela pos o campo de vendas em vez de adivinhar.
-    if (estado.espiaoCru) {
-      h += '<div style="margin-top:12px;text-align:right">' +
-        '<span id="sia-esp-exportar" style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t3);cursor:pointer;text-decoration:underline">baixar dados brutos desta busca</span></div>';
-    }
     return h + '</div>';
   }
 
@@ -8272,6 +8454,11 @@
       if (estado.rel.gerando && !estado.rel.etapa) estado.rel.gerando = false;
       corpo.innerHTML = renderRelatorio();
       ligarRelatorio();
+      return;
+    }
+    if (estado.telaServico) {
+      try { corpo.innerHTML = renderServico(); }
+      catch (err) { corpo.innerHTML = telaDeErro('Servico', err); }
       return;
     }
     if (abaAtiva === 'conta360') {
