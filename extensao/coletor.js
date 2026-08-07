@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.97.1';
+  var VERSAO = '0.98.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -524,6 +524,13 @@
   /* ============================== RECEPCAO ============================== */
   var lojaDoCiclo = null;   // de qual loja e a coleta em andamento
   function processarPacote(pacote) {
+    // ULTIMA LINHA DE DEFESA contra dado de outra conta. Se o pacote foi
+    // carimbado com uma loja e ela nao e a atual, descarta. Sem isso, pacote
+    // em voo da conta anterior grava na nova.
+    if (pacote && pacote.loja && estado.loja && estado.loja.shop_id &&
+        String(pacote.loja) !== String(estado.loja.shop_id)) {
+      return;
+    }
     if (!pacote || !pacote.url) return;
     // CRITICO: ao trocar de conta, as respostas ainda em voo da conta anterior
     // continuam chegando e eram gravadas na conta NOVA — as metricas da loja
@@ -586,13 +593,18 @@
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); /* sem garimpo: micro proprio, tratado na v0.6 */ }
     else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
     else if (tag === 'outra') {
-      if (pacote.url.indexOf('shop_info') >= 0) {
+      // So a rota shop_info do SELLER CENTRE identifica a conta. A vitrine
+      // publica (shopee.com.br) tambem tem shop_info, com o shopid do
+      // CONCORRENTE — e caçar shop_id em objeto aninhado pegava esse.
+      if (pacote.url.indexOf('shop_info') >= 0 && !/shopee\.com\.br\/api\/v4|search_items|\/pdp\//.test(String(pacote.url))) {
         // NUNCA travar na primeira leitura. Agencia troca de conta o dia todo
         // na mesma guia: se a identidade nao acompanhar, o dado da conta A
         // aparece rotulado como conta B. Isso e pior que nao coletar.
         var achado = null;
         (function cacar(no, prof) {
-          if (achado || !no || typeof no !== 'object' || prof > 4) return;
+          // profundidade 2, nao 4: mais fundo comeca a pegar shopid de item
+          // dentro de lista, que e de outra loja
+          if (achado || !no || typeof no !== 'object' || prof > 2) return;
           if (Array.isArray(no)) { for (var i = 0; i < no.length; i++) cacar(no[i], prof + 1); return; }
           var sid = no.shop_id !== undefined ? no.shop_id : no.shopid;
           if (sid) { achado = { shop_id: String(sid), nome: no.shop_name || no.name || no.username || '' }; return; }
@@ -2594,7 +2606,7 @@
 
     // fila de acao
     if (R.fila.length === 0) {
-      h += '<div style="background:#0f2a17;border:1px solid #1f5a30;border-radius:10px;padding:16px;text-align:center;color:var(--vd);font-size:13px">Tudo sob controle. Nenhuma campanha pedindo acao agora.</div>';
+      h += '<div style="background:color-mix(in srgb,var(--vd) var(--tin,9%),var(--b0));border:1px solid color-mix(in srgb,var(--vd) 30%,var(--li));border-radius:10px;padding:16px;text-align:center;color:var(--vd);font-size:13px">Tudo sob controle. Nenhuma campanha pedindo acao agora.</div>';
     } else {
       h += olho('O QUE FAZER PRIMEIRO', 'A fila ordena por dinheiro em jogo, nao por gravidade. Um problema numa campanha que gasta R$ 800 vem antes de um problema em campanha que gasta R$ 8 — mesmo que a segunda esteja mais quebrada. Clique em qualquer linha para abrir o card completo.');
       var LIMITE = 5;
@@ -2724,7 +2736,7 @@
   // CALCULADORA DE MARGEM REAL — custo + taxas Shopee + ads
   // ==========================================================
   function renderCalculadora() {
-    var i = 'width:100%;box-sizing:border-box;background:var(--b1);border:1px solid #242630;border-radius:8px;padding:9px 11px;color:var(--t0);font-size:13px;margin-top:4px';
+    var i = 'width:100%;box-sizing:border-box;background:var(--b1);border:1px solid var(--li);border-radius:8px;padding:9px 11px;color:var(--t0);font-size:13px;margin-top:4px';
     var lbl = 'font-size:11px;color:var(--t2);font-weight:600';
     var h = avisoFalta + '<div style="padding:2px">';
     h += '<div class="nota" style="margin:0 0 12px">Sua margem <b>real</b> cruzando custo, taxas da Shopee e o gasto de ads. Descobre se voce lucra de verdade.</div>';
@@ -2781,7 +2793,7 @@
   function montarResultadoCalc(m, adsInput) {
     function fr(v) { return 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
     var corLucro = m.noLucro ? 'var(--vd)' : 'var(--rd)';
-    var h = '<div class="bloco-d" style="border-color:' + (m.noLucro ? '#1f5a30' : '#5a1f1f') + '">';
+    var h = '<div class="bloco-d" style="border-color:' + (m.noLucro ? 'color-mix(in srgb,var(--vd) 30%,var(--li))' : 'color-mix(in srgb,var(--rd) 30%,var(--li))') + '">';
     h += '<div class="td">RESULTADO · ' + esc(m.faixa) + '</div>';
     // cascata de custos
     h += '<div class="ld">Preco de venda: <b>' + fr(m.preco) + '</b></div>';
@@ -2789,12 +2801,12 @@
     h += '<div class="ld" style="color:var(--t2)">− Comissao Shopee (' + m.comissao.pct + '%): ' + fr(m.comissao.reais) + ' + taxa fixa ' + fr(m.taxaFixa) + '</div>';
     if (m.imposto.reais > 0) h += '<div class="ld" style="color:var(--t2)">− Imposto (' + m.imposto.pct + '%): ' + fr(m.imposto.reais) + '</div>';
     if (m.ads > 0) h += '<div class="ld" style="color:var(--t2)">− Ads por venda: ' + fr(m.ads) + '</div>';
-    h += '<div style="border-top:1px solid #242630;margin:8px 0 6px"></div>';
+    h += '<div style="border-top:1px solid var(--li);margin:8px 0 6px"></div>';
     h += '<div class="ld" style="font-size:15px">Lucro por venda: <b style="color:' + corLucro + '">' + fr(m.lucro) + '</b> <span style="color:var(--t2);font-size:12px">(margem ' + m.margemPct + '%)</span></div>';
     if (!m.noLucro) h += '<div class="ld" style="color:var(--rd);font-size:11px;margin-top:4px">Atencao: este produto esta no PREJUIZO com esses numeros.</div>';
     // ROAS minimo + cruzamento
     if (m.roasMinimo) {
-      h += '<div style="border-top:1px solid #242630;margin:8px 0 6px"></div>';
+      h += '<div style="border-top:1px solid var(--li);margin:8px 0 6px"></div>';
       h += '<div class="ld">ROAS minimo pra empatar o ads: <b>' + m.roasMinimo + 'x</b></div>';
       // tenta cruzar com o ROAS real da conta (se houver)
       var roasReal = null;
@@ -3359,7 +3371,7 @@
         // sinal visual: CTR bom + conversao baixa = pagina nao converte
         if (P.ctr >= 2 && P.convPago != null && P.convPago < 1) alerta = ' <span style="color:var(--am);font-size:10px">pagina segura</span>';
         else if (P.rejeicao != null && P.rejeicao > 45) alerta = ' <span style="color:var(--rd);font-size:10px">rejeicao alta</span>';
-        cp += '<div class="ld" style="border-bottom:1px solid #15171d;padding-bottom:5px;margin-bottom:5px">' +
+        cp += '<div class="ld" style="border-bottom:1px solid var(--li);padding-bottom:5px;margin-bottom:5px">' +
           '<b>' + esc(nome) + '</b>' + alerta + '<br>' +
           '<span style="color:var(--t2);font-size:11px">CTR ' + (P.ctr != null ? P.ctr.toFixed(1) : '—') + '% · conv ' + (P.convPago != null ? P.convPago.toFixed(1) : '—') + '% · rejeicao ' + (P.rejeicao != null ? P.rejeicao.toFixed(0) : '—') + '% · ' + fmtR(P.vendaPaga || P.venda) + (P.fatiaVendas != null ? ' · ' + P.fatiaVendas.toFixed(0) + '% da loja' : '') + '</span></div>';
       });
