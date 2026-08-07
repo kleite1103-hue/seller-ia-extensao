@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.99.0';
+  var VERSAO = '0.99.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -175,15 +175,29 @@
   }
 
   function entidadeProduto(id) {
-    if (!estado.produtos[id]) estado.produtos[id] = { id: id, metricas: {}, campos: {} };
+    // CARIMBO NA ORIGEM. Todo produto guarda de qual loja ele veio: se a
+    // conta atual e outra, ele nao entra. Sem isso, qualquer caminho que
+    // criasse produto — e sao varios — furava o isolamento entre contas.
+    var lojaAgora = estado.loja ? String(estado.loja.shop_id) : null;
+    if (!estado.produtos[id]) {
+      estado.produtos[id] = { id: id, metricas: {}, campos: {}, loja: lojaAgora };
+    } else if (lojaAgora && estado.produtos[id].loja && estado.produtos[id].loja !== lojaAgora) {
+      // produto de outra conta que sobrou na memoria: substitui, nao mistura
+      estado.produtos[id] = { id: id, metricas: {}, campos: {}, loja: lojaAgora };
+    } else if (lojaAgora && !estado.produtos[id].loja) {
+      estado.produtos[id].loja = lojaAgora;
+    }
     return estado.produtos[id];
   }
   function entidadeCampanha(id) {
+    var lojaC = estado.loja ? String(estado.loja.shop_id) : null;
     if (!estado.campanhas[id]) {
-      // teto absoluto: 200 ativas + 60 pausadas e o que a coleta pede.
-      // Acima disso e acumulo de navegacao, nao leitura.
       if (Object.keys(estado.campanhas).length >= 280) return { id: id, metricas: {} };
-      estado.campanhas[id] = { id: id, metricas: {} };
+      estado.campanhas[id] = { id: id, metricas: {}, loja: lojaC };
+    } else if (lojaC && estado.campanhas[id].loja && estado.campanhas[id].loja !== lojaC) {
+      estado.campanhas[id] = { id: id, metricas: {}, loja: lojaC };
+    } else if (lojaC && !estado.campanhas[id].loja) {
+      estado.campanhas[id].loja = lojaC;
     }
     return estado.campanhas[id];
   }
@@ -5088,14 +5102,16 @@
     // Estava faltando: o card mostrava os numeros soltos e nao onde quebra.
     var atcC = (m.carrinho != null) ? m.carrinho : ((pcC.metricas && pcC.metricas.carrinho) != null ? pcC.metricas.carrinho : null);
     var degC = [];
-    if (impr) degC.push({ r: 'IMPRESSOES', v: impr });
-    if (cliq != null) degC.push({ r: 'CLIQUES', v: cliq });
-    if (atcC != null) degC.push({ r: 'CARRINHO', v: atcC });
-    degC.push({ r: 'PEDIDOS', v: ped });
+    function vOk(x) { return (typeof x === 'number' && isFinite(x) && x >= 0) ? x : null; }
+    if (vOk(impr)) degC.push({ r: 'IMPRESSOES', v: impr });
+    if (vOk(cliq) != null) degC.push({ r: 'CLIQUES', v: cliq });
+    if (vOk(atcC) != null) degC.push({ r: 'CARRINHO', v: atcC });
+    if (vOk(ped) != null) degC.push({ r: 'PEDIDOS', v: ped });
     if (degC.length >= 2) {
       var quedasC = [], piorC = null;
       for (var dq = 1; dq < degC.length; dq++) {
-        if (!degC[dq - 1].v) continue;
+        if (!degC[dq - 1].v || degC[dq - 1].v <= 0) continue;
+        if (degC[dq].v == null || degC[dq].v > degC[dq - 1].v) continue;
         var qc = { i: dq, de: degC[dq - 1].r, para: degC[dq].r, pct: (1 - degC[dq].v / degC[dq - 1].v) * 100 };
         quedasC.push(qc);
         if (!piorC || qc.pct > piorC.pct) piorC = qc;
@@ -5194,12 +5210,43 @@
       var compet = pr.competitividade != null ? pr.competitividade : (pcC.competitividade != null ? pcC.competitividade : null);
       h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:1px;background:var(--li);border:1px solid var(--li);border-radius:10px;overflow:hidden;margin-top:9px">';
       h += celula('POSICAO', pos != null ? fmt(pos, 0) : '\u2014', pos != null && pos > 30 ? 'var(--rd)' : null);
-      h += celula('COMPETITIVIDADE', compet != null ? fmt(compet, 0) + '/100' : '\u2014', compet != null && compet < 40 ? 'var(--rd)' : null);
+      // A competitividade de 0 a 100 so existe para o produto que a Shopee
+      // destaca em todo/list_task — um por conta. O que existe para TODA
+      // campanha e o veredito de competitividade no diagnostico, que ja era
+      // extraido em pc.eixos e nunca chegou na tela.
+      var eixoComp = null;
+      if (pcC.eixos) {
+        for (var ex = 0; ex < pcC.eixos.length; ex++) {
+          if (/competitiveness/.test(String(pcC.eixos[ex].eixo || ''))) { eixoComp = pcC.eixos[ex]; break; }
+        }
+      }
+      var TRAD_NOTA = { good: 'boa', normal: 'media', bad: 'ruim', na: '\u2014' };
+      var valComp = compet != null ? fmt(compet, 0) + '/100'
+        : (eixoComp ? (TRAD_NOTA[eixoComp.nota] || eixoComp.nota) : '\u2014');
+      var corComp = compet != null ? (compet < 40 ? 'var(--rd)' : null)
+        : (eixoComp && eixoComp.nota === 'bad' ? 'var(--rd)' : (eixoComp && eixoComp.nota === 'good' ? 'var(--vd)' : null));
+      h += celula('COMPETITIVIDADE', valComp, corComp);
       h += celula('IMPRESSOES', impr != null ? fmt(impr, 0) : '\u2014');
       h += celula('GMV', gmv != null ? reais(gmv) : '\u2014');
       h += '</div>';
-      if (pos == null && compet == null) {
-        h += '<div class="nota">Posicao no leilao e competitividade vem na leitura profunda.</div>';
+      if (pcC.eixos && pcC.eixos.length) {
+        h += '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.08em;margin:12px 0 8px">O QUE A SHOPEE DIAGNOSTICA' +
+          dica('Estes sao os vereditos que a propria Shopee calcula para a campanha e nao mostra em lugar nenhum do painel. Competitividade e como o seu preco e lance se comparam com quem disputa a mesma vitrine.') + '</div>';
+        h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+        var TRAD_EIXO = {
+          competitiveness_v2: 'competitividade', budget_v2: 'orcamento', roi_target_v2: 'meta de ROAS',
+          continuance_v2: 'continuidade', listing_v2: 'anuncio', bid_v2: 'lance', keyword_v2: 'palavras'
+        };
+        for (var ez = 0; ez < pcC.eixos.length; ez++) {
+          var E2 = pcC.eixos[ez];
+          var rot2 = TRAD_EIXO[E2.eixo] || String(E2.eixo || '').replace(/_v2$/, '').replace(/_/g, ' ');
+          var cor2 = E2.nota === 'bad' ? 'var(--rd)' : (E2.nota === 'good' ? 'var(--vd)' : 'var(--t2)');
+          h += '<span style="font-family:Space Mono,monospace;font-size:10.5px;padding:5px 11px;border-radius:99px;border:1px solid ' + cor2 + ';color:' + cor2 + '">' +
+            esc(rot2) + ': ' + esc(TRAD_NOTA[E2.nota] || E2.nota) + '</span>';
+        }
+        h += '</div>';
+      } else if (pos == null && compet == null) {
+        h += '<div class="nota">Posicao no leilao vem na leitura profunda.</div>';
       }
 
       // ---- PALAVRAS: qual acionou, quanto voce paga, quanto perde ----
@@ -6764,6 +6811,22 @@
   // Poda o que veio do disco. O snapshot guardava campanhas acumuladas de
   // leituras antigas — foi assim que apareceram 847 campanhas com gasto de
   // varios recortes somados, mesmo com o teto na criacao.
+  // Remove da memoria tudo que nao e da conta aberta. Roda no render, entao
+  // qualquer sobra de leitura anterior desaparece na primeira tela desenhada.
+  function limparDeOutrasLojas() {
+    var atual = estado.loja ? String(estado.loja.shop_id) : null;
+    if (!atual) return 0;
+    var n = 0, id;
+    for (id in estado.produtos) {
+      var pl = estado.produtos[id] && estado.produtos[id].loja;
+      if (pl && pl !== atual) { delete estado.produtos[id]; n++; }
+    }
+    for (id in estado.campanhas) {
+      var cl = estado.campanhas[id] && estado.campanhas[id].loja;
+      if (cl && cl !== atual) { delete estado.campanhas[id]; n++; }
+    }
+    return n;
+  }
   function podarCampanhas(mapa) {
     var ids = Object.keys(mapa || {});
     if (ids.length <= 280) return mapa || {};
@@ -7370,7 +7433,15 @@
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
     var perf = (D && D.porProduto && D.porProduto[id] && D.porProduto[id].perf) || {};
 
-    function v(a, b) { var x = m[a]; if (x == null) x = perf[b]; return (typeof x === 'number' && isFinite(x)) ? x : null; }
+    // -1 e SEM DADO na Shopee. Passando direto, ele virava degrau do funil e
+    // a queda calculada contra ele explodia: "de -1 que chegaram, 6.511
+    // seguiram, perde 1.205.539%".
+    function v(a, b) {
+      var x = m[a];
+      if (x == null || x === -1) x = perf[b];
+      if (typeof x !== 'number' || !isFinite(x) || x < 0) return null;
+      return x;
+    }
     var impr = v('impressoes', 'impressoes');
     var uv = v('visitantes', 'uv');
     var cliq = v('cliques', 'cliques');
@@ -7390,7 +7461,9 @@
     var quedas = [], i;
     for (i = 1; i < degraus.length; i++) {
       var ant = degraus[i - 1].v, at = degraus[i].v;
-      if (!ant) continue;
+      // sem base valida ou com o degrau seguinte MAIOR que o anterior, a
+      // queda nao existe — e sinal de dado faltando, nao de perda
+      if (!ant || ant <= 0 || at == null || at > ant) continue;
       quedas.push({ i: i, de: degraus[i - 1].r, para: degraus[i].r, pct: (1 - at / ant) * 100, ficaram: at, tinham: ant });
     }
     var pior = null;
@@ -7552,6 +7625,10 @@
     DICAS = {}; seqDica = 0;
     // A poda so rodava ao TROCAR de conta: quem ficou na mesma conta continuou
     // com as 847 acumuladas. Agora ela roda tambem no render, fora da coleta.
+    if (estado.coletaProgresso === null) {
+      var limpos = limparDeOutrasLojas();
+      if (limpos) estado.sujo = true;
+    }
     if (estado.coletaProgresso === null && Object.keys(estado.campanhas).length > 280) {
       estado.campanhas = podarCampanhas(estado.campanhas);
       estado.sujo = true;
