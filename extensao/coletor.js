@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.98.4';
+  var VERSAO = '0.99.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -116,12 +116,14 @@
   var CAMPOS_ID_CAMPANHA = ['campaignid', 'campaign_id'];
   var CAMPOS_NOME = ['name', 'title', 'campaign_name', 'item_name', 'product_name', 'shop_item_name'];
 
-  function numero(v) {
-    // -1 na API da Shopee significa SEM DADO, nao o numero menos um. O filtro
-    // so pegava o sentinela grande (-1000000) e o -1 virava metrica na tela.
+  function numero(v, permitirNegativo) {
+    // -1 na API da Shopee significa SEM DADO em campos de METRICA (atc,
+    // broad_roi, chain_ratio). Mas variacao percentual pode ser -1 de
+    // verdade, e id tambem — por isso o descarte so vale quando quem chama
+    // nao pediu para permitir negativo.
     if (typeof v === 'number' && isFinite(v)) {
       if (v <= -999999) return null;
-      if (v === -1) return null;
+      if (v === -1 && !permitirNegativo) return null;
       return v;
     }
     if (typeof v === 'string' && v !== '' && /^-?\d+([.,]\d+)?%?$/.test(v.trim())) {
@@ -143,13 +145,13 @@
     return v;
   }
 
-  function extrairMetricas(obj, micro) {
+  function extrairMetricas(obj, micro, permitirNegativo) {
     var m = {};
     for (var k in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
       var chave = MAPA[k.toLowerCase()];
       if (!chave) continue;
-      var v = numero(obj[k]);
+      var v = numero(obj[k], permitirNegativo);
       if (v === null) continue;
       m[chave] = CAMPOS_DINHEIRO[chave] ? dinheiro(v, micro) : v;
     }
@@ -417,7 +419,7 @@
         else if (agg === 'item_id' || agg === 'itemid') alvo = entidadeProduto(String(item.key));
         if (!alvo) continue;
         if (item.metrics) { var mm = extrairMetricas(item.metrics, true); for (var mk in mm) alvo.metricas[mk] = mm[mk]; }
-        if (item.ratio) { alvo.variacao = extrairMetricas(item.ratio, false); }
+        if (item.ratio) { alvo.variacao = extrairMetricas(item.ratio, false, true); }
         alvo.visto_em = Date.now(); estado.sujo = true;
       }
       return true;
@@ -5647,10 +5649,17 @@
         for (var j = 0; j < top3.length; j++) if (top3[j][campo] != null) { s += top3[j][campo]; n2++; }
         return n2 ? s / n2 : null;
       }
+      var somaFat = 0, somaUn = 0;
+      for (var q3 = 0; q3 < top3.length; q3++) {
+        somaFat += top3[q3].faturamentoMes || 0;
+        somaUn += top3[q3].vendasMes || 0;
+      }
       estado.compResultado = {
         id: idProduto, termo: termo, meu: meu, top3: top3,
         precoMedio: media('preco'), avalMedia: media('avaliacoes'),
-        notaMedia: media('nota'), vendasMedia: media('vendasMes')
+        notaMedia: media('nota'), vendasMedia: media('vendasMes'),
+        fatMedio: media('faturamentoMes'),
+        somaFat: somaFat, somaUn: somaUn
       };
       render();
     });
@@ -5720,10 +5729,41 @@
       h += '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--li);font-size:12.5px">' +
         '<span style="font-family:Bebas Neue,sans-serif;font-size:17px;color:var(--t2);width:18px">' + (q + 1) + '</span>' +
         '<span style="flex:1;min-width:0;color:var(--t1)">' + esc(String(T.nome).slice(0, 40)) + '</span>' +
-        '<span style="font-family:Space Mono,monospace;font-size:11.5px;color:var(--t0)">R$' + fmt(T.preco, 2) + '</span>' +
-        (T.vendasMes != null ? '<span style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--vd)">' + fmt(T.vendasMes, 0) + '/30d</span>' : '') +
+        '<span style="text-align:right;flex:none">' +
+        '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t0);display:block">' + espDinheiro(T.faturamentoMes) + '</span>' +
+        '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--vd)">' +
+        (T.vendasMes != null ? fmt(T.vendasMes, 0) + ' un' : '\u2014') + ' \u00b7 R$' + fmt(T.preco, 2) + '</span></span>' +
         (T.link ? '<a data-link-externo="1" href="' + esc(T.link) + '" target="_blank" rel="noopener" style="color:var(--mk);text-decoration:none;font-size:15px">\u2197</a>' : '') +
         '</div>';
+    }
+
+    // O QUE ELES VENDEM. Sem isto, ver que o preco deles e menor nao diz se
+    // esta funcionando: o volume e a prova.
+    var meuFat = (C.meu && C.meu.faturamentoMes) || null;
+    var meuUn = (C.meu && C.meu.vendasMes) || null;
+    if (C.somaFat) {
+      h += '<div style="border-top:1px solid var(--li);margin-top:11px;padding-top:12px">' +
+        '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.08em;margin-bottom:9px">OS TRES JUNTOS, NOS ULTIMOS 30 DIAS</div>' +
+        '<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px">' +
+        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:500;font-size:25px;color:var(--t0);letter-spacing:-.02em">' + espDinheiro(C.somaFat) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);margin-top:2px">FATURARAM</div></div>' +
+        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:500;font-size:25px;color:var(--t0);letter-spacing:-.02em">' + fmt(C.somaUn, 0) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);margin-top:2px">UNIDADES</div></div>' +
+        (meuFat ? '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:500;font-size:25px;color:var(--mk);letter-spacing:-.02em">' + espDinheiro(meuFat) + '</div>' +
+          '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);margin-top:2px">VOCE FATUROU</div></div>' : '') +
+        '</div>';
+      if (meuFat && C.fatMedio) {
+        var razaoF = C.fatMedio / meuFat;
+        h += '<div style="font-size:13.5px;color:var(--t1);line-height:1.5">' +
+          (razaoF >= 1.5
+            ? '<b style="color:var(--t0)">Cada um deles fatura ' + fmt(razaoF, 1) + 'x o que voce fatura</b> nesta busca' +
+              (meuUn != null && C.vendasMedia ? ', vendendo ' + fmt(C.vendasMedia / Math.max(meuUn, 1), 1) + 'x mais unidades' : '') + '.'
+            : razaoF >= 0.9
+              ? 'Voce fatura na mesma faixa deles nesta busca. A disputa aqui e parelha.'
+              : '<b style="color:var(--vd)">Voce fatura ' + fmt(1 / razaoF, 1) + 'x mais que a media deles</b> nesta busca.') +
+          '</div>';
+      }
+      h += '</div>';
     }
 
     if (achados.length) {
