@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.2.1';
+  var VERSAO = '1.3.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1568,9 +1568,12 @@
         // incluindo pausadas ha meses que nao dizem nada e so deixam a coleta
         // lenta. AGORA: as ONGOING primeiro, e depois um lote pequeno de
         // pausadas so para detectar a que rendia e parou.
+        // PAUSADAS: a regra da casa e olhar so as que FATURARAM no periodo
+        // lido e verificar se ha outra ativa cobrindo o mesmo produto. Ler
+        // todas era o que fazia o relatorio levar quinze minutos.
         var fases = [
           { estado: 'ongoing', ate: 200 },
-          { estado: 'paused', ate: 60 }
+          { estado: 'paused', ate: 40, soComGmv: true }
         ];
         for (var fx = 0; fx < fases.length; fx++) {
         var faseAtual = fases[fx];
@@ -1587,10 +1590,19 @@
             rc.dados.data.entry_list = rc.dados.data.entry_list.filter(function (e) {
               var c2 = e && e.campaign;
               if (!c2) return false;
+              // 1) parada ha menos de 60 dias
               var fimC = c2.end_time && c2.end_time > 0 ? c2.end_time : null;
               var iniC = c2.start_time || 0;
-              // usa o fim quando existe; senao o inicio, como aproximacao
-              return (fimC ? fimC >= corte : iniC >= corte);
+              if (!(fimC ? fimC >= corte : iniC >= corte)) return false;
+              // 2) FATUROU no periodo lido: pausada sem receita nao muda
+              // decisao nenhuma e so pesa a coleta
+              if (faseAtual.soComGmv) {
+                var rp = e.report || {};
+                var gmvP = Number(rp.broad_gmv || rp.gmv || rp.direct_gmv || 0);
+                var gastoP = Number(rp.cost || rp.expense || 0);
+                if (!gmvP && !gastoP) return false;
+              }
+              return true;
             });
           }
           processarPacote({ url: '/api/pas/v1/homepage/query/', metodo: 'POST', corpo: corpoC, dados: rc.dados, ts: Date.now(), loja: lojaDoCiclo, periodo: ini + '_' + fimAds });
@@ -1603,7 +1615,14 @@
         estado.periodoAds = { inicio: ini, fim: fim, dias: 30 };
 
         // B) Variacao das 12 maiores campanhas (report/get com ratio)
-        var idsTop = Object.keys(estado.campanhas).filter(function (k) { var mm = estado.campanhas[k].metricas || {}; return (mm.gasto || 0) > 0 || (mm.gmv || 0) > 0; })
+        // so campanha ATIVA entra nas rotas pesadas: pausada ja foi julgada
+        // pelo que faturou, e buscar serie e leilao dela nao muda nada
+        var idsTop = Object.keys(estado.campanhas).filter(function (k) {
+          var cc = estado.campanhas[k] || {}, mm = cc.metricas || {};
+          var ee = String(cc.estado || cc.state || '').toLowerCase();
+          if (ee === 'paused' || ee === 'ended' || ee === 'closed') return false;
+          return (mm.gasto || 0) > 0 || (mm.gmv || 0) > 0;
+        })
           .sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); }).slice(0, 30);
         for (var t2 = 0; t2 < idsTop.length; t2++) {
           prog('Aprofundando campanha ' + (t2 + 1) + ' de ' + idsTop.length + '...');
@@ -1630,7 +1649,10 @@
           var mb = (estado.campanhas[b] && estado.campanhas[b].metricas) || {};
           return (mb.gasto || 0) - (ma.gasto || 0);
         });
-        var alvoLeilao = idsGasto.slice(0, PROFUNDA ? 60 : 20);
+        var alvoLeilao = idsGasto.filter(function (k) {
+          var ee2 = String((estado.campanhas[k] || {}).estado || '').toLowerCase();
+          return ee2 !== 'paused' && ee2 !== 'ended' && ee2 !== 'closed';
+        }).slice(0, PROFUNDA ? 60 : 20);
 
         // Esta rota e da LOJA INTEIRA e nao depende de campanha nenhuma, mas
         // tinha ficado dentro do if de campanhas com gasto — numa conta sem
@@ -2265,6 +2287,22 @@
               : '<b>Nao consegui copiar.</b> Abra o console com F12 e procure as linhas [Seller.IA].');
           } catch (e) { mostrarExpl('Nao consegui gerar: ' + esc(String(e))); }
           return;
+        }
+        var _pa = voltaA.getAttribute && voltaA.getAttribute('data-prec-ant');
+        if (_pa) {
+          estado.precific = estado.precific || {};
+          var cps = corpoEl().querySelectorAll('[data-prec]');
+          for (var pa2 = 0; pa2 < cps.length; pa2++) estado.precific[cps[pa2].getAttribute('data-prec')] = cps[pa2].value;
+          estado.precific.antecipa = _pa;
+          estado.sujo = true; render(); return;
+        }
+        var _pt = voltaA.getAttribute && voltaA.getAttribute('data-prec-tipo');
+        if (_pt) {
+          estado.precific = estado.precific || {};
+          var cps2 = corpoEl().querySelectorAll('[data-prec]');
+          for (var pt2 = 0; pt2 < cps2.length; pt2++) estado.precific[cps2[pt2].getAttribute('data-prec')] = cps2[pt2].value;
+          estado.precific.tipoVendedor = _pt;
+          estado.sujo = true; render(); return;
         }
         if (voltaA.id === 'sia-prec-calcular') {
           // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
@@ -5509,6 +5547,67 @@
       ins[i].addEventListener('change', function () { estado.sujo = true; });
     }
   }
+  /* ============ PAUSADA QUE RENDIA ============
+     A pergunta que decide: esta campanha parada faturava, e existe outra
+     ativa cobrindo o mesmo produto? Se nao existe, o produto ficou sem
+     anuncio nenhum e a receita dele simplesmente parou. */
+  function pausadasDescobertas() {
+    var ativasPorProduto = {};
+    var k, c, e2;
+    for (k in estado.campanhas) {
+      c = estado.campanhas[k] || {};
+      e2 = String(c.estado || c.state || '').toLowerCase();
+      if (e2 === 'paused' || e2 === 'ended' || e2 === 'closed') continue;
+      if (c.produtoId) ativasPorProduto[String(c.produtoId)] = k;
+      if (c.itensGrupo) for (var g = 0; g < c.itensGrupo.length; g++) ativasPorProduto[String(c.itensGrupo[g])] = k;
+    }
+    var saida = [];
+    for (k in estado.campanhas) {
+      c = estado.campanhas[k] || {};
+      e2 = String(c.estado || c.state || '').toLowerCase();
+      if (e2 !== 'paused' && e2 !== 'ended' && e2 !== 'closed') continue;
+      var m = c.metricas || {};
+      var gmvP = (m.gasto && m.roas) ? m.gasto * m.roas : (m.gmv || 0);
+      if (!gmvP) continue;   // pausada sem receita nao decide nada
+      var idP = c.produtoId ? String(c.produtoId) : null;
+      var coberta = idP ? !!ativasPorProduto[idP] : null;
+      saida.push({
+        id: k, nome: c.nome || ('Campanha ' + k), produtoId: idP,
+        gmv: gmvP, gasto: m.gasto || 0, roas: m.roas || null,
+        coberta: coberta, campanhaAtiva: idP ? ativasPorProduto[idP] : null
+      });
+    }
+    saida.sort(function (a, b) { return b.gmv - a.gmv; });
+    return saida;
+  }
+
+  function renderPausadasQueRendiam() {
+    var lista = pausadasDescobertas();
+    if (!lista.length) return '';
+    var descobertas = lista.filter(function (x) { return x.coberta === false; });
+    var totalDesc = 0;
+    for (var i = 0; i < descobertas.length; i++) totalDesc += descobertas[i].gmv;
+
+    var h = olho('PAUSADAS QUE RENDIAM (' + lista.length + ')', 'Campanhas paradas que faturaram no periodo lido. O que decide nao e o valor: e se existe outra campanha ativa cobrindo o mesmo produto. Quando nao existe, o produto ficou sem anuncio nenhum e a receita dele parou junto.');
+    if (descobertas.length) {
+      h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b0));border-left:3px solid var(--rd);border-radius:0 18px 18px 0;padding:14px 16px;margin-bottom:11px;font-size:14px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">' + descobertas.length + ' produto(s) ficaram sem anuncio nenhum.</b> ' +
+        'Essas campanhas faturavam ' + reais(totalDesc) + ' e nao ha nenhuma ativa no lugar delas.</div>';
+    }
+    h += '<table><tr><th>CAMPANHA</th><th class="num">FATURAVA</th><th class="num">ROAS</th><th>COBERTURA</th></tr>';
+    for (i = 0; i < Math.min(lista.length, 12); i++) {
+      var L = lista[i];
+      var txtCob = L.coberta === false ? '<span style="color:var(--rd)">sem substituta</span>'
+        : (L.coberta === true ? '<span style="color:var(--vd)">ha outra ativa</span>'
+          : '<span style="color:var(--t3)">produto nao informado</span>');
+      h += '<tr><td>' + sig(String(L.nome).slice(0, 38)) + '</td>' +
+        '<td class="num">' + reais(L.gmv) + '</td>' +
+        '<td class="num">' + (L.roas ? fmt(L.roas, 1) + 'x' : '\u2014') + '</td>' +
+        '<td>' + txtCob + '</td></tr>';
+    }
+    return h + '</table>';
+  }
+
   function renderFiltroCampanhas() {
     var ativas = 0, pausadas = 0;
     for (var k in estado.campanhas) {
@@ -7424,6 +7523,32 @@
       campo('imposto', 'Imposto', C.imposto, '%', 'sobre o preco de venda') +
       '</div>';
 
+    // ---- SHOPEE ANTECIPA e TIPO DE VENDEDOR ----
+    // A taxa muda conforme o tipo, e ela incide sobre o VALOR RECEBIDO.
+    // Quem antecipa e nao conta isso acha que tem margem que nao tem.
+    var TIPOS = [
+      { id: 'oficial', rot: 'Loja Oficial', taxa: 1 },
+      { id: 'indicado', rot: 'Vendedor Indicado', taxa: 2.5 },
+      { id: 'demais', rot: 'Demais Vendedores', taxa: 3.5 }
+    ];
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:15px 16px;margin-bottom:14px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">SHOPEE ANTECIPA' +
+      dica('A antecipacao cobra uma taxa sobre o valor que voce recebe, e ela varia conforme o tipo de vendedor. Nao entra na comissao: e um custo separado, que so existe se voce antecipa. Quem antecipa e nao conta isso na conta acha que tem margem que nao tem.') + '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
+      '<button data-prec-ant="nao" style="background:' + (C.antecipa !== 'sim' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (C.antecipa !== 'sim' ? 'var(--mk)' : 'var(--li)') + ';color:' + (C.antecipa !== 'sim' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:13px;padding:9px 18px;border-radius:999px;cursor:pointer">Nao antecipo</button>' +
+      '<button data-prec-ant="sim" style="background:' + (C.antecipa === 'sim' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (C.antecipa === 'sim' ? 'var(--mk)' : 'var(--li)') + ';color:' + (C.antecipa === 'sim' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:13px;padding:9px 18px;border-radius:999px;cursor:pointer">Antecipo</button>' +
+      '</div>';
+    if (C.antecipa === 'sim') {
+      h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      for (var tp = 0; tp < TIPOS.length; tp++) {
+        var T2 = TIPOS[tp], selT = (C.tipoVendedor || 'demais') === T2.id;
+        h += '<button data-prec-tipo="' + T2.id + '" style="background:' + (selT ? 'var(--b2)' : 'transparent') + ';border:1px solid ' + (selT ? 'var(--mk)' : 'var(--li)') + ';color:' + (selT ? 'var(--mk)' : 'var(--t2)') + ';font-family:inherit;font-size:12.5px;padding:8px 13px;border-radius:999px;cursor:pointer">' +
+          T2.rot + ' \u00b7 ' + fmt(T2.taxa, 1) + '%</button>';
+      }
+      h += '</div>';
+    }
+    h += '</div>';
+
     h += '<button id="sia-prec-calcular" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:14.5px;padding:13px;border-radius:10px;cursor:pointer;margin-bottom:14px">Calcular o preco</button>';
     var custo = numeroPuro(C.custo), margem = numeroPuro(C.margem);
     if (!custo || !margem) {
@@ -7444,7 +7569,9 @@
       var pct = faixa === 0 ? 0.20 : 0.14;
       var fixo = faixa === 0 ? 4 : (faixa === 1 ? 16 : (faixa === 2 ? 20 : 26));
       // preco*(1 - pct - imp/100 - margem/100) = custo + emb + fixo
-      var div = 1 - pct - (imp / 100) - (margem / 100);
+      // a antecipacao incide sobre o valor recebido, ou seja o preco menos a
+      // comissao — entra na equacao junto
+      var div = 1 - pct - (imp / 100) - (margem / 100) - (taxaAnt / 100) * (1 - pct);
       if (div <= 0) continue;
       var cand = (custo + emb + fixo) / div;
       var limites = [80, 100, 200, Infinity];
@@ -7458,7 +7585,8 @@
 
     var com = comissaoDe(preco);
     var impV = preco * (imp / 100);
-    var sobra = preco - com - custo - emb - impV;
+    var antV = taxaAnt ? (preco - com) * (taxaAnt / 100) : 0;
+    var sobra = preco - com - custo - emb - impV - antV;
     var pisoRoasP = 100 / margem;
 
     h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:17px;margin-bottom:12px">' +
@@ -7477,9 +7605,14 @@
     h += ln2('\u2212 Custo do produto', '\u2212 ' + reais(custo), 'var(--t2)');
     if (emb) h += ln2('\u2212 Embalagem', '\u2212 ' + reais(emb), 'var(--t2)');
     if (impV) h += ln2('\u2212 Imposto', '\u2212 ' + reais(impV), 'var(--t2)');
+    if (antV) h += ln2('\u2212 Shopee Antecipa (' + fmt(taxaAnt, 1) + '%)', '\u2212 ' + reais(antV), 'var(--t2)');
     h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--li);margin-top:8px;padding-top:9px">' +
-      '<span style="font-size:15px;font-weight:600;color:var(--t0)">Sobra</span>' +
-      '<span style="font-family:Bebas Neue,sans-serif;font-size:26px;color:var(--vd)">' + reais(sobra) + '</span></div></div>';
+      '<span style="font-size:15px;font-weight:600;color:var(--t0)">Margem de contribuicao</span>' +
+      '<span style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:28px;letter-spacing:-.02em;color:var(--vd)">' + reais(sobra) + '</span></div>' +
+      '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-top:7px">' +
+      'E o que sobra de cada venda para pagar os <b style="color:var(--t1)">custos fixos</b> \u2014 aluguel, equipe, sistema, pro-labore \u2014 e so depois virar lucro. ' +
+      'Se voce tem ' + reais(3000) + ' de custo fixo por mes, precisa de ' + fmt(3000 / Math.max(sobra, 0.01), 0) + ' vendas deste produto so para empatar.' +
+      '</div></div>';
 
     h += olho('O QUE ISSO SIGNIFICA PARA O ANUNCIO', 'Com esta margem, cada real investido em Shopee Ads precisa devolver pelo menos este valor para a venda nao sair no prejuizo. Abaixo disso voce paga para vender.');
     h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b2));border-left:3px solid var(--px);border-radius:0 18px 18px 0;padding:15px 16px;font-size:14.5px;color:var(--t1);line-height:1.55">' +
@@ -8263,6 +8396,7 @@
       h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') +
         seguro(renderPercentis, 'Percentis da categoria') +
         seguro(renderHoras, 'O dia hora a hora') +
+        seguro(renderPausadasQueRendiam, 'Pausadas que rendiam') +
         seguro(renderFiltroCampanhas, 'Filtro de campanhas') +
         h2 +
         seguro(renderImportador, 'Planilha do grupo');
