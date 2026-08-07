@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '0.98.3';
+  var VERSAO = '0.98.4';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1947,10 +1947,13 @@
     '.painel,.painel *{color:inherit}' +
     'select,input,textarea,button{color:var(--t0);background-color:var(--b2)}' +
     'option{background:var(--b2);color:var(--t0)}' +
-    '.painel.aberto ~ .botao,.botao.escondido{opacity:0;pointer-events:none;transform:scale(.8)}' +
     '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;z-index:2147483001;border-radius:17px;cursor:pointer;box-shadow:0 8px 24px var(--sh),0 2px 6px var(--shb);transition:transform .15s;background:none;border:none;padding:0;overflow:hidden}' +
     '.botao svg{display:block;width:100%;height:100%}' +
     '.botao:hover{transform:scale(1.08)}' +
+    /* O seletor irmao nao servia: o botao vem ANTES do painel no HTML e o til
+       so alcanca irmaos posteriores. Classe direta resolve, e precisa vir
+       DEPOIS da regra base para vencer na cascata. */
+    '.botao.escondido{opacity:0;pointer-events:none;transform:scale(.75)}' +
     '.botao svg{width:100%;height:100%}' +
     '.painel{position:fixed;top:0;right:0;height:100vh;width:min(760px,100vw);background:var(--b1);border-left:1px solid var(--li);border-radius:var(--r-painel,30px) 0 0 var(--r-painel,30px);box-shadow:-18px 0 60px var(--sh),0 6px 18px var(--shb);display:flex;flex-direction:column;overflow:hidden;color:var(--t0);transform:translateX(102%);transition:transform .26s cubic-bezier(.4,0,.2,1);z-index:2147483000}' +
     '.painel.aberto{transform:translateX(0)}' +
