@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.0.2';
+  var VERSAO = '1.1.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -552,7 +552,10 @@
     // ate essa rota chegar — e todo dado lido antes disso entrava sem carimbo.
     // O SPC_CDS muda a cada conta e vem em quase toda chamada do painel.
     try {
-      var mSpc = String(pacote && pacote.url || '').match(/SPC_CDS=([\w-]{8,})/);
+      var urlPac = String(pacote && pacote.url || '');
+      // A vitrine publica nao tem SPC_CDS e nao pode disparar troca de conta.
+      var ehVitrine = /shopee\.com\.br\/api\/v4|search_items|\/pdp\//.test(urlPac);
+      var mSpc = ehVitrine ? null : urlPac.match(/SPC_CDS=([\w-]{8,})/);
       if (mSpc && mSpc[1] !== estado.spcCorrente) {
         if (estado.spcCorrente) {
           // sessao diferente = outra conta: limpa tudo antes de aceitar dado
@@ -568,7 +571,8 @@
     // carimbado com uma loja e ela nao e a atual, descarta. Sem isso, pacote
     // em voo da conta anterior grava na nova.
     if (pacote && pacote.loja && estado.loja && estado.loja.shop_id &&
-        String(pacote.loja) !== String(estado.loja.shop_id)) {
+        String(pacote.loja) !== String(estado.loja.shop_id) &&
+        !/search_items|\/pdp\/|shopee\.com\.br\/api\/v4/.test(String(pacote.url || ''))) {
       return;
     }
     if (!pacote || !pacote.url) return;
@@ -1970,14 +1974,14 @@
     '<style>' +
     /* PADRAO = bege claro. A classe .escuro inverte. */
     ':host{all:initial;color:#211F1B;' +
-    '--b0:#FFFDFA;--b1:#FBF8F3;--b2:#F8F4ED;--li:#EFE8DC;--li2:#E7DFD2;' +
-    '--t0:#211F1B;--t1:#4A443A;--t2:#7A7264;--t3:#9A9284;' +
+    '--b0:#FFFFFF;--b1:#FEFCF9;--b2:#F7F3EC;--li:#EDE6D9;--li2:#DFD6C6;' +
+    '--t0:#12100D;--t1:#3A342B;--t2:#6E665A;--t3:#928A7C;' +
     '--mk:#EE4D2D;--mk2:#F0764F;--vd:#1F8A5F;--rd:#D64545;--am:#C98A1E;--px:#8A5CD6;' +
     '--tin:9%;--r-card:22px;--r-btn:14px;--r-painel:30px;' +
     '--sh:rgba(72,56,38,.22);--shb:rgba(72,56,38,.10)}' +
     ':host(.escuro){color:#F2F4F7;' +
     '--b0:#151920;--b1:#0F1115;--b2:#1A1F27;--li:#232833;--li2:#2A303B;' +
-    '--t0:#F2F4F7;--t1:#AEB5C0;--t2:#79818D;--t3:#6A727E;' +
+    '--t0:#FFFFFF;--t1:#D3D9E2;--t2:#969EAA;--t3:#7C8490;' +
     '--mk:#FF6A3D;--mk2:#FF8A63;--vd:#2ECC8F;--rd:#FF6B6B;--am:#E8B14A;--px:#B06CFF;' +
     '--tin:14%;' +
     '--sh:rgba(0,0,0,.50);--shb:rgba(0,0,0,.28)}' +
@@ -2023,8 +2027,12 @@
     '.aba{display:flex;align-items:center;gap:7px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t2);font-family:Space Mono,monospace;font-size:12.5px;letter-spacing:.02em;padding:10px 11px 11px;border-radius:0;white-space:nowrap;cursor:pointer}' +
     '.aba:hover{color:var(--mk)}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
-    '.corpo{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px 24px 30px;scrollbar-width:none;background:var(--b1)}' +
-    '.corpo::-webkit-scrollbar{width:0;height:0}' +
+    '.corpo{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px 24px 30px;scrollbar-width:thin;scrollbar-color:var(--li2) transparent;background:var(--b1)}' +
+    '.corpo::-webkit-scrollbar{width:10px}' +
+    '.corpo::-webkit-scrollbar-track{background:transparent}' +
+    '.corpo::-webkit-scrollbar-thumb{background:var(--li2);border-radius:99px;border:3px solid var(--b1)}' +
+    '.corpo::-webkit-scrollbar-thumb:hover{background:var(--t3)}' +
+
     '.rodape{position:relative;flex:none;padding:10px 18px 14px;background:var(--b1);display:flex;justify-content:center}' +
     '.rodape button{width:auto;min-width:260px;max-width:80%;background:var(--mk);border:none;color:#fff;font-family:Outfit,Arial;font-weight:600;font-size:14.5px;padding:12px 28px;border-radius:999px;cursor:pointer;box-shadow:0 6px 18px color-mix(in srgb,var(--mk) 30%,transparent)}' +
     '.rodape button:hover{background:var(--mk2)}' +
@@ -2039,7 +2047,7 @@
     '.leitura .ex{font-size:15.5px;color:var(--t1);margin-top:11px;line-height:1.6}' +
     '.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--li);border:1px solid var(--li);border-radius:18px;overflow:hidden;margin-bottom:18px}' +
     '.tres>div{background:var(--b2);padding:19px 12px;text-align:center}' +
-    '.tres .v{font-family:"Bebas Neue";font-size:40px;line-height:1}' +
+    '.tres .v{font-family:Archivo,Outfit,Arial;font-weight:600;font-size:36px;line-height:1;letter-spacing:-.03em}' +
     '.tres .l{font-family:Space Mono,monospace;font-size:10px;color:var(--t2);letter-spacing:.07em;margin-top:7px}' +
     '.tres .s{font-size:12.5px;color:var(--t2);margin-top:3px}' +
     /* cabecalho de tela: olho + display + numero fantasma, como no Club */
@@ -2047,7 +2055,7 @@
     '.capa .ol{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:11px;color:var(--mk);letter-spacing:.14em;margin-bottom:9px}' +
     '.capa .ol::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
     '.capa .dp{font-family:Archivo,Outfit,Arial;font-weight:400;font-size:31px;line-height:1.1;letter-spacing:-.025em;color:var(--t0)}' +
-    '.capa .dp small{font-weight:600;font-size:inherit;color:var(--t0)}' +
+    '.capa .dp small{font-weight:600;font-size:inherit;color:var(--mk)}' +
     '.capa .dp small{font-family:"Bebas Neue";font-size:30px;color:var(--t2);margin-left:7px}' +
     '.capa .gh{position:absolute;top:-2px;right:0;font-family:"Bebas Neue";font-size:38px;line-height:1;color:var(--li);pointer-events:none;user-select:none}' +
     '.tit{font-family:Archivo,Outfit,Arial;font-weight:400;font-size:33px;letter-spacing:-.025em;line-height:1.1;color:var(--t0);margin-bottom:8px}' +
@@ -2061,7 +2069,7 @@
     '.num{text-align:right;font-variant-numeric:tabular-nums}' +
     '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:9px;margin-bottom:20px}' +
     '.kpi{background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:15px 13px}' +
-    '.kpi .v{font-family:"Bebas Neue";font-size:38px;line-height:1;color:var(--mk)}' +
+    '.kpi .v{font-family:Archivo,Outfit,Arial;font-weight:600;font-size:34px;line-height:1;letter-spacing:-.03em;color:var(--mk)}' +
     '.kpi .l{font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:6px;text-transform:uppercase;letter-spacing:.07em;line-height:1.35}' +
     '.vazio{color:var(--t2);font-size:15.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
     '.selo{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--li);border-radius:99px;padding:2px 8px;color:var(--t2);margin-left:8px}' +
@@ -2290,6 +2298,7 @@
             var sel = raiz.getElementById ? raiz.getElementById('sia-esp-prod') : $('sia-esp-prod');
             var campo = $('sia-esp-termo');
             estado.espiao.termoManual = (campo && campo.value.trim()) || null;
+            if (!campo) estado.espiao.termoManual = null;   // Radar usa o titulo
             if (!sel || !sel.value) { estado.espiao.erro = 'Escolha um produto na lista primeiro.'; render(); return; }
             espAnalisarProduto(sel.value);
           } catch (err) {
@@ -5144,8 +5153,8 @@
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:1px;background:var(--li);border:1px solid var(--li);border-radius:10px;overflow:hidden;margin-bottom:10px">';
     function celula(rot, val2, cor) {
       return '<div style="background:var(--b0);padding:9px 6px;text-align:center">' +
-        '<div style="font-family:Space Mono,monospace;font-size:13px;color:' + (cor || 'var(--t0)') + '">' + val2 + '</div>' +
-        '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:3px">' + rot + '</div></div>';
+        '<div style="font-family:Space Mono,monospace;font-size:16px;font-weight:700;color:' + (cor || 'var(--t0)') + '">' + val2 + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:5px">' + rot + '</div></div>';
     }
     h += celula('ROAS', roas != null ? fmt(roas, 1) + 'x' : '\u2014', roas != null ? (roas >= piso ? 'var(--vd)' : 'var(--rd)') : null);
     h += celula('CTR', ctr != null ? fmt(ctr, 1) + '%' : '\u2014', ctr != null && ctr < 1.8 ? 'var(--am)' : null);
@@ -5157,8 +5166,13 @@
 
     h += '<div style="font-size:15px;color:var(--t1);line-height:1.5">' + esc(texto) + '</div>';
     if (passos.length) {
-      h += '<div style="font-size:14px;color:' + co.dot + ';margin-top:8px;line-height:1.45">';
-      for (var q = 0; q < passos.length; q++) h += '\u2192 ' + esc(passos[q]) + '<br>';
+      // Passos em vermelho pareciam alerta urgente. Agora sao um bloco suave
+      // com a cor do nivel so no marcador.
+      h += '<div style="background:var(--b1);border-radius:12px;padding:11px 13px;margin-top:9px">';
+      for (var q = 0; q < passos.length; q++) {
+        h += '<div style="display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--t1);line-height:1.45' + (q ? ';margin-top:6px' : '') + '">' +
+          '<span style="color:' + co.dot + ';flex:none">\u2192</span><span>' + esc(passos[q]) + '</span></div>';
+      }
       h += '</div>';
     }
     // ---- O FUNIL DESTA CAMPANHA ----
@@ -5547,16 +5561,31 @@
     return linhas.map(function (l) { return l.join(';'); }).join('\n');
   }
 
+  // O CSV exportado usa PONTO como decimal (393.79) e o numeroPuro trata
+  // ponto como separador de milhar, virando 39379. Este le no formato do
+  // arquivo, nao no formato da tela.
+  function numCsv(v) {
+    if (v == null || v === '' || v === '-') return null;
+    var s = String(v).replace(/[R$\s%]/g, '');
+    // se tem virgula E ponto, o ultimo separador manda
+    if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) {
+      s = (s.lastIndexOf(',') > s.lastIndexOf('.')) ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+    } else if (s.indexOf(',') >= 0) {
+      s = s.replace(',', '.');
+    }
+    var n = parseFloat(s);
+    return isFinite(n) ? n : null;
+  }
   function lerCsvGrupo(txt, nome) {
-    // CSV da Shopee tem tres armadilhas que quebravam a leitura:
-    // 1) BOM no inicio do arquivo, que colava no primeiro nome de coluna;
-    // 2) o cabecalho nem sempre e a primeira linha — costuma vir depois de
-    //    linhas de titulo e periodo;
-    // 3) campos com virgula dentro de aspas, que o split simples partia no
-    //    meio do nome do produto.
+    /* FORMATO REAL DA SHOPEE, conferido nos arquivos que a Karina exportou:
+         linha 1: titulo do relatorio
+         linhas 2-6: usuario, loja, ID da loja, data, periodo
+         linha 7: vazia
+         linha 8: CABECALHO -> #,Nome do Produto,ID do produto,Impressoes,...
+       Vale para Grupo de Anuncios e para GMV Max da Loja. */
     txt = String(txt || '').replace(/^\uFEFF/, '');
-    var linhas = txt.split(/\r?\n/).filter(function (l) { return l.trim(); });
-    if (linhas.length < 2) throw new Error('o arquivo parece vazio');
+    var linhas = txt.split(/\r?\n/);
+    if (linhas.length < 3) throw new Error('o arquivo parece vazio');
 
     function partir(linha, sep) {
       var out = [], atual = '', dentro = false;
@@ -5572,38 +5601,24 @@
       return out.map(function (x) { return x.trim(); });
     }
 
-    // separador: o que aparece mais na linha com mais colunas
-    var sep = ',';
-    var testeP = linhas[0].split(';').length, testeV = linhas[0].split(',').length, testeT = linhas[0].split('\t').length;
-    if (testeP >= testeV && testeP >= testeT) sep = ';';
-    else if (testeT > testeV) sep = '\t';
-
-    // acha a linha que e o cabecalho de verdade
-    // O CSV da Shopee comeca com o titulo do relatorio, algo como
-    // "Ad Group - EF - Cortador De Biscoito Report - Shopee Brasil", e o
-    // cabecalho real vem varias linhas abaixo. Procurar so nas 15 primeiras
-    // com poucas pistas nao bastava.
-    var PISTAS = ['produto', 'anuncio', 'anúncio', 'item', 'nome', 'sku', 'campanha',
-      'despesa', 'gasto', 'roas', 'pedido', 'impress', 'clique', 'click', 'ctr',
-      'conversa', 'conversã', 'venda', 'gmv', 'custo', 'orcamento', 'orçamento',
-      'expense', 'spend', 'order', 'product', 'name', 'status'];
-    var iCab = 0, melhor = -1;
-    for (var L = 0; L < Math.min(linhas.length, 40); L++) {
-      var cols = partir(linhas[L], sep).map(function (x) { return x.toLowerCase(); });
-      if (cols.length < 3) continue;
-      var pontos = 0;
-      for (var c = 0; c < cols.length; c++) {
-        for (var q = 0; q < PISTAS.length; q++) if (cols[c].indexOf(PISTAS[q]) >= 0) { pontos++; break; }
+    // cabecalho = a linha que tem 'nome do produto' ou 'anuncio'
+    var iCab = -1, sep = ',';
+    for (var L = 0; L < Math.min(linhas.length, 30); L++) {
+      var baixa = linhas[L].toLowerCase();
+      if (baixa.indexOf('nome do produto') >= 0 || baixa.indexOf('nome do produto') >= 0 ||
+          (baixa.indexOf('an\u00fancio') >= 0 && baixa.indexOf('produto') >= 0) ||
+          (baixa.indexOf('id do produto') >= 0)) {
+        iCab = L;
+        sep = (linhas[L].split(';').length > linhas[L].split(',').length) ? ';' : ',';
+        break;
       }
-      if (pontos > melhor) { melhor = pontos; iCab = L; }
     }
-    if (melhor < 1) {
-      // mostra o que existe no arquivo para a pessoa poder me dizer
+    if (iCab < 0) {
       var amostra = [];
-      for (var la = 0; la < Math.min(linhas.length, 6); la++) {
-        amostra.push('linha ' + (la + 1) + ': ' + partir(linhas[la], sep).slice(0, 5).join(' | '));
+      for (var la = 0; la < Math.min(linhas.length, 8); la++) {
+        if (linhas[la].trim()) amostra.push('linha ' + (la + 1) + ': ' + linhas[la].slice(0, 70));
       }
-      throw new Error('nao reconheci o cabecalho neste arquivo. Foi isto que eu li:\n' + amostra.join('\n'));
+      throw new Error('nao achei a linha de cabecalho. Foi isto que li:\n' + amostra.join('\n'));
     }
 
     var cab = partir(linhas[iCab], sep).map(function (x) { return x.toLowerCase(); });
@@ -5613,33 +5628,46 @@
       }
       return -1;
     }
-    var iNome = acha('produto', 'anúncio', 'anuncio', 'item', 'nome', 'titulo', 'título', 'sku');
-    var iGasto = acha('despesa', 'gasto', 'investimento', 'custo', 'expense', 'spend');
-    var iRoas = acha('roas', 'retorno', 'roi');
-    var iPed = acha('pedido', 'conversõ', 'conversao', 'venda', 'order');
-    var iImpr = acha('impress', 'visualiza');
-    var iCliq = acha('clique', 'click');
-    if (iNome < 0) {
-      throw new Error('nao achei a coluna de produto. As colunas do arquivo sao: ' + cab.slice(0, 10).join(' | '));
-    }
+    var iNome = acha('nome do produto', 'an\u00fancio / nome', 'nome do an', 'produto');
+    var iId = acha('id do produto', 'id do an');
+    var iImpr = acha('impress');
+    var iCliq = acha('clique');
+    var iCtr = acha('ctr');
+    var iConv = acha('convers\u00f5es diretas') >= 0 ? acha('convers\u00f5es') : acha('convers');
+    var iGmv = acha('gmv');
+    var iDesp = acha('despesa', 'receita de an', 'custo total', 'gasto');
+    var iRoas = acha('roas', 'retorno');
+    var iStatus = acha('status');
+    if (iNome < 0) throw new Error('achei o cabecalho mas nao a coluna de produto. Colunas: ' + cab.slice(0, 8).join(' | '));
 
     var out = [];
     for (var l = iCab + 1; l < linhas.length; l++) {
+      if (!linhas[l].trim()) continue;
       var col = partir(linhas[l], sep);
-      if (!col[iNome] || col.length < 2) continue;
-      if (/^(total|soma|resumo)/i.test(col[iNome])) continue;   // linha de totalizacao
+      if (col.length < 4) continue;
+      var nomeP = col[iNome];
+      if (!nomeP || /^(total|soma|resumo)/i.test(nomeP)) continue;
+      var idP = (iId >= 0 && col[iId] && col[iId] !== '-') ? col[iId] : null;
       out.push({
-        nome: col[iNome],
-        gasto: iGasto >= 0 ? numeroPuro(col[iGasto]) : null,
-        roas: iRoas >= 0 ? numeroPuro(col[iRoas]) : null,
-        pedidos: iPed >= 0 ? numeroPuro(col[iPed]) : null,
-        impressoes: iImpr >= 0 ? numeroPuro(col[iImpr]) : null,
-        cliques: iCliq >= 0 ? numeroPuro(col[iCliq]) : null
+        nome: nomeP,
+        id: idP,
+        status: iStatus >= 0 ? col[iStatus] : null,
+        impressoes: iImpr >= 0 ? numCsv(col[iImpr]) : null,
+        cliques: iCliq >= 0 ? numCsv(col[iCliq]) : null,
+        ctr: iCtr >= 0 ? numCsv(col[iCtr]) : null,
+        pedidos: iConv >= 0 ? numCsv(col[iConv]) : null,
+        gmv: iGmv >= 0 ? numCsv(col[iGmv]) : null,
+        gasto: iDesp >= 0 ? numCsv(col[iDesp]) : null,
+        roas: iRoas >= 0 ? numCsv(col[iRoas]) : null
       });
     }
-    if (!out.length) throw new Error('li o cabecalho mas nenhuma linha de produto abaixo dele');
+    // ROAS derivado quando a coluna nao existe
+    for (var q = 0; q < out.length; q++) {
+      if (out[q].roas == null && out[q].gasto && out[q].gmv) out[q].roas = out[q].gmv / out[q].gasto;
+    }
+    if (!out.length) throw new Error('li o cabecalho na linha ' + (iCab + 1) + ' mas nenhuma linha de produto abaixo dele');
     out.sort(function (a, b) { return (b.gasto || 0) - (a.gasto || 0); });
-    return { nome: nome, linhas: out, em: Date.now(), colunas: cab.length, linhaCabecalho: iCab + 1 };
+    return { nome: nome, linhas: out, em: Date.now(), linhaCabecalho: iCab + 1 };
   }
 
 
@@ -7432,7 +7460,7 @@
       r.nivel = 'vermelho';
       r.titulo = 'Recebe clique e nao vende';
       r.texto = 'O card funciona: ' + fmt(ctr, 1) + ' de cada 100 clicam. Mas de cada 100 que entram na pagina, menos de 1 compra.';
-      r.acao = 'Abra este card e toque em comparar: a Seller.IA busca os 3 que mais vendem nesta categoria e mostra a diferenca de preco, avaliacao e cupom.';
+      r.acao = '';   // o botao de comparar ja esta no card, logo abaixo
       return r;
     }
     // 3) entra e sai na hora
