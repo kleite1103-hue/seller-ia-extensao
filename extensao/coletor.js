@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.5.0';
+  var VERSAO = '1.6.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1926,6 +1926,13 @@
         // Minha substituicao na v0.88.0 deixou o resto da URL antiga colado:
         // virava period_type=1 seguido do timestamp, e a Shopee devolvia 400
         // em toda coleta.
+        var urlItens = '/api/v3/affiliateplatform/dashboard/seller_item_detail/top5?start_time=' + ini +
+          '&end_time=' + fimAds + '&order_type=2&channel=0&has_meta_feature=1&sm_parameter=0&sort_rule=3&is_real_time=0&period_type=1';
+        var rItens = await buscar(urlItens, 'GET', null);
+        totalChamadas++;
+        if (rItens.ok && rItens.dados) processarPacote({ url: urlItens, metodo: 'GET', corpo: null, dados: rItens.dados, ts: Date.now(), loja: lojaDoCiclo });
+        await pausa(250);
+
         var urlTop = '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + ini +
           '&end_time=' + fimAds +
           '&order_type=2&channel=0&has_meta_feature=1&sm_parameter=0&sort_rule=3&is_real_time=0&period_type=1';
@@ -2196,7 +2203,9 @@
     semanal:     'M4.5 4.5h15a1.5 1.5 0 0 1 1.5 1.5v13a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19V6a1.5 1.5 0 0 1 1.5-1.5zM3 9h18M8 3v3M16 3v3',
     relatorio:   'M6.5 3.5h7l4.5 4.5v12a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20V5a1.5 1.5 0 0 1 1.5-1.5zM13.5 3.5V8H18M8.5 13h7M8.5 16.5h4',
     diagnostico: 'M12 3.5l2 5 5 2-5 2-2 5-2-5-5-2 5-2zM18.5 16.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z',
-    debug:       'M9 6 3.5 12 9 18M15 6l5.5 6L15 18'
+    debug:       'M9 6 3.5 12 9 18M15 6l5.5 6L15 18',
+    afiliados:   'M9 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20v-1.5a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5V20M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 13.8a5 5 0 0 1 3 4.7V20',
+    config:      'M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zM19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3.5H9l-.3 2.5a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L4.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 1.7 1l.3 2.5h6l.3-2.5a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4z'
   };
   function svgAba(id) {
     var d = ICONES_ABA[id];
@@ -2211,11 +2220,13 @@
     { id: 'gprod', rotulo: 'Shopee Ads' },
     { id: 'espiao', rotulo: 'Espiao' },
     { id: 'marketing', rotulo: 'Marketing' },
+    { id: 'afiliados', rotulo: 'Afiliados' },
     { id: 'cofre', rotulo: 'Precificacao' },
     { id: 'palavras', rotulo: 'Palavras' },
     { id: 'semanal', rotulo: 'Semanal' },
     { id: 'relatorio', rotulo: 'Relatorio' },
     { id: 'diagnostico', rotulo: 'Especialista' },
+    { id: 'config', rotulo: 'Ajustes' },
     { id: 'debug', rotulo: 'Debug', tecnica: true }
   ];
   // grupos: uma aba de cima abre varias telas por dentro
@@ -2333,6 +2344,30 @@
           estado.sujo = true; render(); return;
         }
         if (voltaA.id === 'sia-serv-voltar') { estado.telaServico = null; render(); return; }
+        if (voltaA.id === 'sia-cfg-abrir-ext') {
+          try {
+            if (navigator.clipboard) navigator.clipboard.writeText('chrome://extensions');
+            mostrarExpl('<b>Endereco copiado.</b> Abra uma aba nova, cole na barra de endereco e siga os passos acima. O Chrome nao deixa a extensao abrir essa pagina sozinha, por seguranca.');
+          } catch (e) { mostrarExpl('Digite <b>chrome://extensions</b> numa aba nova.'); }
+          return;
+        }
+        if (voltaA.id === 'sia-cfg-clip') {
+          try { window.open('https://clipseller.com.br', '_blank', 'noopener'); } catch (e) { /* noop */ }
+          return;
+        }
+        if (voltaA.id === 'sia-sup-novo') {
+          estado.suporte = { texto: '', enviando: false, ok: false, erro: null };
+          render(); return;
+        }
+        if (voltaA.id === 'sia-sup-anexar') {
+          var inp = $('sia-sup-arquivo');
+          if (inp) inp.click();
+          return;
+        }
+        if (voltaA.id === 'sia-sup-tirar') {
+          estado.suporte.anexo = null; estado.suporte.anexoNome = null;
+          estado.sujo = true; render(); return;
+        }
         if (voltaA.id === 'sia-serv-atualizar') {
           estado.atualizacao = 'Procurando...';
           render();
@@ -2363,6 +2398,8 @@
             lojaNome: estado.loja ? estado.loja.nome : null,
             url: location.href.slice(0, 200),
             ultimoErro: estado.ultimoErro || null,
+            anexo: estado.suporte.anexo || null,
+            anexoNome: estado.suporte.anexoNome || null,
             em: new Date().toISOString()
           };
           fetch(SIA_URL_RELATORIO.replace('/relatorio', '/suporte'), {
@@ -5718,6 +5755,150 @@
   /* ============ TELAS DE SERVICO ============
      Atualizacao, suporte e assinatura. Ficam fora das abas porque nao sao
      analise: sao o que a pessoa faz quando algo precisa de atencao. */
+  /* ============ AJUSTES ============
+     Fica como aba, nao no menu que some: atualizacao, suporte e assinatura
+     precisam estar sempre a um clique. */
+  /* ============ AFILIADOS ============
+     O canal que so cobra quando vende. A pergunta que ele responde e outra:
+     nao "quanto rendeu", mas "quanto custa cada venda aqui contra o Ads". */
+  function renderAfiliados() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return ''; }
+    var AF = (D && D.afiliados) || {};
+    var R = AF.resumo || {};
+    var prods = AF.produtos || [];
+    if (!R.vendas && !prods.length) {
+      return '<div class="nota" style="color:var(--am)">Ainda nao li o canal de afiliados. Ele vem na coleta da conta \u2014 se persistir, abra <b>Afiliados do Vendedor</b> uma vez no painel.</div>';
+    }
+
+    var h = '';
+    // custo por venda do canal contra o Ads
+    var gastoAds = 0, pedAds = 0;
+    for (var k in estado.campanhas) {
+      var m = estado.campanhas[k].metricas || {};
+      gastoAds += m.gasto || 0; pedAds += m.pedidos || 0;
+    }
+    var cpaAds = pedAds ? gastoAds / pedAds : null;
+    var comTotal = numeroPuro(R.comissao), pedAf = numeroPuro(R.pedidos);
+    var cpaAf = (comTotal && pedAf) ? comTotal / pedAf : null;
+
+    if (cpaAf && cpaAds) {
+      var razao = cpaAds / cpaAf;
+      h += '<div class="leitura"><div class="fr">' +
+        (razao >= 1.3
+          ? 'Cada venda por afiliado custa <span class="u">' + fmt(razao, 1) + 'x menos</span> que por anuncio.'
+          : razao <= 0.77
+            ? 'Cada venda por afiliado custa <span class="w">' + fmt(1 / razao, 1) + 'x mais</span> que por anuncio.'
+            : 'Afiliado e anuncio custam quase o mesmo por venda.') +
+        '</div><div class="ex">Afiliado: ' + reais(cpaAf) + ' por pedido. Anuncio: ' + reais(cpaAds) + '. ' +
+        'A diferenca importa porque afiliado <b>so cobra quando vende</b> \u2014 nao ha risco de gastar sem retorno, e por isso ele suporta escala sem travar caixa.</div></div>';
+    }
+
+    // numeros do canal
+    h += olho('O CANAL NO PERIODO', 'Comissao e o custo real do canal: e o que voce paga ao criador por venda gerada. ROI de afiliados costuma ser muito maior que ROAS de anuncio porque a comissao e uma fracao do pedido, e nao um lance disputado.');
+    h += '<div class="tres">' +
+      '<div><div class="v">' + (R.vendas != null ? reais(numeroPuro(R.vendas)) : '\u2014') + '</div><div class="l">GMV DO CANAL</div></div>' +
+      '<div><div class="v">' + (pedAf != null ? fmt(pedAf, 0) : '\u2014') + '</div><div class="l">PEDIDOS</div></div>' +
+      '<div><div class="v">' + (R.roi != null ? fmt(numeroPuro(R.roi), 1) + 'x' : '\u2014') + '</div><div class="l">ROI</div></div></div>';
+    if (comTotal != null || R.novos != null) {
+      h += '<div class="nota">' +
+        (comTotal != null ? 'Comissao paga: <b>' + reais(comTotal) + '</b>' : '') +
+        (R.novos != null ? ' &middot; novos compradores: <b>' + fmt(numeroPuro(R.novos), 0) + '</b>' : '') + '</div>';
+    }
+
+    // produtos no canal
+    if (prods.length) {
+      var ordenados = prods.slice().sort(function (a, b) { return (b.gmv || 0) - (a.gmv || 0); });
+      h += olho('O QUE OS CRIADORES ESTAO VENDENDO', 'Por produto: quanto o canal faturou, quanto custou de comissao, e quantos dos compradores eram NOVOS. Produto que traz comprador novo vale mais que o GMV dele sugere \u2014 esse cliente pode voltar sem custo nenhum.');
+      h += '<table><tr><th>PRODUTO</th><th class="num">GMV</th><th class="num">CUSTO/VENDA</th><th class="num">NOVOS</th></tr>';
+      for (var i = 0; i < Math.min(ordenados.length, 10); i++) {
+        var P = ordenados[i];
+        h += '<tr><td>' + sig(String(P.nome).slice(0, 34)) +
+          '<span style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t3);display:block">' + esc(P.id) + '</span></td>' +
+          '<td class="num">' + (P.gmv != null ? reais(P.gmv) : '\u2014') + '</td>' +
+          '<td class="num">' + (P.custoPorVenda != null ? reais(P.custoPorVenda) : '\u2014') + '</td>' +
+          '<td class="num" style="color:' + (P.pctNovos >= 70 ? 'var(--vd)' : 'var(--t1)') + '">' +
+          (P.pctNovos != null ? fmt(P.pctNovos, 0) + '%' : '\u2014') + '</td></tr>';
+      }
+      h += '</table>';
+
+      // leitura de quem traz cliente novo
+      var novosAltos = ordenados.filter(function (x) { return x.pctNovos != null && x.pctNovos >= 70 && x.pedidos; });
+      if (novosAltos.length) {
+        h += '<div style="background:color-mix(in srgb,var(--vd) var(--tin,9%),var(--b0));border-left:3px solid var(--vd);border-radius:0 18px 18px 0;padding:14px 16px;margin-top:11px;font-size:14px;color:var(--t1);line-height:1.55">' +
+          '<b style="color:var(--t0)">' + novosAltos.length + ' produto(s) trazem mais de 70% de compradores novos pelo canal.</b> ' +
+          'Sao os melhores para ampliar comissao: cada venda ali traz alguem que ainda nao conhecia a loja.</div>';
+      }
+      // produto caro no canal
+      var carod = ordenados.filter(function (x) { return x.comissaoPct != null && x.comissaoPct > 15; });
+      if (carod.length) {
+        h += '<div class="nota" style="color:var(--am)">' + carod.length + ' produto(s) com comissao acima de 15% do GMV. Confira se a margem cobre, principalmente nos de ticket baixo.</div>';
+      }
+    }
+    return h;
+  }
+
+  function renderAjustes() {
+    var h = '';
+    function bloco2(rot, titulo, corpo2) {
+      return '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:18px 20px;margin-bottom:12px">' +
+        '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--mk);letter-spacing:.09em;margin-bottom:7px">' + rot + '</div>' +
+        '<div style="font-size:17px;font-weight:600;color:var(--t0);margin-bottom:9px;letter-spacing:-.01em">' + titulo + '</div>' + corpo2 + '</div>';
+    }
+
+    // ---- ATUALIZACAO, com o passo a passo ----
+    h += bloco2('VERSAO', 'Voce esta na v' + VERSAO,
+      '<div style="font-size:14px;color:var(--t1);line-height:1.6;margin-bottom:12px">' +
+      'A Seller.IA se atualiza sozinha, mas o Chrome so aplica a versao nova quando a extensao e recarregada. Se algo estiver diferente do combinado, faca assim:</div>' +
+      '<div style="font-size:14px;color:var(--t1);line-height:1.65">' +
+      '<div style="display:flex;gap:10px;margin-bottom:8px"><b style="color:var(--mk);flex:none">1.</b><span>Abra <b style="color:var(--t0)">chrome://extensions</b> numa aba nova \u2014 da para copiar e colar na barra de endereco.</span></div>' +
+      '<div style="display:flex;gap:10px;margin-bottom:8px"><b style="color:var(--mk);flex:none">2.</b><span>Ligue o <b style="color:var(--t0)">Modo do desenvolvedor</b>, no canto superior direito.</span></div>' +
+      '<div style="display:flex;gap:10px;margin-bottom:8px"><b style="color:var(--mk);flex:none">3.</b><span>Ache a Seller.IA e toque no icone de <b style="color:var(--t0)">recarregar</b> (as duas setas em circulo).</span></div>' +
+      '<div style="display:flex;gap:10px"><b style="color:var(--mk);flex:none">4.</b><span>Volte para o Seller Centre e <b style="color:var(--t0)">atualize a pagina</b>. A versao nova aparece aqui em cima.</span></div></div>' +
+      '<button id="sia-cfg-abrir-ext" style="width:100%;background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:13.5px;padding:12px;border-radius:var(--r-btn,14px);cursor:pointer;margin-top:14px">Copiar o endereco das extensoes</button>');
+
+    // ---- SUPORTE com anexo ----
+    var S = estado.suporte || {};
+    if (S.ok) {
+      h += bloco2('SUPORTE', 'Recebemos a sua mensagem',
+        '<div style="font-size:14px;color:var(--t1);line-height:1.6">Vamos responder no email cadastrado. Se for urgente, chame no WhatsApp da Efeito Vendas.</div>' +
+        '<button id="sia-sup-novo" style="margin-top:12px;background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13px;padding:10px 16px;border-radius:999px;cursor:pointer">Enviar outra</button>');
+    } else {
+      h += bloco2('SUPORTE', 'Algo nao esta certo?',
+        '<div style="font-size:14px;color:var(--t1);line-height:1.6;margin-bottom:12px">' +
+        'Conte o que aconteceu e em qual tela. Se puder anexar um print, melhor ainda \u2014 e o que mais encurta o caminho ate a solucao.</div>' +
+        '<textarea id="sia-sup-texto" placeholder="Descreva o problema..." style="width:100%;box-sizing:border-box;min-height:120px;background:var(--b1);border:1px solid var(--li);border-radius:14px;padding:13px;color:var(--t0);font-family:inherit;font-size:14px;line-height:1.5;resize:vertical">' + esc(S.texto || '') + '</textarea>' +
+        '<div style="display:flex;gap:9px;align-items:center;margin:10px 0">' +
+        '<button id="sia-sup-anexar" style="background:var(--b2);border:1px dashed var(--li2);color:var(--t1);font-family:inherit;font-size:13px;padding:11px 16px;border-radius:12px;cursor:pointer">\u1F4CE Anexar print</button>' +
+        '<span style="font-size:13px;color:var(--t2)">' + (S.anexoNome ? esc(S.anexoNome) : 'nenhum arquivo') + '</span>' +
+        (S.anexoNome ? '<span id="sia-sup-tirar" style="color:var(--rd);cursor:pointer;font-size:16px">\u00d7</span>' : '') + '</div>' +
+        '<input type="file" id="sia-sup-arquivo" accept="image/*" style="display:none">' +
+        '<div class="nota">Enviamos junto a versao instalada, a loja aberta e o ultimo erro. Nenhum dado de venda vai junto.</div>' +
+        '<button id="sia-sup-enviar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:15px;padding:14px;border-radius:var(--r-btn,14px);cursor:pointer;margin-top:6px">' +
+        (S.enviando ? 'Enviando...' : 'Enviar para o suporte') + '</button>' +
+        (S.erro ? '<div class="nota" style="color:var(--rd)">' + esc(S.erro) + '</div>' : ''));
+    }
+
+    // ---- ASSINATURA ----
+    var A = estado.assinatura;
+    if (A) {
+      var dias = A.expiraEm ? Math.floor((A.expiraEm - Date.now() / 1000) / 86400) : null;
+      h += bloco2('ASSINATURA', esc(A.plano || 'Seller.IA'),
+        '<div style="font-size:14px;color:var(--t1);line-height:1.6">' + esc(A.email || '') +
+        (dias != null ? '<br>' + (dias > 0 ? 'Renova em ' + dias + ' dia' + (dias > 1 ? 's' : '') + '.' : '<b style="color:var(--rd)">Vencida.</b>') : '') + '</div>' +
+        (dias != null && dias <= 7 ? '<button id="sia-ass-renovar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:15px;padding:13px;border-radius:var(--r-btn,14px);cursor:pointer;margin-top:12px">Renovar</button>' : ''));
+    } else {
+      h += bloco2('ASSINATURA', 'Acesso liberado',
+        '<div style="font-size:14px;color:var(--t1);line-height:1.6">A validacao por email esta sendo construida. Enquanto isso, a Seller.IA funciona sem restricao.</div>' +
+        '<div class="nota">Gerencia varias lojas? Fale com a Efeito Vendas sobre o plano de agencia.</div>');
+    }
+
+    h += bloco2('CLIPSELLER', 'Seus videos, no mesmo lugar',
+      '<div style="font-size:14px;color:var(--t1);line-height:1.6;margin-bottom:12px">Assinantes da Seller.IA tem creditos no ClipSeller para gerar video de produto.</div>' +
+      '<button id="sia-cfg-clip" style="width:100%;background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:14px;padding:12px;border-radius:var(--r-btn,14px);cursor:pointer">Abrir o ClipSeller</button>');
+    return h;
+  }
+
   function renderServico() {
     var qual = estado.telaServico;
     var h = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">' +
@@ -7986,7 +8167,7 @@
   // fechava sozinha.
   var TELAS_VALIDAS = ['semaforo','conta360','calc','cofre','espiao','card','diagnostico','visao',
     'campanhas','produtos','performance','afiliados','cadastro','diamantes','debug',
-    'relatorio','gprod','ferramentas','radar','busca','palavras','semanal','marketing'];
+    'relatorio','gprod','ferramentas','radar','busca','palavras','semanal','marketing','config','afiliados'];
   /* ============ INTELIGENCIA DE PRODUTO (Performance) ============
      Le o funil de cada produto e devolve um veredito, nao uma linha de
      tabela. A ordem das perguntas segue o metodo: primeiro o dinheiro
@@ -8459,6 +8640,32 @@
     if (estado.telaServico) {
       try { corpo.innerHTML = renderServico(); }
       catch (err) { corpo.innerHTML = telaDeErro('Servico', err); }
+      return;
+    }
+    if (abaAtiva === 'afiliados') {
+      try { corpo.innerHTML = capa('QUEM VENDE POR VOCE', 'OS', 'AFILIADOS', '09') + renderAfiliados(); }
+      catch (err) { corpo.innerHTML = telaDeErro('Afiliados', err); }
+      return;
+    }
+    if (abaAtiva === 'config') {
+      try {
+        corpo.innerHTML = capa('A SUA CONTA AQUI', 'OS', 'AJUSTES', '') + renderAjustes();
+        var arq = $('sia-sup-arquivo');
+        if (arq) arq.addEventListener('change', function () {
+          var f = this.files && this.files[0];
+          if (!f) return;
+          if (f.size > 3 * 1024 * 1024) { mostrarExpl('A imagem tem mais de 3 MB. Tire um print da tela em vez da foto do monitor, que fica bem menor.'); return; }
+          var fr2 = new FileReader();
+          fr2.onload = function () {
+            estado.suporte.anexo = String(fr2.result);
+            estado.suporte.anexoNome = f.name;
+            estado.sujo = true; render();
+          };
+          fr2.readAsDataURL(f);
+        });
+        var tx2 = $('sia-sup-texto');
+        if (tx2) tx2.addEventListener('input', function () { estado.suporte.texto = this.value; });
+      } catch (err) { corpo.innerHTML = telaDeErro('Ajustes', err); }
       return;
     }
     if (abaAtiva === 'conta360') {

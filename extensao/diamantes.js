@@ -1189,6 +1189,34 @@
   }
 
   // [5] AFILIADOS — canal, ROI, top afiliados, creators pra recrutar
+  // ---- PRODUTOS NO CANAL DE AFILIADOS ----
+  // A rota seller_item_detail/top5 traz, por item: GMV do canal, comissao
+  // paga, ROI, pedidos, compradores NOVOS e cliques. E o unico lugar que
+  // separa comprador novo de recorrente por produto.
+  function exAfiliadosProdutos(url, d) {
+    var lst = ((d && d.data) || {}).list || [];
+    if (!lst.length) return 0;
+    COFRE.afiliados = COFRE.afiliados || {};
+    COFRE.afiliados.produtos = lst.map(function (x) {
+      var gmv = n(x.gmv) != null ? n(x.gmv) / 100000 : null;
+      var com = n(x.spend) != null ? n(x.spend) / 100000 : null;
+      return {
+        id: String(x.item_id), nome: x.item_name,
+        categoria: x.category_name || null,
+        preco: n(x.price) != null ? n(x.price) / 100000 : null,
+        gmv: gmv, comissao: com,
+        roi: n(x.roi), pedidos: n(x.orders), unidades: n(x.sale),
+        compradores: n(x.total_buyers), novos: n(x.new_buyers),
+        cliques: n(x.clicks),
+        custoPorVenda: (com != null && x.orders) ? com / n(x.orders) : null,
+        pctNovos: (x.new_buyers != null && x.total_buyers) ? (n(x.new_buyers) / n(x.total_buyers)) * 100 : null,
+        comissaoPct: (com != null && gmv) ? (com / gmv) * 100 : null
+      };
+    });
+    logar('afiliados_produtos', COFRE.afiliados.produtos.length + ' produtos no canal', url);
+    return 1;
+  }
+
   function exAfiliados(url, d) {
     // resumo diario do canal (seller_daily) — dados vem em data
     if (/affiliateplatform\/dashboard\/seller_daily/.test(url)) {
@@ -1309,6 +1337,7 @@
       if (/product\/overview\/metric-trends|product\/overview\/|product\/traffic\/overview/.test(url)) exTendenciaProduto(url, dados);
       if (/get_product_lock_info|item\/get_ratings/.test(url)) exSaudeProduto(url, dados);
       if (/accounthealth\/v1\/sc\/shops\/overview/.test(url)) exSaudeConta(url, dados);
+      if (/seller_item_detail\/top5/.test(url)) exAfiliadosProdutos(url, dados);
       if (/affiliateplatform\/dashboard\/seller_daily|affiliate_performance\/top5|affiliateplatform\/creator\/list/.test(url)) exAfiliados(url, dados);
       if (/get_order_income_components/.test(url)) exFinanceiro(url, dados);
       if (/product\/get_product_info|get_product_recommend|ads.*product|product.*ads|homepage\/query/.test(url)) exProduto(url, dados);
