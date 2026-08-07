@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.2.0';
+  var VERSAO = '1.2.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3691,8 +3691,15 @@
       // inverno que vendeu 10 mil ha 60 dias mostraria isso como se fosse
       // agora. Se o campo nao vier, e melhor nao ter numero do que ter um
       // numero errado.
+      // CONFIRMADO na captura de 06/08: em sessao de SUBCONTA a Shopee
+      // devolve item_card_display_sold_count NULO e sold_count.text VAZIO
+      // em todos os itens. O volume simplesmente nao vem. O que vem e o
+      // numero de AVALIACOES e de curtidas, e avaliacao e o melhor sinal
+      // publico de venda que existe: so quem comprou avalia.
       var mes = (sc.monthly_sold_count != null && Number(sc.monthly_sold_count) >= 0)
         ? Number(sc.monthly_sold_count) : null;
+      var totalAval = (rt.rating_count && rt.rating_count[0] != null) ? Number(rt.rating_count[0]) : null;
+      var curtidas = d.liked_count != null ? Number(d.liked_count) : null;
 
       // Quando o campo nao vier, registra no console TODAS as chaves que
       // existem no item, para eu descobrir onde a Shopee pos o numero em vez
@@ -3726,6 +3733,9 @@
         vendaTotal: sc.historical_sold_count != null ? Number(sc.historical_sold_count) : null,
         faturamentoMes: (mes != null && preco != null) ? Math.round(mes * preco) : null,
         nota: rt.rating_star != null ? Number(rt.rating_star) : null,
+        curtidas: curtidas,
+        // proxy de tamanho quando o volume nao vem: avaliacoes acumuladas
+        forcaPublica: totalAval != null ? totalAval : (curtidas != null ? Math.round(curtidas / 10) : null),
         avaliacoes: rt.rating_count && rt.rating_count.length ? Number(rt.rating_count[0]) : null,
         cupom: voucher ? (voucher.voucher_code || 'sim') : null,
         ads: !!it.adsid,
@@ -4199,7 +4209,8 @@
           '<span style="text-align:right"><span style="font-family:monospace;font-size:10.5px;display:block">' + (x.preco != null ? 'R$' + fmt(x.preco, 2) : '—') + '</span>' +
           '<span style="font-family:monospace;font-size:12px;font-weight:700;color:var(--vd)">' +
           (x.vendasMes != null ? x.vendasMes + '/mes \u00b7 ' + espDinheiro(x.faturamentoMes)
-           : (x.avaliacoes ? fmt(x.avaliacoes, 0) + ' avaliacoes' : 'R$' + fmt(x.preco, 2))) + '</span></span>' +
+           : (x.avaliacoes ? fmt(x.avaliacoes, 0) + ' avaliacoes'
+              : (x.curtidas ? fmt(x.curtidas, 0) + ' curtidas' : 'R$' + fmt(x.preco, 2)))) + '</span></span>' +
           // O link para o anuncio do concorrente foi perdido numa edicao
           // anterior: por isso o Espiao nunca levava ate o campeao.
           (x.link && !x.eu ? '<a data-link-externo="1" href="' + esc(x.link) + '" target="_blank" rel="noopener" title="abrir o anuncio dele" style="flex:none;color:var(--mk);text-decoration:none;font-size:18px;padding:0 4px">\u2197</a>' : '') +
@@ -5915,7 +5926,13 @@
       var comDado = outros.filter(function (x) { return x.faturamentoMes != null && x.faturamentoMes > 0; });
       var semDado = outros.filter(function (x) { return !(x.faturamentoMes != null && x.faturamentoMes > 0); });
       comDado.sort(function (a, b) { return b.faturamentoMes - a.faturamentoMes; });
-      semDado.sort(function (a, b) { return (a.pos || 99) - (b.pos || 99); });
+      // Sem volume, ordena por avaliacoes acumuladas: nao e venda do mes, mas
+      // e o unico sinal publico de tamanho que a Shopee entrega em subconta.
+      semDado.sort(function (a, b) {
+        var fa = a.forcaPublica || 0, fb = b.forcaPublica || 0;
+        if (fb !== fa) return fb - fa;
+        return (a.pos || 99) - (b.pos || 99);
+      });
       outros = comDado.concat(semDado);
       var top3 = outros.slice(0, 3);
       var quantosComDado = comDado.length;
@@ -6020,8 +6037,9 @@
         '</span></div>';
     }
     if (C.comDado != null && C.comDado < C.top3.length) {
-      h += '<div class="nota" style="color:var(--am);margin-bottom:8px">A Shopee informou o volume de ' + C.comDado + ' de ' + C.top3.length +
-        ' concorrentes nesta busca. Os sem numero aparecem por ultimo, na ordem em que estao na vitrine.</div>';
+      h += '<div class="nota" style="color:var(--am);margin-bottom:8px">' +
+        '<b>A Shopee nao informou o volume de vendas nesta busca.</b> Isso acontece em sessao de subconta, e nao ha como contornar: o campo vem vazio da API. ' +
+        'A ordem abaixo usa o numero de avaliacoes, que e o melhor sinal publico de tamanho \u2014 so quem compra avalia.</div>';
     }
     for (var q = 0; q < C.top3.length; q++) {
       var T = C.top3[q];
