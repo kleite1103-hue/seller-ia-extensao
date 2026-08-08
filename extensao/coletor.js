@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.10.0';
+  var VERSAO = '1.10.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -6347,7 +6347,7 @@
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return ''; }
     var PC = (D && D.porCampanha) || {};
     // usa o dicionario global, que so tem os eixos que existem de verdade
-    var RUIM = /bad|poor|low/i, BOM = /good|excellent|healthy/i;
+    var RUIM = /bad|poor|low/i, BOM = /good|excellent|healthy|ok/i;
 
     var porEixo = {}, totalCamp = 0;
     for (var k in PC) {
@@ -6378,7 +6378,7 @@
 
     var lista = [];
     for (var e2 in porEixo) {
-      lista.push({ eixo: e2, rot: TRAD[e2] || e2.replace(/_/g, ' '), d: porEixo[e2] });
+      lista.push({ eixo: e2, rot: traduzEixo(e2), d: porEixo[e2] });
     }
     lista.sort(function (a, b) { return b.d.ruim - a.d.ruim; });
 
