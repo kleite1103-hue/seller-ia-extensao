@@ -1,0 +1,210 @@
+// ============================================================
+// SELLER.IA — COLETOR EM LOTE (disparo automatico)
+// v1.0.0
+// ------------------------------------------------------------
+// Em vez de esperar voce navegar, a extensao DISPARA sozinha as
+// chamadas de API que enchem as 6 inteligencias. Com barra de
+// progresso. Roda ao abrir a extensao.
+//
+// Como funciona (clean-room): usa o mesmo fetch que a propria
+// pagina da Shopee usa, com os cookies da sua sessao (o navegador
+// anexa sozinho). Nao inventa credencial, nao invade — so pede os
+// mesmos dados que apareceriam se voce clicasse em cada tela.
+//
+// 2 ondas:
+//   Onda 1 (diretas): gerenciais, funil, performance, saude, afiliados
+//   Onda 2 (dependentes): ratings e financeiro dos itens/pedidos achados
+// ============================================================
+(function () {
+  'use strict';
+  if (window.SIA_Lote) return;
+
+  var VERSAO = '1.2.0';
+  var BASE = 'https://seller.shopee.com.br';
+  var RESPIRO_MS = 220;   // pausa entre chamadas pra nao sufocar a thread
+
+  // ---- BLINDAGEM 1: espera um tempinho (deixa a tela respirar) ----
+  function respirar(ms) {
+    return new Promise(function (r) { setTimeout(r, ms || RESPIRO_MS); });
+  }
+
+  // ---- BLINDAGEM 2: processa no tempo ocioso do navegador ----
+  // requestIdleCallback roda o processamento so quando a tela nao esta ocupada,
+  // entao nunca compete com rolagem/clique do usuario. Fallback pra setTimeout.
+  function noTempoOcioso(fn) {
+    return new Promise(function (resolve) {
+      var run = function () { try { fn(); } catch (e) { } resolve(); };
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(run, { timeout: 1500 });
+      } else {
+        setTimeout(run, 1);
+      }
+    });
+  }
+
+  // ---- descobrir o SPC_CDS (cracha da sessao) de chamadas ja vistas ----
+  // o coletor.js guarda as urls brutas; pegamos o SPC_CDS de qualquer uma.
+  function acharCDS() {
+    try {
+      if (window.SIA_ULTIMO_CDS) return window.SIA_ULTIMO_CDS;
+      // tenta dos cookies (SPC_CDS costuma estar la, mas pode ser HttpOnly)
+      var m = document.cookie.match(/SPC_CDS=([^;]+)/);
+      if (m) return m[1];
+      // tenta achar em qualquer <script> ou no HTML da pagina (a Shopee injeta)
+      var html = document.documentElement ? document.documentElement.innerHTML : '';
+      var m2 = html.match(/SPC_CDS["'=:\s]+([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+      if (m2) return m2[1];
+      // tenta o localStorage/sessionStorage
+      try {
+        var ls = window.localStorage;
+        for (var k in ls) { if (/cds/i.test(k) && ls[k] && ls[k].length > 20) return ls[k]; }
+      } catch (e2) { }
+    } catch (e) { }
+    return null;
+  }
+
+  // ---- datas do periodo (mes atual por padrao) ----
+  function periodo(dias) {
+    var fim = Math.floor(Date.now() / 1000);
+    var ini;
+    if (dias) {
+      ini = fim - dias * 86400;
+    } else {
+      // mes corrente: do dia 1 ate agora
+      var d = new Date();
+      var primeiro = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0);
+      ini = Math.floor(primeiro.getTime() / 1000);
+    }
+    return { start: ini, end: fim };
+  }
+
+  // ---- montar a lista de chamadas da Onda 1 ----
+  function montarOnda1(cds) {
+    var p = periodo();              // mes corrente
+    var qBase = 'SPC_CDS=' + cds + '&SPC_CDS_VER=2';
+    var qData = qBase + '&start_time=' + p.start + '&end_time=' + p.end + '&period=month';
+    return [
+      { nome: 'Saude da conta', url: '/api/accounthealth/v1/sc/shops/overview?' + qBase },
+      { nome: 'Visao gerencial', url: '/api/mydata/v3/dashboard/key-metrics/?' + qData + '&fetag=fetag' },
+      { nome: 'Vendas e cancelamentos', url: '/api/mydata/dashboard/order-performance/?' + qData },
+      { nome: 'Funil de visitantes', url: '/api/mydata/v1/product/traffic/overview/?' + qData + '&order_type=paid' },
+      { nome: 'Performance de produtos', url: '/api/mydata/v4/product/performance/?' + qData + '&category_type=shopee&category_id=-1&page_size=15&page_num=1&order_type=paid&order_by=paid_sales.desc' },
+      { nome: 'Afiliados (resumo)', url: '/api/v3/affiliateplatform/dashboard/seller_daily?start_time=' + p.start + '&end_time=' + (p.end - 1) + '&is_real_time=0&order_type=2&channel=0' },
+      { nome: 'Afiliados (top 5)', url: '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + p.start + '&end_time=' + (p.end - 1) + '&order_type=2&channel=0&has_meta_feature=1' }
+    ];
+  }
+
+  // ---- disparar uma chamada e entregar o resultado ao diamantes ----
+  function disparar(item) {
+    return fetch(BASE + item.url, {
+      method: 'GET',
+      credentials: 'include',       // manda os cookies da sessao (clean-room)
+      headers: { 'accept': 'application/json' }
+    }).then(function (r) {
+      return r.json();
+    }).then(function (dados) {
+      // BLINDAGEM 2: processa o dado no tempo ocioso, sem travar a tela
+      return noTempoOcioso(function () {
+        try { if (window.SIA_Diamantes) window.SIA_Diamantes.processar(BASE + item.url, dados); } catch (e) { }
+      }).then(function () {
+        return { ok: true, nome: item.nome, dados: dados };
+      });
+    }).catch(function (e) {
+      return { ok: false, nome: item.nome, erro: String(e) };
+    });
+  }
+
+  // ---- Onda 2: com os produtos/pedidos achados, buscar ratings e financeiro ----
+  function montarOnda2(cds) {
+    var chamadas = [];
+    var qBase = 'SPC_CDS=' + cds + '&SPC_CDS_VER=2';
+    try {
+      var cofre = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null;
+      if (cofre && cofre.porProduto) {
+        // pegar ate 5 produtos com mais venda pra buscar avaliacoes
+        var ids = Object.keys(cofre.porProduto);
+        // performance 30d de todos de uma vez (a rota aceita lista)
+        if (ids.length) {
+          chamadas.push({
+            nome: 'Performance 30 dias', tipo: 'perf30',
+            url: '/api/v3/opt/mpsku/list/v2/get_product_performance_info?' + qBase + '&product_ids=' + ids.slice(0, 30).join(',')
+          });
+        }
+        // avaliacoes dos 5 top produtos
+        var top = ids.filter(function (k) { return cofre.porProduto[k].perf; })
+          .sort(function (a, b) {
+            return (cofre.porProduto[b].perf.vendaPaga || 0) - (cofre.porProduto[a].perf.vendaPaga || 0);
+          }).slice(0, 5);
+        top.forEach(function (id) {
+          chamadas.push({
+            nome: 'Avaliacoes', tipo: 'rating',
+            url: '/api/v2/item/get_ratings?itemid=' + id + '&filter=0&flag=1&limit=6&offset=0&type=0&exclude_filter=1'
+          });
+        });
+      }
+    } catch (e) { }
+    return chamadas;
+  }
+
+  // ---- rodar tudo, reportando progresso ----
+  // onProgress(feito, total, nomeAtual)
+  function coletar(onProgress, onDone) {
+    // tenta achar o CDS; se nao achar, espera ate 3s (uma chamada da Shopee
+    // pode passar e preencher o cracha) antes de desistir.
+    var tentativas = 0;
+    function tentar() {
+      var cds = acharCDS();
+      if (cds) { rodar(cds, onProgress, onDone); return; }
+      tentativas++;
+      if (tentativas > 6) { // ~3 segundos
+        if (onDone) onDone({ ok: false, erro: 'Nao achei a sessao. Abra uma tela da Shopee (ex: Central de Dados) e tente de novo.' });
+        return;
+      }
+      if (onProgress) onProgress(0, 1, 'procurando a sessao…');
+      setTimeout(tentar, 500);
+    }
+    tentar();
+  }
+
+  function rodar(cds, onProgress, onDone) {
+    var onda1 = montarOnda1(cds);
+    var total = onda1.length; // onda 2 soma depois
+    var feito = 0;
+    var resultados = [];
+
+    function passo(nome) { feito++; if (onProgress) onProgress(feito, total, nome); }
+
+    // BLINDAGEM 1: dispara UMA de cada vez, com um respiro entre elas.
+    function emSerie(lista, aoFim) {
+      var idx = 0;
+      function proxima() {
+        if (idx >= lista.length) { aoFim(); return; }
+        var item = lista[idx++];
+        disparar(item).then(function (res) {
+          resultados.push(res);
+          passo(item.nome);
+          setTimeout(proxima, 120);
+        });
+      }
+      proxima();
+    }
+
+    emSerie(onda1, function () {
+      var onda2 = montarOnda2(cds);
+      total += onda2.length;
+      if (onProgress) onProgress(feito, total, 'preparando detalhes…');
+      emSerie(onda2, function () {
+        try { if (window.SIA_Diamantes && window.SIA_Diamantes.persistir) window.SIA_Diamantes.persistir(); } catch (e) { }
+        var ok = resultados.filter(function (r) { return r.ok; }).length;
+        var falhas = resultados.filter(function (r) { return !r.ok; });
+        if (onDone) onDone({ ok: true, total: resultados.length, sucesso: ok, falhas: falhas });
+      });
+    });
+  }
+
+  window.SIA_Lote = {
+    versao: VERSAO,
+    coletar: coletar,
+    acharCDS: acharCDS
+  };
+})();
