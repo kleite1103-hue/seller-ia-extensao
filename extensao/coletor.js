@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.12.2';
+  var VERSAO = '1.12.3';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -43,6 +43,7 @@
   // resolvia. Agora a pessoa cola a chave real uma vez e ela fica salva.
   var SIA_ANON_KEY = '';
 
+  var SIA_EXIGIR_ACESSO = false;   // ligar so quando o SaaS estiver no ar
   var SIA_URL_ACESSO = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/acesso';
 
   /* Impressao digital do navegador: identifica a MAQUINA, nao a pessoa.
@@ -72,8 +73,11 @@
   var estado = {
     // CONTROLE DE ACESSO — sem isto declarado, acessoValidar quebrava ao
     // tocar em estado.acesso.verificando e a gaveta abria em branco.
+    // O controle de acesso fica PRONTO mas DESLIGADO nesta versao: a
+    // extensao que o time usa continua abrindo direto. Para ligar, troque
+    // SIA_EXIGIR_ACESSO para true — nada mais precisa mudar.
     acesso: {
-      verificando: true, liberado: false, usuario: null,
+      verificando: false, liberado: true, usuario: null,
       email: '', erro: null, entrando: false, aviso: null
     },
     acessoToken: null,
@@ -9357,8 +9361,8 @@
       ligarRelatorio();
       return;
     }
-    // PORTARIA: sem acesso liberado, nada mais e desenhado.
-    if (!estado.acesso.liberado) {
+    // PORTARIA: so entra em cena quando SIA_EXIGIR_ACESSO estiver ligado.
+    if (SIA_EXIGIR_ACESSO && !estado.acesso.liberado) {
       corpo.innerHTML = renderPortaria();
       var campoAc = $('sia-acesso-email');
       if (campoAc) {
@@ -9888,7 +9892,7 @@
     void chrome.runtime.lastError;
     if (r && r.valor) { estado.anonKey = r.valor; }
   });
-  acessoValidar();
+  if (SIA_EXIGIR_ACESSO) acessoValidar();
   chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'temaEscuro' }, function (r) {
       void chrome.runtime.lastError;
       if (r && r.valor) aplicarTema(true);
