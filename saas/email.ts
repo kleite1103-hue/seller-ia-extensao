@@ -18,8 +18,8 @@ function json(b: unknown, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json", ...CORS } });
 }
 
-const DE = "Seller.IA <acesso@efeitovendas.com.br>";
-const SITE = "https://selleria.com.br";
+const DE = "Seller.IA <acesso@selleriaclub.com>";
+const SITE = "https://selleriaclub.com";
 
 // ---------- molde comum ----------
 function molde(titulo: string, corpo: string, botao?: { texto: string; link: string }): string {

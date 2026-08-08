@@ -274,7 +274,7 @@ alter table sia_papeis   enable row level security;
 -- PRIMEIRO ADMINISTRADOR — troque o email antes de rodar
 -- ============================================================
 insert into sia_usuarios (email, nome, papel, status, origem, plano, observacao)
-values ('karina@efeitovendas.com.br', 'Karina', 'adm', 'ativo', 'manual', 'Interno', 'primeiro acesso')
+values ('karina@selleriaclub.com', 'Karina', 'adm', 'ativo', 'manual', 'Interno', 'primeiro acesso')
 on conflict (email) do update set papel = 'adm', status = 'ativo';
 
 -- confere:

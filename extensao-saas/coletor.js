@@ -2481,7 +2481,7 @@
           render(); acessoValidar(); return;
         }
         if (voltaA.id === 'sia-acesso-assinar') {
-          try { window.open('https://selleria.com.br', '_blank', 'noopener'); } catch (e) { }
+          try { window.open('https://selleriaclub.com', '_blank', 'noopener'); } catch (e) { }
           return;
         }
         if (voltaA.id === 'sia-acesso-sair') { acessoSair(); return; }
@@ -2566,7 +2566,7 @@
           return;
         }
         if (voltaA.id === 'sia-ass-renovar') {
-          try { window.open('https://clipseller.com.br/assinatura', '_blank', 'noopener'); } catch (e) { /* noop */ }
+          try { window.open('https://selleriaclub.com/assinatura', '_blank', 'noopener'); } catch (e) { /* noop */ }
           return;
         }
         if (voltaA.id === 'sia-marg-calcular') {
