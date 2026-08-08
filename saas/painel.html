@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seller.IA · Painel</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --b0:#FFFFFF;--b1:#FEFCF9;--b2:#F7F3EC;--li:#D9CFBC;--li2:#C4B79F;
+  --t0:#000000;--t1:#1A1610;--t2:#463F33;--t3:#6B6355;
+  --mk:#E63E1B;--vd:#0F7A4A;--rd:#C1121F;--am:#B07208;--px:#6D28D9;
+  --r:22px;--sh:0 6px 24px rgba(72,56,38,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--b2);font-family:Outfit,Arial,sans-serif;color:var(--t1);font-size:15px;line-height:1.5}
+.topo{background:var(--b1);border-bottom:1px solid var(--li);padding:16px 26px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:10}
+.marca{width:40px;height:40px;border-radius:13px;background:#1C1A17;color:#FBF8F3;display:grid;place-items:center;font:600 25px Archivo;flex:none}
+.marca em{font-style:normal;color:var(--mk)}
+.titulo{font:600 22px Archivo;letter-spacing:-.03em;color:var(--t0)}
+.eu{margin-left:auto;font-size:13.5px;color:var(--t2);text-align:right}
+.eu b{color:var(--t0);display:block}
+.sair{background:none;border:1px solid var(--li);color:var(--t2);font:inherit;font-size:13px;padding:8px 14px;border-radius:999px;cursor:pointer;margin-left:12px}
+.sair:hover{border-color:var(--mk);color:var(--mk)}
+
+.corpo{max-width:1240px;margin:0 auto;padding:26px}
+.abas{display:flex;gap:4px;margin-bottom:22px;flex-wrap:wrap;border-bottom:1px solid var(--li)}
+.aba{background:none;border:none;border-bottom:2px solid transparent;color:var(--t2);font:inherit;font-size:14.5px;padding:11px 16px;cursor:pointer}
+.aba.on{color:var(--mk);border-bottom-color:var(--mk);font-weight:600}
+.aba:hover{color:var(--mk)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:24px}
+.card{background:var(--b0);border:1px solid var(--li);border-radius:var(--r);padding:18px 20px}
+.card .n{font:600 34px Archivo;letter-spacing:-.03em;line-height:1;color:var(--t0)}
+.card .r{font:400 10.5px 'Space Mono';letter-spacing:.09em;color:var(--t3);margin-top:6px}
+.card.al .n{color:var(--am)} .card.ru .n{color:var(--rd)} .card.bo .n{color:var(--vd)}
+
+.painel{background:var(--b0);border:1px solid var(--li);border-radius:var(--r);padding:22px;margin-bottom:18px}
+.painel h2{font:600 19px Archivo;letter-spacing:-.02em;color:var(--t0);margin:0 0 4px}
+.painel .sub{font-size:13.5px;color:var(--t3);margin-bottom:16px}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font:400 10.5px 'Space Mono';letter-spacing:.08em;color:var(--t3);padding:9px 10px;border-bottom:1.5px solid var(--li)}
+td{padding:11px 10px;border-bottom:1px solid var(--b2);vertical-align:middle}
+tr:hover td{background:var(--b1)}
+.num{text-align:right;font-family:'Space Mono',monospace}
+
+.pill{display:inline-block;font:400 11px 'Space Mono';padding:3px 10px;border-radius:999px;border:1px solid}
+.p-ativo{color:var(--vd);border-color:var(--vd);background:rgba(15,122,74,.07)}
+.p-suspenso{color:var(--am);border-color:var(--am);background:rgba(176,114,8,.07)}
+.p-cancelado{color:var(--rd);border-color:var(--rd);background:rgba(193,18,31,.07)}
+.p-teste{color:var(--px);border-color:var(--px);background:rgba(109,40,217,.07)}
+.p-adm{color:var(--mk);border-color:var(--mk);background:rgba(230,62,27,.07)}
+.p-online{color:var(--vd);border-color:var(--vd);background:rgba(15,122,74,.10)}
+
+button.acao{background:var(--mk);border:none;color:#fff;font:inherit;font-weight:600;font-size:14.5px;padding:12px 22px;border-radius:14px;cursor:pointer}
+button.acao:hover{background:#F0764F}
+button.sec{background:var(--b2);border:1px solid var(--li);color:var(--t1);font:inherit;font-size:13px;padding:8px 14px;border-radius:10px;cursor:pointer}
+button.sec:hover{border-color:var(--mk);color:var(--mk)}
+button.mini{background:none;border:1px solid var(--li);color:var(--t2);font:inherit;font-size:12px;padding:5px 11px;border-radius:999px;cursor:pointer}
+button.mini:hover{border-color:var(--mk);color:var(--mk)}
+button.perigo:hover{border-color:var(--rd);color:var(--rd)}
+
+input,select,textarea{width:100%;background:var(--b1);border:1px solid var(--li);border-radius:12px;padding:11px 13px;color:var(--t0);font:inherit;font-size:14.5px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--mk)}
+label{display:block;font:400 10.5px 'Space Mono';letter-spacing:.07em;color:var(--t3);margin-bottom:5px}
+.linha{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.linha3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+
+.grafico{display:flex;align-items:flex-end;gap:3px;height:120px;padding-top:10px}
+.barra{flex:1;background:var(--mk);border-radius:4px 4px 0 0;min-height:2px;position:relative}
+.barra:hover{background:var(--t0)}
+.barra span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font:400 10px 'Space Mono';color:var(--t2);white-space:nowrap;opacity:0;transition:.15s}
+.barra:hover span{opacity:1}
+
+.aviso{background:rgba(230,62,27,.07);border-left:3px solid var(--mk);border-radius:0 14px 14px 0;padding:13px 16px;font-size:14px;margin-bottom:14px}
+.vazio{text-align:center;padding:40px;color:var(--t3)}
+
+/* entrada */
+.entrada{max-width:400px;margin:80px auto;background:var(--b0);border:1px solid var(--li);border-radius:26px;padding:34px;box-shadow:var(--sh)}
+.entrada .marca{margin:0 auto 18px}
+.entrada h1{font:600 24px Archivo;letter-spacing:-.02em;color:var(--t0);text-align:center;margin:0 0 6px}
+.entrada p{text-align:center;color:var(--t3);font-size:14px;margin:0 0 22px}
+.erro{color:var(--rd);font-size:14px;margin-top:12px;text-align:center}
+
+.modal{position:fixed;inset:0;background:rgba(28,26,23,.5);display:none;place-items:center;z-index:50;padding:20px}
+.modal.on{display:grid}
+.modal .cx{background:var(--b0);border-radius:26px;padding:28px;max-width:540px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h3{font:600 21px Archivo;letter-spacing:-.02em;color:var(--t0);margin:0 0 18px}
+</style>
+</head>
+<body>
+
+<!-- ENTRADA -->
+<div id="tela-entrada">
+  <div class="entrada">
+    <div class="marca">S<em>.</em></div>
+    <h1>Painel Seller.IA</h1>
+    <p>Acesso restrito a administracao</p>
+    <label>Email</label>
+    <input id="in-email" type="email" placeholder="seu@email.com" autocomplete="username">
+    <div style="height:14px"></div>
+    <button class="acao" style="width:100%" onclick="entrar()">Entrar</button>
+    <div id="erro-entrada" class="erro"></div>
+  </div>
+</div>
+
+<!-- PAINEL -->
+<div id="tela-painel" style="display:none">
+  <div class="topo">
+    <div class="marca">S<em>.</em></div>
+    <div>
+      <div class="titulo">Seller<span style="color:var(--mk)">.</span>ia</div>
+      <div style="font:400 11px 'Space Mono';color:var(--t3);letter-spacing:.06em">PAINEL DE CONTROLE</div>
+    </div>
+    <div class="eu"><b id="eu-nome"></b><span id="eu-papel"></span></div>
+    <button class="sair" onclick="sair()">sair</button>
+  </div>
+
+  <div class="corpo">
+    <div class="abas">
+      <button class="aba on" data-aba="visao">Visao geral</button>
+      <button class="aba" data-aba="usuarios">Usuarios</button>
+      <button class="aba" data-aba="novo">Cadastrar</button>
+      <button class="aba" data-aba="cotas">Cotas por papel</button>
+      <button class="aba" data-aba="eventos">Registro</button>
+    </div>
+    <div id="conteudo"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal"><div class="cx" id="modal-cx"></div></div>
+
+<script>
+// ============================================================
+// CONFIGURACAO — trocar pela URL do seu projeto
+// ============================================================
+var SUPABASE = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1';
+
+var TOKEN = localStorage.getItem('sia_admin_token') || null;
+var EU = null, DADOS = null, ABA = 'visao';
+
+function api(fn, corpo){
+  return fetch(SUPABASE + '/' + fn, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(corpo)
+  }).then(function(r){ return r.json(); });
+}
+function fmt(n){ return (n==null||n==='')?'—':Number(n).toLocaleString('pt-BR'); }
+function data(d){ if(!d) return '—'; var x=new Date(d);
+  return x.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+x.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+// ---------- entrada ----------
+function entrar(){
+  var email = document.getElementById('in-email').value.trim();
+  var erro = document.getElementById('erro-entrada');
+  erro.textContent = '';
+  if(!email || email.indexOf('@')<0){ erro.textContent='Digite um email valido.'; return; }
+  api('acesso', { acao:'entrar', email:email, dispositivo:'painel-admin' }).then(function(r){
+    if(!r.ok){ erro.textContent = r.erro || 'Nao consegui entrar.'; return; }
+    if(!r.usuario.admin){ erro.textContent='Este email nao tem permissao de administracao.'; return; }
+    TOKEN = r.token; EU = r.usuario;
+    localStorage.setItem('sia_admin_token', TOKEN);
+    abrirPainel();
+  }).catch(function(e){ erro.textContent = 'Sem conexao com o servidor.'; });
+}
+function sair(){
+  api('acesso',{acao:'sair', token:TOKEN});
+  localStorage.removeItem('sia_admin_token');
+  location.reload();
+}
+function abrirPainel(){
+  document.getElementById('tela-entrada').style.display='none';
+  document.getElementById('tela-painel').style.display='block';
+  document.getElementById('eu-nome').textContent = EU.nome || EU.email;
+  document.getElementById('eu-papel').textContent = EU.papel === 'adm' ? 'Administrador' : 'CEO';
+  carregar();
+}
+function carregar(){
+  api('admin',{acao:'painel', token:TOKEN}).then(function(r){
+    if(!r.ok){ if(r.erro && /sessao/.test(r.erro)){ localStorage.removeItem('sia_admin_token'); location.reload(); } return; }
+    DADOS = r; desenhar();
+  });
+}
+
+// ---------- abas ----------
+document.addEventListener('click', function(ev){
+  var b = ev.target.closest('.aba');
+  if(!b) return;
+  document.querySelectorAll('.aba').forEach(function(x){ x.classList.toggle('on', x===b); });
+  ABA = b.getAttribute('data-aba'); desenhar();
+});
+
+function desenhar(){
+  var c = document.getElementById('conteudo');
+  if(!DADOS){ c.innerHTML='<div class="vazio">carregando...</div>'; return; }
+  if(ABA==='visao') c.innerHTML = viewVisao();
+  else if(ABA==='usuarios') c.innerHTML = viewUsuarios();
+  else if(ABA==='novo') c.innerHTML = viewNovo();
+  else if(ABA==='cotas') c.innerHTML = viewCotas();
+  else if(ABA==='eventos') c.innerHTML = viewEventos();
+}
+
+// ---------- visao geral ----------
+function viewVisao(){
+  var R = DADOS.resumo || {};
+  var h = '<div class="cards">' +
+    card(R.ativos,'ASSINANTES ATIVOS','bo') +
+    card(R.sessoes_agora,'ONLINE AGORA','') +
+    card(R.ativos_hoje,'USARAM HOJE','') +
+    card(R.vencendo,'VENCEM EM 7 DIAS', R.vencendo>0?'al':'') +
+    card(R.suspensos,'SUSPENSOS', R.suspensos>0?'ru':'') +
+    card(R.relatorios_30d,'RELATORIOS (30d)','') +
+    '</div>';
+
+  // grafico
+  var dias = (DADOS.uso_diario||[]).slice(0,30).reverse();
+  var max = 1; dias.forEach(function(d){ max = Math.max(max, (d.mensais||0)+(d.semanais||0)); });
+  h += '<div class="painel"><h2>Relatorios por dia</h2>' +
+    '<div class="sub">Ultimos 30 dias · cada barra e um dia</div><div class="grafico">';
+  dias.forEach(function(d){
+    var t = (d.mensais||0)+(d.semanais||0);
+    h += '<div class="barra" style="height:'+Math.max(2,(t/max)*100)+'%">' +
+      '<span>'+new Date(d.dia).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+': '+t+'</span></div>';
+  });
+  h += '</div></div>';
+
+  // top uso
+  h += '<div class="painel"><h2>Quem mais usa</h2><div class="sub">Ultimos 30 dias</div><table><tr>' +
+    '<th>PESSOA</th><th>PAPEL</th><th class="num">RELATORIOS</th><th class="num">COLETAS</th><th class="num">LOJAS</th><th>ULTIMO USO</th></tr>';
+  (DADOS.top_uso||[]).slice(0,12).forEach(function(u){
+    h += '<tr><td><b>'+esc(u.nome||u.email)+'</b><br><span style="color:var(--t3);font-size:12.5px">'+esc(u.email)+'</span></td>' +
+      '<td>'+esc(u.papel)+'</td><td class="num">'+fmt(u.relatorios)+'</td><td class="num">'+fmt(u.coletas)+'</td>' +
+      '<td class="num">'+fmt(u.lojas)+'</td><td>'+data(u.ultimo_uso)+'</td></tr>';
+  });
+  if(!(DADOS.top_uso||[]).length) h += '<tr><td colspan="6" class="vazio">Ninguem usou ainda.</td></tr>';
+  return h + '</table></div>';
+}
+function card(n,r,cls){
+  return '<div class="card '+(cls||'')+'"><div class="n">'+fmt(n)+'</div><div class="r">'+r+'</div></div>';
+}
+
+// ---------- usuarios ----------
+function viewUsuarios(){
+  var us = DADOS.usuarios||[];
+  var h = '<div class="painel"><h2>'+us.length+' usuarios</h2>' +
+    '<div class="sub">Clique em qualquer linha para ver o detalhe e editar</div>' +
+    '<input id="busca" placeholder="filtrar por email, nome ou papel" oninput="filtrar()" style="margin-bottom:14px">' +
+    '<table id="tab-us"><tr><th>PESSOA</th><th>PAPEL</th><th>STATUS</th><th class="num">COTA MES</th>' +
+    '<th class="num">COTA SEM</th><th>DISPOSITIVO</th><th>ULTIMO ACESSO</th><th></th></tr>';
+  us.forEach(function(u){
+    var cotaM = u.cota_mensal < 0 ? '∞' : (u.usou_mensal + '/' + u.cota_mensal);
+    var cotaS = u.cota_semanal < 0 ? '∞' : (u.usou_semanal + '/' + u.cota_semanal);
+    var estouro = u.cota_mensal >= 0 && u.usou_mensal >= u.cota_mensal;
+    h += '<tr data-busca="'+esc((u.email+' '+(u.nome||'')+' '+u.papel).toLowerCase())+'">' +
+      '<td onclick="detalhe(\''+u.id+'\')" style="cursor:pointer"><b>'+esc(u.nome||u.email.split('@')[0])+'</b>' +
+      (u.cota_manual?' <span class="pill" style="color:var(--px);border-color:var(--px)">cota manual</span>':'') +
+      '<br><span style="color:var(--t3);font-size:12.5px">'+esc(u.email)+'</span></td>' +
+      '<td><span class="pill '+(u.papel==='adm'||u.papel==='ceo'?'p-adm':'')+'">'+esc(u.papel_rotulo)+'</span></td>' +
+      '<td><span class="pill p-'+esc(u.status)+'">'+esc(u.status)+'</span>' +
+      (u.dias_para_vencer!=null && u.dias_para_vencer<=7 && u.dias_para_vencer>=0 ? '<br><span style="color:var(--am);font-size:12px">vence em '+u.dias_para_vencer+'d</span>':'') + '</td>' +
+      '<td class="num" style="'+(estouro?'color:var(--rd);font-weight:700':'')+'">'+cotaM+'</td>' +
+      '<td class="num">'+cotaS+'</td>' +
+      '<td>'+(u.sessoes_ativas>0?'<span class="pill p-online">online</span><br>':'')+
+      '<span style="font-size:12.5px;color:var(--t3)">'+esc(u.dispositivo_atual||'—')+'</span></td>' +
+      '<td style="font-size:13px">'+data(u.ultimo_acesso)+'</td>' +
+      '<td><button class="mini" onclick="detalhe(\''+u.id+'\')">abrir</button></td></tr>';
+  });
+  return h + '</table></div>';
+}
+function filtrar(){
+  var q = document.getElementById('busca').value.toLowerCase();
+  document.querySelectorAll('#tab-us tr[data-busca]').forEach(function(tr){
+    tr.style.display = tr.getAttribute('data-busca').indexOf(q)>=0 ? '' : 'none';
+  });
+}
+
+// ---------- cadastrar ----------
+function viewNovo(){
+  var ops = (DADOS.papeis||[]).map(function(p){
+    return '<option value="'+p.papel+'">'+esc(p.rotulo)+' · '+(p.cota_mensal<0?'ilimitado':p.cota_mensal+' mensal e '+p.cota_semanal+' semanais')+'</option>';
+  }).join('');
+  return '<div class="painel"><h2>Cadastrar uma pessoa</h2>' +
+    '<div class="sub">O acesso vale na hora. Um email por pessoa, uma maquina por vez.</div>' +
+    '<div class="linha"><div><label>EMAIL</label><input id="n-email" type="email" placeholder="pessoa@empresa.com"></div>' +
+    '<div><label>NOME</label><input id="n-nome" placeholder="opcional"></div></div>' +
+    '<div class="linha3"><div><label>PAPEL</label><select id="n-papel">'+ops+'</select></div>' +
+    '<div><label>DIAS DE ACESSO</label><input id="n-dias" type="number" value="32"></div>' +
+    '<div><label>PLANO</label><input id="n-plano" placeholder="ex: Interno"></div></div>' +
+    '<div class="linha"><div><label>COTA MENSAL (vazio = a do papel)</label><input id="n-cm" type="number" placeholder="deixe vazio"></div>' +
+    '<div><label>COTA SEMANAL (vazio = a do papel)</label><input id="n-cs" type="number" placeholder="deixe vazio"></div></div>' +
+    '<div style="margin-bottom:14px"><label>OBSERVACAO</label><input id="n-obs" placeholder="opcional"></div>' +
+    '<button class="acao" onclick="salvarNovo()">Cadastrar e enviar acesso</button>' +
+    '<div id="n-msg" style="margin-top:12px"></div></div>' +
+
+    '<div class="painel"><h2>Cadastrar varios de uma vez</h2>' +
+    '<div class="sub">Um email por linha, ou separados por virgula</div>' +
+    '<textarea id="l-emails" rows="5" placeholder="joao@empresa.com&#10;maria@empresa.com"></textarea>' +
+    '<div class="linha" style="margin-top:12px"><div><label>PAPEL</label><select id="l-papel">'+ops+'</select></div>' +
+    '<div><label>DIAS</label><input id="l-dias" type="number" value="32"></div></div>' +
+    '<button class="acao" onclick="salvarLote()">Cadastrar todos</button>' +
+    '<div id="l-msg" style="margin-top:12px"></div></div>';
+}
+function salvarNovo(){
+  var m = document.getElementById('n-msg');
+  api('admin',{acao:'salvar', token:TOKEN,
+    email:v('n-email'), nome:v('n-nome'), papel:v('n-papel'), plano:v('n-plano'),
+    dias:v('n-dias'), cota_mensal:v('n-cm'), cota_semanal:v('n-cs'), observacao:v('n-obs'), status:'ativo'
+  }).then(function(r){
+    if(!r.ok){ m.innerHTML='<span style="color:var(--rd)">'+esc(r.erro)+'</span>'; return; }
+    if(r.enviar_boas_vindas){
+      api('email',{tipo:'boas_vindas', email:v('n-email'), nome:v('n-nome')});
+    }
+    m.innerHTML='<span style="color:var(--vd)">Pronto. '+(r.criado?'Cadastrado e email enviado.':'Dados atualizados.')+'</span>';
+    ['n-email','n-nome','n-plano','n-cm','n-cs','n-obs'].forEach(function(i){ document.getElementById(i).value=''; });
+    carregar();
+  });
+}
+function salvarLote(){
+  var m = document.getElementById('l-msg');
+  api('admin',{acao:'lote', token:TOKEN, emails:v('l-emails'), papel:v('l-papel'), dias:v('l-dias')})
+  .then(function(r){
+    if(!r.ok){ m.innerHTML='<span style="color:var(--rd)">'+esc(r.erro)+'</span>'; return; }
+    (r.emails||[]).forEach(function(e){ api('email',{tipo:'boas_vindas', email:e}); });
+    m.innerHTML='<span style="color:var(--vd)">'+r.criados+' cadastrados'+(r.existentes?' · '+r.existentes+' ja existiam':'')+'. Emails enviados.</span>';
+    document.getElementById('l-emails').value='';
+    carregar();
+  });
+}
+function v(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+
+// ---------- cotas por papel ----------
+function viewCotas(){
+  var h = '<div class="painel"><h2>Cota de cada papel</h2>' +
+    '<div class="sub">Vale para quem nao tem cota individual. Use -1 para ilimitado.</div>' +
+    '<table><tr><th>PAPEL</th><th class="num">MENSAIS</th><th class="num">SEMANAIS</th><th>ADMIN</th><th></th></tr>';
+  (DADOS.papeis||[]).forEach(function(p){
+    h += '<tr><td><b>'+esc(p.rotulo)+'</b><br><span style="color:var(--t3);font-size:12.5px">'+esc(p.papel)+'</span></td>' +
+      '<td class="num"><input id="c-m-'+p.papel+'" type="number" value="'+p.cota_mensal+'" style="width:90px;text-align:right"></td>' +
+      '<td class="num"><input id="c-s-'+p.papel+'" type="number" value="'+p.cota_semanal+'" style="width:90px;text-align:right"></td>' +
+      '<td>'+(p.pode_admin?'<span class="pill p-adm">sim</span>':'—')+'</td>' +
+      '<td><button class="mini" onclick="salvarPapel(\''+p.papel+'\')">salvar</button></td></tr>';
+  });
+  return h + '</table><div id="c-msg" style="margin-top:12px"></div></div>';
+}
+function salvarPapel(p){
+  api('admin',{acao:'papel', token:TOKEN, papel:p,
+    cota_mensal:v('c-m-'+p), cota_semanal:v('c-s-'+p)}).then(function(r){
+    document.getElementById('c-msg').innerHTML = r.ok
+      ? '<span style="color:var(--vd)">Cota atualizada.</span>'
+      : '<span style="color:var(--rd)">'+esc(r.erro)+'</span>';
+    carregar();
+  });
+}
+
+// ---------- registro ----------
+function viewEventos(){
+  var h = '<div class="painel"><h2>Registro de eventos</h2>' +
+    '<div class="sub">Ultimos 60 · tudo que aconteceu no acesso</div>' +
+    '<table><tr><th>QUANDO</th><th>EVENTO</th><th>PESSOA</th><th>DETALHE</th></tr>';
+  (DADOS.eventos||[]).forEach(function(e){
+    var cor = /negado|revogad|excedida|recusado/.test(e.evento) ? 'var(--rd)'
+      : /login|criado/.test(e.evento) ? 'var(--vd)' : 'var(--t2)';
+    h += '<tr><td style="font-size:13px;white-space:nowrap">'+data(e.em)+'</td>' +
+      '<td style="color:'+cor+';font-family:Space Mono,monospace;font-size:12.5px">'+esc(e.evento)+'</td>' +
+      '<td style="font-size:13px">'+esc(e.email||'—')+'</td>' +
+      '<td style="font-size:12.5px;color:var(--t3)">'+esc(e.detalhe?JSON.stringify(e.detalhe).slice(0,80):'')+'</td></tr>';
+  });
+  return h + '</table></div>';
+}
+
+// ---------- detalhe ----------
+function detalhe(id){
+  api('admin',{acao:'detalhe', token:TOKEN, usuario_id:id}).then(function(r){
+    if(!r.ok) return;
+    var u = r.usuario;
+    var ops = (DADOS.papeis||[]).map(function(p){
+      return '<option value="'+p.papel+'"'+(p.papel===u.papel?' selected':'')+'>'+esc(p.rotulo)+'</option>';
+    }).join('');
+    var st = ['ativo','teste','suspenso','cancelado'].map(function(s){
+      return '<option value="'+s+'"'+(s===u.status?' selected':'')+'>'+s+'</option>';
+    }).join('');
+    var h = '<h3>'+esc(u.nome||u.email)+'</h3>' +
+      '<div style="color:var(--t3);font-size:13.5px;margin:-12px 0 18px">'+esc(u.email)+
+      (u.sessoes_ativas>0?' · <span class="pill p-online">online em '+esc(u.dispositivo_atual||'?')+'</span>':'')+'</div>' +
+      '<div class="linha3"><div><label>PAPEL</label><select id="d-papel">'+ops+'</select></div>' +
+      '<div><label>STATUS</label><select id="d-status">'+st+'</select></div>' +
+      '<div><label>PLANO</label><input id="d-plano" value="'+esc(u.plano||'')+'"></div></div>' +
+      '<div class="linha"><div><label>COTA MENSAL (vazio = do papel)</label><input id="d-cm" type="number" value="'+(u.cota_manual&&u.cota_mensal!=null?u.cota_mensal:'')+'"></div>' +
+      '<div><label>COTA SEMANAL</label><input id="d-cs" type="number" value="'+(u.cota_manual&&u.cota_semanal!=null?u.cota_semanal:'')+'"></div></div>' +
+      '<div style="margin-bottom:16px"><label>OBSERVACAO</label><input id="d-obs" value="'+esc(u.observacao||'')+'"></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">' +
+      '<button class="acao" onclick="salvarDetalhe(\''+id+'\',\''+esc(u.email)+'\')">Salvar</button>' +
+      '<button class="sec" onclick="maisDias(\''+id+'\',30)">+30 dias</button>' +
+      '<button class="sec" onclick="derrubar(\''+id+'\')">Derrubar sessao</button>' +
+      '<button class="sec" onclick="zerarCota(\''+id+'\')">Zerar cota do ciclo</button>' +
+      '<button class="sec perigo" onclick="apagar(\''+id+'\')">Apagar</button>' +
+      '<button class="sec" onclick="fecharModal()">Fechar</button></div>' +
+      '<div style="border-top:1px solid var(--li);padding-top:16px">' +
+      '<div style="font:400 10.5px \'Space Mono\';letter-spacing:.08em;color:var(--t3);margin-bottom:10px">USO RECENTE · '+(r.uso||[]).length+' registros</div>' +
+      '<table>';
+    (r.uso||[]).slice(0,15).forEach(function(x){
+      h += '<tr><td style="font-size:13px">'+data(x.em)+'</td><td style="font-size:13px">'+esc(x.tipo)+'</td>' +
+        '<td style="font-size:12.5px;color:var(--t3)">'+esc(x.loja_nome||x.loja_id||'—')+'</td></tr>';
+    });
+    if(!(r.uso||[]).length) h += '<tr><td colspan="3" style="color:var(--t3);font-size:13px">Nenhum uso ainda.</td></tr>';
+    h += '</table></div>';
+    document.getElementById('modal-cx').innerHTML = h;
+    document.getElementById('modal').classList.add('on');
+  });
+}
+function salvarDetalhe(id, email){
+  api('admin',{acao:'salvar', token:TOKEN, email:email,
+    papel:v('d-papel'), status:v('d-status'), plano:v('d-plano'),
+    cota_mensal:v('d-cm'), cota_semanal:v('d-cs'), observacao:v('d-obs')
+  }).then(function(){ fecharModal(); carregar(); });
+}
+function maisDias(id, d){
+  var u = (DADOS.usuarios||[]).find(function(x){return x.id===id;});
+  api('admin',{acao:'salvar', token:TOKEN, email:u.email, dias:d, status:'ativo',
+    papel:u.papel}).then(function(){ fecharModal(); carregar(); });
+}
+function derrubar(id){ api('admin',{acao:'derrubar', token:TOKEN, usuario_id:id}).then(function(){ fecharModal(); carregar(); }); }
+function zerarCota(id){ api('admin',{acao:'zerar_cota', token:TOKEN, usuario_id:id}).then(function(){ fecharModal(); carregar(); }); }
+function apagar(id){
+  if(!confirm('Apagar esta pessoa? O historico de uso vai junto e nao volta.')) return;
+  api('admin',{acao:'apagar', token:TOKEN, usuario_id:id}).then(function(){ fecharModal(); carregar(); });
+}
+function fecharModal(){ document.getElementById('modal').classList.remove('on'); }
+document.getElementById('modal').addEventListener('click', function(e){ if(e.target===this) fecharModal(); });
+document.getElementById('in-email').addEventListener('keydown', function(e){ if(e.key==='Enter') entrar(); });
+
+// ---------- inicio ----------
+if(TOKEN){
+  api('acesso',{acao:'validar', token:TOKEN}).then(function(r){
+    if(r.ok && r.usuario.admin){ EU = r.usuario; abrirPainel(); }
+    else { localStorage.removeItem('sia_admin_token'); }
+  }).catch(function(){});
+}
+setInterval(function(){ if(TOKEN && DADOS) carregar(); }, 60000);
+</script>
+</body>
+</html>
