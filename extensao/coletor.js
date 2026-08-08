@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.12.0';
+  var VERSAO = '1.12.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -4998,7 +4998,10 @@
     var temAds = !!(pc && (pc.resultado || pc.leilao));
     if (!temAds) {
       h += '<div style="background:var(--b0);border-left:3px solid var(--px);border-radius:0 9px 9px 0;padding:10px 12px;margin-bottom:11px;font-size:13px;color:var(--t1);line-height:1.5">' +
-        'Este produto nao tem anuncio ativo nesta coleta, entao nao ha ROAS para explicar. O julgamento acima vem do funil organico da pagina.</div>';
+        (Object.keys(estado.campanhas).length
+          ? 'Este produto nao tem anuncio ativo nesta coleta, entao nao ha ROAS para explicar. O julgamento acima vem do funil organico da pagina.'
+          : 'As campanhas ainda nao foram lidas nesta sessao, entao nao da para dizer se este produto tem anuncio ou nao. Abra <b>Shopee Ads</b> uma vez e recolete.') +
+        '</div>';
     } else {
     h += '<div style="border:1px solid var(--li);border-radius:18px;padding:12px;margin-bottom:11px">' +
       '<div style="font-family:Space Mono,monospace;font-size:12px;color:var(--px);letter-spacing:.06em;margin-bottom:9px">POR QUE ESTE ROAS</div>' +
@@ -6252,23 +6255,82 @@
       h += '</div></div>';
     }
 
+    // ---- OS CRIADORES ----
+    if (AF.top && AF.top.length) {
+      h += olho('QUEM ESTA VENDENDO POR VOCE', 'Os cinco que mais entregam no periodo. <b>Custo por venda</b> e a comissao dividida pelos pedidos: compare com o CPA de anuncio para saber qual canal sai mais barato. <b>Novos</b> mostra quantos dos compradores nunca tinham comprado na loja \u2014 esse e o valor que nao aparece no GMV.');
+      h += '<table><tr><th>CRIADOR</th><th class="num">PEDIDOS</th><th class="num">GMV</th><th class="num">CUSTO/VENDA</th><th class="num">NOVOS</th></tr>';
+      var topOrd = AF.top.slice().sort(function (a, b) { return (b.gmv || 0) - (a.gmv || 0); });
+      for (var ta = 0; ta < topOrd.length; ta++) {
+        var T4 = topOrd[ta];
+        var cpvT = (T4.comissao && T4.pedidos) ? T4.comissao / T4.pedidos : null;
+        h += '<tr><td><b>' + sig(String(T4.nome || T4.usuario || '?').slice(0, 26)) + '</b>' +
+          (T4.rede ? ' <span class="pill" style="font-size:10px;color:var(--px)">rede</span>' : '') +
+          (T4.cliques ? '<br><span style="color:var(--t3);font-size:12px">' + fmt(T4.cliques, 0) + ' cliques</span>' : '') + '</td>' +
+          '<td class="num">' + fmt(T4.pedidos, 0) + '</td>' +
+          '<td class="num">' + (T4.gmv != null ? reais(T4.gmv) : '\u2014') + '</td>' +
+          '<td class="num"' + (cpvT && cpaAds && cpvT < cpaAds ? ' style="color:var(--vd);font-weight:700"' : '') + '>' +
+          (cpvT != null ? reais(cpvT) : '\u2014') + '</td>' +
+          '<td class="num" style="color:' + (T4.pctNovos >= 70 ? 'var(--vd)' : 'var(--t1)') + '">' +
+          (T4.pctNovos != null ? fmt(T4.pctNovos, 0) + '%' : '\u2014') + '</td></tr>';
+      }
+      h += '</table>';
+
+      // quem sai mais barato que o anuncio
+      if (cpaAds) {
+        var baratos = topOrd.filter(function (x) {
+          var c = (x.comissao && x.pedidos) ? x.comissao / x.pedidos : null;
+          return c != null && c < cpaAds;
+        });
+        if (baratos.length) {
+          h += '<div style="background:color-mix(in srgb,var(--vd) var(--tin,9%),var(--b0));border-left:3px solid var(--vd);border-radius:0 18px 18px 0;padding:13px 15px;margin-top:10px;font-size:14px;color:var(--t1);line-height:1.55">' +
+            '<b style="color:var(--t0)">' + baratos.length + ' criador(es) entregam venda mais barata que o anuncio.</b> ' +
+            'O anuncio custa ' + reais(cpaAds) + ' por pedido; o mais eficiente deles custa ' +
+            reais(Math.min.apply(null, baratos.map(function (x) { return x.comissao / x.pedidos; }))) +
+            '. Ampliar comissao para esses vale mais que subir orcamento.</div>';
+        }
+      }
+    }
+
     // produtos no canal
     if (prods.length) {
       var ordenados = prods.slice().sort(function (a, b) { return (b.gmv || 0) - (a.gmv || 0); });
       h += olho('O QUE OS CRIADORES ESTAO VENDENDO', 'Por produto: quanto o canal faturou, quanto custou de comissao, e quantos dos compradores eram NOVOS. Produto que traz comprador novo vale mais que o GMV dele sugere \u2014 esse cliente pode voltar sem custo nenhum.');
-      h += '<table><tr><th>PRODUTO</th><th class="num">GMV</th><th class="num">CUSTO/VENDA</th><th class="num">NOVOS</th></tr>';
+      h += '<table><tr><th>PRODUTO</th><th class="num">UNID.</th><th class="num">GMV</th><th class="num">COMISSAO</th><th class="num">CUSTO/VENDA</th><th class="num">NOVOS</th></tr>';
       for (var i = 0; i < Math.min(ordenados.length, 10); i++) {
         var P = ordenados[i];
-        h += '<tr><td>' + sig(String(P.nome).slice(0, 34)) +
-          '<span style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t3);display:block">' + esc(P.id) + '</span></td>' +
+        h += '<tr><td><div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap">' +
+          '<b class="sigilo" style="flex:1;min-width:0;font-size:14px;color:var(--t0)">' + esc(String(P.nome).slice(0, 34)) + '</b>' +
+          '<span data-copiar-id="' + esc(P.id) + '" title="Copiar o ID" style="flex:none;font-family:Space Mono,monospace;font-size:10.5px;color:var(--mk);background:color-mix(in srgb,var(--mk) 10%,transparent);border:1px solid color-mix(in srgb,var(--mk) 30%,transparent);border-radius:999px;padding:2px 8px;cursor:pointer">' + esc(P.id) + ' \u29c9</span></div></td>' +
+          '<td class="num">' + (P.unidades != null ? fmt(P.unidades, 0) : '\u2014') + '</td>' +
           '<td class="num">' + (P.gmv != null ? reais(P.gmv) : '\u2014') + '</td>' +
-          '<td class="num">' + (P.custoPorVenda != null ? reais(P.custoPorVenda) : '\u2014') + '</td>' +
+          '<td class="num">' + (P.comissao != null ? reais(P.comissao) +
+            (P.comissaoPct != null ? '<br><span style="font-size:11px;color:' + (P.comissaoPct > 15 ? 'var(--am)' : 'var(--t3)') + '">' + fmt(P.comissaoPct, 1) + '%</span>' : '') : '\u2014') + '</td>' +
+          '<td class="num"' + (P.custoPorVenda && cpaAds && P.custoPorVenda < cpaAds ? ' style="color:var(--vd);font-weight:700"' : '') + '>' +
+          (P.custoPorVenda != null ? reais(P.custoPorVenda) : '\u2014') + '</td>' +
           '<td class="num" style="color:' + (P.pctNovos >= 70 ? 'var(--vd)' : 'var(--t1)') + '">' +
           (P.pctNovos != null ? fmt(P.pctNovos, 0) + '%' : '\u2014') + '</td></tr>';
       }
       h += '</table>';
 
       // leitura de quem traz cliente novo
+      // gasto medio por venda no canal inteiro, que e a pergunta pratica
+      var somaCom = 0, somaPed = 0, somaGmvP = 0, somaUn = 0;
+      for (var sp = 0; sp < ordenados.length; sp++) {
+        somaCom += ordenados[sp].comissao || 0;
+        somaPed += ordenados[sp].pedidos || 0;
+        somaGmvP += ordenados[sp].gmv || 0;
+        somaUn += ordenados[sp].unidades || 0;
+      }
+      if (somaPed) {
+        h += '<div style="display:flex;gap:22px;flex-wrap:wrap;background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:16px 20px;margin-top:11px">' +
+          '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:26px;color:var(--t0);letter-spacing:-.025em;line-height:1">' + reais(somaCom / somaPed) + '</div>' +
+          '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:4px">GASTO MEDIO POR VENDA</div></div>' +
+          '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:26px;color:var(--t0);letter-spacing:-.025em;line-height:1">' + fmt(somaGmvP ? (somaCom / somaGmvP) * 100 : 0, 1) + '%</div>' +
+          '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:4px">DO GMV VAI EM COMISSAO</div></div>' +
+          (somaUn ? '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:26px;color:var(--t0);letter-spacing:-.025em;line-height:1">' + fmt(somaUn, 0) + '</div>' +
+            '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:4px">UNIDADES</div></div>' : '') +
+          '</div>';
+      }
       var novosAltos = ordenados.filter(function (x) { return x.pctNovos != null && x.pctNovos >= 70 && x.pedidos; });
       if (novosAltos.length) {
         h += '<div style="background:color-mix(in srgb,var(--vd) var(--tin,9%),var(--b0));border-left:3px solid var(--vd);border-radius:0 18px 18px 0;padding:14px 16px;margin-top:11px;font-size:14px;color:var(--t1);line-height:1.55">' +
@@ -8932,9 +8994,17 @@
      nenhum anuncio", e a dica errada ia junto. */
   var MAPA_ADS = null;
   var PERIODO_PACOTE = null;
+  var MAPA_ADS_CAMPS = -1;   // quantas campanhas havia quando o mapa foi feito
   function produtoTemAds(id) {
     if (!id) { MAPA_ADS = MAPA_ADS || {}; return false; }
+    // O mapa era montado UMA vez e cristalizava. Se ele nascia antes das
+    // campanhas chegarem — que e o normal, porque a conta e lida antes do
+    // Ads — ficava vazio para sempre, e todo produto aparecia como se nao
+    // tivesse anuncio. Agora ele se refaz quando o numero de campanhas muda.
+    var qtdAgora = Object.keys(estado.campanhas).length;
+    if (MAPA_ADS && qtdAgora !== MAPA_ADS_CAMPS) MAPA_ADS = null;
     if (!MAPA_ADS) {
+      MAPA_ADS_CAMPS = qtdAgora;
       MAPA_ADS = {};
       var D = null;
       try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
@@ -9289,7 +9359,11 @@
       if (rodEl) rodEl.style.display = 'none';
       return;
     }
-    var abasEl2 = $('sia-abas'); if (abasEl2) abasEl2.style.display = '';
+    // As abas sao redesenhadas a cada render. Sem isto, depois da portaria
+    // ou de qualquer troca de innerHTML os listeners sumiam e clicar na aba
+    // nao fazia nada — que foi o que a Karina viu no Inicio.
+    var abasEl2 = $('sia-abas');
+    if (abasEl2) { abasEl2.style.display = ''; renderAbas(); }
     var rodEl2 = corpo.parentNode && corpo.parentNode.querySelector('.rodape');
     if (rodEl2) rodEl2.style.display = '';
 
