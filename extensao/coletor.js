@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.12.1';
+  var VERSAO = '1.12.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -70,6 +70,17 @@
 
   /* =============================== ESTADO =============================== */
   var estado = {
+    // CONTROLE DE ACESSO — sem isto declarado, acessoValidar quebrava ao
+    // tocar em estado.acesso.verificando e a gaveta abria em branco.
+    acesso: {
+      verificando: true, liberado: false, usuario: null,
+      email: '', erro: null, entrando: false, aviso: null
+    },
+    acessoToken: null,
+    telaServico: null,       // atualizar | suporte | assinatura
+    suporte: { texto: '', enviando: false, ok: false, erro: null },
+    assinatura: null,
+    margemCalc: {},
     interceptorVersao: null,
     chamadas: [],
     brutos: [],
