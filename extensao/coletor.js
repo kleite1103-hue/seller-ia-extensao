@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.8.1';
+  var VERSAO = '1.8.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2050,14 +2050,14 @@
     /* PADRAO = bege claro. A classe .escuro inverte. */
     ':host{all:initial;color:#000000;' +
     '--b0:#FFFFFF;--b1:#FEFCF9;--b2:#F7F3EC;--li:#D9CFBC;--li2:#C4B79F;' +
-    '--t0:#000000;--t1:#241F18;--t2:#5A5245;--t3:#847C6E;' +
-    '--mk:#EE4D2D;--mk2:#F0764F;--vd:#1F8A5F;--rd:#D64545;--am:#C98A1E;--px:#8A5CD6;' +
+    '--t0:#000000;--t1:#1A1610;--t2:#463F33;--t3:#6B6355;' +
+    '--mk:#E63E1B;--mk2:#F0764F;--vd:#0F7A4A;--rd:#C1121F;--am:#B07208;--px:#6D28D9;' +
     '--tin:9%;--r-card:22px;--r-btn:14px;--r-painel:30px;' +
     '--sh:rgba(72,56,38,.22);--shb:rgba(72,56,38,.10)}' +
     ':host(.escuro){color:#F2F4F7;' +
     '--b0:#151920;--b1:#0F1115;--b2:#1A1F27;--li:#333A47;--li2:#414A59;' +
-    '--t0:#FFFFFF;--t1:#E4E9F0;--t2:#A8B0BC;--t3:#8A929E;' +
-    '--mk:#FF6A3D;--mk2:#FF8A63;--vd:#2ECC8F;--rd:#FF6B6B;--am:#E8B14A;--px:#B06CFF;' +
+    '--t0:#FFFFFF;--t1:#F0F3F8;--t2:#BCC4D0;--t3:#98A0AC;' +
+    '--mk:#FF7043;--mk2:#FF9770;--vd:#34E39B;--rd:#FF5C5C;--am:#FFC24A;--px:#C084FF;' +
     '--tin:14%;' +
     '--sh:rgba(0,0,0,.50);--shb:rgba(0,0,0,.28)}' +
     '*{box-sizing:border-box;margin:0;padding:0;font-family:"Outfit",-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-weight:300}' +
@@ -2130,7 +2130,7 @@
     '.leitura .ex{font-size:15.5px;color:var(--t1);margin-top:11px;line-height:1.6}' +
     '.tres{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--li);border:1px solid var(--li);border-radius:18px;overflow:hidden;margin-bottom:18px}' +
     '.tres>div{background:var(--b2);padding:19px 12px;text-align:center}' +
-    '.tres .v{font-family:Archivo,Outfit,Arial;font-weight:600;font-size:36px;line-height:1;letter-spacing:-.03em}' +
+    '.tres .v{font-family:Archivo,Outfit,Arial;font-weight:600;font-size:42px;line-height:1;letter-spacing:-.035em}' +
     '.tres .l{font-family:Space Mono,monospace;font-size:10px;color:var(--t2);letter-spacing:.07em;margin-top:7px}' +
     '.tres .s{font-size:12.5px;color:var(--t2);margin-top:3px}' +
     /* cabecalho de tela: olho + display + numero fantasma, como no Club */
@@ -2144,7 +2144,7 @@
     '.tit{font-family:Archivo,Outfit,Arial;font-weight:400;font-size:33px;letter-spacing:-.025em;line-height:1.1;color:var(--t0);margin-bottom:8px}' +
     '.lead{font-size:14px;color:var(--t1);line-height:1.55;margin-bottom:4px}' +
     '.corpo table{display:block;overflow-x:auto;white-space:nowrap}' +
-    'table{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);overflow:hidden;margin:6px 0 14px}' +
+    'table{width:100%;border-collapse:collapse;font-size:15px;background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);overflow:hidden;margin:6px 0 14px}' +
     'th{text-align:left;color:var(--t2);font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid var(--mk);position:sticky;top:-14px;background:var(--b1)}' +
     'td{padding:11px 9px;border-bottom:1px solid var(--li);color:var(--t1);white-space:nowrap}' +
     'td.nome{white-space:normal;min-width:160px;color:var(--t0)}' +
@@ -2152,7 +2152,7 @@
     '.num{text-align:right;font-variant-numeric:tabular-nums}' +
     '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:9px;margin-bottom:20px}' +
     '.kpi{background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:15px 13px}' +
-    '.kpi .v{font-family:Archivo,Outfit,Arial;font-weight:600;font-size:34px;line-height:1;letter-spacing:-.03em;color:var(--mk)}' +
+    '.kpi .v{font-family:Archivo,Outfit,Arial;font-weight:600;font-size:40px;line-height:1;letter-spacing:-.035em;color:var(--mk)}' +
     '.kpi .l{font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:6px;text-transform:uppercase;letter-spacing:.07em;line-height:1.35}' +
     '.vazio{color:var(--t2);font-size:15.5px;line-height:1.6;padding:30px 10px;text-align:center}' +
     '.selo{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--li);border-radius:99px;padding:2px 8px;color:var(--t2);margin-left:8px}' +
@@ -3049,7 +3049,7 @@
     if (gastoRuim) {
       h += '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b0));border:1px solid color-mix(in srgb,var(--rd) 22%,var(--li));border-radius:var(--r-card,22px);padding:16px 20px;margin-bottom:16px">' +
         '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);letter-spacing:.1em">EM RISCO</span>' +
-        '<span style="font-family:Archivo,Outfit,Arial;font-weight:500;font-size:29px;color:var(--rd);letter-spacing:-.02em">' + reais(gastoRuim) + '</span>' +
+        '<span style="font-family:Archivo,Outfit,Arial;font-weight:700;font-size:33px;color:var(--rd);letter-spacing:-.02em">' + reais(gastoRuim) + '</span>' +
         '<span style="font-size:13.5px;color:var(--t1)">e o que essas campanhas consomem sem devolver</span></div>';
     }
 
@@ -3078,7 +3078,7 @@
           '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">R$ ' + c.gasto.toFixed(2).replace('.', ',') + '</span></div>';
         if (c.campanha) h += '<div style="font-size:13px;color:var(--t2);margin-bottom:6px;line-height:1.35">' + sig(c.campanha) +
           '<span style="font-family:Space Mono,monospace;color:var(--t3)">' + (c.roas ? '  ROAS ' + c.roas.toFixed(1) + 'x' : '') + (c.posicao ? '  pos ' + c.posicao : '') + '</span></div>';
-        h += '<div style="font-size:15px;color:var(--t1);line-height:1.5">' + esc(c.texto) + '</div>';
+        h += '<div style="font-size:15.5px;color:var(--t1);line-height:1.5">' + esc(c.texto) + '</div>';
         h += '</div>';
       });
     }
@@ -5664,8 +5664,8 @@
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:1px;background:var(--li);border:1px solid var(--li);border-radius:10px;overflow:hidden;margin-bottom:10px">';
     function celula(rot, val2, cor) {
       return '<div style="background:var(--b0);padding:9px 6px;text-align:center">' +
-        '<div style="font-family:Space Mono,monospace;font-size:16px;font-weight:700;color:' + (cor || 'var(--t0)') + '">' + val2 + '</div>' +
-        '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-top:5px">' + rot + '</div></div>';
+        '<div style="font-family:Space Mono,monospace;font-size:19px;font-weight:700;letter-spacing:-.02em;color:' + (cor || 'var(--t0)') + '">' + val2 + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);margin-top:6px">' + rot + '</div></div>';
     }
     h += celula('ROAS', roas != null ? fmt(roas, 1) + 'x' : '\u2014', roas != null ? (roas >= piso ? 'var(--vd)' : 'var(--rd)') : null);
     h += celula('CTR', ctr != null ? fmt(ctr, 1) + '%' : '\u2014', ctr != null && ctr < 1.8 ? 'var(--am)' : null);
@@ -5675,7 +5675,7 @@
     h += celula('PEDIDOS', fmt(ped, 0));
     h += '</div>';
 
-    h += '<div style="font-size:15px;color:var(--t1);line-height:1.5">' + esc(texto) + '</div>';
+    h += '<div style="font-size:15.5px;color:var(--t1);line-height:1.5">' + esc(texto) + '</div>';
     if (passos.length) {
       // Passos em vermelho pareciam alerta urgente. Agora sao um bloco suave
       // com a cor do nivel so no marcador.
@@ -5744,11 +5744,11 @@
             : 'Este produto ainda nao vendeu por anuncio, entao a conta usa a media da conta: CPC de ' + reais(cpcUsar) + ' e ' + fmt(cliquesUsar, 0) + ' cliques por venda. Assim que ele vender, o numero passa a ser dele.') +
           '<br><br>Com isso, o orcamento diario compra ' + fmt(cliquesQueCompra, 0) + ' cliques por dia, o que da ' + fmt(vendasPorDia, 1) + ' venda por dia.<br><br><b>Por que importa:</b> orcamento que nao compra cliques suficientes para uma venda por dia deixa a campanha em aprendizado eterno \u2014 a Shopee nunca tem sinal para otimizar, e o dinheiro sai sem virar resultado.') + '</div>' +
         '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px">' +
-        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:21px;color:var(--t0);letter-spacing:-.02em">' + fmt(cliquesQueCompra, 0) + '</div>' +
+        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:25px;color:var(--t0);letter-spacing:-.025em">' + fmt(cliquesQueCompra, 0) + '</div>' +
         '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:2px">CLIQUES/DIA</div></div>' +
         '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:21px;color:' + (cabe ? 'var(--vd)' : 'var(--am)') + ';letter-spacing:-.02em">' + fmt(vendasPorDia, 1) + '</div>' +
         '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:2px">VENDAS/DIA</div></div>' +
-        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:21px;color:var(--t0);letter-spacing:-.02em">' + reais(orcDia) + '</div>' +
+        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:25px;color:var(--t0);letter-spacing:-.025em">' + reais(orcDia) + '</div>' +
         '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:2px">ORCAMENTO</div></div></div>' +
         '<div style="font-size:13.5px;color:var(--t1);line-height:1.5">' +
         (cabe
@@ -5786,7 +5786,7 @@
           h += '<div style="flex:none;text-align:center;font-family:Space Mono,monospace;font-size:9px;color:' + (ruimC ? 'var(--rd)' : 'var(--t3)') + ';padding-bottom:16px">\u203a<br>' + (qq ? '\u2212' + fmt(qq.pct, 0) + '%' : '') + '</div>';
         }
         h += '<div style="flex:1;text-align:center">' +
-          '<div style="font-family:Bebas Neue,sans-serif;font-size:23px;line-height:1;color:' + (dc === degC.length - 1 && !degC[dc].v ? 'var(--rd)' : 'var(--t0)') + '">' + fmt(degC[dc].v, 0) + '</div>' +
+          '<div style="font-family:Bebas Neue,sans-serif;font-size:27px;line-height:1;letter-spacing:-.03em;color:' + (dc === degC.length - 1 && !degC[dc].v ? 'var(--rd)' : 'var(--t0)') + '">' + fmt(degC[dc].v, 0) + '</div>' +
           '<div style="font-family:Space Mono,monospace;font-size:7.5px;color:var(--t2);margin-top:4px">' + degC[dc].r + '</div></div>';
       }
       h += '</div>';
@@ -6303,7 +6303,7 @@
       h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:15px 17px;margin-bottom:10px">' +
         '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">' +
         '<span style="flex:1;font-size:16px;font-weight:600;color:var(--t0);text-transform:capitalize">' + esc(L.rot) + '</span>' +
-        '<span style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:22px;color:' + (dd.ruim ? 'var(--rd)' : 'var(--vd)') + '">' + dd.ruim + '</span>' +
+        '<span style="font-family:Archivo,Outfit,Arial;font-weight:700;font-size:26px;color:' + (dd.ruim ? 'var(--rd)' : 'var(--vd)') + '">' + dd.ruim + '</span>' +
         '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2)">DE ' + total + '</span></div>' +
         '<div style="height:7px;background:var(--b2);border-radius:99px;overflow:hidden;margin-bottom:8px">' +
         '<div style="height:100%;width:' + fmt(pctRuim, 0) + '%;background:var(--rd);border-radius:99px"></div></div>';
@@ -8685,7 +8685,7 @@
       }
       var ehUltimo = i === degraus.length - 1;
       h += '<div style="flex:1;text-align:center">' +
-        '<div style="font-family:Bebas Neue,sans-serif;font-size:27px;line-height:1;color:' + (ehUltimo && degraus[i].v === 0 ? 'var(--rd)' : 'var(--t0)') + '">' + fmt(degraus[i].v, 0) + '</div>' +
+        '<div style="font-family:Bebas Neue,sans-serif;font-size:31px;line-height:1;letter-spacing:-.03em;color:' + (ehUltimo && degraus[i].v === 0 ? 'var(--rd)' : 'var(--t0)') + '">' + fmt(degraus[i].v, 0) + '</div>' +
         '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:5px;line-height:1.3">' + degraus[i].r + '</div></div>';
     }
     h += '</div>';
@@ -8716,7 +8716,7 @@
       (c.venda ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(c.venda) + '</span>' : '') +
       '</div>' +
       '<div style="font-size:13px;color:var(--t2);margin-bottom:6px;line-height:1.35">' + sig(String(c.nome).slice(0, 70)) + '</div>' +
-      '<div style="font-size:15px;color:var(--t1);line-height:1.5">' + esc(c.texto) + '</div>' +
+      '<div style="font-size:15.5px;color:var(--t1);line-height:1.5">' + esc(c.texto) + '</div>' +
       // O veredito diz O QUE; o funil mostra ONDE. Sem ele o analista sabe
       // que ha problema e precisa ir procurar em qual degrau.
       funilDoProduto(c.id) +
