@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.10.1';
+  var VERSAO = '1.11.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2304,10 +2304,7 @@
     { id: 'marketing', rotulo: 'Marketing' },
     { id: 'afiliados', rotulo: 'Afiliados' },
     { id: 'cofre', rotulo: 'Precificacao' },
-    { id: 'palavras', rotulo: 'Palavras' },
-    { id: 'semanal', rotulo: 'Semanal' },
     { id: 'relatorio', rotulo: 'Relatorio' },
-    { id: 'diagnostico', rotulo: 'Especialista' },
     { id: 'config', rotulo: 'Ajustes' },
     { id: 'debug', rotulo: 'Debug', tecnica: true }
   ];
@@ -2319,9 +2316,25 @@
     ],
     gprod: [
       { id: 'campanhas', rotulo: 'Campanhas' }
+    ],
+    // Palavras e pesquisa de mercado, entao vive no Espiao. Semanal e um
+    // relatorio, entao vive em Relatorio. E o Especialista e a leitura do
+    // Inicio, entao fica junto dele. Nada da logica das telas muda: elas
+    // continuam sendo as mesmas funcoes, so mudaram de lugar no menu.
+    espiao: [
+      { id: 'espiao', rotulo: 'Espiar produto' },
+      { id: 'palavras', rotulo: 'Palavras' }
+    ],
+    relatorio: [
+      { id: 'relatorio', rotulo: 'Relatorio da conta' },
+      { id: 'semanal', rotulo: 'Panorama semanal' }
+    ],
+    conta360: [
+      { id: 'conta360', rotulo: 'A conta' },
+      { id: 'diagnostico', rotulo: 'Especialista' }
     ]
   };
-  var subAtiva = { cofre: 'cofre', gprod: 'campanhas' };
+  var subAtiva = { cofre: 'cofre', gprod: 'campanhas', espiao: 'espiao', relatorio: 'relatorio', conta360: 'conta360' };
   function grupoDe(id) {
     for (var g in SUB) for (var i = 0; i < SUB[g].length; i++) if (SUB[g][i].id === id) return g;
     return null;
@@ -7544,7 +7557,7 @@
 
   function renderRelatorio() {
     var R = estado.rel;
-    var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '06');
+    var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '06') + renderSubAbas('relatorio');
 
     if (R.markdown) {
       h += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
@@ -9002,7 +9015,7 @@
 
     if (abaAtiva === 'palavras') {
       try {
-        corpo.innerHTML = capa('O QUE O COMPRADOR PROCURA', 'AS', 'PALAVRAS', '06') + renderPalavras();
+        corpo.innerHTML = capa('O QUE O COMPRADOR PROCURA', 'AS', 'PALAVRAS', '06') + renderSubAbas('espiao') + renderPalavras();
         var kb = $('sia-kw-busca');
         if (kb) kb.addEventListener('input', function () { estado.buscaPalavra = kb.value; estado.sujo = true; });
         var kc = $('sia-kw-coletar');
@@ -9020,7 +9033,7 @@
       return;
     }
     if (abaAtiva === 'semanal') {
-      try { corpo.innerHTML = capa('OS ULTIMOS 7 DIAS', 'O', 'SEMANAL', '07') + renderSemanal(); }
+      try { corpo.innerHTML = capa('OS ULTIMOS 7 DIAS', 'O', 'SEMANAL', '07') + renderSubAbas('relatorio') + renderSemanal(); }
       catch (err) { corpo.innerHTML = telaDeErro('Semanal', err); }
       return;
     }
@@ -9063,7 +9076,7 @@
       return;
     }
     if (abaAtiva === 'conta360') {
-      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderAvisoPeriodo() +
+      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSubAbas('conta360') + renderAvisoPeriodo() +
         renderFunilLoja() + leituraDaConta() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
       ligarBotaoColeta();
       ligarProfunda();
@@ -9113,7 +9126,7 @@
       // nenhuma do motivo — foi assim com espRodarRadar. Agora o erro
       // aparece na tela com o arquivo e a linha.
       try {
-        corpo.innerHTML = renderEspiao();
+        corpo.innerHTML = renderSubAbas('espiao') + renderEspiao();
         ligarEspiao();
       } catch (err) {
         corpo.innerHTML = telaDeErro('Espiao', err);
@@ -9127,7 +9140,7 @@
       // que fazer primeiro. Agora ela ordena por dinheiro em jogo e escreve.
       // A fila de acao vivia no Inicio e agora vem para ca, junto do resto da
       // analise: a Karina apontou que havia leitura espalhada em duas telas.
-      corpo.innerHTML = capa('A ANALISE COMPLETA', 'O', 'ESPECIALISTA', '07') + renderEspecialista() + renderSemaforo();
+      corpo.innerHTML = capa('A ANALISE COMPLETA', 'O', 'ESPECIALISTA', '07') + renderSubAbas('conta360') + renderEspecialista() + renderSemaforo();
       ligarChamadaCerebro();
       ligarCalculadora();
       var be = $('sia-coletar-tudo');
