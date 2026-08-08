@@ -1494,6 +1494,185 @@
   // Virou lenta demais para o uso do dia a dia — e quem espera 3 minutos
   // prefere olhar o painel. Agora o padrao e RAPIDA (o essencial, ~40s) e o
   // que e pesado vira PROFUNDA, disparada so quando a pessoa pede.
+  /* ============ EXECUTOR DA RECEITA ============
+     Esta versao NAO sabe o que coletar. Ela pede a lista ao servidor e
+     executa passo a passo. Sem a receita, o arquivo e uma casca: nao ha
+     rota, parametro nem corpo de requisicao escrito aqui.
+
+     O que continua aqui e so o que precisa da permissao do navegador:
+     disparar a chamada com a sessao da pessoa e entregar o resultado. */
+
+  var SIA_URL_RECEITA = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/receita';
+  var RECEITA_CACHE = null;   // vale enquanto a gaveta estiver aberta
+
+  function pedirReceita(modo) {
+    // reusa dentro da mesma sessao para nao pedir a cada coleta
+    if (RECEITA_CACHE && RECEITA_CACHE.modo === modo &&
+        (Date.now() - RECEITA_CACHE.em) < (RECEITA_CACHE.validade || 3600) * 1000) {
+      return Promise.resolve(RECEITA_CACHE.dados);
+    }
+    return fetch(SIA_URL_RECEITA, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: estado.acessoToken, modo: modo,
+        loja: estado.loja ? estado.loja.shop_id : null
+      })
+    }).then(function (r) { return r.json(); }).then(function (r) {
+      if (!r || !r.ok) throw new Error((r && r.erro) || 'nao consegui a receita');
+      RECEITA_CACHE = { modo: modo, em: Date.now(), validade: r.validade, dados: r };
+      return r;
+    });
+  }
+
+  /* Troca os marcadores pelo que vale nesta sessao. A extensao sabe as
+     datas e a sessao da Shopee; a receita sabe o resto. */
+  function preencher(texto, vals) {
+    return String(texto).replace(/\{(\w+)\}/g, function (m, chave) {
+      return vals[chave] !== undefined ? String(vals[chave]) : m;
+    });
+  }
+  function preencherCorpo(obj, vals) {
+    if (obj == null) return obj;
+    if (typeof obj === 'string') {
+      var v = preencher(obj, vals);
+      // marcador sozinho vira o valor no tipo original
+      var so = String(obj).match(/^\{(\w+)\}$/);
+      if (so && vals[so[1]] !== undefined) return vals[so[1]];
+      return v;
+    }
+    if (Array.isArray(obj)) return obj.map(function (x) { return preencherCorpo(x, vals); });
+    if (typeof obj === 'object') {
+      var out = {};
+      for (var k in obj) out[k] = preencherCorpo(obj[k], vals);
+      return out;
+    }
+    return obj;
+  }
+
+  /* Escolhe os alvos de um passo que roda por campanha ou por produto. */
+  function alvosDoPasso(passo) {
+    var lista = [], k;
+    if (passo.porCampanha) {
+      for (k in estado.campanhas) {
+        var c = estado.campanhas[k] || {}, m = c.metricas || {};
+        var e = String(c.estado || c.state || '').toLowerCase();
+        if (passo.so === 'ativa_com_gasto') {
+          if (e === 'paused' || e === 'ended' || e === 'closed') continue;
+          if (!(m.gasto > 0)) continue;
+        }
+        lista.push({ id: k, peso: m.gasto || 0 });
+      }
+    } else if (passo.porProduto) {
+      for (k in estado.produtos) {
+        var pr = estado.produtos[k] || {}, mp = pr.metricas || {};
+        lista.push({ id: k, peso: mp.vendas_pagas || 0 });
+      }
+    }
+    lista.sort(function (a, b) { return b.peso - a.peso; });
+    return lista.slice(0, passo.limite || 20).map(function (x) { return x.id; });
+  }
+
+  function itensParaLote(tamanho) {
+    var out = [];
+    for (var k in estado.produtos) {
+      if (out.length >= (tamanho || 50)) break;
+      var n = parseInt(k, 10);
+      if (n) out.push(n);
+    }
+    return out;
+  }
+
+  function uuidReceita() {
+    function h4() { return Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1); }
+    return h4() + h4() + '-' + h4() + '-' + h4() + '-' + h4() + '-' + h4() + h4() + h4();
+  }
+
+  /* Executa um passo. Devolve quantas chamadas fez. */
+  async function executarPasso(passo, vals, prog, lojaCiclo) {
+    var feitas = 0;
+    var pausaMs = passo.pausa || (RECEITA_CACHE && RECEITA_CACHE.dados.limites
+      ? RECEITA_CACHE.dados.limites.pausaEntreChamadas : 250);
+
+    function entregar(url, corpo, dados) {
+      processarPacote({
+        url: url.split('?')[0], metodo: passo.metodo, corpo: corpo,
+        dados: dados, ts: Date.now(), loja: lojaCiclo,
+        periodo: passo.carimbaPeriodo ? (vals.ini + '_' + vals.fimAds) : null
+      });
+    }
+
+    // --- por campanha ou por produto ---
+    if (passo.porCampanha || passo.porProduto) {
+      var alvos = alvosDoPasso(passo);
+      for (var a = 0; a < alvos.length; a++) {
+        var v2 = Object.assign({}, vals, {
+          campanha: parseInt(alvos[a], 10), produto: alvos[a], uuid: uuidReceita()
+        });
+        var u2 = preencher(passo.url, v2);
+        var c2 = passo.corpo ? JSON.stringify(preencherCorpo(passo.corpo, v2)) : null;
+        var r2 = await buscar(u2, passo.metodo, c2);
+        feitas++;
+        if (r2.ok && r2.dados) entregar(u2 + (passo.porCampanha ? '&campaign_id=' + alvos[a] : ''), c2, r2.dados);
+        await pausa(pausaMs);
+      }
+      return feitas;
+    }
+
+    // --- lote de itens ---
+    if (passo.loteItens) {
+      var itens = itensParaLote(passo.tamanho);
+      if (!itens.length) return 0;
+      var v3 = Object.assign({}, vals, { itens: itens, uuid: uuidReceita() });
+      var u3 = preencher(passo.url, v3);
+      var c3 = passo.corpo ? JSON.stringify(preencherCorpo(passo.corpo, v3)) : null;
+      var r3 = await buscar(u3, passo.metodo, c3);
+      feitas++;
+      if (r3.ok && r3.dados) entregar(u3, c3, r3.dados);
+      await pausa(pausaMs);
+      return feitas;
+    }
+
+    // --- paginado ---
+    if (passo.paginado) {
+      for (var pg = 1; pg <= (passo.paginas || 10); pg++) {
+        var v4 = Object.assign({}, vals, {
+          pagina: pg, offset: (pg - 1) * (passo.tamanho || 20), uuid: uuidReceita()
+        });
+        var u4 = preencher(passo.url, v4);
+        var c4 = passo.corpo ? JSON.stringify(preencherCorpo(passo.corpo, v4)) : null;
+        var r4 = await buscar(u4, passo.metodo, c4);
+        feitas++;
+        if (!r4.ok || !r4.dados) break;
+        entregar(u4, c4, r4.dados);
+        // para quando a pagina volta incompleta, que e o fim real da lista
+        var qtd = contarItens(r4.dados);
+        if (qtd < (passo.tamanho || 20)) break;
+        await pausa(pausaMs);
+      }
+      return feitas;
+    }
+
+    // --- chamada simples ---
+    var v5 = Object.assign({}, vals, { uuid: uuidReceita() });
+    var u5 = preencher(passo.url, v5);
+    var c5 = passo.corpo ? JSON.stringify(preencherCorpo(passo.corpo, v5)) : null;
+    var r5 = await buscar(u5, passo.metodo, c5);
+    feitas++;
+    if (r5.ok && r5.dados) entregar(u5, c5, r5.dados);
+    await pausa(pausaMs);
+    return feitas;
+  }
+
+  /* Conta itens de uma resposta sem saber o formato dela. */
+  function contarItens(d) {
+    var dd = (d && d.data) || (d && d.result) || d || {};
+    var listas = [dd.list, dd.item, dd.items, dd.entry_list, dd.item_list, dd.task_list, dd.card_list];
+    for (var i = 0; i < listas.length; i++) {
+      if (Array.isArray(listas[i])) return listas[i].length;
+    }
+    return 0;
+  }
+
   function coletaCompleta(aoProgresso, periodoForcado, modo) {
     var PROFUNDA = modo === 'profunda';
     // Marcar 'iniciando' sem garantir a liberacao deixava coletaProgresso
@@ -1538,512 +1717,58 @@
         estado.diarioColeta.periodo = { ini: ini, fim: fim, forcado: !!periodoForcado };
         function prog(t) {
           estado.coletaProgresso = t; estado.sujo = true;
-          if (t === null) {
-            clearTimeout(travaSeguranca);
-            estado.lidoEm = Date.now();               // terminou: marca a leitura DESTA conta
-            estado.ultimaColeta = { ok: CONTAGEM_BUSCA.ok, falhas: CONTAGEM_BUSCA.falhas };
-            if (estado.loja) guardarConta(estado.loja.shop_id);
-          }
-          if (aoProgresso) aoProgresso(t);
-        }
-        if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina do Central do Vendedor e tente de novo (chave de sessao ainda nao capturada).' }); return; }
-        // A Shopee EXIGE datas alinhadas ao dia no fuso do Brasil (UTC-3),
-        // senao retorna code 10006 "invalid param". Calculamos inicio do dia
-        // (00:00 BRT = 03:00 UTC) e fim do dia (23:59 BRT).
-        // BRT = UTC-3, entao o offset e 3*3600 = 10800s.
-        var BRT = 3 * 3600;
-        var agora = Math.floor(Date.now() / 1000);
-        var ini, fim;
-        // MAIS FORTE QUE TUDO: periodo escolhido no seletor de mes do Relatorio.
-        // Sem isto, o mes do relatorio era so um rotulo e os numeros continuavam
-        // sendo os do recorte que estivesse aberto no painel da Shopee.
-        if (periodoForcado && periodoForcado.inicio && periodoForcado.fim) {
-          ini = periodoForcado.inicio;
-          fim = periodoForcado.fim;
-        } else if (estado.periodoMydata && estado.periodoMydata.inicio && estado.periodoMydata.fim) {
-          ini = estado.periodoMydata.inicio;
-          fim = estado.periodoMydata.fim;
-        } else {
-          // FALLBACK: calcula (inicio do mes ate ontem 00:00 BRT)
-          var hoje0 = inicioDoDiaBRT(agora);
-          var dNow = new Date(hoje0 * 1000);
-          var primeiroMes = new Date(Date.UTC(dNow.getUTCFullYear(), dNow.getUTCMonth(), 1, 3, 0, 0));
-          ini = Math.floor(primeiroMes.getTime() / 1000);
-          // end = HOJE 00:00 BRT. Isso representa "ate o fim de ontem" (D-1),
-          // que e o que a Shopee disponibiliza. Testado: funciona (v0.23.6).
-          fim = hoje0;
-        }
-        // A URL da tela de Ads tem from/to proprios, e quando a pessoa esta
-        // com "Todo o periodo" selecionado ali, isso SOBRESCREVIA o recorte da
-        // conta inteira — era assim que apareciam 305 campanhas com gasto de
-        // um intervalo completamente diferente do faturamento lido. Agora so
-        // aceita a janela do Ads se ela for compativel: no maximo 90 dias e
-        // terminando no mesmo periodo da conta.
-        var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
-        var mTo = location.search.match(/[?&]to=(\d{9,11})/);
-        if (mFrom && mTo && !periodoForcado) {
-          // O 'to' da URL vem como 23:59:59 do ultimo dia. Alinhar para 00:00
-          // encurtava a janela em um dia e a checagem de compatibilidade
-          // falhava — por isso o periodo do Ads nunca era aceito e ele seguia
-          // usando outro recorte. Soma-se 1 dia ao fim antes de alinhar.
-          var iA = inicioDoDiaBRT(parseInt(mFrom[1], 10));
-          var fA = inicioDoDiaBRT(parseInt(mTo[1], 10) + 60);
-          var diasAds = Math.round((fA - iA) / 86400);
-          var diasConta = Math.round((fim - ini) / 86400);
-          if (diasAds > 0 && diasAds <= 92 && Math.abs(diasAds - diasConta) <= 3) { ini = iA; fim = fA; }
-        }
-        var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
-        var totalChamadas = 0;
-        CONTAGEM_BUSCA.ok = 0; CONTAGEM_BUSCA.falhas = 0;
-        // o Ads (pas/) exige end_time no ULTIMO segundo do dia (23:59:59),
-        // nao 00:00 do dia seguinte. Senao retorna code 5 "invalid request".
-        var fimAds = fim - 1;
-
-        // A) Campanhas do Ads (paginado por offset)
-        prog('Lendo campanhas do Shopee Ads...');
-        // ANTES: state 'all' com ate 400 campanhas — puxava as 300 da conta,
-        // incluindo pausadas ha meses que nao dizem nada e so deixam a coleta
-        // lenta. AGORA: as ONGOING primeiro, e depois um lote pequeno de
-        // pausadas so para detectar a que rendia e parou.
-        // PAUSADAS: a regra da casa e olhar so as que FATURARAM no periodo
-        // lido e verificar se ha outra ativa cobrindo o mesmo produto. Ler
-        // todas era o que fazia o relatorio levar quinze minutos.
-        var fases = [
-          { estado: 'ongoing', ate: 200 },
-          { estado: 'paused', ate: 40, soComGmv: true }
-        ];
-        for (var fx = 0; fx < fases.length; fx++) {
-        var faseAtual = fases[fx];
-        for (var off = 0; off < faseAtual.ate; off += 20) {
-          var corpoC = JSON.stringify({ start_time: ini, end_time: fimAds, filter_list: [{ campaign_type: 'product_homepage_v3', state: faseAtual.estado, search_term: '', is_valid_rebate_only: false }], offset: off, limit: 20, use_paid_gmv: false });
-          var rc = await buscar('/api/pas/v1/homepage/query/?' + spcQ, 'POST', corpoC);
-          totalChamadas++;
-          if (!rc.ok || !rc.dados) break;
-          // PAUSADA COM MAIS DE 60 DIAS nao entra: a analise de pausada que
-          // rendia so faz sentido em campanha parada ha pouco tempo, com o
-          // produto ainda vivo. Acima disso e arqueologia, e so pesa a coleta.
-          if (faseAtual.estado === 'paused' && rc.dados.data && rc.dados.data.entry_list) {
-            var corte = Math.floor(Date.now() / 1000) - 60 * 86400;
-            rc.dados.data.entry_list = rc.dados.data.entry_list.filter(function (e) {
-              var c2 = e && e.campaign;
-              if (!c2) return false;
-              // 1) parada ha menos de 60 dias
-              var fimC = c2.end_time && c2.end_time > 0 ? c2.end_time : null;
-              var iniC = c2.start_time || 0;
-              if (!(fimC ? fimC >= corte : iniC >= corte)) return false;
-              // 2) FATUROU no periodo lido: pausada sem receita nao muda
-              // decisao nenhuma e so pesa a coleta
-              if (faseAtual.soComGmv) {
-                var rp = e.report || {};
-                var gmvP = Number(rp.broad_gmv || rp.gmv || rp.direct_gmv || 0);
-                var gastoP = Number(rp.cost || rp.expense || 0);
-                if (!gmvP && !gastoP) return false;
-              }
-              return true;
-            });
-          }
-          processarPacote({ url: '/api/pas/v1/homepage/query/', metodo: 'POST', corpo: corpoC, dados: rc.dados, ts: Date.now(), loja: lojaDoCiclo, periodo: ini + '_' + fimAds });
-          var lote = rc.dados.data && rc.dados.data.entry_list ? rc.dados.data.entry_list.length : 0;
-          prog((faseAtual.estado === 'ongoing' ? 'Campanhas ativas' : 'Campanhas pausadas') + ': ' + Object.keys(estado.campanhas).length + '...');
-          if (lote < 20) break;
-          await pausa(250);
-        }
-        }
-        estado.periodoAds = { inicio: ini, fim: fim, dias: 30 };
-
-        // B) Variacao das 12 maiores campanhas (report/get com ratio)
-        // so campanha ATIVA entra nas rotas pesadas: pausada ja foi julgada
-        // pelo que faturou, e buscar serie e leilao dela nao muda nada
-        var idsTop = Object.keys(estado.campanhas).filter(function (k) {
-          var cc = estado.campanhas[k] || {}, mm = cc.metricas || {};
-          var ee = String(cc.estado || cc.state || '').toLowerCase();
-          if (ee === 'paused' || ee === 'ended' || ee === 'closed') return false;
-          return (mm.gasto || 0) > 0 || (mm.gmv || 0) > 0;
-        })
-          .sort(function (a, b) { return (estado.campanhas[b].metricas.gasto || 0) - (estado.campanhas[a].metricas.gasto || 0); }).slice(0, 30);
-        for (var t2 = 0; t2 < idsTop.length; t2++) {
-          prog('Aprofundando campanha ' + (t2 + 1) + ' de ' + idsTop.length + '...');
-          var corpoR = JSON.stringify({
-            start_time: ini, end_time: fimAds, campaign_type: 'product',
-            agg_type: 'campaign_id',
-            filter_params: { campaign_id: parseInt(idsTop[t2], 10) },
-            need_ratio: true
-          });
-          var rr = await buscar('/api/pas/v1/report/get/?' + spcQ, 'POST', corpoR);
-          totalChamadas++;
-          if (rr.ok && rr.dados) processarPacote({ url: '/api/pas/v1/report/get/', metodo: 'POST', corpo: corpoR, dados: rr.dados, ts: Date.now() });
-          await pausa(250);
+          if (typeof aoProgresso === 'function') { try { aoProgresso(t); } catch (e) { } }
         }
 
-        // C) Funil de todos os produtos (Central de Dados, paginado)
-        // B') O QUE A SHOPEE SABE E NAO MOSTRA
-        // Posicao no leilao, competitividade de preco, status e o diagnostico
-        // dela so vinham quando o analista abria campanha por campanha. Numa
-        // conta com 300 campanhas isso nunca acontecia — a coluna ficava vazia
-        // para sempre. Agora a coleta busca de uma vez para as que mais gastam.
-        var idsGasto = Object.keys(estado.campanhas).sort(function (a, b) {
-          var ma = (estado.campanhas[a] && estado.campanhas[a].metricas) || {};
-          var mb = (estado.campanhas[b] && estado.campanhas[b].metricas) || {};
-          return (mb.gasto || 0) - (ma.gasto || 0);
-        });
-        var alvoLeilao = idsGasto.filter(function (k) {
-          var ee2 = String((estado.campanhas[k] || {}).estado || '').toLowerCase();
-          return ee2 !== 'paused' && ee2 !== 'ended' && ee2 !== 'closed';
-        }).slice(0, PROFUNDA ? 60 : 20);
-
-        // Esta rota e da LOJA INTEIRA e nao depende de campanha nenhuma, mas
-        // tinha ficado dentro do if de campanhas com gasto — numa conta sem
-        // gasto no periodo ela nunca era chamada, e a competitividade ficava
-        // vazia para sempre. Ela sai do if e roda sempre.
-        prog('Lendo o que a Shopee recomenda...');
-        var rt = await buscar('/api/pas/v1/todo/list_task/?' + spcQ, 'POST', '{}');
-        totalChamadas++;
-        if (rt.ok && rt.dados) {
-          processarPacote({ url: '/api/pas/v1/todo/list_task/', metodo: 'POST', corpo: '{}', dados: rt.dados, ts: Date.now(), loja: lojaDoCiclo });
-        } else {
-          estado.faltando = estado.faltando || [];
-          estado.faltando.push('recomendacoes da Shopee (competitividade)');
-        }
-        await pausa(250);
-
-        // APRENDIZADO REAL E MUDANCA DE META (itens 6 e 7)
-        // A rota report/get_time_graph devolve, por hora, o roi_target_setting
-        // com is_cold_start dito pela PROPRIA Shopee — nao estimado por idade —
-        // e o valor da meta em cada momento, o que revela QUANDO ela foi
-        // alterada. E a unica forma de responder "mexeram na campanha dentro
-        // da janela de aprendizado?".
-        var alvoTempo = PROFUNDA ? idsGasto.slice(0, 12) : [];
-        for (var tg = 0; tg < alvoTempo.length; tg++) {
-          // CORPO EXATO da captura real. O meu estava errado em tres pontos:
-          // agg_interval e o numero 4, nao a string 'hour'; o campaign_id vai
-          // dentro de filter_params; e need_roi_target_setting e o que traz o
-          // is_cold_start e a meta por hora. Por isso a serie nunca chegava e
-          // o Ads seguia pedindo leitura profunda mesmo depois de rodada.
-          var corpoTG = JSON.stringify({
-            need_roi_target_setting: true,
-            agg_interval: 4,
-            campaign_type: 'product',
-            filter_params: { campaign_id: parseInt(alvoTempo[tg], 10) },
-            start_time: ini,
-            end_time: fimAds,
-            need_product_npa_setting: false,
-            need_positive_operation_boost_completed_setting: true
-          });
-          var rtg = await buscar('/api/pas/v1/report/get_time_graph/?' + spcQ, 'POST', corpoTG);
-          totalChamadas++;
-          if (rtg.ok && rtg.dados) {
-            processarPacote({ url: '/api/pas/v1/report/get_time_graph/?campaign_id=' + alvoTempo[tg], metodo: 'POST', corpo: corpoTG, dados: rtg.dados, ts: Date.now(), loja: lojaDoCiclo });
-          }
-          await pausa(200);
-        }
-
-        if (alvoLeilao.length) {
-
-        prog('Lendo posicao no leilao e diagnostico da Shopee...');
-          // O DIAGNOSTICO e barato: 20 campanhas por chamada e nenhuma volta
-          // pesada. Nao faz sentido limita-lo ao alvo do leilao — ele traz a
-          // competitividade, que a Karina precisa em TODA campanha ativa.
-          var alvoDiag = Object.keys(estado.campanhas).filter(function (k) {
-            var cD = estado.campanhas[k] || {};
-            var eD = String(cD.estado || cD.state || '').toLowerCase();
-            return eD !== 'paused' && eD !== 'ended' && eD !== 'closed';
-          }).slice(0, 200);
-          // A rota EM LOTE devolve so o bidding, e as vezes nem isso. Quem
-          // traz os QUATRO vereditos — meta de ROAS, orcamento e saldo,
-          // continuidade e competitividade — e a rota INDIVIDUAL, uma
-          // chamada por campanha. Como e o dado que decide, vale a chamada
-          // extra nas que mais gastam.
-          var alvoDiagCompleto = Object.keys(estado.campanhas).filter(function (k) {
-            var cDC = estado.campanhas[k] || {};
-            var eDC = String(cDC.estado || cDC.state || '').toLowerCase();
-            if (eDC === 'paused' || eDC === 'ended' || eDC === 'closed') return false;
-            return ((cDC.metricas || {}).gasto || 0) > 0;
-          }).sort(function (a, b) {
-            return ((estado.campanhas[b].metricas || {}).gasto || 0) - ((estado.campanhas[a].metricas || {}).gasto || 0);
-          }).slice(0, PROFUNDA ? 60 : 25);
-
-          for (var dc2 = 0; dc2 < alvoDiagCompleto.length; dc2++) {
-            var corpoDC = JSON.stringify({ reference_id: uuidSimples(), campaign_id: parseInt(alvoDiagCompleto[dc2], 10) });
-            var rdc = await buscar('/api/pas/v1/diagnosis/list_verdict/?' + spcQ, 'POST', corpoDC);
-            totalChamadas++;
-            if (rdc.ok && rdc.dados) {
-              processarPacote({ url: '/api/pas/v1/diagnosis/list_verdict/?campaign_id=' + alvoDiagCompleto[dc2], metodo: 'POST', corpo: corpoDC, dados: rdc.dados, ts: Date.now(), loja: lojaDoCiclo });
-            }
-            await pausa(180);
-          }
-
-          for (var lv = 0; lv < alvoDiag.length; lv += 20) {
-            var lote20 = alvoDiag.slice(lv, lv + 20).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return !!x; });
-            if (!lote20.length) continue;
-            // CORPO EXATO da captura: a rota quer campaign_id_list e um
-            // reference_id, e NAO aceita start_time nem end_time. Eu mandava
-            // os dois que nao existem e omitia o obrigatorio — a Shopee
-            // recusava e o diagnostico, que traz a competitividade, nunca
-            // chegava para campanha nenhuma.
-            var corpoV = JSON.stringify({ campaign_id_list: lote20, reference_id: uuidSimples() });
-            var rv = await buscar('/api/pas/v1/diagnosis/homepage_batch_list_verdict/?' + spcQ, 'POST', corpoV);
-            totalChamadas++;
-            if (rv.ok && rv.dados) {
-              processarPacote({ url: '/api/pas/v1/diagnosis/homepage_batch_list_verdict/', metodo: 'POST', corpo: corpoV, dados: rv.dados, ts: Date.now(), loja: lojaDoCiclo });
-            }
-            await pausa(250);   // rajada sem intervalo e o padrao que dispara antifraude
-            // ROTA CORRIGIDA: /api/pas/v1/campaign/get_product_performance_info
-            // nao existe — dava 404 em toda coleta, e aparecia repetido no
-            // console. A rota real que liga produto a campanha e
-            // /api/v3/opt/product/get_campaign_info_by_item_list, e ela recebe
-            // ITENS, nao campanhas.
-            var itensLote = [];
-            for (var ilp in estado.produtos) {
-              if (itensLote.length >= 50) break;
-              var idn = parseInt(ilp, 10);
-              if (idn) itensLote.push(idn);
-            }
-            if (itensLote.length) {
-              var corpoPI = JSON.stringify({ item_id_list: itensLote });
-              var rpi = await buscar('/api/v3/opt/product/get_campaign_info_by_item_list/?' + spcQ, 'POST', corpoPI);
-              totalChamadas++;
-              if (rpi.ok && rpi.dados) {
-                processarPacote({ url: '/api/v3/opt/product/get_campaign_info_by_item_list/', metodo: 'POST', corpo: corpoPI, dados: rpi.dados, ts: Date.now(), loja: lojaDoCiclo });
-              }
-              await pausa(250);
-            }
-          }
-        }
-
-        // ORIGEM DA VENDA POR CANAL e FUNIL DIARIO POR PRODUTO
-        // PALAVRAS-CHAVE COM VOLUME DE BUSCA
-        // A chamada da LOJA e uma so e barata: volta para a coleta normal.
-        // O que pesava eram as 8 por produto, que seguem na profunda.
-        prog('Lendo palavras-chave...');
-        // CORPO EXATO da captura real. Eu mandava {campaign_type, limit}:
-        // 'limit' nao existe nessa rota e 'suggest_log_data' e obrigatorio.
-        var corpoKW = JSON.stringify({ campaign_type: 'shop', suggest_log_data: { page: 'suggest_creation' } });
-        var rkw = await buscar('/api/pas/v1/setup_helper/list_recommended_keyword/?' + spcQ, 'POST', corpoKW);
-        totalChamadas++;
-        if (rkw.ok && rkw.dados) processarPacote({ url: '/api/pas/v1/setup_helper/list_recommended_keyword/?escopo=loja', metodo: 'POST', corpo: corpoKW, dados: rkw.dados, ts: Date.now(), loja: lojaDoCiclo });
-        await pausa(250);
-        // por produto: cada item traz o proprio conjunto de termos
-        var idsKW = PROFUNDA ? Object.keys(estado.produtos).slice(0, 8) : [];
-        for (var kw = 0; kw < idsKW.length; kw++) {
-          var cKW = JSON.stringify({ campaign_type: 'product', item_id: parseInt(idsKW[kw], 10), suggest_log_data: { page: 'suggest_creation' } });
-          var rk2 = await buscar('/api/pas/v1/setup_helper/list_recommended_keyword/?' + spcQ, 'POST', cKW);
-          totalChamadas++;
-          if (rk2.ok && rk2.dados) processarPacote({ url: '/api/pas/v1/setup_helper/list_recommended_keyword/?item_id=' + idsKW[kw], metodo: 'POST', corpo: cKW, dados: rk2.dados, ts: Date.now(), loja: lojaDoCiclo });
-          await pausa(200);
-        }
-
-        // PALAVRAS DE CADA CAMPANHA DE BUSCA DE LOJA
-        // Unico formato com lance manual: da para ver qual palavra esta
-        // ativa, quanto voce paga e quanto a Shopee recomenda.
-        var idsBusca = [];
-        for (var kb2 in estado.campanhas) {
-          if (String(estado.campanhas[kb2].type || '') === 'shop_manual') idsBusca.push(kb2);
-        }
-        if (idsBusca.length) {
-          prog('Lendo palavras das campanhas de busca...');
-          for (var kb3 = 0; kb3 < Math.min(idsBusca.length, 10); kb3++) {
-            var cKb = JSON.stringify({ campaign_id: parseInt(idsBusca[kb3], 10) });
-            var rkb = await buscar('/api/pas/v1/shop/manual/list_keyword_with_recommended_price/?' + spcQ, 'POST', cKb);
-            totalChamadas++;
-            if (rkb.ok && rkb.dados) {
-              processarPacote({ url: '/api/pas/v1/shop/manual/list_keyword_with_recommended_price/?campaign_id=' + idsBusca[kb3], metodo: 'POST', corpo: cKb, dados: rkb.dados, ts: Date.now(), loja: lojaDoCiclo });
-            }
-            await pausa(250);
-          }
-        }
-
-        // CAMPANHAS DE MARKETING: cupons, oferta relampago, descontos.
-        // Todas trazem ctime e mtime — criacao e ULTIMA ALTERACAO — que e o
-        // que permite ver mexida do cliente sem log de auditoria.
-        prog('Lendo campanhas de marketing...');
-        // PARAMETROS EXATOS da captura real. Os que eu tinha inventado
-        // (voucher_type, voucher_status, status) nao existem, e a Shopee
-        // recusava a chamada — por isso os cupons nunca apareceram.
-        var rotasMkt = [
-          { u: '/api/marketing/v3/voucher/list/?' + spcQ + '&offset=0&limit=50&promotion_type=0', m: 'GET', c: null },
-          { u: '/api/marketing/v4/shop_flash_sale/get_shop_flash_sale_list/?' + spcQ + '&offset=0&limit=30&type=3', m: 'GET', c: null },
-          { u: '/api/marketing/v3/public/discount/list/?' + spcQ, m: 'POST', c: JSON.stringify({ discount_type: 2, time_status: 0, offset: 0, limit: 30 }) },
-          { u: '/api/marketing/v4/public/get_marketing_center_campaign_list/?' + spcQ + '&language=pt-br', m: 'GET', c: null },
-          { u: '/api/marketing/v4/public/get_toggle/?' + spcQ, m: 'GET', c: null },
-          { u: '/api/marketing/v4/discount/metrics/?' + spcQ, m: 'POST', c: JSON.stringify({ start_time: ini, end_time: fim }) },
-          { u: '/api/marketing/v3/voucher/promotion_tool/metrics/?' + spcQ + '&tool_name=marketing_voucher', m: 'GET', c: null },
-          { u: '/api/marketing/v3/bundle_deal/metrics/?' + spcQ, m: 'POST', c: JSON.stringify({ start_time: ini, end_time: fim }) }
-        ];
-        for (var rm = 0; rm < rotasMkt.length; rm++) {
-          var R2 = rotasMkt[rm];
-          var rr2 = await buscar(R2.u, R2.m, R2.c);
-          totalChamadas++;
-          if (rr2.ok && rr2.dados) processarPacote({ url: R2.u, metodo: R2.m, corpo: R2.c, dados: rr2.dados, ts: Date.now(), loja: lojaDoCiclo });
-          await pausa(250);
-        }
-
-        prog('Lendo de onde vem cada venda...');
-        var urlTO = '/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=day';
-        var rto = await buscar(urlTO, 'GET', null);
-        totalChamadas++;
-        if (rto.ok && rto.dados) processarPacote({ url: urlTO, metodo: 'GET', corpo: null, dados: rto.dados, ts: Date.now(), loja: lojaDoCiclo });
-        else { estado.faltando = estado.faltando || []; estado.faltando.push('origem das vendas'); }
-        await pausa(250);
-
-        prog('Lendo a evolucao diaria da loja...');
-        var urlMT = '/api/mydata/v2/product/overview/metric-trends/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=day';
-        var rmt = await buscar(urlMT, 'GET', null);
-        totalChamadas++;
-        if (rmt.ok && rmt.dados) processarPacote({ url: urlMT, metodo: 'GET', corpo: null, dados: rmt.dados, ts: Date.now(), loja: lojaDoCiclo });
-        await pausa(250);
-
-        prog('Lendo o funil dos produtos...');
-        for (var pg = 1; pg <= 12; pg++) {
-          var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&category_type=shopee&category_id=-1&page_size=50&page_num=' + pg + '&order_type=paid&order_by=paid_sales.desc';
-          var rp = await buscar(urlP, 'GET', null);
-          totalChamadas++;
-          if (!rp.ok || !rp.dados) break;
-          processarPacote({ url: urlP, metodo: 'GET', corpo: null, dados: rp.dados, ts: Date.now(), loja: lojaDoCiclo });
-          var itens = rp.dados.result && rp.dados.result.items ? rp.dados.result.items.length : 0;
-          prog('Produtos lidos: ' + Object.keys(estado.produtos).length + '...');
-          // ANTES: page_size=10 com parada em "menos de 20" — a primeira
-          // pagina sempre trazia 10 e o laco parava na hora, entao a coleta
-          // lia so 10 produtos da loja inteira. Agora pede 50 e so para
-          // quando a pagina volta incompleta, que e o fim real da lista.
-          if (itens < 50) break;
-          await pausa(250);
-        }
-
-        // D) Fatia de vendas + vinculo campanha (traffic item-list, paginado)
-        prog('Cruzando fatia de vendas e campanhas...');
-        for (var pg2 = 1; pg2 <= 12; pg2++) {
-          var urlT = '/api/mydata/v1/product/traffic/item-list/?' + spcQ + '&keyword=&order_by=&page_size=50&page_num=' + pg2 + '&category_type=shop&start_time=' + ini + '&end_time=' + fim + '&period=month&category_id=-1';
-          var rt = await buscar(urlT, 'GET', null);
-          totalChamadas++;
-          if (!rt.ok || !rt.dados) break;
-          processarPacote({ url: urlT, metodo: 'GET', corpo: null, dados: rt.dados, ts: Date.now(), loja: lojaDoCiclo });
-          var itens2 = rt.dados.result && rt.dados.result.item ? rt.dados.result.item.length : 0;
-          if (itens2 < 50) break;
-          await pausa(250);
-        }
-
-        // D2) Funil de vendas (overview) — a origem do dinheiro (card/ads/afiliado)
-        prog('Lendo o funil de vendas...');
-        var urlFo = (estado.urlsReais && estado.urlsReais.funilOverview) || ('/api/mydata/v1/product/traffic/overview/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
-        var rfo = await buscar(urlFo, 'GET', null);
-        totalChamadas++;
-        if (rfo.ok && rfo.dados) processarPacote({ url: urlFo, metodo: 'GET', corpo: null, dados: rfo.dados, ts: Date.now(), loja: lojaDoCiclo });
-        await pausa(150);
-
-        // helper: prefere a URL REAL capturada da Central (a Shopee ja validou);
-        // se nao navegou aquela tela ainda, usa a reconstruida (fallback).
-        var reais = estado.urlsReais || {};
-        function urlComPagina(real, pg) {
-          // troca page_num na URL real, mantendo todo o resto identico
-          if (/page_num=/.test(real)) return real.replace(/page_num=\d+/, 'page_num=' + pg);
-          return real + '&page_num=' + pg;
-        }
-
-        // D3) Fontes de trafego (traffic-sources)
-        prog('Cruzando fontes de trafego...');
-        var urlF = (periodoForcado ? null : reais.trafficSources) || ('/api/mydata/v1/dashboard/traffic-sources/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&order_type=paid');
-        var rf = await buscar(urlF, 'GET', null);
-        totalChamadas++;
-        if (rf.ok && rf.dados) processarPacote({ url: urlF, metodo: 'GET', corpo: null, dados: rf.dados, ts: Date.now(), loja: lojaDoCiclo });
-
-        // E) Indicadores gerais da loja — key-metrics
-        prog('Lendo os indicadores gerais...');
-        // Antes preferia a URL capturada do painel, que carrega o periodo QUE
-        // A SHOPEE usou — por isso escolher 30 dias trazia o mes. Quando ha
-        // periodo forcado, ele manda; a URL capturada so vale como fallback.
-        // PROVADO nas capturas: a rota aceita start_time e end_time LIVRES —
-        // vieram intervalos de 23 e de 30 dias, ambos com period=month, e um
-        // deles nem alinhado a meia-noite. Ou seja, `period` e so um ROTULO;
-        // quem define o recorte sao start/end. Meu erro antes foi trocar o
-        // period por 'custom'/'day', valores que a Shopee nao usa e recusa.
-        // Mantendo period=month, da para pedir qualquer intervalo.
-        var urlK = periodoForcado
-          ? ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag')
-          : (reais.keyMetrics || ('/api/mydata/v3/dashboard/key-metrics/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag'));
-        var rk = await buscar(urlK, 'GET', null);
-        totalChamadas++;
-        if (rk.ok && rk.dados) processarPacote({ url: urlK, metodo: 'GET', corpo: null, dados: rk.dados, ts: Date.now(), loja: lojaDoCiclo });
-
-        // G) Vendas e cancelamentos (saude das vendas)
-        prog('Lendo vendas e cancelamentos...');
-        var urlO = (estado.urlsReais && estado.urlsReais.orderPerf) || ('/api/mydata/dashboard/order-performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&fetag=fetag&order_type=paid');
-        var ro = await buscar(urlO, 'GET', null);
-        totalChamadas++;
-        if (ro.ok && ro.dados) processarPacote({ url: urlO, metodo: 'GET', corpo: null, dados: ro.dados, ts: Date.now(), loja: lojaDoCiclo });
-        await pausa(150);
-
-        // H) Saude da conta (penalidade, rating de performance)
-        prog('Lendo a saude da conta...');
-        var urlH = '/api/accounthealth/v1/sc/shops/overview?' + spcQ;
-        var rh = await buscar(urlH, 'GET', null);
-        totalChamadas++;
-        if (rh.ok && rh.dados) processarPacote({ url: urlH, metodo: 'GET', corpo: null, dados: rh.dados, ts: Date.now(), loja: lojaDoCiclo });
-        else estado.faltando.push('saude da conta');
-        await pausa(150);
-
-        // I) Afiliados (resumo do canal + top 5)
-        prog('Lendo os afiliados...');
-        var urlAf = '/api/v3/affiliateplatform/dashboard/seller_daily?start_time=' + ini + '&end_time=' + (fim - 1) + '&is_real_time=0&order_type=2&channel=0';
-        var raf = await buscar(urlAf, 'GET', null);
-        totalChamadas++;
-        if (raf.ok && raf.dados) processarPacote({ url: urlAf, metodo: 'GET', corpo: null, dados: raf.dados, ts: Date.now(), loja: lojaDoCiclo });
-        await pausa(150);
-        // Minha substituicao na v0.88.0 deixou o resto da URL antiga colado:
-        // virava period_type=1 seguido do timestamp, e a Shopee devolvia 400
-        // em toda coleta.
-        var urlItens = '/api/v3/affiliateplatform/dashboard/seller_item_detail/top5?start_time=' + ini +
-          '&end_time=' + fimAds + '&order_type=2&channel=0&has_meta_feature=1&sm_parameter=0&sort_rule=3&is_real_time=0&period_type=1';
-        var rItens = await buscar(urlItens, 'GET', null);
-        totalChamadas++;
-        if (rItens.ok && rItens.dados) processarPacote({ url: urlItens, metodo: 'GET', corpo: null, dados: rItens.dados, ts: Date.now(), loja: lojaDoCiclo });
-        await pausa(250);
-
-        var urlTop = '/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time=' + ini +
-          '&end_time=' + fimAds +
-          '&order_type=2&channel=0&has_meta_feature=1&sm_parameter=0&sort_rule=3&is_real_time=0&period_type=1';
-        var rtop = await buscar(urlTop, 'GET', null);
-        totalChamadas++;
-        if (rtop.ok && rtop.dados) processarPacote({ url: urlTop, metodo: 'GET', corpo: null, dados: rtop.dados, ts: Date.now(), loja: lojaDoCiclo });
-        await pausa(150);
-
-        // J) Avaliacoes dos top produtos (1-2 estrelas = risco). Pega ate 6 produtos
-        // com mais venda (ja temos no cofre pela performance).
-        // AVALIACOES — ultimo passo, e o mais fragil.
-        // A rota get_ratings e da vitrine publica e exige shopid junto do
-        // itemid; sem ele responde 404 (eram esses erros no console). E como
-        // e o passo final, qualquer travamento aqui deixava a coleta presa
-        // em "Lendo avaliacoes" para sempre — que e exatamente o que
-        // aconteceu na geracao do relatorio, porque a coleta nunca terminava
-        // e a segunda leitura nunca comecava.
-        // Agora: so roda com shopid conhecido, tem teto de tempo proprio e,
-        // acima de tudo, NUNCA impede a coleta de terminar.
-        prog('Lendo avaliacoes dos produtos...');
+        /* ====================================================
+           A RECEITA VEM DO SERVIDOR.
+           Esta versao nao guarda rota, parametro nem corpo de
+           requisicao. Ela pergunta o que fazer e executa.
+           ==================================================== */
+        prog('Preparando a leitura...');
+        var receita;
         try {
-          var shopAv = estado.loja && estado.loja.shop_id ? estado.loja.shop_id : null;
-          var cofreP = window.SIA_Diamantes ? window.SIA_Diamantes.estado().porProduto : null;
-          // DESLIGADO: get_ratings e rota da vitrine publica (shopee.com.br) e
-          // recusa chamada originada do Central do Vendedor, respondendo 404 sempre.
-          // Enchia o console de erro sem entregar nada. As avaliacoes ja vem
-          // do Espiao, que le a vitrine de verdade.
-          if (false && shopAv && cofreP) {
-            var idsAval = Object.keys(cofreP)
-              .filter(function (k) { return cofreP[k].perf && cofreP[k].perf.vendaPaga; })
-              .sort(function (a, b) { return (cofreP[b].perf.vendaPaga || 0) - (cofreP[a].perf.vendaPaga || 0); })
-              .slice(0, 6);
-            var limiteAv = Date.now() + 25000;   // 25s no maximo para esta etapa
-            for (var ia = 0; ia < idsAval.length; ia++) {
-              if (Date.now() > limiteAv) break;
-              var urlAv = '/api/v2/item/get_ratings?itemid=' + idsAval[ia] + '&shopid=' + shopAv +
-                '&filter=0&flag=1&limit=6&offset=0&type=0';
-              var rav = await buscar(urlAv, 'GET', null);
-              totalChamadas++;
-              if (rav.ok && rav.dados) processarPacote({ url: urlAv, metodo: 'GET', corpo: null, dados: rav.dados, ts: Date.now(), loja: lojaDoCiclo });
-              await pausa(120);
+          receita = await pedirReceita(PROFUNDA ? 'profunda' : 'normal');
+        } catch (e) {
+          resolver({
+            ok: false,
+            erro: 'Nao consegui preparar a leitura: ' + String(e && e.message || e) +
+              '. Verifique a sua conexao e tente de novo.',
+            chamadas: 0, campanhas: 0, produtos: 0
+          });
+          return;
+        }
+
+        var passos = receita.passos || [];
+        var totalChamadas = 0;
+
+        // datas e sessao: e o que a extensao sabe e o servidor nao
+        var vals = {
+          spc: spcQ,
+          ini: ini, fim: fim, fimAds: fimAds,
+          iniAnt: iniAnterior, fimAnt: fimAnterior
+        };
+
+        for (var ip = 0; ip < passos.length; ip++) {
+          var passo = passos[ip];
+          if (passo.somenteProfunda && !PROFUNDA) continue;
+          prog(passo.fase || 'Lendo...');
+          try {
+            totalChamadas += await executarPasso(passo, vals, prog, lojaDoCiclo);
+          } catch (e2) {
+            // passo opcional que falha nao derruba a coleta inteira
+            if (!passo.opcional) {
+              estado.faltando = estado.faltando || [];
+              estado.faltando.push(passo.fase || passo.id);
             }
           }
-        } catch (eAv) { /* avaliacoes sao complemento: nunca travam a coleta */ }
+        }
 
-        prog(null);
+        prog('Fechando a leitura...');
+        estado.lidoEm = Date.now();
+        if (estado.loja) guardarConta(estado.loja.shop_id);
+        try { if (window.SIA_Diamantes && window.SIA_Diamantes.persistir) window.SIA_Diamantes.persistir(); } catch (e3) { }
+
         resolver({ ok: true, chamadas: totalChamadas, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
       })().catch(function (err) {
         // sem este catch, uma excecao no meio deixava a Promise pendurada
@@ -4303,12 +4028,18 @@
     if (!termos.length) { aoPronto({}); return; }
     // sem a chave de sessao a URL sairia com "undefined" e a rota recusaria
     if (!estado.spc) { aoPronto({}); return; }
-    var corpo = JSON.stringify({ campaign_type: 'shop', keyword_list: termos.slice(0, 12), limit: 40 });
-    chrome.runtime.sendMessage({
-      tipo: 'sia:buscar',
-      url: '/api/pas/v1/setup_helper/list_recommended_keyword/?SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2',
-      metodo: 'POST', corpo: corpo
-    }, function (r) {
+    // A rota e o corpo vem do servidor, como todo o resto: aqui nao ha
+    // nada escrito sobre COMO se pergunta o volume de uma palavra.
+    fetch(SIA_URL_RECEITA, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: estado.acessoToken, consulta: 'volume_palavras', termos: termos.slice(0, 12) })
+    }).then(function (rr) { return rr.json(); }).then(function (rc) {
+      if (!rc || !rc.ok) { aoPronto({}); return; }
+      var urlV = String(rc.url).replace('{spc}', 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2');
+      var corpo = JSON.stringify(rc.corpo);
+      chrome.runtime.sendMessage({
+        tipo: 'sia:buscar', url: urlV, metodo: rc.metodo, corpo: corpo
+      }, function (r) {
       void chrome.runtime.lastError;
       var mapa = {};
       try {
@@ -4319,7 +4050,8 @@
         }
       } catch (e) { /* noop */ }
       aoPronto(mapa);
-    });
+      });
+    }).catch(function () { aoPronto({}); });
   }
   function espDiffPalavras(lista, nomeMeu) {
     var meus = {}, deles = {}, i, k;
