@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Seller.IA — Coletor (Beta interna)",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "description": "Beta interna Efeito Vendas: coleta e valida a leitura da conta no Seller Centre da Shopee. Nao distribuir.",
   "icons": {
     "16": "icon16.png",

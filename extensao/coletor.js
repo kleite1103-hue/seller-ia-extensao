@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.7.2';
+  var VERSAO = '1.7.3';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2198,14 +2198,36 @@
   // Dicionarios de traducao do diagnostico da Shopee. Ficavam DENTRO da
   // funcao e depois do uso: var sobe mas o valor nao, entao 'bidding'
   // aparecia cru na tela.
+  /* OS QUATRO EIXOS QUE A SHOPEE REALMENTE JULGA, conferidos nas capturas:
+       bidding_v2 ............ a meta de ROAS esta apertada ou folgada
+       budget_and_balance_v2 . orcamento e saldo da conta
+       continuance_v2 ........ a campanha esta rodando sem interrupcao
+       competitiveness_v2 .... preco e lance contra quem disputa a vitrine
+     Nao existe julgamento de criativo, palavra-chave nem publico: eu tinha
+     inventado esses no dicionario anterior. Os demais nomes ficam aqui so
+     como rede, caso a Shopee acrescente eixos novos. */
   var TRAD_EIXO = {
-    competitiveness: 'competitividade de preco', budget: 'orcamento',
-    roi_target: 'meta de ROAS', continuance: 'continuidade',
-    listing: 'qualidade do anuncio', bid: 'lance', bidding: 'lance',
-    keyword: 'palavras-chave', creative: 'criativo', audience: 'publico',
-    placement: 'posicionamento', conversion: 'conversao', traffic: 'trafego',
-    delivery: 'entrega do anuncio', product: 'produto', price: 'preco',
-    stock: 'estoque', rating: 'avaliacoes', content: 'conteudo'
+    bidding: 'meta de ROAS',
+    budget_and_balance: 'orcamento e saldo',
+    continuance: 'continuidade da entrega',
+    competitiveness: 'competitividade de preco',
+    budget: 'orcamento', roi_target: 'meta de ROAS', bid: 'lance',
+    listing: 'qualidade do anuncio', keyword: 'palavras-chave'
+  };
+  var EXPLICA_EIXO = {
+    bidding: 'A Shopee compara a sua meta de ROAS com o que a categoria pratica. Meta muito alta trava a entrega; muito baixa entrega volume sem margem.',
+    budget_and_balance: 'Olha o orcamento diario e o saldo da conta. Saldo baixo interrompe a veiculacao mesmo com orcamento sobrando.',
+    continuance: 'Verifica se a campanha rodou sem interrupcao. Campanha que para e volta perde o aprendizado e recomeca do zero.',
+    competitiveness: 'Compara o seu preco e o seu lance com quem disputa a mesma vitrine. E o unico eixo que olha para fora da sua conta.'
+  };
+  // o campo issue diz POR QUE a nota nao e boa
+  var TRAD_MOTIVO = {
+    room_more_traffic: 'da para buscar mais trafego',
+    low_traffic: 'trafego abaixo do que a campanha suporta',
+    high_cost: 'custo por venda acima do esperado',
+    low_balance: 'saldo baixo na conta',
+    budget_limited: 'orcamento limitando a entrega',
+    na: ''
   };
   var TRAD_NOTA = {
     good: 'boa', normal: 'media', bad: 'ruim', poor: 'ruim', na: '\u2014',
@@ -2215,6 +2237,11 @@
   function traduzEixo(x) {
     var n = String(x || '').replace(/_v\d+$/, '').toLowerCase();
     return TRAD_EIXO[n] || n.replace(/_/g, ' ');
+  }
+  function traduzMotivo(x) {
+    var n = String(x || '').toLowerCase();
+    if (!n || n === 'na') return '';
+    return TRAD_MOTIVO[n] || n.replace(/_/g, ' ');
   }
   function traduzNota(x) {
     var n = String(x || '').toLowerCase();
@@ -5767,8 +5794,9 @@
           var E2 = pcC.eixos[ez];
           var rot2 = traduzEixo(E2.eixo);
           var cor2 = E2.nota === 'bad' ? 'var(--rd)' : (E2.nota === 'good' ? 'var(--vd)' : 'var(--t2)');
+          var expl2 = EXPLICA_EIXO[String(E2.eixo || '').replace(/_v\d+$/, '').toLowerCase()];
           h += '<span style="font-family:Space Mono,monospace;font-size:10.5px;padding:5px 11px;border-radius:99px;border:1px solid ' + cor2 + ';color:' + cor2 + '">' +
-            esc(rot2) + ': ' + esc(traduzNota(E2.nota)) + '</span>';
+            esc(rot2) + ': ' + esc(traduzNota(E2.nota)) + (expl2 ? dica('<b>' + esc(rot2) + '</b><br>' + expl2) : '') + '</span>';
         }
         h += '</div>';
       } else if (pos == null && compet == null) {
@@ -6082,11 +6110,7 @@
     var D = null;
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return ''; }
     var PC = (D && D.porCampanha) || {};
-    var TRAD = {
-      competitiveness: 'competitividade de preco', bidding: 'lance',
-      budget: 'orcamento', roi_target: 'meta de ROAS', continuance: 'continuidade',
-      listing: 'qualidade do anuncio', keyword: 'palavras', creative: 'criativo'
-    };
+    // usa o dicionario global, que so tem os eixos que existem de verdade
     var RUIM = /bad|poor|low/i, BOM = /good|excellent|healthy/i;
 
     var porEixo = {}, totalCamp = 0;
