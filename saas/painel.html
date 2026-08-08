@@ -435,7 +435,9 @@ document.getElementById('in-email').addEventListener('keydown', function(e){ if(
 // ============================================================
 // AREA DO USUARIO — quem nao e admin cai aqui
 // ============================================================
-var URL_EXTENSAO = 'https://selleria-painel.kleite1103.workers.dev/seller-ia.zip';
+// O ZIP fica ao lado do painel, entao o caminho relativo funciona em
+// qualquer lugar que ele seja hospedado.
+var URL_EXTENSAO = 'seller-ia.zip';
 
 function abrirAreaUsuario(){
   document.getElementById('tela-entrada').style.display='none';
