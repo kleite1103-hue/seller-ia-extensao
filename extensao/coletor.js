@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.8.0';
+  var VERSAO = '1.8.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2508,6 +2508,29 @@
           try { window.open('https://clipseller.com.br/assinatura', '_blank', 'noopener'); } catch (e) { /* noop */ }
           return;
         }
+        if (voltaA.id === 'sia-marg-calcular') {
+          estado.margemCalc = estado.margemCalc || {};
+          var cm = corpoEl().querySelectorAll('[data-marg]');
+          for (var mq = 0; mq < cm.length; mq++) estado.margemCalc[cm[mq].getAttribute('data-marg')] = cm[mq].value;
+          estado.sujo = true; render(); return;
+        }
+        var _ma = voltaA.getAttribute && voltaA.getAttribute('data-marg-ant');
+        if (_ma) {
+          estado.margemCalc = estado.margemCalc || {};
+          var cm2 = corpoEl().querySelectorAll('[data-marg]');
+          for (var mq2 = 0; mq2 < cm2.length; mq2++) estado.margemCalc[cm2[mq2].getAttribute('data-marg')] = cm2[mq2].value;
+          estado.margemCalc.antecipa = _ma;
+          estado.sujo = true; render(); return;
+        }
+        var _mt = voltaA.getAttribute && voltaA.getAttribute('data-marg-tipo');
+        if (_mt) {
+          estado.margemCalc = estado.margemCalc || {};
+          var cm3 = corpoEl().querySelectorAll('[data-marg]');
+          for (var mq3 = 0; mq3 < cm3.length; mq3++) estado.margemCalc[cm3[mq3].getAttribute('data-marg')] = cm3[mq3].value;
+          estado.margemCalc.tipoVendedor = _mt;
+          estado.sujo = true; render(); return;
+        }
+        if (voltaA.getAttribute && voltaA.getAttribute('data-marg')) return;
         if (voltaA.id === 'sia-prec-calcular') {
           // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
           // render recria os campos e a ligacao se perde, entao o valor
@@ -3172,27 +3195,110 @@
   // CALCULADORA DE MARGEM REAL — custo + taxas Shopee + ads
   // ==========================================================
   function renderCalculadora() {
-    var i = 'width:100%;box-sizing:border-box;background:var(--b1);border:1px solid var(--li);border-radius:8px;padding:9px 11px;color:var(--t0);font-size:13px;margin-top:4px';
-    var lbl = 'font-size:11px;color:var(--t2);font-weight:600';
-    var h = avisoFalta + '<div style="padding:2px">';
-    h += '<div class="nota" style="margin:0 0 12px">Sua margem <b>real</b> cruzando custo, taxas da Shopee e o gasto de ads. Descobre se voce lucra de verdade.</div>';
+    /* MARGEM DE UM PRECO — o caminho inverso da precificacao.
+       Dependia do SIA_Calc, um arquivo externo, e por isso nao respondia.
+       Agora usa a mesma conta da outra aba, com os MESMOS campos: comissao
+       por faixa, custo, embalagem, imposto, Ads por venda e Shopee Antecipa. */
+    estado.margemCalc = estado.margemCalc || {};
+    var M = estado.margemCalc;
+    function campoM(id2, rot, valor, sufixo, ajuda) {
+      return '<div><div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);margin-bottom:5px">' + rot + '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+        '<input data-marg="' + id2 + '" value="' + esc(String(valor || '')) + '" placeholder="0,00" ' +
+        'style="flex:1;background:var(--b1);border:1px solid var(--li);border-radius:8px;padding:10px 11px;color:var(--t0);font-family:Space Mono,monospace;font-size:14px">' +
+        (sufixo ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2)">' + sufixo + '</span>' : '') + '</div>' +
+        (ajuda ? '<div style="font-size:11.5px;color:var(--t3);margin-top:4px;line-height:1.4">' + ajuda + '</div>' : '') + '</div>';
+    }
 
-    h += '<div class="bloco-d"><div class="td">O PRODUTO</div>';
-    h += '<div style="margin-bottom:8px"><div style="' + lbl + '">Preco de venda (R$) *</div><input id="calc-preco" type="tel" inputmode="decimal" placeholder="29,90" style="' + i + '"></div>';
-    h += '<div style="margin-bottom:8px"><div style="' + lbl + '">Custo do fornecedor (R$) *</div><input id="calc-custo" type="tel" inputmode="decimal" placeholder="8,00" style="' + i + '"></div>';
-    h += '<div style="display:flex;gap:8px"><div style="flex:1"><div style="' + lbl + '">Embalagem/outros</div><input id="calc-outros" type="tel" inputmode="decimal" placeholder="0,00" style="' + i + '"></div>';
-    h += '<div style="flex:1"><div style="' + lbl + '">Imposto NF (%)</div><input id="calc-imposto" type="tel" inputmode="decimal" placeholder="6" style="' + i + '"></div></div>';
+    var h = '<div class="leitura"><div class="fr">Quanto sobra deste preco?</div>' +
+      '<div class="ex">Voce diz o preco que ja pratica e os custos. A conta devolve a margem real, o ponto de equilibrio de ROAS e quanto sobra para os custos fixos.</div></div>';
+
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+      campoM('preco', 'Preco de venda', M.preco, 'R$', 'o que o cliente paga') +
+      campoM('custo', 'Custo do produto', M.custo, 'R$', 'o que voce paga ao fornecedor') +
+      '</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+      campoM('embalagem', 'Embalagem', M.embalagem, 'R$', 'caixa, plastico, etiqueta') +
+      campoM('imposto', 'Imposto', M.imposto, '%', 'sobre o preco de venda') +
+      '</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
+      campoM('ads', 'Ads por venda', M.ads, 'R$', 'custo por pedido no anuncio') +
+      '<div></div></div>';
+
+    // Shopee Antecipa, igual a outra aba
+    var TIPOS2 = [
+      { id: 'oficial', rot: 'Loja Oficial', taxa: 1 },
+      { id: 'indicado', rot: 'Vendedor Indicado', taxa: 2.5 },
+      { id: 'demais', rot: 'Demais Vendedores', taxa: 3.5 }
+    ];
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:15px 16px;margin-bottom:14px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">SHOPEE ANTECIPA' +
+      dica('A antecipacao cobra uma taxa sobre o valor recebido, e ela varia conforme o tipo de vendedor. E um custo separado da comissao, que so existe se voce antecipa.') + '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
+      '<button data-marg-ant="nao" style="background:' + (M.antecipa !== 'sim' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (M.antecipa !== 'sim' ? 'var(--mk)' : 'var(--li)') + ';color:' + (M.antecipa !== 'sim' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:13px;padding:9px 18px;border-radius:999px;cursor:pointer">Nao antecipo</button>' +
+      '<button data-marg-ant="sim" style="background:' + (M.antecipa === 'sim' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (M.antecipa === 'sim' ? 'var(--mk)' : 'var(--li)') + ';color:' + (M.antecipa === 'sim' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:13px;padding:9px 18px;border-radius:999px;cursor:pointer">Antecipo</button></div>';
+    if (M.antecipa === 'sim') {
+      h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      for (var tp2 = 0; tp2 < TIPOS2.length; tp2++) {
+        var T3 = TIPOS2[tp2], sel3 = (M.tipoVendedor || 'demais') === T3.id;
+        h += '<button data-marg-tipo="' + T3.id + '" style="background:' + (sel3 ? 'var(--b2)' : 'transparent') + ';border:1px solid ' + (sel3 ? 'var(--mk)' : 'var(--li)') + ';color:' + (sel3 ? 'var(--mk)' : 'var(--t2)') + ';font-family:inherit;font-size:12.5px;padding:8px 13px;border-radius:999px;cursor:pointer">' +
+          T3.rot + ' \u00b7 ' + fmt(T3.taxa, 1) + '%</button>';
+      }
+      h += '</div>';
+    }
     h += '</div>';
 
-    h += '<div class="bloco-d"><div class="td">ADS (opcional)</div>';
-    h += '<div style="' + lbl + '">Gasto de ads por venda (R$)</div><input id="calc-ads" type="tel" inputmode="decimal" placeholder="deixe vazio se nao usa" style="' + i + '">';
-    h += '<div class="ld" style="font-size:11px;color:var(--t2);margin-top:5px">Se preencher, cruzamos com o ROAS minimo pra ver se ta no lucro.</div>';
-    h += '</div>';
+    h += '<button id="sia-marg-calcular" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:700;font-size:14.5px;padding:13px;border-radius:var(--r-btn,14px);cursor:pointer;margin-bottom:14px">Calcular a margem</button>';
 
-    h += '<button id="calc-btn" style="all:unset;cursor:pointer;display:block;text-align:center;background:linear-gradient(135deg,var(--mk),var(--px));color:var(--t0);font-weight:700;font-size:13px;padding:11px;border-radius:9px;margin:4px 0 12px">Calcular margem real</button>';
+    var preco = numeroPuro(M.preco), custo = numeroPuro(M.custo);
+    if (!preco || !custo) {
+      return h + '<div class="nota">Preencha o preco e o custo, e toque em <b>Calcular a margem</b>.</div>';
+    }
+    var emb = numeroPuro(M.embalagem) || 0, imp = numeroPuro(M.imposto) || 0, adsV = numeroPuro(M.ads) || 0;
+    var taxaA = 0;
+    if (M.antecipa === 'sim') {
+      var tv = M.tipoVendedor || 'demais';
+      taxaA = tv === 'oficial' ? 1 : (tv === 'indicado' ? 2.5 : 3.5);
+    }
+    var com = preco < 80 ? preco * 0.20 + 4 : (preco < 100 ? preco * 0.14 + 16 : (preco < 200 ? preco * 0.14 + 20 : preco * 0.14 + 26));
+    var impV = preco * (imp / 100);
+    var antV = taxaA ? (preco - com) * (taxaA / 100) : 0;
+    var sobra = preco - com - custo - emb - impV - antV - adsV;
+    var margem = (sobra / preco) * 100;
+    var piso = margem > 0 ? 100 / margem : null;
 
-    h += '<div id="calc-resultado"></div>';
-    h += '</div>';
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:17px;margin-bottom:12px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:10px">MARGEM REAL</div>' +
+      '<div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:44px;line-height:1;letter-spacing:-.03em;color:' + (margem > 0 ? 'var(--vd)' : 'var(--rd)') + '">' + fmt(margem, 1) + '%</div>' +
+      '<div style="font-size:13.5px;color:var(--t2);margin-top:6px">margem de contribuicao de ' + reais(sobra) + ' por venda</div></div>';
+
+    function ln3(rot, v3, cor) {
+      return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:5px 0;color:' + (cor || 'var(--t1)') + '">' +
+        '<span>' + rot + '</span><span style="font-family:Space Mono,monospace">' + v3 + '</span></div>';
+    }
+    h += olho('DE ONDE SAI CADA REAL');
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:14px">';
+    h += ln3('Preco de venda', reais(preco), 'var(--t0)');
+    h += ln3('\u2212 Comissao Shopee', '\u2212 ' + reais(com), 'var(--t2)');
+    h += ln3('\u2212 Custo do produto', '\u2212 ' + reais(custo), 'var(--t2)');
+    if (emb) h += ln3('\u2212 Embalagem', '\u2212 ' + reais(emb), 'var(--t2)');
+    if (impV) h += ln3('\u2212 Imposto', '\u2212 ' + reais(impV), 'var(--t2)');
+    if (antV) h += ln3('\u2212 Shopee Antecipa (' + fmt(taxaA, 1) + '%)', '\u2212 ' + reais(antV), 'var(--t2)');
+    if (adsV) h += ln3('\u2212 Ads por venda', '\u2212 ' + reais(adsV), 'var(--t2)');
+    h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--li);margin-top:8px;padding-top:9px">' +
+      '<span style="font-size:15px;font-weight:600;color:var(--t0)">Margem de contribuicao</span>' +
+      '<span style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:28px;letter-spacing:-.02em;color:' + (sobra > 0 ? 'var(--vd)' : 'var(--rd)') + '">' + reais(sobra) + '</span></div>' +
+      '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-top:7px">E o que sobra de cada venda para pagar os <b style="color:var(--t1)">custos fixos</b> e so depois virar lucro.</div></div>';
+
+    if (piso) {
+      h += olho('O QUE ISSO SIGNIFICA PARA O ANUNCIO', 'Com esta margem, cada real investido precisa devolver ao menos este valor para a venda nao sair no prejuizo.');
+      h += '<div style="background:color-mix(in srgb,var(--px) var(--tin,9%),var(--b0));border-left:3px solid var(--px);border-radius:0 18px 18px 0;padding:15px 16px;font-size:14.5px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">ROAS minimo: ' + fmt(piso, 1) + 'x</b><br>' +
+        'Abaixo disso cada venda por anuncio sai no negativo. Para ter folga, trabalhe a partir de ' + fmt(piso * 1.5, 1) + 'x.</div>';
+    } else {
+      h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b0));border-left:3px solid var(--rd);border-radius:0 18px 18px 0;padding:15px 16px;font-size:14.5px;color:var(--t1);line-height:1.55">' +
+        '<b style="color:var(--t0)">Este preco nao cobre os custos.</b> Cada venda sai no prejuizo antes mesmo do anuncio \u2014 nenhuma meta de ROAS resolve isso.</div>';
+    }
     return h;
   }
 
@@ -8156,6 +8262,11 @@
       campo('embalagem', 'Embalagem', C.embalagem, 'R$', 'caixa, plastico, etiqueta') +
       campo('imposto', 'Imposto', C.imposto, '%', 'sobre o preco de venda') +
       '</div>';
+    // As duas calculadoras precisam ter os MESMOS campos: faltava o Ads aqui
+    // e o Antecipa na outra.
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">' +
+      campo('ads', 'Ads por venda', C.ads, 'R$', 'quanto o anuncio custa por pedido') +
+      '<div></div></div>';
 
     // ---- SHOPEE ANTECIPA e TIPO DE VENDEDOR ----
     // A taxa muda conforme o tipo, e ela incide sobre o VALOR RECEBIDO.
@@ -8205,9 +8316,10 @@
       // preco*(1 - pct - imp/100 - margem/100) = custo + emb + fixo
       // a antecipacao incide sobre o valor recebido, ou seja o preco menos a
       // comissao — entra na equacao junto
+      var adsFixo = numeroPuro(C.ads) || 0;
       var div = 1 - pct - (imp / 100) - (margem / 100) - (taxaAnt / 100) * (1 - pct);
       if (div <= 0) continue;
-      var cand = (custo + emb + fixo) / div;
+      var cand = (custo + emb + fixo + adsFixo) / div;
       var limites = [80, 100, 200, Infinity];
       var minimo = faixa === 0 ? 0 : limites[faixa - 1];
       if (cand >= minimo && cand < limites[faixa]) { preco = cand; break; }
@@ -8220,7 +8332,8 @@
     var com = comissaoDe(preco);
     var impV = preco * (imp / 100);
     var antV = taxaAnt ? (preco - com) * (taxaAnt / 100) : 0;
-    var sobra = preco - com - custo - emb - impV - antV;
+    var adsP = numeroPuro(C.ads) || 0;
+    var sobra = preco - com - custo - emb - impV - antV - adsP;
     var pisoRoasP = 100 / margem;
 
     h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:17px;margin-bottom:12px">' +
@@ -8240,6 +8353,7 @@
     if (emb) h += ln2('\u2212 Embalagem', '\u2212 ' + reais(emb), 'var(--t2)');
     if (impV) h += ln2('\u2212 Imposto', '\u2212 ' + reais(impV), 'var(--t2)');
     if (antV) h += ln2('\u2212 Shopee Antecipa (' + fmt(taxaAnt, 1) + '%)', '\u2212 ' + reais(antV), 'var(--t2)');
+    if (adsP) h += ln2('\u2212 Ads por venda', '\u2212 ' + reais(adsP), 'var(--t2)');
     h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--li);margin-top:8px;padding-top:9px">' +
       '<span style="font-size:15px;font-weight:600;color:var(--t0)">Margem de contribuicao</span>' +
       '<span style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:28px;letter-spacing:-.02em;color:var(--vd)">' + reais(sobra) + '</span></div>' +
