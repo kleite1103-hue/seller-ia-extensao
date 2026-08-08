@@ -60,7 +60,7 @@
     conta: { campos: {}, atualizadoEm: null },
     afiliados: { campos: {}, atualizadoEm: null },
     paginaProduto: null,
-    modoPagina: null,        // 'portal' (Seller Centre) | 'publico' (visao do cliente)
+    modoPagina: null,        // 'portal' (Central do Vendedor) | 'publico' (visao do cliente)
     anuncioPublico: null,    // leitura da vitrine: preco, fotos, estrelas, vendidos
     cadastro: null,          // get_product_info: preco, estoque, categoria, fotos
     series: {},              // series temporais por campanha (get_time_graph)
@@ -1395,7 +1395,7 @@
   setTimeout(varrerTudo, 800);
   setInterval(varrerTudo, 8000); // rede de seguranca leve (so leitura publica)
 
-  /* auto-coleta: ao entrar no Seller Centre, coleta e analisa sozinha (no maximo 1x a cada 2h) */
+  /* auto-coleta: ao entrar no Central do Vendedor, coleta e analisa sozinha (no maximo 1x a cada 2h) */
   var AUTO_INTERVALO_MS = 2 * 3600 * 1000;
   var autoTentativas = 0;
   var autoTimer = setInterval(function () {
@@ -1513,7 +1513,7 @@
           }
           if (aoProgresso) aoProgresso(t);
         }
-        if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina do Seller Centre e tente de novo (chave de sessao ainda nao capturada).' }); return; }
+        if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina do Central do Vendedor e tente de novo (chave de sessao ainda nao capturada).' }); return; }
         // A Shopee EXIGE datas alinhadas ao dia no fuso do Brasil (UTC-3),
         // senao retorna code 10006 "invalid param". Calculamos inicio do dia
         // (00:00 BRT = 03:00 UTC) e fim do dia (23:59 BRT).
@@ -1989,7 +1989,7 @@
           var shopAv = estado.loja && estado.loja.shop_id ? estado.loja.shop_id : null;
           var cofreP = window.SIA_Diamantes ? window.SIA_Diamantes.estado().porProduto : null;
           // DESLIGADO: get_ratings e rota da vitrine publica (shopee.com.br) e
-          // recusa chamada originada do Seller Centre, respondendo 404 sempre.
+          // recusa chamada originada do Central do Vendedor, respondendo 404 sempre.
           // Enchia o console de erro sem entregar nada. As avaliacoes ja vem
           // do Espiao, que le a vitrine de verdade.
           if (false && shopAv && cofreP) {
@@ -4557,7 +4557,7 @@
       return h + '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:18px;padding:16px;margin-top:12px">' +
         '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:6px">Nao consegui espiar "' + esc(e.termo || '') + '"</div>' +
         '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(e.erro) + '</div>' +
-        '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-top:9px">Confira se voce esta logada em <b>shopee.com.br</b>, nao so no Seller Centre, e recarregue esta pagina.</div>' +
+        '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-top:9px">Confira se voce esta logada em <b>shopee.com.br</b>, nao so no Central do Vendedor, e recarregue esta pagina.</div>' +
         '<button data-voltar-radar="1" style="margin-top:12px;background:var(--b0);border:1px solid var(--li2);color:var(--t0);font-family:inherit;font-size:13px;padding:9px 15px;border-radius:var(--r-btn,14px);cursor:pointer">Voltar ao Radar</button></div>';
     }
 
@@ -6310,7 +6310,7 @@
       '<div style="display:flex;gap:10px;margin-bottom:8px"><b style="color:var(--mk);flex:none">1.</b><span>Abra <b style="color:var(--t0)">chrome://extensions</b> numa aba nova \u2014 da para copiar e colar na barra de endereco.</span></div>' +
       '<div style="display:flex;gap:10px;margin-bottom:8px"><b style="color:var(--mk);flex:none">2.</b><span>Ligue o <b style="color:var(--t0)">Modo do desenvolvedor</b>, no canto superior direito.</span></div>' +
       '<div style="display:flex;gap:10px;margin-bottom:8px"><b style="color:var(--mk);flex:none">3.</b><span>Ache a Seller.IA e toque no icone de <b style="color:var(--t0)">recarregar</b> (as duas setas em circulo).</span></div>' +
-      '<div style="display:flex;gap:10px"><b style="color:var(--mk);flex:none">4.</b><span>Volte para o Seller Centre e <b style="color:var(--t0)">atualize a pagina</b>. A versao nova aparece aqui em cima.</span></div></div>' +
+      '<div style="display:flex;gap:10px"><b style="color:var(--mk);flex:none">4.</b><span>Volte para o Central do Vendedor e <b style="color:var(--t0)">atualize a pagina</b>. A versao nova aparece aqui em cima.</span></div></div>' +
       '<button id="sia-cfg-abrir-ext" style="width:100%;background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:13.5px;padding:12px;border-radius:var(--r-btn,14px);cursor:pointer;margin-top:14px">Copiar o endereco das extensoes</button>');
 
     // ---- SUPORTE com anexo ----
@@ -9489,7 +9489,7 @@
       if (!D) { corpo.innerHTML = '<div class="vazio">Modulo de diamantes nao carregou. Recarregue a extensao.</div>'; }
       else {
         var R = window.SIA_Diamantes.resumo();
-        var hd = '<div class="nota">Ouro capturado nesta sessao. Navegue pelo Seller Centre (Ads, Produtos, criar campanha) e veja encher. <b style="color:var(--t0)">' + R.capturas + '</b> capturas.</div>';
+        var hd = '<div class="nota">Ouro capturado nesta sessao. Navegue pelo Central do Vendedor (Ads, Produtos, criar campanha) e veja encher. <b style="color:var(--t0)">' + R.capturas + '</b> capturas.</div>';
 
         // bloco META ROAS
         hd += '<div class="bloco-d"><div class="td">META DE ROAS (SHOPEE)</div>';

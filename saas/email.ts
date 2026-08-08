@@ -46,7 +46,7 @@ function molde(titulo: string, corpo: string, botao?: { texto: string; link: str
 
 <tr><td style="padding:20px 32px 26px;border-top:1px solid #EDE6D9;font-size:13px;line-height:1.6;color:#6B6355">
   Seller.IA &middot; Efeito Vendas<br>
-  Duvidas? Responda este email que a gente le.
+  Dúvidas? Responda este email que a gente lê.
 </td></tr>
 
 </table></td></tr></table></body></html>`;
@@ -92,15 +92,15 @@ async function atender(req: Request): Promise<Response> {
   if (tipo === "boas_vindas") {
     const nome = body.nome ? String(body.nome).split(" ")[0] : "";
     const html = molde(
-      nome ? `Bem-vinda, ${nome}` : "Seu acesso esta liberado",
-      `<p style="margin:0 0 14px">A Seller.IA le a sua conta Shopee por dentro e diz onde o dinheiro esta indo embora — campanha por campanha, produto por produto.</p>
-       <p style="margin:0 0 14px"><b>Para comecar, tres passos:</b></p>
+      nome ? `Bem-vinda, ${nome}` : "Seu acesso está liberado",
+      `<p style="margin:0 0 14px">A Seller.IA lê a sua conta Shopee por dentro e diz onde o dinheiro está indo embora — campanha por campanha, produto por produto.</p>
+       <p style="margin:0 0 14px"><b>Para começar, três passos:</b></p>
        <ol style="margin:0 0 14px;padding-left:20px">
-         <li style="margin-bottom:8px">Instale a extensao no Chrome pelo botao abaixo.</li>
-         <li style="margin-bottom:8px">Abra o Seller Centre da Shopee e faca login.</li>
-         <li>Clique no icone da Seller.IA e entre com <b>${para}</b>.</li>
+         <li style="margin-bottom:8px">Instale a extensão no Chrome pelo botão abaixo.</li>
+         <li style="margin-bottom:8px">Abra a <b>Central do Vendedor</b> da Shopee e faça login.</li>
+         <li>Clique no ícone da Seller.IA e entre com <b>${para}</b>.</li>
        </ol>
-       <p style="margin:0;color:#4A443A">Seu acesso vale para <b>uma maquina por vez</b>. Se entrar em outra, a primeira e encerrada.</p>`,
+       <p style="margin:0;color:#4A443A">Seu acesso vale para <b>uma máquina por vez</b>. Se entrar em outra, a primeira é encerrada.</p>`,
       { texto: "Instalar a extensao", link: `${SITE}/instalar` }
     );
     return json(await enviar(para, "Seu acesso a Seller.IA esta pronto", html, tipo, db));
@@ -116,34 +116,34 @@ async function atender(req: Request): Promise<Response> {
       }).ilike("email", para);
     }
     const html = molde(
-      "Seu codigo de acesso",
-      `<p style="margin:0 0 20px">Use este codigo para entrar na Seller.IA. Ele vale por 30 minutos.</p>
+      "Seu código de acesso",
+      `<p style="margin:0 0 20px">Use este código para entrar na Seller.IA. Ele vale por 30 minutos.</p>
        <div style="background:#F7F3EC;border:1px solid #EDE6D9;border-radius:16px;padding:22px;text-align:center">
          <div style="font-family:'SF Mono',Menlo,monospace;font-size:36px;font-weight:700;letter-spacing:10px;color:#000">${codigo}</div>
        </div>
-       <p style="margin:20px 0 0;color:#6B6355;font-size:14px">Se nao foi voce que pediu, ignore este email — seu acesso continua seguro.</p>`
+       <p style="margin:20px 0 0;color:#6B6355;font-size:14px">Se não foi você que pediu, ignore este email — seu acesso continua seguro.</p>`
     );
-    return json(await enviar(para, `${codigo} e o seu codigo da Seller.IA`, html, tipo, db));
+    return json(await enviar(para, `${codigo} é o seu código da Seller.IA`, html, tipo, db));
   }
 
   // ---------- ASSINATURA VENCENDO ----------
   if (tipo === "vencendo") {
     const dias = parseInt(body.dias || "3", 10);
     const html = molde(
-      dias > 1 ? `Sua assinatura vence em ${dias} dias` : "Sua assinatura vence amanha",
-      `<p style="margin:0 0 14px">Depois disso a Seller.IA para de ler a sua conta, e voce perde o acompanhamento no meio do mes — que e justamente quando da para corrigir.</p>
-       <p style="margin:0;color:#4A443A">A renovacao e automatica se o cartao estiver em dia. Se preferir conferir, o botao abaixo leva direto.</p>`,
+      dias > 1 ? `Sua assinatura vence em ${dias} dias` : "Sua assinatura vence amanhã",
+      `<p style="margin:0 0 14px">Depois disso a Seller.IA para de ler a sua conta, e você perde o acompanhamento no meio do mês — que é justamente quando dá para corrigir.</p>
+       <p style="margin:0;color:#4A443A">A renovação é automática se o cartão estiver em dia. Se preferir conferir, o botão abaixo leva direto.</p>`,
       { texto: "Ver minha assinatura", link: `${SITE}/assinatura` }
     );
-    return json(await enviar(para, dias > 1 ? `Sua Seller.IA vence em ${dias} dias` : "Sua Seller.IA vence amanha", html, tipo, db));
+    return json(await enviar(para, dias > 1 ? `Sua Seller.IA vence em ${dias} dias` : "Sua Seller.IA vence amanhã", html, tipo, db));
   }
 
   // ---------- SUSPENSA ----------
   if (tipo === "suspenso") {
     const html = molde(
       "Seu acesso foi pausado",
-      `<p style="margin:0 0 14px">Nao identificamos o pagamento desta renovacao, entao a Seller.IA parou de ler a sua conta.</p>
-       <p style="margin:0 0 14px"><b>Seus dados continuam aqui.</b> Assim que o pagamento entrar, tudo volta exatamente como estava — historico, custos cadastrados e relatorios.</p>`,
+      `<p style="margin:0 0 14px">Não identificamos o pagamento desta renovação, então a Seller.IA parou de ler a sua conta.</p>
+       <p style="margin:0 0 14px"><b>Seus dados continuam aqui.</b> Assim que o pagamento entrar, tudo volta exatamente como estava — histórico, custos cadastrados e relatórios.</p>`,
       { texto: "Regularizar agora", link: `${SITE}/assinatura` }
     );
     return json(await enviar(para, "Seu acesso a Seller.IA foi pausado", html, tipo, db));
