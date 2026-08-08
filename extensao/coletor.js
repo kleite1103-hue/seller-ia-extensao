@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.6.0';
+  var VERSAO = '1.7.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -5499,6 +5499,57 @@
       }
       h += '</div>';
     }
+    // ---- O ORCAMENTO CABE NO QUE UMA VENDA CUSTA? ----
+    // A conta que o analista faz de cabeca e ninguem mostra: com o CPC medio
+    // da CONTA e os cliques que esta loja gasta por venda, quantos cliques o
+    // orcamento diario compra — e se isso da uma venda por dia ou nao.
+    var orcDia = m.orcamento_dia != null ? m.orcamento_dia : (m.orcamento != null ? m.orcamento : null);
+    var totCliqC = 0, totGastoC = 0, totPedC = 0;
+    for (var kc4 in estado.campanhas) {
+      var mc4 = estado.campanhas[kc4].metricas || {};
+      totCliqC += mc4.cliques || 0;
+      totGastoC += mc4.gasto || 0;
+      totPedC += mc4.pedidos || 0;
+    }
+    var cpcConta = totCliqC ? totGastoC / totCliqC : null;
+    var cliquesPorVendaConta = totPedC ? totCliqC / totPedC : null;
+
+    // daily_budget 0 na API significa ILIMITADO, nao zero — nesse caso o
+    // teto nao existe e a pergunta muda: o que limita e o gasto real.
+    var semTeto = (m.orcamento_dia === 0 || m.orcamento === 0);
+    if (semTeto && cpcConta && cliquesPorVendaConta && m.gasto) {
+      var diasP = (estado.periodoAds && estado.periodoAds.dias) || 30;
+      var gastoDia = m.gasto / diasP;
+      var cliquesReais = gastoDia / cpcConta;
+      var vendasReais = cliquesReais / cliquesPorVendaConta;
+      h += '<div style="background:var(--b1);border-left:3px solid var(--li2);border-radius:0 16px 16px 0;padding:12px 14px;margin-bottom:10px;font-size:13.5px;color:var(--t1);line-height:1.5">' +
+        '<b style="color:var(--t0)">Orcamento ilimitado.</b> No ritmo atual esta campanha gasta ' + reais(gastoDia) + ' por dia, o que compra cerca de ' +
+        fmt(cliquesReais, 0) + ' cliques e da ' + fmt(vendasReais, 1) + ' venda por dia no ritmo desta conta. ' +
+        'Sem teto, quem limita a entrega e a meta de ROAS, nao o orcamento.</div>';
+    }
+    if (orcDia && cpcConta && cliquesPorVendaConta) {
+      var cliquesQueCompra = orcDia / cpcConta;
+      var vendasPorDia = cliquesQueCompra / cliquesPorVendaConta;
+      var orcParaUmaVenda = cliquesPorVendaConta * cpcConta;
+      var cabe = vendasPorDia >= 1;
+
+      h += '<div style="background:color-mix(in srgb,' + (cabe ? 'var(--vd)' : 'var(--am)') + ' var(--tin,9%),var(--b0));border-left:3px solid ' + (cabe ? 'var(--vd)' : 'var(--am)') + ';border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:10px">' +
+        '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.08em;margin-bottom:7px">O ORCAMENTO CABE?' +
+        dica('<b>Como esta conta e feita.</b> O CPC medio da SUA conta e ' + reais(cpcConta) + ' \u2014 gasto total dividido por cliques totais. E esta loja precisa de ' + fmt(cliquesPorVendaConta, 0) + ' cliques para fazer uma venda, na media dela mesma.<br><br>Com isso, o orcamento diario desta campanha compra ' + fmt(cliquesQueCompra, 0) + ' cliques por dia, o que da ' + fmt(vendasPorDia, 1) + ' venda por dia.<br><br><b>Por que importa:</b> orcamento que nao compra cliques suficientes para uma venda por dia deixa a campanha em aprendizado eterno \u2014 a Shopee nunca tem sinal para otimizar, e o dinheiro sai sem virar resultado.') + '</div>' +
+        '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px">' +
+        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:21px;color:var(--t0);letter-spacing:-.02em">' + fmt(cliquesQueCompra, 0) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:2px">CLIQUES/DIA</div></div>' +
+        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:21px;color:' + (cabe ? 'var(--vd)' : 'var(--am)') + ';letter-spacing:-.02em">' + fmt(vendasPorDia, 1) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:2px">VENDAS/DIA</div></div>' +
+        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:21px;color:var(--t0);letter-spacing:-.02em">' + reais(orcDia) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:2px">ORCAMENTO</div></div></div>' +
+        '<div style="font-size:13.5px;color:var(--t1);line-height:1.5">' +
+        (cabe
+          ? 'O orcamento compra cliques para <b style="color:var(--t0)">' + fmt(vendasPorDia, 1) + ' venda por dia</b> no ritmo desta conta. Ha sinal suficiente para a Shopee otimizar.'
+          : 'O orcamento compra cliques para <b style="color:var(--am)">' + fmt(vendasPorDia, 1) + ' venda por dia</b>. Uma venda por dia exigiria <b style="color:var(--t0)">' + reais(orcParaUmaVenda) + '</b>. Abaixo disso a campanha fica em aprendizado sem sair dele.') +
+        '</div></div>';
+    }
+
     // ---- O FUNIL DESTA CAMPANHA ----
     // Impressao -> clique -> carrinho -> pedido, com a queda de cada degrau.
     // Estava faltando: o card mostrava os numeros soltos e nao onde quebra.
