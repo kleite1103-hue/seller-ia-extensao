@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.9.0';
+  var VERSAO = '1.9.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -5572,7 +5572,12 @@
         cpa: somaPed ? somaGasto / somaPed : null
       },
       afiliados: {
-        gmv: val(AF.vendas), comissao: val(AF.comissao), pedidos: val(AF.pedidos),
+        // mesmos nomes errados que a tela usava: o relatorio recebia
+        // afiliados vazio e escrevia "nao disponivel" com o dado na mao
+        gmv: val(AF.gmv != null ? AF.gmv : AF.vendas),
+        comissao: val(AF.comissaoPaga != null ? AF.comissaoPaga : AF.comissao),
+        pedidos: val(AF.pedidos),
+        itensVendidos: val(AF.itensVendidos),
         novosCompradores: val(AF.novos), roi: val(AF.roi)
       },
       origem: (D && D.origem) ? {
@@ -6092,7 +6097,15 @@
     var AF = (D && D.afiliados) || {};
     var R = AF.resumo || {};
     var prods = AF.produtos || [];
-    if (!R.vendas && !prods.length) {
+    // O extrator grava gmv/comissaoPaga e a tela procurava vendas/comissao:
+    // nomes diferentes para o mesmo dado, entao ela sempre achava vazio e
+    // pedia para abrir uma tela que a coleta ja le.
+    var afGmv = R.gmv != null ? R.gmv : R.vendas;
+    var afComissao = R.comissaoPaga != null ? R.comissaoPaga : R.comissao;
+    var afPedidos = R.pedidos;
+    var afRoi = R.roi;
+    var afItens = R.itensVendidos;
+    if (afGmv == null && afPedidos == null && !prods.length) {
       return '<div class="nota" style="color:var(--am)">Ainda nao li o canal de afiliados. Ele vem na coleta da conta \u2014 se persistir, abra <b>Afiliados do Vendedor</b> uma vez no painel.</div>';
     }
 
@@ -6104,7 +6117,7 @@
       gastoAds += m.gasto || 0; pedAds += m.pedidos || 0;
     }
     var cpaAds = pedAds ? gastoAds / pedAds : null;
-    var comTotal = numeroPuro(R.comissao), pedAf = numeroPuro(R.pedidos);
+    var comTotal = numeroPuro(afComissao), pedAf = numeroPuro(afPedidos);
     var cpaAf = (comTotal && pedAf) ? comTotal / pedAf : null;
 
     if (cpaAf && cpaAds) {
@@ -6122,13 +6135,14 @@
     // numeros do canal
     h += olho('O CANAL NO PERIODO', 'Comissao e o custo real do canal: e o que voce paga ao criador por venda gerada. ROI de afiliados costuma ser muito maior que ROAS de anuncio porque a comissao e uma fracao do pedido, e nao um lance disputado.');
     h += '<div class="tres">' +
-      '<div><div class="v">' + (R.vendas != null ? reais(numeroPuro(R.vendas)) : '\u2014') + '</div><div class="l">GMV DO CANAL</div></div>' +
+      '<div><div class="v">' + (afGmv != null ? reais(numeroPuro(afGmv)) : '\u2014') + '</div><div class="l">GMV DO CANAL</div></div>' +
       '<div><div class="v">' + (pedAf != null ? fmt(pedAf, 0) : '\u2014') + '</div><div class="l">PEDIDOS</div></div>' +
-      '<div><div class="v">' + (R.roi != null ? fmt(numeroPuro(R.roi), 1) + 'x' : '\u2014') + '</div><div class="l">ROI</div></div></div>';
-    if (comTotal != null || R.novos != null) {
+      '<div><div class="v">' + (afRoi != null ? fmt(numeroPuro(afRoi), 1) + 'x' : '\u2014') + '</div><div class="l">ROI</div></div></div>';
+    if (comTotal != null || afItens != null) {
       h += '<div class="nota">' +
         (comTotal != null ? 'Comissao paga: <b>' + reais(comTotal) + '</b>' : '') +
-        (R.novos != null ? ' &middot; novos compradores: <b>' + fmt(numeroPuro(R.novos), 0) + '</b>' : '') + '</div>';
+        (afItens != null ? ' &middot; itens vendidos: <b>' + fmt(numeroPuro(afItens), 0) + '</b>' : '') +
+        (afGmv && comTotal ? ' &middot; a comissao e ' + fmt((comTotal / afGmv) * 100, 1) + '% do GMV do canal' : '') + '</div>';
     }
 
     // produtos no canal
@@ -7063,7 +7077,7 @@
       if (m.gasto && m.roas) gmvAds += m.gasto * m.roas;
     }
     var AF = (D.afiliados && D.afiliados.resumo) || {};
-    var gmvAf = numeroPuro(AF.vendas) || 0;
+    var gmvAf = numeroPuro(AF.gmv != null ? AF.gmv : AF.vendas) || 0;
 
 
 
