@@ -63,6 +63,7 @@
     origem: null,    // de onde vem cada venda, por canal
     tendencia: null, // evolucao diaria da loja + perda pos-pedido
     marketing: null, // cupons, oferta relampago e descontos, com mtime
+    vinculoItemCampanha: {}, // item -> campanha, para o veredito de anuncio
     loja: {},        // rating, seguidores, tag, resposta chat
     ads: {},         // meta roas, estrategia, cpm, leilao, gasto, creditos
     algoritmo: {},   // regras do oCPM: cold start, limites de mudanca, minimos de lance, percentis
@@ -1193,6 +1194,30 @@
   // A rota seller_item_detail/top5 traz, por item: GMV do canal, comissao
   // paga, ROI, pedidos, compradores NOVOS e cliques. E o unico lugar que
   // separa comprador novo de recorrente por produto.
+
+  // ---- VINCULO ITEM -> CAMPANHA ----
+  // A rota get_campaign_info_by_item_list responde direto quais itens tem
+  // anuncio. E a fonte mais confiavel para o veredito de "vende sem anuncio".
+  function exVinculoItemCampanha(url, d) {
+    var lst = ((d && d.data) || {}).list || ((d && d.data) || {}).item_list || (Array.isArray(d && d.data) ? d.data : []);
+    if (!lst || !lst.length) return 0;
+    COFRE.vinculoItemCampanha = COFRE.vinculoItemCampanha || {};
+    var n2 = 0;
+    for (var i = 0; i < lst.length; i++) {
+      var x = lst[i] || {};
+      var idIt = x.item_id != null ? String(x.item_id) : null;
+      if (!idIt) continue;
+      var camps = x.campaign_list || x.campaigns || (x.campaign_id ? [{ campaign_id: x.campaign_id }] : []);
+      if (camps && camps.length) {
+        var c0 = camps[0];
+        COFRE.vinculoItemCampanha[idIt] = String(c0.campaign_id || c0.id || camps[0]);
+        n2++;
+      }
+    }
+    logar('vinculo_item_campanha', n2 + ' itens com anuncio', url);
+    return n2;
+  }
+
   function exAfiliadosProdutos(url, d) {
     var lst = ((d && d.data) || {}).list || [];
     if (!lst.length) return 0;
@@ -1337,6 +1362,7 @@
       if (/product\/overview\/metric-trends|product\/overview\/|product\/traffic\/overview/.test(url)) exTendenciaProduto(url, dados);
       if (/get_product_lock_info|item\/get_ratings/.test(url)) exSaudeProduto(url, dados);
       if (/accounthealth\/v1\/sc\/shops\/overview/.test(url)) exSaudeConta(url, dados);
+      if (/get_campaign_info_by_item_list/.test(url)) exVinculoItemCampanha(url, dados);
       if (/seller_item_detail\/top5/.test(url)) exAfiliadosProdutos(url, dados);
       if (/affiliateplatform\/dashboard\/seller_daily|affiliate_performance\/top5|affiliateplatform\/creator\/list/.test(url)) exAfiliados(url, dados);
       if (/get_order_income_components/.test(url)) exFinanceiro(url, dados);

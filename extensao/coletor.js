@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.7.0';
+  var VERSAO = '1.7.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1833,27 +1833,31 @@
 
         prog('Lendo o funil dos produtos...');
         for (var pg = 1; pg <= 12; pg++) {
-          var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&category_type=shopee&category_id=-1&page_size=10&page_num=' + pg + '&order_type=paid&order_by=paid_sales.desc';
+          var urlP = '/api/mydata/v4/product/performance/?' + spcQ + '&start_time=' + ini + '&end_time=' + fim + '&period=month&keyword=&category_type=shopee&category_id=-1&page_size=50&page_num=' + pg + '&order_type=paid&order_by=paid_sales.desc';
           var rp = await buscar(urlP, 'GET', null);
           totalChamadas++;
           if (!rp.ok || !rp.dados) break;
           processarPacote({ url: urlP, metodo: 'GET', corpo: null, dados: rp.dados, ts: Date.now(), loja: lojaDoCiclo });
           var itens = rp.dados.result && rp.dados.result.items ? rp.dados.result.items.length : 0;
           prog('Produtos lidos: ' + Object.keys(estado.produtos).length + '...');
-          if (itens < 20) break;
+          // ANTES: page_size=10 com parada em "menos de 20" — a primeira
+          // pagina sempre trazia 10 e o laco parava na hora, entao a coleta
+          // lia so 10 produtos da loja inteira. Agora pede 50 e so para
+          // quando a pagina volta incompleta, que e o fim real da lista.
+          if (itens < 50) break;
           await pausa(250);
         }
 
         // D) Fatia de vendas + vinculo campanha (traffic item-list, paginado)
         prog('Cruzando fatia de vendas e campanhas...');
         for (var pg2 = 1; pg2 <= 12; pg2++) {
-          var urlT = '/api/mydata/v1/product/traffic/item-list/?' + spcQ + '&keyword=&order_by=&page_size=10&page_num=' + pg2 + '&category_type=shop&start_time=' + ini + '&end_time=' + fim + '&period=month&category_id=-1';
+          var urlT = '/api/mydata/v1/product/traffic/item-list/?' + spcQ + '&keyword=&order_by=&page_size=50&page_num=' + pg2 + '&category_type=shop&start_time=' + ini + '&end_time=' + fim + '&period=month&category_id=-1';
           var rt = await buscar(urlT, 'GET', null);
           totalChamadas++;
           if (!rt.ok || !rt.dados) break;
           processarPacote({ url: urlT, metodo: 'GET', corpo: null, dados: rt.dados, ts: Date.now(), loja: lojaDoCiclo });
           var itens2 = rt.dados.result && rt.dados.result.item ? rt.dados.result.item.length : 0;
-          if (itens2 < 20) break;
+          if (itens2 < 50) break;
           await pausa(250);
         }
 
@@ -5504,6 +5508,14 @@
     // da CONTA e os cliques que esta loja gasta por venda, quantos cliques o
     // orcamento diario compra — e se isso da uma venda por dia ou nao.
     var orcDia = m.orcamento_dia != null ? m.orcamento_dia : (m.orcamento != null ? m.orcamento : null);
+
+    // CPC E CLIQUES POR VENDA DESTE ITEM, nao da conta. Ha produto que vende
+    // com 12 cliques e produto que precisa de 90 — usar a media da conta
+    // esconde exatamente a diferenca que decide o orcamento.
+    var cpcItem = (m.cliques && m.gasto) ? m.gasto / m.cliques : null;
+    var cliquesPorVendaItem = (m.pedidos && m.cliques) ? m.cliques / m.pedidos : null;
+
+    // a media da conta so entra como REFERENCIA, para comparar
     var totCliqC = 0, totGastoC = 0, totPedC = 0;
     for (var kc4 in estado.campanhas) {
       var mc4 = estado.campanhas[kc4].metricas || {};
@@ -5514,28 +5526,40 @@
     var cpcConta = totCliqC ? totGastoC / totCliqC : null;
     var cliquesPorVendaConta = totPedC ? totCliqC / totPedC : null;
 
+    // usa o do item; cai para o da conta so quando o item ainda nao vendeu
+    var cpcUsar = cpcItem || cpcConta;
+    var cliquesUsar = cliquesPorVendaItem || cliquesPorVendaConta;
+    var baseItem = !!(cpcItem && cliquesPorVendaItem);
+
     // daily_budget 0 na API significa ILIMITADO, nao zero — nesse caso o
     // teto nao existe e a pergunta muda: o que limita e o gasto real.
     var semTeto = (m.orcamento_dia === 0 || m.orcamento === 0);
-    if (semTeto && cpcConta && cliquesPorVendaConta && m.gasto) {
+    if (semTeto && cpcUsar && cliquesUsar && m.gasto) {
       var diasP = (estado.periodoAds && estado.periodoAds.dias) || 30;
       var gastoDia = m.gasto / diasP;
-      var cliquesReais = gastoDia / cpcConta;
-      var vendasReais = cliquesReais / cliquesPorVendaConta;
+      var cliquesReais = gastoDia / cpcUsar;
+      var vendasReais = cliquesReais / cliquesUsar;
       h += '<div style="background:var(--b1);border-left:3px solid var(--li2);border-radius:0 16px 16px 0;padding:12px 14px;margin-bottom:10px;font-size:13.5px;color:var(--t1);line-height:1.5">' +
         '<b style="color:var(--t0)">Orcamento ilimitado.</b> No ritmo atual esta campanha gasta ' + reais(gastoDia) + ' por dia, o que compra cerca de ' +
         fmt(cliquesReais, 0) + ' cliques e da ' + fmt(vendasReais, 1) + ' venda por dia no ritmo desta conta. ' +
         'Sem teto, quem limita a entrega e a meta de ROAS, nao o orcamento.</div>';
     }
-    if (orcDia && cpcConta && cliquesPorVendaConta) {
-      var cliquesQueCompra = orcDia / cpcConta;
-      var vendasPorDia = cliquesQueCompra / cliquesPorVendaConta;
-      var orcParaUmaVenda = cliquesPorVendaConta * cpcConta;
+    if (orcDia && cpcUsar && cliquesUsar) {
+      var cliquesQueCompra = orcDia / cpcUsar;
+      var vendasPorDia = cliquesQueCompra / cliquesUsar;
+      var orcParaUmaVenda = cliquesUsar * cpcUsar;
       var cabe = vendasPorDia >= 1;
 
       h += '<div style="background:color-mix(in srgb,' + (cabe ? 'var(--vd)' : 'var(--am)') + ' var(--tin,9%),var(--b0));border-left:3px solid ' + (cabe ? 'var(--vd)' : 'var(--am)') + ';border-radius:0 16px 16px 0;padding:13px 15px;margin-bottom:10px">' +
         '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.08em;margin-bottom:7px">O ORCAMENTO CABE?' +
-        dica('<b>Como esta conta e feita.</b> O CPC medio da SUA conta e ' + reais(cpcConta) + ' \u2014 gasto total dividido por cliques totais. E esta loja precisa de ' + fmt(cliquesPorVendaConta, 0) + ' cliques para fazer uma venda, na media dela mesma.<br><br>Com isso, o orcamento diario desta campanha compra ' + fmt(cliquesQueCompra, 0) + ' cliques por dia, o que da ' + fmt(vendasPorDia, 1) + ' venda por dia.<br><br><b>Por que importa:</b> orcamento que nao compra cliques suficientes para uma venda por dia deixa a campanha em aprendizado eterno \u2014 a Shopee nunca tem sinal para otimizar, e o dinheiro sai sem virar resultado.') + '</div>' +
+        dica('<b>Como esta conta e feita.</b> ' +
+          (baseItem
+            ? 'O CPC deste produto e ' + reais(cpcUsar) + ' \u2014 o gasto dele dividido pelos cliques dele. E ele precisa de ' + fmt(cliquesUsar, 0) + ' cliques para fazer uma venda.' +
+              (cpcConta && cliquesPorVendaConta
+                ? ' Na media da conta sao ' + reais(cpcConta) + ' e ' + fmt(cliquesPorVendaConta, 0) + ' cliques \u2014 <b>por isso a conta e feita por item</b>: ha produto que vende com poucos cliques e produto que precisa de muitos, e a media esconde os dois.'
+                : '')
+            : 'Este produto ainda nao vendeu por anuncio, entao a conta usa a media da conta: CPC de ' + reais(cpcUsar) + ' e ' + fmt(cliquesUsar, 0) + ' cliques por venda. Assim que ele vender, o numero passa a ser dele.') +
+          '<br><br>Com isso, o orcamento diario compra ' + fmt(cliquesQueCompra, 0) + ' cliques por dia, o que da ' + fmt(vendasPorDia, 1) + ' venda por dia.<br><br><b>Por que importa:</b> orcamento que nao compra cliques suficientes para uma venda por dia deixa a campanha em aprendizado eterno \u2014 a Shopee nunca tem sinal para otimizar, e o dinheiro sai sem virar resultado.') + '</div>' +
         '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px">' +
         '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:21px;color:var(--t0);letter-spacing:-.02em">' + fmt(cliquesQueCompra, 0) + '</div>' +
         '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:2px">CLIQUES/DIA</div></div>' +
@@ -5545,8 +5569,8 @@
         '<div style="font-family:Space Mono,monospace;font-size:8.5px;color:var(--t2);margin-top:2px">ORCAMENTO</div></div></div>' +
         '<div style="font-size:13.5px;color:var(--t1);line-height:1.5">' +
         (cabe
-          ? 'O orcamento compra cliques para <b style="color:var(--t0)">' + fmt(vendasPorDia, 1) + ' venda por dia</b> no ritmo desta conta. Ha sinal suficiente para a Shopee otimizar.'
-          : 'O orcamento compra cliques para <b style="color:var(--am)">' + fmt(vendasPorDia, 1) + ' venda por dia</b>. Uma venda por dia exigiria <b style="color:var(--t0)">' + reais(orcParaUmaVenda) + '</b>. Abaixo disso a campanha fica em aprendizado sem sair dele.') +
+          ? 'O orcamento compra cliques para <b style="color:var(--t0)">' + fmt(vendasPorDia, 1) + ' venda por dia</b> no ritmo ' + (baseItem ? 'DESTE PRODUTO' : 'medio da conta') + '. Ha sinal suficiente para a Shopee otimizar.'
+          : 'O orcamento compra cliques para <b style="color:var(--am)">' + fmt(vendasPorDia, 1) + ' venda por dia</b> no ritmo ' + (baseItem ? 'DESTE PRODUTO' : 'medio da conta') + '. Uma venda por dia exigiria <b style="color:var(--t0)">' + reais(orcParaUmaVenda) + '</b>. Abaixo disso a campanha fica em aprendizado sem sair dele.') +
         '</div></div>';
     }
 
@@ -8363,11 +8387,17 @@
       for (k in estado.campanhas) {
         var c = estado.campanhas[k];
         if (c && c.produtoId) MAPA_ADS[String(c.produtoId)] = k;
-        var lst = c && c.mpd && c.mpd.item_list;
+        // eu gravo os itens do grupo em itensGrupo, mas aqui procurava em
+        // c.mpd.item_list, que nunca existe — por isso produto dentro de
+        // Grupo de Anuncios aparecia como se nao tivesse anuncio
+        var lst = (c && c.itensGrupo) || (c && c.mpd && c.mpd.item_list);
         if (lst) for (var i = 0; i < lst.length; i++) MAPA_ADS[String(lst[i])] = k;
       }
       var PC = (D && D.porCampanha) || {};
       for (k in PC) if (PC[k] && PC[k].produtoId) MAPA_ADS[String(PC[k].produtoId)] = k;
+      // 3) a rota que liga item a campanha, que e a fonte mais direta
+      var vinc = (D && D.vinculoItemCampanha) || {};
+      for (k in vinc) if (vinc[k]) MAPA_ADS[String(k)] = vinc[k];
     }
     return !!MAPA_ADS[String(id)];
   }
