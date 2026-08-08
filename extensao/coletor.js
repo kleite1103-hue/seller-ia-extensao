@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.7.1';
+  var VERSAO = '1.7.2';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2195,6 +2195,32 @@
   // 'Ferramentas' saiu: era caixa sem dono. A Margem virou parte do Cofre,
   // que e onde ela e usada, e Performance ganhou tela propria porque e
   // leitura de FUNIL, nao de Ads — estava enterrada dentro de Produtos.
+  // Dicionarios de traducao do diagnostico da Shopee. Ficavam DENTRO da
+  // funcao e depois do uso: var sobe mas o valor nao, entao 'bidding'
+  // aparecia cru na tela.
+  var TRAD_EIXO = {
+    competitiveness: 'competitividade de preco', budget: 'orcamento',
+    roi_target: 'meta de ROAS', continuance: 'continuidade',
+    listing: 'qualidade do anuncio', bid: 'lance', bidding: 'lance',
+    keyword: 'palavras-chave', creative: 'criativo', audience: 'publico',
+    placement: 'posicionamento', conversion: 'conversao', traffic: 'trafego',
+    delivery: 'entrega do anuncio', product: 'produto', price: 'preco',
+    stock: 'estoque', rating: 'avaliacoes', content: 'conteudo'
+  };
+  var TRAD_NOTA = {
+    good: 'boa', normal: 'media', bad: 'ruim', poor: 'ruim', na: '\u2014',
+    excellent: 'excelente', fair: 'razoavel', low: 'baixa', high: 'alta',
+    medium: 'media', healthy: 'saudavel', limited: 'limitada', ok: 'ok'
+  };
+  function traduzEixo(x) {
+    var n = String(x || '').replace(/_v\d+$/, '').toLowerCase();
+    return TRAD_EIXO[n] || n.replace(/_/g, ' ');
+  }
+  function traduzNota(x) {
+    var n = String(x || '').toLowerCase();
+    return TRAD_NOTA[n] || n.replace(/_/g, ' ');
+  }
+
   var ICONES_ABA = {
     conta360:    'M3.5 12.5 12 4l8.5 8.5M6 11v9h12v-9',
     performance: 'M3.5 4.5h17l-6.5 8v7l-4 2v-9z',
@@ -5679,7 +5705,35 @@
           h += '<div style="font-size:12.5px;color:var(--t2);margin-top:7px;line-height:1.5">Margem de <b style="color:var(--t0)">' + fmt(margemReal, 1) + '%</b> por pedido. Seu ponto de equilibrio nesta campanha e <b style="color:var(--t0)">' + fmt(100 / Math.max(margemReal, 0.1), 1) + 'x</b>.</div>';
         }
       } else {
-        h += '<div class="nota">Sem ticket medio para este produto nesta leitura.</div>';
+        // Campanha VERMELHA nao vendeu, entao nao tem ticket — e era
+        // justamente nela que a calculadora nao abria, que e onde ela mais
+        // importa. Agora ela pergunta o preco de venda e faz a conta assim
+        // mesmo: sem saber quanto sobra, nao da para julgar se vale insistir.
+        var tmpS = (estado.calcTmp && estado.calcTmp[idProd]) || {};
+        h += '<div style="font-size:13.5px;color:var(--t1);line-height:1.55;margin-bottom:11px">' +
+          'Esta campanha ainda nao vendeu, entao nao ha ticket medio para partir. Informe o preco e o custo do produto e eu faco a conta.</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+          campoCalc('preco', idProd, 'Preco de venda', tmpS.preco || '') +
+          campoCalc('custo', idProd, 'Custo do produto', tmpS.custo || '') +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">' +
+          campoCalc('imposto', idProd, 'Imposto %', tmpS.imposto || '') +
+          '<button data-calc-calcular="' + esc(idProd) + '" style="background:var(--b1);border:1px solid var(--mk);color:var(--mk);font-family:inherit;font-weight:600;font-size:13px;border-radius:8px;cursor:pointer;align-self:end;padding:9px">Calcular</button>' +
+          '</div>';
+        var pS = numeroPuro(tmpS.preco), cS = numeroPuro(tmpS.custo), iS = numeroPuro(tmpS.imposto) || 0;
+        if (pS && cS) {
+          var comS = pS < 80 ? pS * 0.20 + 4 : (pS < 100 ? pS * 0.14 + 16 : (pS < 200 ? pS * 0.14 + 20 : pS * 0.14 + 26));
+          var impS = pS * (iS / 100);
+          var sobraS = pS - comS - cS - impS;
+          var margS = (sobraS / pS) * 100;
+          var pisoS = margS > 0 ? 100 / margS : null;
+          h += '<div style="border-top:1px solid var(--li);margin-top:11px;padding-top:10px;font-size:14px;color:var(--t1);line-height:1.55">' +
+            'Sobra <b style="color:' + (sobraS > 0 ? 'var(--vd)' : 'var(--rd)') + '">' + reais(sobraS) + '</b> por venda, margem de <b style="color:var(--t0)">' + fmt(margS, 1) + '%</b>.<br>' +
+            (pisoS
+              ? 'Seu ponto de equilibrio e <b style="color:var(--t0)">' + fmt(pisoS, 1) + 'x</b>. Como esta campanha ainda nao vendeu, o que importa e o gasto: ela ja consumiu <b style="color:var(--t0)">' + reais(gasto || 0) + '</b> sem retorno, o equivalente a <b>' + fmt((gasto || 0) / Math.max(sobraS, 0.01), 1) + ' vendas</b> de margem.'
+              : '<b style="color:var(--rd)">Este produto perde dinheiro em cada venda antes mesmo do anuncio.</b> Nenhuma meta de ROAS resolve isso.') +
+            '</div>';
+        }
       }
       h += '</div>';
 
@@ -5697,13 +5751,8 @@
           if (/competitiveness/.test(String(pcC.eixos[ex].eixo || ''))) { eixoComp = pcC.eixos[ex]; break; }
         }
       }
-      var TRAD_NOTA = {
-        good: 'boa', normal: 'media', bad: 'ruim', poor: 'ruim', na: '\u2014',
-        excellent: 'excelente', fair: 'razoavel', low: 'baixa', high: 'alta',
-        medium: 'media', healthy: 'saudavel', limited: 'limitada'
-      };
       var valComp = compet != null ? fmt(compet, 0) + '/100'
-        : (eixoComp ? (TRAD_NOTA[String(eixoComp.nota || '').toLowerCase()] || eixoComp.nota) : '\u2014');
+        : (eixoComp ? traduzNota(eixoComp.nota) : '\u2014');
       var corComp = compet != null ? (compet < 40 ? 'var(--rd)' : null)
         : (eixoComp && /bad|poor|low/.test(String(eixoComp.nota)) ? 'var(--rd)' : (eixoComp && /good|excellent|healthy/.test(String(eixoComp.nota)) ? 'var(--vd)' : null));
       h += celula('COMPETITIVIDADE', valComp, corComp);
@@ -5714,23 +5763,12 @@
         h += '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.08em;margin:12px 0 8px">O QUE A SHOPEE DIAGNOSTICA' +
           dica('Estes sao os vereditos que a propria Shopee calcula para a campanha e nao mostra em lugar nenhum do painel. Competitividade e como o seu preco e lance se comparam com quem disputa a mesma vitrine.') + '</div>';
         h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
-        var TRAD_EIXO = {
-          competitiveness: 'competitividade', competitiveness_v2: 'competitividade',
-          budget: 'orcamento', budget_v2: 'orcamento',
-          roi_target: 'meta de ROAS', roi_target_v2: 'meta de ROAS',
-          continuance: 'continuidade', continuance_v2: 'continuidade',
-          listing: 'anuncio', listing_v2: 'anuncio',
-          bid: 'lance', bid_v2: 'lance', bidding: 'lance',
-          keyword: 'palavras', keyword_v2: 'palavras',
-          creative: 'criativo', audience: 'publico', placement: 'posicionamento',
-          conversion: 'conversao', traffic: 'trafego', delivery: 'entrega do anuncio'
-        };
         for (var ez = 0; ez < pcC.eixos.length; ez++) {
           var E2 = pcC.eixos[ez];
-          var rot2 = TRAD_EIXO[E2.eixo] || String(E2.eixo || '').replace(/_v2$/, '').replace(/_/g, ' ');
+          var rot2 = traduzEixo(E2.eixo);
           var cor2 = E2.nota === 'bad' ? 'var(--rd)' : (E2.nota === 'good' ? 'var(--vd)' : 'var(--t2)');
           h += '<span style="font-family:Space Mono,monospace;font-size:10.5px;padding:5px 11px;border-radius:99px;border:1px solid ' + cor2 + ';color:' + cor2 + '">' +
-            esc(rot2) + ': ' + esc(TRAD_NOTA[String(E2.nota || '').toLowerCase()] || String(E2.nota || '').replace(/_/g, ' ')) + '</span>';
+            esc(rot2) + ': ' + esc(traduzNota(E2.nota)) + '</span>';
         }
         h += '</div>';
       } else if (pos == null && compet == null) {
