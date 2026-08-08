@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.7.3';
+  var VERSAO = '1.8.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1711,6 +1711,30 @@
             var eD = String(cD.estado || cD.state || '').toLowerCase();
             return eD !== 'paused' && eD !== 'ended' && eD !== 'closed';
           }).slice(0, 200);
+          // A rota EM LOTE devolve so o bidding, e as vezes nem isso. Quem
+          // traz os QUATRO vereditos — meta de ROAS, orcamento e saldo,
+          // continuidade e competitividade — e a rota INDIVIDUAL, uma
+          // chamada por campanha. Como e o dado que decide, vale a chamada
+          // extra nas que mais gastam.
+          var alvoDiagCompleto = Object.keys(estado.campanhas).filter(function (k) {
+            var cDC = estado.campanhas[k] || {};
+            var eDC = String(cDC.estado || cDC.state || '').toLowerCase();
+            if (eDC === 'paused' || eDC === 'ended' || eDC === 'closed') return false;
+            return ((cDC.metricas || {}).gasto || 0) > 0;
+          }).sort(function (a, b) {
+            return ((estado.campanhas[b].metricas || {}).gasto || 0) - ((estado.campanhas[a].metricas || {}).gasto || 0);
+          }).slice(0, PROFUNDA ? 60 : 25);
+
+          for (var dc2 = 0; dc2 < alvoDiagCompleto.length; dc2++) {
+            var corpoDC = JSON.stringify({ reference_id: uuidSimples(), campaign_id: parseInt(alvoDiagCompleto[dc2], 10) });
+            var rdc = await buscar('/api/pas/v1/diagnosis/list_verdict/?' + spcQ, 'POST', corpoDC);
+            totalChamadas++;
+            if (rdc.ok && rdc.dados) {
+              processarPacote({ url: '/api/pas/v1/diagnosis/list_verdict/?campaign_id=' + alvoDiagCompleto[dc2], metodo: 'POST', corpo: corpoDC, dados: rdc.dados, ts: Date.now(), loja: lojaDoCiclo });
+            }
+            await pausa(180);
+          }
+
           for (var lv = 0; lv < alvoDiag.length; lv += 20) {
             var lote20 = alvoDiag.slice(lv, lv + 20).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return !!x; });
             if (!lote20.length) continue;
@@ -5788,7 +5812,18 @@
       h += '</div>';
       if (pcC.eixos && pcC.eixos.length) {
         h += '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.08em;margin:12px 0 8px">O QUE A SHOPEE DIAGNOSTICA' +
-          dica('Estes sao os vereditos que a propria Shopee calcula para a campanha e nao mostra em lugar nenhum do painel. Competitividade e como o seu preco e lance se comparam com quem disputa a mesma vitrine.') + '</div>';
+          dica('A Shopee julga esta campanha em <b>quatro frentes</b> e nao mostra isso em lugar nenhum do painel: meta de ROAS, orcamento e saldo, continuidade da entrega e competitividade de preco. Aqui aparecem as quatro, com o motivo quando a nota nao e boa.') + '</div>';
+        // resumo em uma linha, antes das pilulas
+        var ruins2 = pcC.eixos.filter(function (x) { return /bad|poor|low/i.test(String(x.nota)); });
+        if (ruins2.length) {
+          var nomesR = ruins2.map(function (x) { return traduzEixo(x.eixo); }).join(', ');
+          var motivosR = ruins2.map(function (x) { return traduzMotivo(x.motivo); }).filter(Boolean);
+          h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b0));border-left:3px solid var(--rd);border-radius:0 14px 14px 0;padding:11px 13px;margin-bottom:9px;font-size:13.5px;color:var(--t1);line-height:1.5">' +
+            '<b style="color:var(--t0)">A Shopee aponta problema em ' + esc(nomesR) + '.</b>' +
+            (motivosR.length ? ' ' + esc(motivosR.join('. ')) + '.' : '') + '</div>';
+        } else if (pcC.nota) {
+          h += '<div style="font-size:13.5px;color:var(--vd);line-height:1.5;margin-bottom:9px">A Shopee nao aponta problema nesta campanha nas quatro frentes que ela avalia.</div>';
+        }
         h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
         for (var ez = 0; ez < pcC.eixos.length; ez++) {
           var E2 = pcC.eixos[ez];
@@ -5796,7 +5831,9 @@
           var cor2 = E2.nota === 'bad' ? 'var(--rd)' : (E2.nota === 'good' ? 'var(--vd)' : 'var(--t2)');
           var expl2 = EXPLICA_EIXO[String(E2.eixo || '').replace(/_v\d+$/, '').toLowerCase()];
           h += '<span style="font-family:Space Mono,monospace;font-size:10.5px;padding:5px 11px;border-radius:99px;border:1px solid ' + cor2 + ';color:' + cor2 + '">' +
-            esc(rot2) + ': ' + esc(traduzNota(E2.nota)) + (expl2 ? dica('<b>' + esc(rot2) + '</b><br>' + expl2) : '') + '</span>';
+            esc(rot2) + ': ' + esc(traduzNota(E2.nota)) +
+            (traduzMotivo(E2.motivo) ? ' \u00b7 ' + esc(traduzMotivo(E2.motivo)) : '') +
+            (expl2 ? dica('<b>' + esc(rot2) + '</b><br>' + expl2) : '') + '</span>';
         }
         h += '</div>';
       } else if (pos == null && compet == null) {
@@ -6124,6 +6161,10 @@
         porEixo[nome] = porEixo[nome] || { ruim: 0, bom: 0, medio: 0, campanhasRuins: [] };
         if (RUIM.test(nota)) {
           porEixo[nome].ruim++;
+          if (eixos[i].motivo && eixos[i].motivo !== 'na') {
+            porEixo[nome].motivos = porEixo[nome].motivos || {};
+            porEixo[nome].motivos[eixos[i].motivo] = (porEixo[nome].motivos[eixos[i].motivo] || 0) + 1;
+          }
           var c = estado.campanhas[k];
           var gasto = (c && c.metricas && c.metricas.gasto) || 0;
           porEixo[nome].campanhasRuins.push({ id: k, nome: (c && c.nome) || k, gasto: gasto });
@@ -6163,8 +6204,11 @@
 
       if (dd.ruim) {
         dd.campanhasRuins.sort(function (a, b) { return b.gasto - a.gasto; });
+        var motivoTop = null, maxM = 0;
+        for (var mk5 in (dd.motivos || {})) { if (dd.motivos[mk5] > maxM) { maxM = dd.motivos[mk5]; motivoTop = mk5; } }
         h += '<div style="font-size:13.5px;color:var(--t1);line-height:1.5">' +
-          (gastoRuim ? '<b style="color:var(--t0)">' + reais(gastoRuim) + '</b> esta investido nas campanhas com problema aqui. ' : '') +
+          (motivoTop ? '<b style="color:var(--t0)">' + esc(traduzMotivo(motivoTop)) + '</b> na maioria delas. ' : '') +
+          (gastoRuim ? reais(gastoRuim) + ' esta investido nas campanhas com problema aqui. ' : '') +
           'A maior e <b style="color:var(--t0)">' + sig(String(dd.campanhasRuins[0].nome).slice(0, 34)) + '</b>' +
           (dd.campanhasRuins[0].gasto ? ', com ' + reais(dd.campanhasRuins[0].gasto) : '') + '.</div>';
       } else {

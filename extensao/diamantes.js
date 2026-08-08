@@ -238,12 +238,18 @@
       });
       logar('diagnostico_campanhas', entradas.length + ' campanhas', url);
     } else if (dataObj.verdict_list) {
+      // A resposta individual NAO traz o campaign_id no corpo: ele vai na URL,
+      // porque eu o acrescento ali ao repassar. Sem isso tudo caia na chave
+      // 'atual' e uma campanha sobrescrevia a outra.
+      var mCid = String(url).match(/campaign_id=(\d+)/);
+      var chaveC = mCid ? mCid[1] : (dataObj.campaign_id || 'atual');
       var vs2 = dataObj.verdict_list.map(function (v) { return { eixo: v.type, nota: v.result, motivo: v.issue }; });
-      var pc2 = COFRE.porCampanha[dataObj.campaign_id || 'atual'] || {};
+      var pc2 = COFRE.porCampanha[chaveC] || {};
       pc2.nota = (dataObj.summary && dataObj.summary.result) || pc2.nota;
+      pc2.problema = (dataObj.summary && dataObj.summary.main_issue) || pc2.problema || null;
       pc2.eixos = vs2;
-      COFRE.porCampanha[dataObj.campaign_id || 'atual'] = pc2;
-      logar('diagnostico_campanha', (dataObj.summary && dataObj.summary.result) || '?', url);
+      COFRE.porCampanha[chaveC] = pc2;
+      logar('diagnostico_campanha', chaveC + ': ' + vs2.length + ' eixos, ' + ((dataObj.summary && dataObj.summary.result) || '?'), url);
     }
   }
 
