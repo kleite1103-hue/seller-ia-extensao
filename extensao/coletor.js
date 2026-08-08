@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.8.2';
+  var VERSAO = '1.9.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2568,6 +2568,26 @@
         if (_cs2) { salvarCalcDoCard(_cs2); return; }
         var _xc2 = voltaA.getAttribute('data-cofre-excluir');
         if (_xc2) { excluirDoCofre(_xc2); return; }
+        var _cid = voltaA.getAttribute('data-copiar-id');
+        if (_cid) {
+          var okC = false;
+          try { if (navigator.clipboard) { navigator.clipboard.writeText(_cid); okC = true; } } catch (e5) { /* noop */ }
+          if (!okC) {
+            try {
+              var taC = document.createElement('textarea');
+              taC.value = _cid; taC.style.cssText = 'position:fixed;left:-9999px';
+              document.documentElement.appendChild(taC); taC.select();
+              okC = document.execCommand('copy');
+              document.documentElement.removeChild(taC);
+            } catch (e6) { /* noop */ }
+          }
+          if (okC) {
+            voltaA.textContent = 'copiado \u2713';
+            var alvoC = voltaA;
+            setTimeout(function () { try { alvoC.textContent = _cid + ' \u29c9'; } catch (e7) { } }, 1400);
+          }
+          return;
+        }
         var _cmp2 = voltaA.getAttribute('data-comparar');
         if (_cmp2) { compararComVitrine(_cmp2); return; }
         if (voltaA.id === 'sia-sem-gerar') { estado.semanal = estado.semanal || {}; try { gerarSemanal(); } catch (e3) { estado.semanal.erro = 'Erro: ' + String(e3 && e3.message || e3); render(); } return; }
@@ -3932,13 +3952,17 @@
       });
       comPerf.slice(0, 6).forEach(function (k) {
         var p = E.porProduto[k], P = p.perf;
-        var nome = (p.nome || k).slice(0, 26);
+        // 26 caracteres cortava o nome no meio e nao havia ID: quem le a
+        // analise precisa achar o produto na Shopee depois.
+        var nome = (p.nome || k).slice(0, 48);
         var alerta = '';
         // sinal visual: CTR bom + conversao baixa = pagina nao converte
         if (P.ctr >= 2 && P.convPago != null && P.convPago < 1) alerta = ' <span style="color:var(--am);font-size:10px">pagina segura</span>';
         else if (P.rejeicao != null && P.rejeicao > 45) alerta = ' <span style="color:var(--rd);font-size:10px">rejeicao alta</span>';
-        cp += '<div class="ld" style="border-bottom:1px solid var(--li);padding-bottom:5px;margin-bottom:5px">' +
-          '<b>' + esc(nome) + '</b>' + alerta + '<br>' +
+        cp += '<div class="ld" style="border-bottom:1px solid var(--li);padding-bottom:7px;margin-bottom:7px">' +
+          '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:3px">' +
+          '<b class="sigilo" style="flex:1;min-width:0;font-size:14.5px;color:var(--t0)">' + esc(nome) + '</b>' + alerta +
+          '<span data-copiar-id="' + esc(k) + '" title="Copiar o ID" style="flex:none;font-family:Space Mono,monospace;font-size:11px;color:var(--mk);background:color-mix(in srgb,var(--mk) 10%,transparent);border:1px solid color-mix(in srgb,var(--mk) 30%,transparent);border-radius:999px;padding:2px 9px;cursor:pointer">' + esc(k) + ' \u29c9</span></div>' +
           '<span style="color:var(--t2);font-size:11px">CTR ' + (P.ctr != null ? P.ctr.toFixed(1) : '—') + '% · conv ' + (P.convPago != null ? P.convPago.toFixed(1) : '—') + '% · rejeicao ' + (P.rejeicao != null ? P.rejeicao.toFixed(0) : '—') + '% · ' + fmtR(P.vendaPaga || P.venda) + (P.fatiaVendas != null ? ' · ' + P.fatiaVendas.toFixed(0) + '% da loja' : '') + '</span></div>';
       });
     }
@@ -4440,7 +4464,7 @@
           '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">' +
           '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.25">' + esc(v.titulo) + '</span>' +
           (v.dinheiro ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(v.dinheiro) + '</span>' : '') + '</div>' +
-          (alvo ? '<div style="font-size:12.5px;color:var(--t2);margin-bottom:6px">' + sig(String(alvo).slice(0, 66)) + '</div>' : '') +
+          (alvo ? nomeComId(alvo, idProduto, 66) : '') +
           '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">' + esc(v.texto) + '</div>';
         if (v.passos && v.passos.length) {
           s += '<div style="font-size:14px;color:' + co.dot + ';margin-top:8px;line-height:1.45">';
@@ -5185,6 +5209,20 @@
                     // negrito sem quebrar o HTML e sem ser escapado duas vezes
   var seqDica = 0;
   // Envolve texto que identifica a conta. So isso e borrado no modo gravacao.
+  /* Nome do produto legivel e o ID a um clique. O fluxo real e: ler a
+     analise, copiar o ID, colar na Shopee e otimizar — o ID precisa estar
+     ali, nao escondido. */
+  function nomeComId(nome, id, tam) {
+    var n = String(nome || '').slice(0, tam || 60);
+    var h = '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
+      '<span style="flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--t0);line-height:1.35;letter-spacing:-.01em" class="sigilo">' + esc(n) + '</span>';
+    if (id) {
+      h += '<span data-copiar-id="' + esc(id) + '" title="Copiar o ID para colar na Shopee" ' +
+        'style="flex:none;font-family:Space Mono,monospace;font-size:11.5px;color:var(--mk);background:color-mix(in srgb,var(--mk) 10%,transparent);border:1px solid color-mix(in srgb,var(--mk) 30%,transparent);border-radius:999px;padding:3px 10px;cursor:pointer;white-space:nowrap">' +
+        esc(id) + ' \u29c9</span>';
+    }
+    return h + '</div>';
+  }
   function sig(txt) {
     return '<span class="sigilo">' + esc(txt) + '</span>';
   }
@@ -5656,9 +5694,12 @@
     h += '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:4px">' +
       '<span style="flex:1;font-size:17px;font-weight:600;color:var(--t0);line-height:1.25">' + esc(titulo) + '</span>' +
       (gasto != null ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(gasto) + '</span>' : '') + '</div>';
-    h += '<div style="font-size:13px;color:var(--t2);margin-bottom:7px;line-height:1.35">' + sig(String(c.nome || c.titulo || ('Campanha ' + id)).slice(0, 62)) +
-      (meta ? ' <span style="font-family:Space Mono,monospace;color:var(--t3)">meta ' + fmt(meta, 1) + 'x</span>' : '') +
-      (pos ? ' <span style="font-family:Space Mono,monospace;color:var(--t3)">pos ' + fmt(pos, 0) + '</span>' : '') + '</div>';
+    h += nomeComId(c.nome || c.titulo || ('Campanha ' + id), c.produtoId, 62);
+    if (meta || pos) {
+      h += '<div style="font-family:Space Mono,monospace;font-size:11px;color:var(--t3);margin-bottom:8px">' +
+        (meta ? 'meta ' + fmt(meta, 1) + 'x' : '') + (meta && pos ? ' \u00b7 ' : '') +
+        (pos ? 'posicao ' + fmt(pos, 0) : '') + '</div>';
+    }
 
     // os numeros que sustentam o veredito
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:1px;background:var(--li);border:1px solid var(--li);border-radius:10px;overflow:hidden;margin-bottom:10px">';
@@ -8715,7 +8756,7 @@
       '<span style="flex:1;font-size:17.5px;font-weight:600;color:var(--t0);line-height:1.25;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
       (c.venda ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(c.venda) + '</span>' : '') +
       '</div>' +
-      '<div style="font-size:13px;color:var(--t2);margin-bottom:6px;line-height:1.35">' + sig(String(c.nome).slice(0, 70)) + '</div>' +
+      nomeComId(c.nome, c.id, 70) +
       '<div style="font-size:15.5px;color:var(--t1);line-height:1.5">' + esc(c.texto) + '</div>' +
       // O veredito diz O QUE; o funil mostra ONDE. Sem ele o analista sabe
       // que ha problema e precisa ir procurar em qual degrau.
