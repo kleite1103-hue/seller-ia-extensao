@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.9.1';
+  var VERSAO = '1.10.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2091,7 +2091,7 @@
     '.cab svg{width:28px;height:28px;flex:none}' +
     '.cab .titulo{font:500 25px Archivo,Outfit,Arial;letter-spacing:-.035em;line-height:1;color:var(--t0)}' +
     '.cab .titulo em{font-style:normal;color:var(--mk)}' +
-    '.cab .info{font-family:Space Mono,monospace;font-size:11.5px;color:var(--t2);width:100%;order:3;margin-top:2px}' +
+    '.cab .info{font-family:Space Mono,monospace;font-size:13px;color:var(--t1);width:100%;order:3;margin-top:4px;letter-spacing:.01em}' +
     '.cab .acoes{margin-left:auto;display:flex;gap:6px}' +
     '.cab button{background:var(--b1);border:1px solid var(--li2);color:var(--t1);font-family:Space Mono,monospace;font-size:11px;padding:8px 13px;border-radius:18px;cursor:pointer}' +
     '.cab button.ico{width:34px;height:34px;padding:0;display:grid;place-items:center}' +
@@ -2105,9 +2105,9 @@
     
     '.aba.ativa{color:var(--mk);border-bottom-color:var(--mk);background:none}' +
     '.subabas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}' +
-    '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t2);font-family:Space Mono,monospace;font-size:12px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer}' +
+    '.subaba{background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:Space Mono,monospace;font-size:13.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer}' +
     '.subaba.ativa{color:var(--t0);border-color:var(--mk);background:rgba(255,77,28,.1)}' +
-    '.aba{display:flex;align-items:center;gap:7px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t2);font-family:Space Mono,monospace;font-size:12.5px;letter-spacing:.02em;padding:10px 11px 11px;border-radius:0;white-space:nowrap;cursor:pointer}' +
+    '.aba{display:flex;align-items:center;gap:7px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t1);font-family:Space Mono,monospace;font-size:13.5px;letter-spacing:.02em;padding:11px 12px 12px;border-radius:0;white-space:nowrap;cursor:pointer}' +
     '.aba:hover{color:var(--mk)}' +
     '.aba.ativa{color:var(--t0);border-bottom-color:var(--mk)}' +
     '.corpo{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:24px 24px 30px;scrollbar-width:thin;scrollbar-color:var(--li2) transparent;background:var(--b1)}' +
@@ -2121,7 +2121,7 @@
     '.rodape button:hover{background:var(--mk2)}' +
     '.rodape button:disabled{opacity:.65;cursor:default}' +
     /* olho de secao: o padrao do Club — traco curto, mono pequeno, muito respiro */
-    '.olho{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:11px;color:var(--t2);letter-spacing:.13em;margin:30px 0 13px}' +
+    '.olho{display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:12px;color:var(--t1);letter-spacing:.12em;margin:30px 0 13px}' +
     '.olho:first-child{margin-top:0}' +
     '.olho::before{content:"";width:22px;height:2px;background:var(--mk);flex:none}' +
     '.leitura{margin-bottom:24px}' +
@@ -2170,7 +2170,8 @@
     '.expl.on{display:block}' +
     '.expl b{color:var(--t0)}' +
     '.expl .x{float:right;background:none;border:none;color:var(--t2);cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 10px}' +
-    '.nota{font-size:14px;color:var(--t2);margin:12px 0;line-height:1.6}' +
+    '.ld{font-size:14.5px;color:var(--t1);line-height:1.65;margin:5px 0}' +
+    '.nota{font-size:14.5px;color:var(--t1);margin:12px 0;line-height:1.6}' +
     '.bloco-d{background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:10px 12px;margin-bottom:9px}' +
     '.bloco-d .td{font-family:Space Mono,monospace;font-size:11px;letter-spacing:.06em;color:var(--mk);margin-bottom:7px}' +
     '.bloco-d .ld{font-size:13.5px;color:var(--t1);line-height:1.65;padding:2px 0}' +
@@ -6143,6 +6144,43 @@
         (comTotal != null ? 'Comissao paga: <b>' + reais(comTotal) + '</b>' : '') +
         (afItens != null ? ' &middot; itens vendidos: <b>' + fmt(numeroPuro(afItens), 0) + '</b>' : '') +
         (afGmv && comTotal ? ' &middot; a comissao e ' + fmt((comTotal / afGmv) * 100, 1) + '% do GMV do canal' : '') + '</div>';
+    }
+
+    // ---- DIRETO x INDIRETO ----
+    // A comissao so incide sobre a venda DIRETA. Por isso o ROI do canal
+    // parece alto: metade da receita chega sem custo nenhum.
+    var AT = AF.atribuicao;
+    if (AT && (AT.diretos || AT.indiretos)) {
+      h += olho('O QUE VOCE PAGA E O QUE VEM DE GRACA', 'A Shopee cobra comissao apenas da venda <b>direta</b>, aquela em que o comprador clicou no link do criador e comprou aquele produto. A venda <b>indireta</b> \u2014 quando ele entrou pelo link e comprou outra coisa, ou voltou depois \u2014 nao gera comissao. E por isso que o ROI do canal aparece tao alto: parte da receita chega sem custo.');
+      var totOrd = (AT.diretos || 0) + (AT.indiretos || 0);
+      h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:18px 20px;margin-bottom:12px">' +
+        '<div style="display:flex;gap:26px;flex-wrap:wrap;margin-bottom:12px">' +
+        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:34px;color:var(--am);letter-spacing:-.03em;line-height:1">' + fmt(AT.diretos, 0) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);margin-top:4px">DIRETOS \u00b7 VOCE PAGA</div>' +
+        '<div style="font-size:13px;color:var(--t1);margin-top:3px">' + reais(AT.gmvDireto) + '</div></div>' +
+        '<div><div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:34px;color:var(--vd);letter-spacing:-.03em;line-height:1">' + fmt(AT.indiretos, 0) + '</div>' +
+        '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);margin-top:4px">INDIRETOS \u00b7 DE GRACA</div>' +
+        '<div style="font-size:13px;color:var(--t1);margin-top:3px">' + reais(AT.gmvIndireto) + '</div></div></div>' +
+        '<div style="height:9px;background:var(--b2);border-radius:99px;overflow:hidden;display:flex;margin-bottom:10px">' +
+        '<div style="width:' + fmt(AT.pctDiretos || 0, 1) + '%;background:var(--am)"></div>' +
+        '<div style="flex:1;background:var(--vd)"></div></div>' +
+        '<div style="font-size:14px;color:var(--t1);line-height:1.55">';
+      var pctInd = 100 - (AT.pctDiretos || 0);
+      if (pctInd >= 55) {
+        h += '<b style="color:var(--t0)">' + fmt(pctInd, 0) + '% dos pedidos do canal sao indiretos</b> \u2014 chegaram pelo criador e voce nao pagou comissao por eles. ' +
+          'O canal vale mais do que a comissao sugere: alem das ' + fmt(AT.diretos, 0) + ' vendas que voce pagou, ele trouxe ' + fmt(AT.indiretos, 0) + ' sem custo.';
+      } else {
+        h += '<b style="color:var(--t0)">' + fmt(AT.pctDiretos, 0) + '% dos pedidos sao diretos</b>, ou seja voce paga comissao na maioria deles. ' +
+          'Quanto mais direto, mais caro fica o canal \u2014 e a comissao passa a pesar como o Ads.';
+      }
+      if (AT.ticketDireto && AT.ticketIndireto) {
+        var difT = ((AT.ticketIndireto - AT.ticketDireto) / AT.ticketDireto) * 100;
+        h += '<br>Ticket da venda direta: ' + reais(AT.ticketDireto) + '. Da indireta: ' + reais(AT.ticketIndireto) +
+          (Math.abs(difT) >= 10
+            ? ' \u2014 ' + fmt(Math.abs(difT), 0) + '% ' + (difT > 0 ? 'maior' : 'menor') + ', o que ' + (difT > 0 ? 'reforca o valor do canal: quem chega por ele e volta compra mais.' : 'sugere que o link do criador leva a compra de impulso, de valor menor.')
+            : '.');
+      }
+      h += '</div></div>';
     }
 
     // produtos no canal

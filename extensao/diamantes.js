@@ -1262,8 +1262,29 @@
         comissaoPaga: n(rd.dis_total_seller_commission),
         roi: n(rd.dis_total_roi),
         roiVariacao: (rd.roi_diff != null && n(rd.roi_diff) > -1000 && n(rd.roi_diff) < 100000) ? Math.round(n(rd.roi_diff) * 10) / 10 : null,
-        itensVendidos: n(rd.total_gross_item_sold)
+        itensVendidos: n(rd.total_gross_item_sold),
+        compradores: n(rd.sum_total_buyers),
+        novos: n(rd.total_new_buyers),
+        cliques: n(rd.clicks)
       };
+      // DIRETO x INDIRETO: a Shopee so cobra comissao da venda DIRETA, e e
+      // por isso que o ROI do canal parece tao alto. A venda indireta chega
+      // de graca — saber a proporcao muda a leitura inteira do canal.
+      var brk = rd.seller_attribution_breakdown || {};
+      if (brk.direct_orders != null || brk.indirect_orders != null) {
+        var dOrd = n(brk.direct_orders) || 0, iOrd = n(brk.indirect_orders) || 0;
+        var dAmt = n(brk.direct_order_amount) != null ? n(brk.direct_order_amount) / 100000 : 0;
+        var iAmt = n(brk.indirect_order_amount) != null ? n(brk.indirect_order_amount) / 100000 : 0;
+        a.atribuicao = {
+          diretos: dOrd, indiretos: iOrd,
+          gmvDireto: dAmt, gmvIndireto: iAmt,
+          pctDiretos: (dOrd + iOrd) ? (dOrd / (dOrd + iOrd)) * 100 : null,
+          pctGmvDireto: (dAmt + iAmt) ? (dAmt / (dAmt + iAmt)) * 100 : null,
+          ticketDireto: dOrd ? dAmt / dOrd : null,
+          ticketIndireto: iOrd ? iAmt / iOrd : null
+        };
+        logar('afiliados_atribuicao', dOrd + ' diretos e ' + iOrd + ' indiretos', url);
+      }
       logar('afiliados', 'ROI ' + (a.resumo.roi ? a.resumo.roi.toFixed(1) : '?') + 'x · ' + a.resumo.pedidos + ' pedidos', url);
     }
     // top 5 afiliados (por ROI/GMV)
