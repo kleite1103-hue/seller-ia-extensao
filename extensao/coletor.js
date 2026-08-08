@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.11.0';
+  var VERSAO = '1.12.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -42,6 +42,28 @@
   // CORS — por isso o navegador acusava CORS e republicar a funcao nunca
   // resolvia. Agora a pessoa cola a chave real uma vez e ela fica salva.
   var SIA_ANON_KEY = '';
+
+  var SIA_URL_ACESSO = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/acesso';
+
+  /* Impressao digital do navegador: identifica a MAQUINA, nao a pessoa.
+     Serve para a sessao unica saber que e o mesmo lugar de sempre e nao
+     ficar derrubando quem so recarregou a pagina. */
+  function digitalDoNavegador() {
+    try {
+      var partes = [
+        navigator.userAgent, navigator.language,
+        screen.width + 'x' + screen.height, screen.colorDepth,
+        new Date().getTimezoneOffset(), navigator.hardwareConcurrency || '',
+        navigator.platform || ''
+      ].join('|');
+      var h = 0;
+      for (var i = 0; i < partes.length; i++) {
+        h = ((h << 5) - h) + partes.charCodeAt(i);
+        h = h & h;
+      }
+      return 'd' + Math.abs(h).toString(36);
+    } catch (e) { return 'd0'; }
+  }
 
   var ICONE_SOL = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></svg>';
   var ICONE_LUA = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>';
@@ -2438,6 +2460,16 @@
           estado.precific.tipoVendedor = _pt;
           estado.sujo = true; render(); return;
         }
+        if (voltaA.id === 'sia-acesso-entrar') { acessoEntrar(); return; }
+        if (voltaA.id === 'sia-acesso-tentar') {
+          estado.acesso.erro = null; estado.acesso.verificando = true;
+          render(); acessoValidar(); return;
+        }
+        if (voltaA.id === 'sia-acesso-assinar') {
+          try { window.open('https://selleria.com.br', '_blank', 'noopener'); } catch (e) { }
+          return;
+        }
+        if (voltaA.id === 'sia-acesso-sair') { acessoSair(); return; }
         if (voltaA.id === 'sia-serv-voltar') { estado.telaServico = null; render(); return; }
         if (voltaA.id === 'sia-cfg-abrir-ext') {
           try {
@@ -2604,6 +2636,17 @@
         }
         var _cmp2 = voltaA.getAttribute('data-comparar');
         if (_cmp2) { compararComVitrine(_cmp2); return; }
+        if (voltaA.id === 'sia-sem-gerar' && estado.acessoToken && estado.acesso.usuario && !estado.acesso.usuario.ilimitado) {
+          acessoPodeGerar('relatorio_semanal', function (c2) {
+            if (!c2.pode) {
+              mostrarExpl('<b>Cota semanal esgotada.</b> Voce ja gerou ' + c2.usado + ' de ' + c2.limite +
+                ' panoramas neste ciclo. Ela renova a cada 30 dias.');
+              return;
+            }
+            gerarSemanal();
+          });
+          return;
+        }
         if (voltaA.id === 'sia-sem-gerar') { estado.semanal = estado.semanal || {}; try { gerarSemanal(); } catch (e3) { estado.semanal.erro = 'Erro: ' + String(e3 && e3.message || e3); render(); } return; }
         if (voltaA.id === 'sia-sem-novo') { estado.semanal = estado.semanal || {}; estado.semanal.markdown = null; render(); return; }
         if (voltaA.id === 'sia-sem-pdf') { imprimirSemanal(); return; }
@@ -2657,6 +2700,18 @@
         if (el.id === 'sia-sem-novo') { estado.semanal.markdown = null; render(); return; }
         if (el.id === 'sia-sem-pdf') { imprimirSemanal(); return; }
         if (el.id === 'sia-rel-gerar') {
+          // COTA antes de gastar API: se estourou, avisa em vez de gerar.
+          if (estado.acessoToken && estado.acesso.usuario && !estado.acesso.usuario.ilimitado) {
+            acessoPodeGerar('relatorio_mensal', function (c) {
+              if (!c.pode) {
+                mostrarExpl('<b>Cota do ciclo esgotada.</b> Voce ja gerou ' + c.usado + ' de ' + c.limite +
+                  ' relatorios mensais neste ciclo. Ela renova a cada 30 dias \u2014 ou fale com a Efeito Vendas sobre um plano maior.');
+                return;
+              }
+              try { gerarRelatorio(); } catch (e9) { mostrarExpl('Erro: ' + esc(String(e9 && e9.message || e9))); }
+            });
+            return;
+          }
           // Sem este try, um ReferenceError dentro de gerarRelatorio morria no
           // console e o botao "nao fazia nada" — que foi exatamente o caso do
           // inicioDoDiaBRT. Agora o erro aparece na tela, com a linha.
@@ -2807,6 +2862,7 @@
 
   ligar('sia-recoletar', 'click', function () {
     if (estado.coletaProgresso !== null) return;
+    acessoRegistrar('coleta');
     coletaJaTentada = true;
     coletaCompleta(function () { render(); });
     render();
@@ -6228,6 +6284,168 @@
     return h;
   }
 
+  /* ============ ACESSO ============
+     Sem email liberado a gaveta nao abre. O token vale 24h e a sessao e
+     unica: entrar em outra maquina encerra esta. */
+  function acessoChamar(corpo) {
+    return fetch(SIA_URL_ACESSO, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
+    }).then(function (r) { return r.json(); });
+  }
+  function acessoSalvarToken(tok, quando) {
+    try { chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'acesso_token', valor: tok }, function () { void chrome.runtime.lastError; }); } catch (e) { }
+    try { chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'acesso_email', valor: quando || '' }, function () { void chrome.runtime.lastError; }); } catch (e) { }
+    estado.acessoToken = tok;
+  }
+  function acessoValidar() {
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'acesso_token' }, function (r) {
+        void chrome.runtime.lastError;
+        var tok = r && r.valor;
+        if (!tok) {
+          estado.acesso.verificando = false;
+          // traz o ultimo email usado, para nao digitar de novo
+          try {
+            chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'acesso_email' }, function (r2) {
+              void chrome.runtime.lastError;
+              if (r2 && r2.valor) estado.acesso.email = r2.valor;
+              render();
+            });
+          } catch (e) { render(); }
+          return;
+        }
+        estado.acessoToken = tok;
+        acessoChamar({ acao: 'validar', token: tok }).then(function (r3) {
+          estado.acesso.verificando = false;
+          if (r3 && r3.ok) {
+            estado.acesso.liberado = true;
+            estado.acesso.usuario = r3.usuario;
+            estado.assinatura = {
+              plano: r3.usuario.plano || 'Seller.IA', email: r3.usuario.email,
+              expiraEm: r3.usuario.expira_em ? Math.floor(new Date(r3.usuario.expira_em).getTime() / 1000) : null
+            };
+          } else {
+            estado.acesso.liberado = false;
+            estado.acesso.erro = (r3 && r3.motivo === 'outra_sessao')
+              ? 'Sua conta foi aberta em outro computador. Entre de novo para usar aqui.'
+              : (r3 && r3.erro) || null;
+            acessoSalvarToken('', estado.acesso.email);
+          }
+          render();
+        }).catch(function () {
+          // servidor fora: avisa, nao finge que esta tudo bem
+          estado.acesso.verificando = false;
+          estado.acesso.erro = 'FORA_DO_AR';
+          render();
+        });
+      });
+    } catch (e) {
+      estado.acesso.verificando = false;
+      render();
+    }
+  }
+  function acessoEntrar() {
+    var campo = $('sia-acesso-email');
+    var email = (campo && campo.value || '').trim().toLowerCase();
+    if (!email || email.indexOf('@') < 0) {
+      estado.acesso.erro = 'Digite o email da sua assinatura.';
+      render(); return;
+    }
+    estado.acesso.entrando = true;
+    estado.acesso.erro = null;
+    estado.acesso.email = email;
+    render();
+    acessoChamar({ acao: 'entrar', email: email, dispositivo: digitalDoNavegador() })
+      .then(function (r) {
+        estado.acesso.entrando = false;
+        if (r && r.ok) {
+          acessoSalvarToken(r.token, email);
+          estado.acesso.liberado = true;
+          estado.acesso.usuario = r.usuario;
+          estado.acesso.aviso = r.aviso || null;
+          estado.assinatura = {
+            plano: r.usuario.plano || 'Seller.IA', email: r.usuario.email,
+            expiraEm: r.usuario.expira_em ? Math.floor(new Date(r.usuario.expira_em).getTime() / 1000) : null
+          };
+        } else {
+          estado.acesso.erro = (r && r.erro) || 'Nao consegui liberar o acesso.';
+        }
+        render();
+      })
+      .catch(function () {
+        estado.acesso.entrando = false;
+        estado.acesso.erro = 'FORA_DO_AR';
+        render();
+      });
+  }
+  function acessoSair() {
+    if (estado.acessoToken) acessoChamar({ acao: 'sair', token: estado.acessoToken });
+    acessoSalvarToken('', estado.acesso.email);
+    estado.acesso.liberado = false;
+    estado.acesso.usuario = null;
+    estado.assinatura = null;
+    render();
+  }
+  // conta o uso e verifica a cota antes de gastar API
+  function acessoPodeGerar(tipo, aoResponder) {
+    if (!estado.acessoToken) { aoResponder({ pode: true }); return; }
+    acessoChamar({ acao: 'cota', token: estado.acessoToken, tipo: tipo })
+      .then(function (r) { aoResponder(r && r.ok ? r : { pode: true }); })
+      .catch(function () { aoResponder({ pode: true }); });
+  }
+  function acessoRegistrar(tipo) {
+    if (!estado.acessoToken) return;
+    try {
+      acessoChamar({
+        acao: 'uso', token: estado.acessoToken, tipo: tipo,
+        loja: estado.loja ? estado.loja.shop_id : null,
+        loja_nome: estado.loja ? estado.loja.nome : null
+      });
+    } catch (e) { /* noop */ }
+  }
+
+  function renderPortaria() {
+    var A = estado.acesso;
+    var h = '<div style="max-width:400px;margin:34px auto;padding:0 8px">';
+
+    if (A.verificando) {
+      return h + '<div style="text-align:center;padding:60px 0;color:var(--t2);font-size:15px">Verificando o seu acesso...</div></div>';
+    }
+
+    if (A.erro === 'FORA_DO_AR') {
+      return h + '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:28px;text-align:center">' +
+        '<div style="font-size:19px;font-weight:600;color:var(--t0);margin-bottom:10px">Nao consegui falar com o servidor</div>' +
+        '<div style="font-size:14.5px;color:var(--t1);line-height:1.6;margin-bottom:18px">' +
+        'Pode ser a sua internet ou uma manutencao rapida do nosso lado. Nada do seu trabalho se perde \u2014 tente de novo em alguns instantes.</div>' +
+        '<button id="sia-acesso-tentar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:15px;padding:14px;border-radius:var(--r-btn,14px);cursor:pointer">Tentar de novo</button>' +
+        '</div></div>';
+    }
+
+    h += '<div style="text-align:center;margin-bottom:24px">' +
+      '<div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:17px;background:var(--t0);color:var(--b1);font:500 32px Archivo,Outfit,Arial;letter-spacing:-.04em;margin-bottom:14px">S<span style="color:var(--mk)">.</span></div>' +
+      '<div style="font:500 25px Archivo,Outfit,Arial;letter-spacing:-.03em;color:var(--t0)">Seller<span style="color:var(--mk)">.</span>ia</div>' +
+      '<div style="font-size:14.5px;color:var(--t2);margin-top:6px;line-height:1.5">Entre com o email da sua assinatura</div></div>';
+
+    h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:var(--r-card,22px);padding:22px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:9.5px;color:var(--t2);letter-spacing:.08em;margin-bottom:6px">EMAIL</div>' +
+      '<input id="sia-acesso-email" type="email" value="' + esc(A.email || '') + '" placeholder="seu@email.com" ' +
+      'style="width:100%;box-sizing:border-box;background:var(--b1);border:1px solid var(--li);border-radius:12px;padding:13px;color:var(--t0);font-family:inherit;font-size:15px;margin-bottom:12px">' +
+      '<button id="sia-acesso-entrar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:15.5px;padding:14px;border-radius:var(--r-btn,14px);cursor:pointer">' +
+      (A.entrando ? 'Entrando...' : 'Entrar') + '</button>';
+
+    if (A.erro) {
+      h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b0));border-left:3px solid var(--rd);border-radius:0 12px 12px 0;padding:12px 14px;margin-top:14px;font-size:14px;color:var(--t1);line-height:1.5">' + esc(A.erro) + '</div>';
+    }
+    h += '<div style="font-size:13px;color:var(--t3);line-height:1.55;margin-top:14px;text-align:center">' +
+      'Seu acesso vale para uma maquina por vez. Se entrar em outra, esta e encerrada.</div></div>';
+
+    h += '<div style="text-align:center;margin-top:20px;font-size:13.5px;color:var(--t3);line-height:1.6">' +
+      'Ainda nao tem acesso?<br><span id="sia-acesso-assinar" style="color:var(--mk);cursor:pointer;text-decoration:underline">Conheca a Seller.IA</span></div>';
+
+    return h + '</div>';
+  }
+
   function renderAjustes() {
     var h = '';
     function bloco2(rot, titulo, corpo2) {
@@ -6270,8 +6488,20 @@
     }
 
     // ---- ASSINATURA ----
+    var AC = estado.acesso.usuario;
+    if (AC) {
+      h += bloco2('SEU ACESSO', esc(AC.nome || AC.email),
+        '<div style="font-size:14px;color:var(--t1);line-height:1.6">' +
+        esc(AC.email) + '<br>' +
+        'Papel: <b>' + esc(AC.papel) + '</b>' +
+        (AC.ilimitado ? ' \u00b7 cota ilimitada'
+          : ' \u00b7 ' + AC.cota_mensal + ' relatorio(s) mensal e ' + AC.cota_semanal + ' semanais por ciclo') +
+        (AC.expira_em ? '<br>Renova em ' + new Date(AC.expira_em).toLocaleDateString('pt-BR') : '') +
+        '</div>' +
+        '<button id="sia-acesso-sair" style="margin-top:14px;background:var(--b2);border:1px solid var(--li);color:var(--t1);font-family:inherit;font-size:13.5px;padding:10px 18px;border-radius:999px;cursor:pointer">Sair desta maquina</button>');
+    }
     var A = estado.assinatura;
-    if (A) {
+    if (A && !AC) {
       var dias = A.expiraEm ? Math.floor((A.expiraEm - Date.now() / 1000) / 86400) : null;
       h += bloco2('ASSINATURA', esc(A.plano || 'Seller.IA'),
         '<div style="font-size:14px;color:var(--t1);line-height:1.6">' + esc(A.email || '') +
@@ -7508,6 +7738,7 @@
 
     estado.semanal.etapa = 'O consultor esta analisando a semana';
     estado.semanal.pct = 55;
+    acessoRegistrar('relatorio_semanal');
     render();
 
     fetch(SIA_URL_RELATORIO, {
@@ -7841,6 +8072,7 @@
           // relatorio era cortado no meio da secao 4, sumindo com as secoes
           // 5 a 8. Agora sao 1-4, 5-8 e 9-10.
           estado.rel.etapa = 'O consultor esta escrevendo o diagnostico'; estado.rel.pct = 62; render();
+          acessoRegistrar('relatorio_mensal');
           pedir(1, function (r1) {
             if (!r1 || !r1.ok) { falhouRelatorio(r1); return; }
             estado.rel.etapa = 'Analisando Ads e produtos'; estado.rel.pct = 78; render();
@@ -9044,6 +9276,23 @@
       ligarRelatorio();
       return;
     }
+    // PORTARIA: sem acesso liberado, nada mais e desenhado.
+    if (!estado.acesso.liberado) {
+      corpo.innerHTML = renderPortaria();
+      var campoAc = $('sia-acesso-email');
+      if (campoAc) {
+        campoAc.addEventListener('keydown', function (ev2) { if (ev2.key === 'Enter') acessoEntrar(); });
+        if (!estado.acesso.entrando) { try { campoAc.focus(); } catch (e) { } }
+      }
+      var abasEl = $('sia-abas'); if (abasEl) abasEl.style.display = 'none';
+      var rodEl = corpo.parentNode && corpo.parentNode.querySelector('.rodape');
+      if (rodEl) rodEl.style.display = 'none';
+      return;
+    }
+    var abasEl2 = $('sia-abas'); if (abasEl2) abasEl2.style.display = '';
+    var rodEl2 = corpo.parentNode && corpo.parentNode.querySelector('.rodape');
+    if (rodEl2) rodEl2.style.display = '';
+
     if (estado.telaServico) {
       try { corpo.innerHTML = renderServico(); }
       catch (err) { corpo.innerHTML = telaDeErro('Servico', err); }
@@ -9554,6 +9803,7 @@
     void chrome.runtime.lastError;
     if (r && r.valor) { estado.anonKey = r.valor; }
   });
+  acessoValidar();
   chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'temaEscuro' }, function (r) {
       void chrome.runtime.lastError;
       if (r && r.valor) aplicarTema(true);
