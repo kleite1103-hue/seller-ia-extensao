@@ -2219,6 +2219,11 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     while (voltaA && voltaA !== this) {
       if (voltaA.getAttribute) {
         if (voltaA.tagName === 'INPUT' || voltaA.tagName === 'SELECT' || voltaA.tagName === 'TEXTAREA') return;
+        // COMPARAR vem primeiro: havia 31 verificacoes antes dele no laco, e
+        // qualquer uma que casasse com um elemento pai consumia o clique.
+        var _cmp2 = voltaA.getAttribute('data-comparar');
+        if (_cmp2) { compararComVitrine(_cmp2); return; }
+
         if (voltaA.getAttribute('data-link-externo')) return;
         if (voltaA.id === 'sia-esp-exportar') {
           if (!estado.espiaoCru) {
@@ -2362,6 +2367,17 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           try { window.open('https://selleriaclub.com/assinatura', '_blank', 'noopener'); } catch (e) { /* noop */ }
           return;
         }
+        if (voltaA.id === 'sia-prec-calcular') {
+          // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
+          // render recria os campos e a ligacao se perde, entao o valor
+          // digitado nunca chegava em estado.precific e a conta nao saia.
+          estado.precific = estado.precific || {};
+          var campos = corpoEl().querySelectorAll('[data-prec]');
+          for (var cp2 = 0; cp2 < campos.length; cp2++) {
+            estado.precific[campos[cp2].getAttribute('data-prec')] = campos[cp2].value;
+          }
+          estado.sujo = true; render(); return;
+        }
         if (voltaA.id === 'sia-marg-calcular') {
           estado.margemCalc = estado.margemCalc || {};
           var cm = corpoEl().querySelectorAll('[data-marg]');
@@ -2382,18 +2398,6 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           var cm3 = corpoEl().querySelectorAll('[data-marg]');
           for (var mq3 = 0; mq3 < cm3.length; mq3++) estado.margemCalc[cm3[mq3].getAttribute('data-marg')] = cm3[mq3].value;
           estado.margemCalc.tipoVendedor = _mt;
-          estado.sujo = true; render(); return;
-        }
-        if (voltaA.getAttribute && voltaA.getAttribute('data-marg')) return;
-        if (voltaA.id === 'sia-prec-calcular') {
-          // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
-          // render recria os campos e a ligacao se perde, entao o valor
-          // digitado nunca chegava em estado.precific e a conta nao saia.
-          estado.precific = estado.precific || {};
-          var campos = corpoEl().querySelectorAll('[data-prec]');
-          for (var cp2 = 0; cp2 < campos.length; cp2++) {
-            estado.precific[campos[cp2].getAttribute('data-prec')] = campos[cp2].value;
-          }
           estado.sujo = true; render(); return;
         }
         if (voltaA.id === 'sia-anon-salvar') {
@@ -2442,8 +2446,6 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           }
           return;
         }
-        var _cmp2 = voltaA.getAttribute('data-comparar');
-        if (_cmp2) { compararComVitrine(_cmp2); return; }
         if (voltaA.id === 'sia-sem-gerar' && estado.acessoToken && estado.acesso.usuario && !estado.acesso.usuario.ilimitado) {
           acessoPodeGerar('relatorio_semanal', function (c2) {
             if (!c2.pode) {
@@ -6072,14 +6074,17 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
 
     // ---- OS CRIADORES ----
     if (AF.top && AF.top.length) {
-      h += olho('QUEM ESTA VENDENDO POR VOCE', 'Os cinco que mais entregam no periodo. <b>Custo por venda</b> e a comissao dividida pelos pedidos: compare com o CPA de anuncio para saber qual canal sai mais barato. <b>Novos</b> mostra quantos dos compradores nunca tinham comprado na loja \u2014 esse e o valor que nao aparece no GMV.');
+      h += olho('QUEM ESTA VENDENDO POR VOCE', 'Os cinco que mais entregam no periodo. Alguns nao sao pessoas: <b>canais como o YouTube Shopping</b> aparecem aqui como se fossem criadores, porque a Shopee os trata do mesmo jeito \u2014 eles sao marcados como <b>canal</b>. <b>Custo por venda</b> e a comissao dividida pelos pedidos: compare com o CPA de anuncio. <b>Novos</b> mostra quantos compradores nunca tinham comprado na loja.');
       h += '<table><tr><th>CRIADOR</th><th class="num">PEDIDOS</th><th class="num">GMV</th><th class="num">CUSTO/VENDA</th><th class="num">NOVOS</th></tr>';
       var topOrd = AF.top.slice().sort(function (a, b) { return (b.gmv || 0) - (a.gmv || 0); });
       for (var ta = 0; ta < topOrd.length; ta++) {
         var T4 = topOrd[ta];
         var cpvT = (T4.comissao && T4.pedidos) ? T4.comissao / T4.pedidos : null;
+        // canal automatico da Shopee nao e criador: dizer isso evita a
+        // leitura errada de que "um afiliado chamado YouTube" esta vendendo
+        var ehCanal = T4.rede || /youtube|shopee|tiktok|instagram|facebook|_shopping|affiliate|network/i.test(String(T4.usuario || T4.nome || ''));
         h += '<tr><td><b>' + sig(String(T4.nome || T4.usuario || '?').slice(0, 26)) + '</b>' +
-          (T4.rede ? ' <span class="pill" style="font-size:10px;color:var(--px)">rede</span>' : '') +
+          (ehCanal ? ' <span style="font-size:10px;font-family:Space Mono,monospace;color:var(--px);border:1px solid var(--px);border-radius:999px;padding:1px 7px">canal</span>' : '') +
           (T4.cliques ? '<br><span style="color:var(--t3);font-size:12px">' + fmt(T4.cliques, 0) + ' cliques</span>' : '') + '</td>' +
           '<td class="num">' + fmt(T4.pedidos, 0) + '</td>' +
           '<td class="num">' + (T4.gmv != null ? reais(T4.gmv) : '\u2014') + '</td>' +
@@ -6089,6 +6094,22 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           (T4.pctNovos != null ? fmt(T4.pctNovos, 0) + '%' : '\u2014') + '</td></tr>';
       }
       h += '</table>';
+
+      // separa o que vem de canal automatico do que vem de gente
+      var canais = topOrd.filter(function (x) {
+        return x.rede || /youtube|shopee|tiktok|instagram|facebook|_shopping|affiliate|network/i.test(String(x.usuario || x.nome || ''));
+      });
+      var pessoas = topOrd.filter(function (x) { return canais.indexOf(x) < 0; });
+      if (canais.length && pessoas.length) {
+        var gmvCanal = 0, gmvPessoa = 0;
+        canais.forEach(function (x) { gmvCanal += x.gmv || 0; });
+        pessoas.forEach(function (x) { gmvPessoa += x.gmv || 0; });
+        h += '<div class="nota">' +
+          '<b>' + reais(gmvCanal) + '</b> vieram de canais automaticos da Shopee, como o YouTube Shopping, e <b>' + reais(gmvPessoa) + '</b> de criadores de verdade. ' +
+          (gmvCanal > gmvPessoa
+            ? 'O canal automatico entrega sozinho, sem relacionamento \u2014 mas voce tambem nao controla. Criador proprio e o que da para ampliar.'
+            : 'Os criadores entregam mais que o canal automatico, o que mostra que o relacionamento esta valendo.') + '</div>';
+      }
 
       // quem sai mais barato que o anuncio
       if (cpaAds) {

@@ -91,11 +91,18 @@ function montarReceita(modo: string, ctx: any) {
     id: "campanhas_ativas", paginado: true, paginas: 10, tamanho: 20,
     url: "/api/pas/v1/homepage/query/?{spc}",
     metodo: "POST", carimbaPeriodo: true,
+    // CORPO EXATO da captura. Eu tinha inventado field/value e sort_by, que
+    // nao existem: o filtro real leva campaign_type, state, search_term e
+    // is_valid_rebate_only dentro do mesmo objeto.
     corpo: {
       start_time: "{ini}", end_time: "{fimAds}",
-      offset: "{offset}", limit: 20,
-      filter_list: [{ field: "state", value: ["ongoing"] }],
-      sort_by: "cost", sort_type: "desc", need_total: true,
+      filter_list: [{
+        campaign_type: "product_homepage_v3",
+        state: "ongoing",
+        search_term: "",
+        is_valid_rebate_only: false,
+      }],
+      offset: "{offset}", limit: 20, use_paid_gmv: false,
     },
     fase: "Lendo as campanhas ativas",
   });
@@ -105,9 +112,13 @@ function montarReceita(modo: string, ctx: any) {
     metodo: "POST", carimbaPeriodo: true, soComReceita: true,
     corpo: {
       start_time: "{ini}", end_time: "{fimAds}",
-      offset: "{offset}", limit: 20,
-      filter_list: [{ field: "state", value: ["paused"] }],
-      sort_by: "cost", sort_type: "desc", need_total: true,
+      filter_list: [{
+        campaign_type: "product_homepage_v3",
+        state: "paused",
+        search_term: "",
+        is_valid_rebate_only: false,
+      }],
+      offset: "{offset}", limit: 20, use_paid_gmv: false,
     },
     fase: "Lendo as campanhas pausadas", opcional: true,
   });

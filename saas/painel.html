@@ -437,7 +437,9 @@ document.getElementById('in-email').addEventListener('keydown', function(e){ if(
 // ============================================================
 // O ZIP fica ao lado do painel, entao o caminho relativo funciona em
 // qualquer lugar que ele seja hospedado.
-var URL_EXTENSAO = 'seller-ia.zip';
+// o numero no fim obriga o navegador a baixar de novo quando eu atualizo
+// o pacote, em vez de entregar o que ficou no cache
+var URL_EXTENSAO = 'seller-ia.zip?v=' + Date.now();
 
 function abrirAreaUsuario(){
   document.getElementById('tela-entrada').style.display='none';
