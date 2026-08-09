@@ -1713,8 +1713,6 @@
           chamadas: 0, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
       }, (PROFUNDA ? 5 : 2) * 60 * 1000);
       (async function () {
-        // registra o periodo REAL pedido, para a tela poder mostrar
-        estado.diarioColeta.periodo = { ini: ini, fim: fim, forcado: !!periodoForcado };
         function prog(t) {
           estado.coletaProgresso = t; estado.sujo = true;
           if (typeof aoProgresso === 'function') { try { aoProgresso(t); } catch (e) { } }
@@ -1776,6 +1774,12 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         // A rota de Ads pede o ultimo segundo do dia, nao a meia-noite
         // seguinte: por isso fimAds e fim menos um.
         var fimAds = fim - 1;
+
+        // registra o periodo REAL pedido, para a tela poder mostrar.
+        // ANTES esta linha estava no topo do bloco, acima do calculo de ini
+        // e fim — e era ela que derrubava a coleta com "ini is not defined".
+        estado.diarioColeta = estado.diarioColeta || {};
+        estado.diarioColeta.periodo = { ini: ini, fim: fim, forcado: !!periodoForcado };
 
         // Periodo anterior, do mesmo tamanho, para a comparacao. A receita
         // pede iniAnt e fimAnt e eles precisam existir aqui.
