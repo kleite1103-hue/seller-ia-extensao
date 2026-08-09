@@ -55,11 +55,14 @@ async function atender(req: Request): Promise<Response> {
       db.from("sia_eventos").select("*").order("em", { ascending: false }).limit(60),
     ]);
     const { data: papeis } = await db.from("sia_papeis").select("*").order("ordem");
+    const { data: planos } = await db.from("sia_planos").select("*").order("ordem");
+    const { data: lojas } = await db.from("sia_painel_lojas").select("*").limit(200);
     return json({
       ok: true,
       resumo: resumo.data, usuarios: usuarios.data || [],
       uso_diario: diario.data || [], top_uso: top.data || [],
       eventos: eventos.data || [], papeis: papeis || [],
+      planos: planos || [], lojas: lojas || [],
     });
   }
 
@@ -72,6 +75,8 @@ async function atender(req: Request): Promise<Response> {
       papel: body.papel || "usuario",
       status: body.status || "ativo",
       plano: body.plano || null,
+      plano_id: body.plano_id || null,
+      lojas_extra: body.lojas_extra !== undefined ? parseInt(body.lojas_extra, 10) || 0 : undefined,
       observacao: body.observacao || null,
       atualizado_em: new Date().toISOString(),
     };
@@ -121,6 +126,44 @@ async function atender(req: Request): Promise<Response> {
     return json({ ok: true, criados, existentes, emails: linhas });
   }
 
+  // ---------- LIBERAR UMA LOJA DO SLOT ----------
+  if (acao === "liberar_loja") {
+    await db.from("sia_lojas").update({ ativa: false, liberada_em: new Date().toISOString() })
+      .eq("usuario_id", body.usuario_id).eq("shop_id", body.shop_id);
+    await registrar("loja_liberada", { usuario_id: body.usuario_id, shop_id: body.shop_id });
+    return json({ ok: true });
+  }
+
+  // ---------- HISTORICO DE UMA LOJA ----------
+  if (acao === "historico") {
+    const [col, rel] = await Promise.all([
+      db.from("sia_coletas").select("id, periodo_ini, periodo_fim, modo, conta, em")
+        .eq("shop_id", body.shop_id).order("em", { ascending: false }).limit(40),
+      db.from("sia_relatorios").select("id, tipo, periodo, custo_estimado, em")
+        .eq("shop_id", body.shop_id).order("em", { ascending: false }).limit(30),
+    ]);
+    return json({ ok: true, coletas: col.data || [], relatorios: rel.data || [] });
+  }
+
+  // ---------- LER UM RELATORIO GUARDADO ----------
+  if (acao === "relatorio") {
+    const { data } = await db.from("sia_relatorios").select("*").eq("id", body.id).maybeSingle();
+    return json({ ok: true, relatorio: data });
+  }
+
+  // ---------- AJUSTAR UM PLANO ----------
+  if (acao === "plano") {
+    await db.from("sia_planos").update({
+      nome: body.nome, lojas: parseInt(body.lojas, 10),
+      cota_mensal: parseInt(body.cota_mensal, 10),
+      cota_semanal: parseInt(body.cota_semanal, 10),
+      preco: body.preco ? parseFloat(body.preco) : null,
+      hotmart_oferta: body.hotmart_oferta || null,
+    }).eq("id", body.id);
+    await registrar("plano_ajustado", { id: body.id });
+    return json({ ok: true });
+  }
+
   // ---------- DERRUBAR SESSAO ----------
   if (acao === "derrubar") {
     await db.from("sia_sessoes").update({ encerrada_em: new Date().toISOString(), motivo_fim: "revogada" })
@@ -146,7 +189,9 @@ async function atender(req: Request): Promise<Response> {
       db.from("sia_sessoes").select("*").eq("usuario_id", body.usuario_id).order("criada_em", { ascending: false }).limit(20),
       db.from("sia_eventos").select("*").eq("usuario_id", body.usuario_id).order("em", { ascending: false }).limit(40),
     ]);
-    return json({ ok: true, usuario: u.data, uso: uso.data || [], sessoes: sess.data || [], eventos: ev.data || [] });
+    const { data: lojas } = await db.from("sia_lojas").select("*")
+      .eq("usuario_id", body.usuario_id).order("ultimo_uso", { ascending: false, nullsFirst: false });
+    return json({ ok: true, usuario: u.data, uso: uso.data || [], sessoes: sess.data || [], eventos: ev.data || [], lojas: lojas || [] });
   }
 
   // ---------- AJUSTAR COTA DO PAPEL ----------

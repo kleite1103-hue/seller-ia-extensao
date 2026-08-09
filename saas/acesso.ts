@@ -151,15 +151,25 @@ async function atender(req: Request): Promise<Response> {
     const { data: cota } = await db.rpc("sia_cota", { p_usuario: u.id });
     const c = Array.isArray(cota) ? cota[0] : cota;
 
+    // consentimento: pedido uma vez, guardado com data e versao
+    const precisaAceite = !u.aceite_em;
+    if (body.aceite && precisaAceite) {
+      await db.from("sia_usuarios").update({
+        aceite_em: new Date().toISOString(), aceite_versao: String(body.aceite),
+      }).eq("id", u.id);
+    }
+
     return json({
       ok: true,
       token,
+      precisa_aceite: precisaAceite && !body.aceite,
       expira_em: expira.toISOString(),
       usuario: {
         nome: u.nome, email: u.email, papel: u.papel, plano: u.plano,
         status: u.status, expira_em: u.expira_em,
         cota_mensal: c?.mensal ?? 1, cota_semanal: c?.semanal ?? 4,
         ilimitado: !!c?.ilimitado,
+        plano_id: u.plano_id,
         admin: u.papel === "adm" || u.papel === "ceo",
       },
       aviso: derrubou ? `A sessao em ${derrubou} foi encerrada — cada acesso vale para uma maquina por vez.` : null,
@@ -204,6 +214,35 @@ async function atender(req: Request): Promise<Response> {
   }
 
   // ============================================================
+  // LOJA — pode usar esta loja? Registra se couber no plano.
+  // ============================================================
+  if (acao === "loja") {
+    const token = String(body.token || "");
+    const shop = String(body.shop_id || "");
+    if (!shop) return json({ ok: false, erro: "sem loja" }, 400);
+
+    const { data: s } = await db.from("sia_sessoes")
+      .select("usuario_id, encerrada_em, expira_em").eq("token", token).maybeSingle();
+    if (!s || s.encerrada_em || new Date(s.expira_em) < new Date()) {
+      return json({ ok: false, erro: "sessao invalida" }, 401);
+    }
+    const { data } = await db.rpc("sia_pode_loja", {
+      p_usuario: s.usuario_id, p_shop: shop, p_nome: body.shop_nome || null,
+    });
+    const r = Array.isArray(data) ? data[0] : data;
+    if (!r?.pode) {
+      await evento("loja_bloqueada", null, s.usuario_id, { shop, usadas: r?.usadas, limite: r?.limite });
+      return json({
+        ok: false,
+        erro: `Seu plano cobre ${r?.limite} loja${r?.limite > 1 ? "s" : ""} e voce ja esta usando ${r?.usadas}. ` +
+          `Para gerenciar mais, fale com a Efeito Vendas sobre o plano de agencia.`,
+        usadas: r?.usadas, limite: r?.limite, motivo: "limite_lojas",
+      }, 403);
+    }
+    return json({ ok: true, usadas: r?.usadas, limite: r?.limite });
+  }
+
+  // ============================================================
   // COTA — pode gerar este relatorio?
   // ============================================================
   if (acao === "cota") {
@@ -213,7 +252,11 @@ async function atender(req: Request): Promise<Response> {
     if (!s || s.encerrada_em || new Date(s.expira_em) < new Date()) {
       return json({ ok: false, erro: "sessao invalida" }, 401);
     }
-    const { data } = await db.rpc("sia_pode_gerar", { p_usuario: s.usuario_id, p_tipo: tipo });
+    // a cota vale POR LOJA: quem gerencia tres lojas tem tres cotas
+    const shop = String(body.loja || "");
+    const { data } = shop
+      ? await db.rpc("sia_pode_gerar_loja", { p_usuario: s.usuario_id, p_shop: shop, p_tipo: tipo })
+      : await db.rpc("sia_pode_gerar", { p_usuario: s.usuario_id, p_tipo: tipo });
     const r = Array.isArray(data) ? data[0] : data;
     return json({ ok: true, pode: !!r?.pode, usado: r?.usado ?? 0, limite: r?.limite ?? 0, motivo: r?.motivo });
   }
@@ -232,6 +275,34 @@ async function atender(req: Request): Promise<Response> {
       loja_id: body.loja || null, loja_nome: body.loja_nome || null,
       detalhe: body.detalhe || null,
     });
+    // GUARDA O RETRATO. O historico e o que permite comparar periodos sem
+    // recoletar, e sobrevive a troca de maquina.
+    try {
+      if (tipo === "coleta" && body.retrato) {
+        await db.from("sia_coletas").insert({
+          usuario_id: s.usuario_id,
+          shop_id: body.loja || null, shop_nome: body.loja_nome || null,
+          periodo_ini: body.retrato.ini || null, periodo_fim: body.retrato.fim || null,
+          modo: body.retrato.modo || null,
+          conta: body.retrato.conta || null,
+          campanhas: body.retrato.campanhas || null,
+          produtos: body.retrato.produtos || null,
+          afiliados: body.retrato.afiliados || null,
+          marketing: body.retrato.marketing || null,
+        });
+      }
+      if (tipo.startsWith("relatorio") && body.markdown) {
+        await db.from("sia_relatorios").insert({
+          usuario_id: s.usuario_id,
+          shop_id: body.loja || null, shop_nome: body.loja_nome || null,
+          tipo: tipo === "relatorio_semanal" ? "semanal" : "mensal",
+          periodo: body.periodo || null,
+          markdown: body.markdown,
+          custo_estimado: body.custo || null,
+        });
+      }
+    } catch (e) { /* guardar nunca derruba o uso */ }
+
     const campo = tipo.startsWith("relatorio") ? "total_relatorios" : "total_coletas";
     const { data: atual } = await db.from("sia_usuarios").select(campo).eq("id", s.usuario_id).maybeSingle();
     await db.from("sia_usuarios")
@@ -279,12 +350,23 @@ async function atender(req: Request): Promise<Response> {
     if (suspende.includes(evt)) status = evt.includes("CANCEL") ? "cancelado" : "suspenso";
     else if (!libera.includes(evt)) status = "ativo";
 
+    // QUAL PLANO? A oferta da Hotmart diz. Sem correspondencia, entra no
+    // Individual e o painel ajusta — melhor liberar uma loja e corrigir do
+    // que deixar quem pagou sem acesso.
+    const oferta = d.purchase?.offer?.code || d.offer?.code || d.subscription?.plan?.name || null;
+    let planoId = "individual";
+    if (oferta) {
+      const { data: pl } = await db.from("sia_planos")
+        .select("id").or(`hotmart_oferta.eq.${oferta},id.eq.${String(oferta).toLowerCase()}`).maybeSingle();
+      if (pl?.id) planoId = pl.id;
+    }
+
     const expira = new Date(Date.now() + 32 * 86400 * 1000).toISOString();
     const { data: existente } = await db.from("sia_usuarios").select("id, papel").ilike("email", email).maybeSingle();
 
     if (existente) {
       await db.from("sia_usuarios").update({
-        status, plano, origem: "hotmart",
+        status, plano, plano_id: planoId, origem: "hotmart",
         hotmart_id: d.subscription?.subscriber?.code || d.purchase?.transaction || null,
         expira_em: status === "ativo" ? expira : null,
         atualizado_em: new Date().toISOString(),
@@ -296,13 +378,13 @@ async function atender(req: Request): Promise<Response> {
       }
     } else if (status === "ativo") {
       await db.from("sia_usuarios").insert({
-        email, nome, papel: "usuario", status: "ativo", origem: "hotmart", plano,
+        email, nome, papel: "usuario", status: "ativo", origem: "hotmart", plano, plano_id: planoId,
         hotmart_id: d.subscription?.subscriber?.code || d.purchase?.transaction || null,
         expira_em: expira,
       });
     }
-    await evento("hotmart_" + evt.toLowerCase(), email, existente?.id || null, { plano, status });
-    return json({ ok: true, email, status, evento: evt });
+    await evento("hotmart_" + evt.toLowerCase(), email, existente?.id || null, { plano, plano_id: planoId, oferta, status });
+    return json({ ok: true, email, status, evento: evt, plano: planoId });
   }
 
   return json({ ok: false, erro: "acao desconhecida", acoes: ["entrar", "validar", "cota", "uso", "sair", "hotmart"] }, 400);

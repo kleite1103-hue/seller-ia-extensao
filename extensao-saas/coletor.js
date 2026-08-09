@@ -81,6 +81,8 @@
       email: '', erro: null, entrando: false, aviso: null
     },
     acessoToken: null,
+    limiteLojas: null,       // mensagem quando a loja nao cabe no plano
+    lojasPlano: null,        // quantas usadas de quantas
     telaServico: null,       // atualizar | suporte | assinatura
     suporte: { texto: '', enviando: false, ok: false, erro: null },
     assinatura: null,
@@ -1754,6 +1756,24 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         var fimAnterior = ini - 1;
         var iniAnterior = ini - duracao;
 
+        // A LOJA CABE NO PLANO? Pergunta antes de gastar chamada nenhuma.
+        // O limite vive no servidor: mexer no arquivo nao contorna.
+        if (estado.acessoToken && estado.loja && estado.loja.shop_id) {
+          try {
+            var rLoja = await acessoChamar({
+              acao: 'loja', token: estado.acessoToken,
+              shop_id: String(estado.loja.shop_id),
+              shop_nome: estado.loja.nome || null
+            });
+            if (rLoja && !rLoja.ok && rLoja.motivo === 'limite_lojas') {
+              prog(null);
+              resolver({ ok: false, erro: rLoja.erro, limiteLojas: true, chamadas: 0, campanhas: 0, produtos: 0 });
+              return;
+            }
+            if (rLoja && rLoja.ok) estado.lojasPlano = { usadas: rLoja.usadas, limite: rLoja.limite };
+          } catch (eL) { /* servidor fora: nao trava a leitura */ }
+        }
+
         prog('Preparando a leitura...');
         var modo = PROFUNDA ? 'profunda' : 'normal';
         var totalChamadas = 0;
@@ -1803,6 +1823,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         }
 
         prog('Fechando a leitura...');
+        acessoRegistrar('coleta', { retrato: retratoDaColeta(ini, fim, modo) });
         estado.lidoEm = Date.now();
         if (estado.loja) guardarConta(estado.loja.shop_id);
         try { if (window.SIA_Diamantes && window.SIA_Diamantes.persistir) window.SIA_Diamantes.persistir(); } catch (e3) { }
@@ -2254,6 +2275,10 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           return;
         }
         if (voltaA.id === 'sia-acesso-sair') { acessoSair(); return; }
+        if (voltaA.id === 'sia-ver-planos') {
+          try { window.open('https://selleriaclub.com/planos', '_blank', 'noopener'); } catch (e) { }
+          return;
+        }
         if (voltaA.id === 'sia-serv-voltar') { estado.telaServico = null; render(); return; }
         if (voltaA.id === 'sia-cfg-abrir-ext') {
           try {
@@ -2645,7 +2670,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     if (estado.coletaProgresso !== null) return;
     acessoRegistrar('coleta');
     coletaJaTentada = true;
-    coletaCompleta(function () { render(); });
+    coletaCompleta(function (r) { guardarLimite(r); render(); });
     render();
   });
   ligar('sia-fechar', 'click', function () {
@@ -3021,6 +3046,10 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     }
   }
 
+  function guardarLimite(r) {
+    if (r && r.limiteLojas) { estado.limiteLojas = r.erro; estado.sujo = true; }
+    else if (r && r.ok) { estado.limiteLojas = null; }
+  }
   function dispararColeta() {
     if (coletaEmAndamento || estado.coletaProgresso) return;
     if (!estado.spc) {
@@ -3345,6 +3374,13 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
   // O periodo volta a ser o do painel da Shopee: e o que ela ja validou.
   // A tela apenas DIZ qual e, para nunca mais haver duvida sobre de onde
   // vem o numero.
+  function renderLimiteLojas() {
+    if (!estado.limiteLojas) return '';
+    return '<div style="background:color-mix(in srgb,var(--am) var(--tin,9%),var(--b0));border-left:3px solid var(--am);border-radius:0 18px 18px 0;padding:16px 18px;margin-bottom:14px">' +
+      '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:6px">Esta loja nao esta no seu plano</div>' +
+      '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(estado.limiteLojas) + '</div>' +
+      '<button id="sia-ver-planos" style="margin-top:12px;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:14px;padding:11px 22px;border-radius:var(--r-btn,14px);cursor:pointer">Ver os planos</button></div>';
+  }
   function renderAvisoPeriodo() {
     var gg = null;
     try { gg = window.SIA_Diamantes ? window.SIA_Diamantes.estado().gerenciais : null; } catch (e) { /* noop */ }
@@ -6204,11 +6240,17 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       estado.acesso.erro = 'Digite o email da sua assinatura.';
       render(); return;
     }
+    var chk = $('sia-aceite');
+    if (chk && !chk.checked) {
+      estado.acesso.erro = 'Para usar a Seller.IA e preciso concordar com a guarda das leituras da sua conta.';
+      render(); return;
+    }
+    estado.acesso.aceite = true;
     estado.acesso.entrando = true;
     estado.acesso.erro = null;
     estado.acesso.email = email;
     render();
-    acessoChamar({ acao: 'entrar', email: email, dispositivo: digitalDoNavegador() })
+    acessoChamar({ acao: 'entrar', email: email, dispositivo: digitalDoNavegador(), aceite: 'v1-' + new Date().toISOString().slice(0, 10) })
       .then(function (r) {
         estado.acesso.entrando = false;
         if (r && r.ok) {
@@ -6246,15 +6288,42 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       .then(function (r) { aoResponder(r && r.ok ? r : { pode: true }); })
       .catch(function () { aoResponder({ pode: true }); });
   }
-  function acessoRegistrar(tipo) {
+  function acessoRegistrar(tipo, extra) {
     if (!estado.acessoToken) return;
     try {
-      acessoChamar({
+      var pacote = {
         acao: 'uso', token: estado.acessoToken, tipo: tipo,
         loja: estado.loja ? estado.loja.shop_id : null,
         loja_nome: estado.loja ? estado.loja.nome : null
-      });
+      };
+      if (extra) for (var k in extra) pacote[k] = extra[k];
+      acessoChamar(pacote);
     } catch (e) { /* noop */ }
+  }
+
+  /* O retrato da leitura, para o historico. Vai o resumo de cada entidade,
+     nao o bruto inteiro: o que serve para comparar periodos depois. */
+  function retratoDaColeta(ini, fim, modo) {
+    function resumo(mapa, campos) {
+      var out = [];
+      for (var k in mapa) {
+        var e = mapa[k], m = e.metricas || {}, o = { id: k, nome: e.nome || null };
+        for (var i = 0; i < campos.length; i++) if (m[campos[i]] != null) o[campos[i]] = m[campos[i]];
+        out.push(o);
+      }
+      return out.slice(0, 400);
+    }
+    try {
+      var D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : {};
+      return {
+        ini: ini, fim: fim, modo: modo,
+        conta: (estado.conta && estado.conta.campos) || null,
+        campanhas: resumo(estado.campanhas, ['gasto', 'gmv', 'roas', 'pedidos', 'cliques', 'impressoes', 'ctr', 'orcamento_dia']),
+        produtos: resumo(estado.produtos, ['visitantes', 'cliques', 'carrinho', 'pedidos_pagos', 'vendas_pagas', 'conversao']),
+        afiliados: (D && D.afiliados) || null,
+        marketing: (D && D.marketing) || null
+      };
+    } catch (e) { return null; }
   }
 
   function renderPortaria() {
@@ -6290,7 +6359,17 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       h += '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b0));border-left:3px solid var(--rd);border-radius:0 12px 12px 0;padding:12px 14px;margin-top:14px;font-size:14px;color:var(--t1);line-height:1.5">' + esc(A.erro) + '</div>';
     }
     h += '<div style="font-size:13px;color:var(--t3);line-height:1.55;margin-top:14px;text-align:center">' +
-      'Seu acesso vale para uma maquina por vez. Se entrar em outra, esta e encerrada.</div></div>';
+      'Seu acesso vale para uma maquina por vez. Se entrar em outra, esta e encerrada.</div>';
+
+    // CONSENTIMENTO. Pedido uma vez, com o que sera guardado dito de forma
+    // clara: esconder isso em letra miuda seria contra a propria lei.
+    h += '<div style="border-top:1px solid var(--li);margin-top:16px;padding-top:14px">' +
+      '<label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:12.5px;color:var(--t2);line-height:1.55">' +
+      '<input type="checkbox" id="sia-aceite" ' + (A.aceite ? 'checked' : '') + ' style="margin-top:2px;width:16px;height:16px;flex:none;accent-color:var(--mk)">' +
+      '<span>Concordo que a Seller.IA guarde as leituras da minha conta \u2014 metricas de campanha, produto e faturamento \u2014 e os relatorios gerados, para montar o meu historico e permitir comparar periodos. ' +
+      'Os dados sao meus, ficam sob a guarda da Efeito Vendas e podem ser apagados a qualquer momento pelo suporte. ' +
+      '<b style="color:var(--t1)">Nenhum dado pessoal de comprador e coletado.</b></span></label></div>';
+    h += '</div>';
 
     h += '<div style="text-align:center;margin-top:20px;font-size:13.5px;color:var(--t3);line-height:1.6">' +
       'Ainda nao tem acesso?<br><span id="sia-acesso-assinar" style="color:var(--mk);cursor:pointer;text-decoration:underline">Conheca a Seller.IA</span></div>';
@@ -7590,7 +7669,6 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
 
     estado.semanal.etapa = 'O consultor esta analisando a semana';
     estado.semanal.pct = 55;
-    acessoRegistrar('relatorio_semanal');
     render();
 
     fetch(SIA_URL_RELATORIO, {
@@ -7608,6 +7686,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
             if (res.done) {
               estado.semanal.gerando = false;
               estado.semanal.markdown = acc;
+            acessoRegistrar('relatorio_semanal', {
+              markdown: String(acc || '').slice(0, 120000), custo: 0.34
+            });
               render();
               return;
             }
@@ -7924,7 +8005,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           // relatorio era cortado no meio da secao 4, sumindo com as secoes
           // 5 a 8. Agora sao 1-4, 5-8 e 9-10.
           estado.rel.etapa = 'O consultor esta escrevendo o diagnostico'; estado.rel.pct = 62; render();
-          acessoRegistrar('relatorio_mensal');
+
           pedir(1, function (r1) {
             if (!r1 || !r1.ok) { falhouRelatorio(r1); return; }
             estado.rel.etapa = 'Analisando Ads e produtos'; estado.rel.pct = 78; render();
@@ -7932,6 +8013,11 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
             estado.rel.etapa = 'Montando o plano de 30 dias'; estado.rel.pct = 91; render();
             pedir(2, function (r2) {
               estado.rel.gerando = false; estado.rel.etapa = '';
+              acessoRegistrar('relatorio_mensal', {
+                markdown: (r1.markdown || '').slice(0, 200000),
+                periodo: (estado.rel && estado.rel.mesRotulo) || null,
+                custo: 1.6
+              });
               estado.rel.markdown = r1.markdown +
                 '\n\n' + ((r3 && r3.ok && r3.markdown) || '') +
                 '\n\n' + ((r2 && r2.ok && r2.markdown) || '');
@@ -9189,7 +9275,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       return;
     }
     if (abaAtiva === 'conta360') {
-      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSubAbas('conta360') + renderAvisoPeriodo() +
+      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSubAbas('conta360') + renderLimiteLojas() + renderAvisoPeriodo() +
         renderFunilLoja() + leituraDaConta() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
       ligarBotaoColeta();
       ligarProfunda();
@@ -9259,7 +9345,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       var be = $('sia-coletar-tudo');
       if (be) be.addEventListener('click', function () {
         if (estado.coletaProgresso !== null) return;
-        coletaCompleta(function () { render(); });
+        coletaCompleta(function (r) { guardarLimite(r); render(); });
       });
       return;
     }

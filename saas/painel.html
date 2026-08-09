@@ -122,6 +122,8 @@ label{display:block;font:400 10.5px 'Space Mono';letter-spacing:.07em;color:var(
       <button class="aba on" data-aba="visao">Visao geral</button>
       <button class="aba" data-aba="usuarios">Usuarios</button>
       <button class="aba" data-aba="novo">Cadastrar</button>
+      <button class="aba" data-aba="planos">Planos</button>
+      <button class="aba" data-aba="lojas">Lojas</button>
       <button class="aba" data-aba="cotas">Cotas por papel</button>
       <button class="aba" data-aba="eventos">Registro</button>
     </div>
@@ -198,6 +200,8 @@ function desenhar(){
   if(ABA==='visao') c.innerHTML = viewVisao();
   else if(ABA==='usuarios') c.innerHTML = viewUsuarios();
   else if(ABA==='novo') c.innerHTML = viewNovo();
+  else if(ABA==='planos') c.innerHTML = viewPlanos();
+  else if(ABA==='lojas') c.innerHTML = viewLojas();
   else if(ABA==='cotas') c.innerHTML = viewCotas();
   else if(ABA==='eventos') c.innerHTML = viewEventos();
 }
@@ -247,8 +251,8 @@ function viewUsuarios(){
   var h = '<div class="painel"><h2>'+us.length+' usuarios</h2>' +
     '<div class="sub">Clique em qualquer linha para ver o detalhe e editar</div>' +
     '<input id="busca" placeholder="filtrar por email, nome ou papel" oninput="filtrar()" style="margin-bottom:14px">' +
-    '<table id="tab-us"><tr><th>PESSOA</th><th>PAPEL</th><th>STATUS</th><th class="num">COTA MES</th>' +
-    '<th class="num">COTA SEM</th><th>DISPOSITIVO</th><th>ULTIMO ACESSO</th><th></th></tr>';
+    '<table id="tab-us"><tr><th>PESSOA</th><th>PLANO</th><th>STATUS</th><th class="num">LOJAS</th>' +
+    '<th class="num">COTA</th><th>DISPOSITIVO</th><th>ULTIMO ACESSO</th><th></th></tr>';
   us.forEach(function(u){
     var cotaM = u.cota_mensal < 0 ? '∞' : (u.usou_mensal + '/' + u.cota_mensal);
     var cotaS = u.cota_semanal < 0 ? '∞' : (u.usou_semanal + '/' + u.cota_semanal);
@@ -257,11 +261,12 @@ function viewUsuarios(){
       '<td onclick="detalhe(\''+u.id+'\')" style="cursor:pointer"><b>'+esc(u.nome||u.email.split('@')[0])+'</b>' +
       (u.cota_manual?' <span class="pill" style="color:var(--px);border-color:var(--px)">cota manual</span>':'') +
       '<br><span style="color:var(--t3);font-size:12.5px">'+esc(u.email)+'</span></td>' +
-      '<td><span class="pill '+(u.papel==='adm'||u.papel==='ceo'?'p-adm':'')+'">'+esc(u.papel_rotulo)+'</span></td>' +
+      '<td><span class="pill '+(u.papel==='adm'||u.papel==='ceo'?'p-adm':'')+'">'+esc(u.plano_nome||u.papel_rotulo)+'</span></td>' +
       '<td><span class="pill p-'+esc(u.status)+'">'+esc(u.status)+'</span>' +
       (u.dias_para_vencer!=null && u.dias_para_vencer<=7 && u.dias_para_vencer>=0 ? '<br><span style="color:var(--am);font-size:12px">vence em '+u.dias_para_vencer+'d</span>':'') + '</td>' +
-      '<td class="num" style="'+(estouro?'color:var(--rd);font-weight:700':'')+'">'+cotaM+'</td>' +
-      '<td class="num">'+cotaS+'</td>' +
+      '<td class="num" style="'+(u.limite_lojas>=0 && u.lojas_usadas>=u.limite_lojas?'color:var(--am);font-weight:700':'')+'">'+
+      (u.limite_lojas<0?'∞':(u.lojas_usadas||0)+'/'+u.limite_lojas)+'</td>' +
+      '<td class="num" style="'+(estouro?'color:var(--rd);font-weight:700':'')+'">'+cotaM+' · '+cotaS+'</td>' +
       '<td>'+(u.sessoes_ativas>0?'<span class="pill p-online">online</span><br>':'')+
       '<span style="font-size:12.5px;color:var(--t3)">'+esc(u.dispositivo_atual||'—')+'</span></td>' +
       '<td style="font-size:13px">'+data(u.ultimo_acesso)+'</td>' +
@@ -368,6 +373,109 @@ function viewEventos(){
       '<td style="font-size:12.5px;color:var(--t3)">'+esc(e.detalhe?JSON.stringify(e.detalhe).slice(0,80):'')+'</td></tr>';
   });
   return h + '</table></div>';
+}
+
+
+// ---------- planos ----------
+function viewPlanos(){
+  var h = '<div class="painel"><h2>Os planos</h2>' +
+    '<div class="sub">Cada plano define quantas lojas o assinante pode ler e quantos relatorios por loja. Use -1 para ilimitado.</div>' +
+    '<table><tr><th>PLANO</th><th class="num">LOJAS</th><th class="num">MENSAIS</th><th class="num">SEMANAIS</th>' +
+    '<th class="num">PRECO</th><th>OFERTA HOTMART</th><th></th></tr>';
+  (DADOS.planos||[]).forEach(function(p){
+    h += '<tr><td><b>'+esc(p.nome)+'</b><br><span style="color:var(--t3);font-size:12.5px">'+esc(p.id)+'</span></td>' +
+      '<td class="num"><input id="pl-l-'+p.id+'" type="number" value="'+p.lojas+'" style="width:74px;text-align:right"></td>' +
+      '<td class="num"><input id="pl-m-'+p.id+'" type="number" value="'+p.cota_mensal+'" style="width:74px;text-align:right"></td>' +
+      '<td class="num"><input id="pl-s-'+p.id+'" type="number" value="'+p.cota_semanal+'" style="width:74px;text-align:right"></td>' +
+      '<td class="num"><input id="pl-p-'+p.id+'" value="'+(p.preco||'')+'" placeholder="147,00" style="width:92px;text-align:right"></td>' +
+      '<td><input id="pl-h-'+p.id+'" value="'+esc(p.hotmart_oferta||'')+'" placeholder="codigo" style="width:130px"></td>' +
+      '<td><button class="mini" onclick="salvarPlano(\''+p.id+'\')">salvar</button></td></tr>';
+  });
+  h += '</table><div id="pl-msg" style="margin-top:12px"></div></div>';
+
+  h += '<div class="painel"><h2>Como ligar na Hotmart</h2>' +
+    '<div style="font-size:14.5px;color:var(--t1);line-height:1.7">' +
+    'Crie uma <b>oferta</b> na Hotmart para cada plano e cole o codigo dela na coluna acima. ' +
+    'Quando a compra e aprovada, o webhook manda o codigo da oferta e a pessoa entra ja no plano certo, ' +
+    'com o numero de lojas liberado.<br><br>' +
+    'Se o codigo nao bater com nenhum plano, ela entra no <b>Individual</b> \u2014 uma loja \u2014 e voce ajusta pelo painel.</div></div>';
+  return h;
+}
+function salvarPlano(id){
+  api('admin',{acao:'plano', token:TOKEN, id:id,
+    nome:(DADOS.planos.find(function(x){return x.id===id})||{}).nome,
+    lojas:v('pl-l-'+id), cota_mensal:v('pl-m-'+id), cota_semanal:v('pl-s-'+id),
+    preco:v('pl-p-'+id).replace(',','.'), hotmart_oferta:v('pl-h-'+id)
+  }).then(function(r){
+    document.getElementById('pl-msg').innerHTML = r.ok
+      ? '<span style="color:var(--vd)">Plano atualizado.</span>'
+      : '<span style="color:var(--rd)">'+esc(r.erro)+'</span>';
+    carregar();
+  });
+}
+
+// ---------- lojas ----------
+function viewLojas(){
+  var ls = DADOS.lojas||[];
+  var h = '<div class="painel"><h2>'+ls.length+' lojas atendidas</h2>' +
+    '<div class="sub">Cada loja que passou por uma coleta. O historico fica guardado mesmo se a pessoa trocar de maquina.</div>' +
+    '<input id="busca-l" placeholder="filtrar por loja ou assinante" oninput="filtrarLojas()" style="margin-bottom:14px">' +
+    '<table id="tab-lj"><tr><th>LOJA</th><th>ASSINANTE</th><th class="num">COLETAS</th>' +
+    '<th class="num">RELATORIOS</th><th>ULTIMO USO</th><th></th></tr>';
+  ls.forEach(function(l){
+    h += '<tr data-busca="'+esc((l.nome+' '+l.email).toLowerCase())+'">' +
+      '<td><b>'+esc(l.nome)+'</b><br><span style="color:var(--t3);font-family:Space Mono,monospace;font-size:11.5px">'+esc(l.shop_id)+'</span></td>' +
+      '<td style="font-size:13.5px">'+esc(l.dono||l.email)+'<br><span style="color:var(--t3);font-size:12px">'+esc(l.email)+'</span></td>' +
+      '<td class="num">'+fmt(l.coletas)+'</td><td class="num">'+fmt(l.relatorios)+'</td>' +
+      '<td style="font-size:13px">'+data(l.ultimo_uso)+'</td>' +
+      '<td><button class="mini" onclick="historico(\''+esc(l.shop_id)+'\',\''+esc(l.nome)+'\')">historico</button></td></tr>';
+  });
+  if(!ls.length) h += '<tr><td colspan="6" class="vazio">Nenhuma loja lida ainda.</td></tr>';
+  return h + '</table></div>';
+}
+function filtrarLojas(){
+  var q = document.getElementById('busca-l').value.toLowerCase();
+  document.querySelectorAll('#tab-lj tr[data-busca]').forEach(function(tr){
+    tr.style.display = tr.getAttribute('data-busca').indexOf(q)>=0 ? '' : 'none';
+  });
+}
+function historico(shop, nome){
+  api('admin',{acao:'historico', token:TOKEN, shop_id:shop}).then(function(r){
+    if(!r.ok) return;
+    var h = '<h3>'+esc(nome)+'</h3>' +
+      '<div style="color:var(--t3);font-size:13px;margin:-12px 0 18px;font-family:Space Mono,monospace">'+esc(shop)+'</div>';
+    h += '<div style="font:400 10.5px \'Space Mono\';letter-spacing:.08em;color:var(--t3);margin-bottom:8px">RELATORIOS GUARDADOS</div><table>';
+    (r.relatorios||[]).forEach(function(x){
+      h += '<tr><td style="font-size:13px">'+data(x.em)+'</td><td>'+esc(x.tipo)+'</td>' +
+        '<td style="font-size:13px;color:var(--t3)">'+esc(x.periodo||'')+'</td>' +
+        '<td><button class="mini" onclick="verRelatorio('+x.id+')">ler</button></td></tr>';
+    });
+    if(!(r.relatorios||[]).length) h += '<tr><td colspan="4" style="color:var(--t3);font-size:13px">Nenhum ainda.</td></tr>';
+    h += '</table>';
+    h += '<div style="font:400 10.5px \'Space Mono\';letter-spacing:.08em;color:var(--t3);margin:18px 0 8px">COLETAS</div><table>';
+    (r.coletas||[]).slice(0,20).forEach(function(x){
+      h += '<tr><td style="font-size:13px">'+data(x.em)+'</td><td style="font-size:13px">'+esc(x.modo||'normal')+'</td></tr>';
+    });
+    h += '</table><div style="margin-top:16px"><button class="sec" onclick="fecharModal()">Fechar</button></div>';
+    document.getElementById('modal-cx').innerHTML = h;
+    document.getElementById('modal').classList.add('on');
+  });
+}
+function verRelatorio(id){
+  api('admin',{acao:'relatorio', token:TOKEN, id:id}).then(function(r){
+    if(!r.ok || !r.relatorio) return;
+    var md = String(r.relatorio.markdown||'');
+    document.getElementById('modal-cx').innerHTML =
+      '<h3>Relatorio '+esc(r.relatorio.tipo)+'</h3>' +
+      '<div style="color:var(--t3);font-size:13px;margin:-12px 0 16px">'+esc(r.relatorio.shop_nome||'')+' · '+data(r.relatorio.em)+'</div>' +
+      '<div style="background:var(--b2);border-radius:14px;padding:16px;max-height:60vh;overflow:auto;white-space:pre-wrap;font-size:13.5px;line-height:1.6">'+esc(md)+'</div>' +
+      '<div style="margin-top:16px;display:flex;gap:8px"><button class="sec" onclick="copiarRel()">Copiar</button>' +
+      '<button class="sec" onclick="fecharModal()">Fechar</button></div>';
+    window.__relAtual = md;
+  });
+}
+function copiarRel(){
+  try{ navigator.clipboard.writeText(window.__relAtual||''); alert('Relatorio copiado.'); }catch(e){}
 }
 
 // ---------- detalhe ----------
