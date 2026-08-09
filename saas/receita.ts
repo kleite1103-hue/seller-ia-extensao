@@ -42,22 +42,22 @@ function montarReceita(modo: string, ctx: any) {
   // mas start_time e end_time livres funcionam dentro dele.
   p.push({
     id: "key_metrics",
-    url: "/api/mydata/v3/dashboard/key-metrics/?{spc}&start_time={ini}&end_time={fim}&period=month",
+    url: "/api/mydata/v3/dashboard/key-metrics/?{spc}&start_time={ini}&end_time={fim}&period=month&fetag=fetag",
     metodo: "GET", fase: "Lendo as informacoes gerenciais",
   });
   p.push({
     id: "key_metrics_anterior",
-    url: "/api/mydata/v3/dashboard/key-metrics/?{spc}&start_time={iniAnt}&end_time={fimAnt}&period=month",
+    url: "/api/mydata/v3/dashboard/key-metrics/?{spc}&start_time={iniAnt}&end_time={fimAnt}&period=month&fetag=fetag",
     metodo: "GET", fase: "Lendo o periodo anterior", opcional: true,
   });
   p.push({
     id: "ordem",
-    url: "/api/mydata/dashboard/order-performance/?{spc}&start_time={ini}&end_time={fim}&period=month",
+    url: "/api/mydata/dashboard/order-performance/?{spc}&start_time={ini}&end_time={fim}&period=month&fetag=fetag&order_type=paid",
     metodo: "GET", fase: "Lendo os pedidos", opcional: true,
   });
   p.push({
     id: "fontes",
-    url: "/api/mydata/v1/dashboard/traffic-sources/?{spc}&start_time={ini}&end_time={fim}&period=month",
+    url: "/api/mydata/v1/dashboard/traffic-sources/?{spc}&start_time={ini}&end_time={fim}&period=month&order_type=paid",
     metodo: "GET", fase: "Lendo de onde vem o trafego", opcional: true,
   });
 
@@ -198,7 +198,7 @@ function montarReceita(modo: string, ctx: any) {
 
   // ---------- 6. AFILIADOS ----------
   const paramsAf = "&order_type=2&channel=0&has_meta_feature=1&sm_parameter=0&sort_rule=3&is_real_time=0&period_type=1";
-  p.push({ id: "afiliados_resumo", url: "/api/v3/affiliateplatform/dashboard/seller_daily?start_time={ini}&end_time={fimAds}" + paramsAf, metodo: "GET", fase: "Lendo os afiliados", opcional: true });
+  p.push({ id: "afiliados_resumo", url: "/api/v3/affiliateplatform/dashboard/seller_daily?start_time={ini}&end_time={fimAds}&is_real_time=0&order_type=2&channel=0", metodo: "GET", fase: "Lendo os afiliados", opcional: true });
   p.push({ id: "afiliados_itens", url: "/api/v3/affiliateplatform/dashboard/seller_item_detail/top5?start_time={ini}&end_time={fimAds}" + paramsAf, metodo: "GET", fase: "Lendo os produtos no canal", opcional: true });
   p.push({ id: "afiliados_top", url: "/api/v3/affiliateplatform/dashboard/affiliate_performance/top5?start_time={ini}&end_time={fimAds}" + paramsAf, metodo: "GET", fase: "Lendo quem mais vende", opcional: true });
 

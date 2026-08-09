@@ -6074,17 +6074,14 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
 
     // ---- OS CRIADORES ----
     if (AF.top && AF.top.length) {
-      h += olho('QUEM ESTA VENDENDO POR VOCE', 'Os cinco que mais entregam no periodo. Alguns nao sao pessoas: <b>canais como o YouTube Shopping</b> aparecem aqui como se fossem criadores, porque a Shopee os trata do mesmo jeito \u2014 eles sao marcados como <b>canal</b>. <b>Custo por venda</b> e a comissao dividida pelos pedidos: compare com o CPA de anuncio. <b>Novos</b> mostra quantos compradores nunca tinham comprado na loja.');
+      h += olho('QUEM ESTA VENDENDO POR VOCE', 'Os cinco afiliados que mais entregam no periodo. <b>Custo por venda</b> e a comissao dividida pelos pedidos: compare com o CPA de anuncio para saber qual canal sai mais barato. <b>Novos</b> mostra quantos dos compradores nunca tinham comprado na loja \u2014 esse e o valor que nao aparece no GMV.');
       h += '<table><tr><th>CRIADOR</th><th class="num">PEDIDOS</th><th class="num">GMV</th><th class="num">CUSTO/VENDA</th><th class="num">NOVOS</th></tr>';
       var topOrd = AF.top.slice().sort(function (a, b) { return (b.gmv || 0) - (a.gmv || 0); });
       for (var ta = 0; ta < topOrd.length; ta++) {
         var T4 = topOrd[ta];
         var cpvT = (T4.comissao && T4.pedidos) ? T4.comissao / T4.pedidos : null;
-        // canal automatico da Shopee nao e criador: dizer isso evita a
-        // leitura errada de que "um afiliado chamado YouTube" esta vendendo
-        var ehCanal = T4.rede || /youtube|shopee|tiktok|instagram|facebook|_shopping|affiliate|network/i.test(String(T4.usuario || T4.nome || ''));
         h += '<tr><td><b>' + sig(String(T4.nome || T4.usuario || '?').slice(0, 26)) + '</b>' +
-          (ehCanal ? ' <span style="font-size:10px;font-family:Space Mono,monospace;color:var(--px);border:1px solid var(--px);border-radius:999px;padding:1px 7px">canal</span>' : '') +
+          (T4.rede ? ' <span style="font-size:10px;font-family:Space Mono,monospace;color:var(--px);border:1px solid var(--px);border-radius:999px;padding:1px 7px">rede</span>' : '') +
           (T4.cliques ? '<br><span style="color:var(--t3);font-size:12px">' + fmt(T4.cliques, 0) + ' cliques</span>' : '') + '</td>' +
           '<td class="num">' + fmt(T4.pedidos, 0) + '</td>' +
           '<td class="num">' + (T4.gmv != null ? reais(T4.gmv) : '\u2014') + '</td>' +
@@ -6094,22 +6091,6 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           (T4.pctNovos != null ? fmt(T4.pctNovos, 0) + '%' : '\u2014') + '</td></tr>';
       }
       h += '</table>';
-
-      // separa o que vem de canal automatico do que vem de gente
-      var canais = topOrd.filter(function (x) {
-        return x.rede || /youtube|shopee|tiktok|instagram|facebook|_shopping|affiliate|network/i.test(String(x.usuario || x.nome || ''));
-      });
-      var pessoas = topOrd.filter(function (x) { return canais.indexOf(x) < 0; });
-      if (canais.length && pessoas.length) {
-        var gmvCanal = 0, gmvPessoa = 0;
-        canais.forEach(function (x) { gmvCanal += x.gmv || 0; });
-        pessoas.forEach(function (x) { gmvPessoa += x.gmv || 0; });
-        h += '<div class="nota">' +
-          '<b>' + reais(gmvCanal) + '</b> vieram de canais automaticos da Shopee, como o YouTube Shopping, e <b>' + reais(gmvPessoa) + '</b> de criadores de verdade. ' +
-          (gmvCanal > gmvPessoa
-            ? 'O canal automatico entrega sozinho, sem relacionamento \u2014 mas voce tambem nao controla. Criador proprio e o que da para ampliar.'
-            : 'Os criadores entregam mais que o canal automatico, o que mostra que o relacionamento esta valendo.') + '</div>';
-      }
 
       // quem sai mais barato que o anuncio
       if (cpaAds) {
