@@ -1503,73 +1503,45 @@
      disparar a chamada com a sessao da pessoa e entregar o resultado. */
 
   var SIA_URL_RECEITA = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/receita';
-  var RECEITA_CACHE = null;   // vale enquanto a gaveta estiver aberta
 
-  function pedirReceita(modo) {
-    // reusa dentro da mesma sessao para nao pedir a cada coleta
-    if (RECEITA_CACHE && RECEITA_CACHE.modo === modo &&
-        (Date.now() - RECEITA_CACHE.em) < (RECEITA_CACHE.validade || 3600) * 1000) {
-      return Promise.resolve(RECEITA_CACHE.dados);
-    }
+  /* UM PASSO POR VEZ. A receita inteira numa resposta so ficava legivel na
+     aba de rede do navegador: bastava abrir para ler as 28 rotas de uma vez.
+     Agora cada passo e pedido separado, ja montado pelo servidor, e a
+     extensao nunca ve o formato — so a URL final daquela chamada. */
+  function pedirPasso(modo, indice, vals) {
     return fetch(SIA_URL_RECEITA, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        token: estado.acessoToken, modo: modo,
+        token: estado.acessoToken, modo: modo, passo: indice, vals: vals,
         loja: estado.loja ? estado.loja.shop_id : null
       })
     }).then(function (r) { return r.json(); }).then(function (r) {
-      if (!r || !r.ok) throw new Error((r && r.erro) || 'nao consegui a receita');
-      RECEITA_CACHE = { modo: modo, em: Date.now(), validade: r.validade, dados: r };
+      if (!r || !r.ok) throw new Error((r && r.erro) || 'nao consegui o proximo passo');
       return r;
     });
   }
 
-  /* Troca os marcadores pelo que vale nesta sessao. A extensao sabe as
-     datas e a sessao da Shopee; a receita sabe o resto. */
-  function preencher(texto, vals) {
-    return String(texto).replace(/\{(\w+)\}/g, function (m, chave) {
-      return vals[chave] !== undefined ? String(vals[chave]) : m;
-    });
-  }
-  function preencherCorpo(obj, vals) {
-    if (obj == null) return obj;
-    if (typeof obj === 'string') {
-      var v = preencher(obj, vals);
-      // marcador sozinho vira o valor no tipo original
-      var so = String(obj).match(/^\{(\w+)\}$/);
-      if (so && vals[so[1]] !== undefined) return vals[so[1]];
-      return v;
-    }
-    if (Array.isArray(obj)) return obj.map(function (x) { return preencherCorpo(x, vals); });
-    if (typeof obj === 'object') {
-      var out = {};
-      for (var k in obj) out[k] = preencherCorpo(obj[k], vals);
-      return out;
-    }
-    return obj;
-  }
-
   /* Escolhe os alvos de um passo que roda por campanha ou por produto. */
-  function alvosDoPasso(passo) {
+  function alvosDoPasso(rep) {
     var lista = [], k;
-    if (passo.porCampanha) {
+    if (rep.tipo === 'campanha') {
       for (k in estado.campanhas) {
         var c = estado.campanhas[k] || {}, m = c.metricas || {};
         var e = String(c.estado || c.state || '').toLowerCase();
-        if (passo.so === 'ativa_com_gasto') {
+        if (rep.so === 'ativa_com_gasto') {
           if (e === 'paused' || e === 'ended' || e === 'closed') continue;
           if (!(m.gasto > 0)) continue;
         }
         lista.push({ id: k, peso: m.gasto || 0 });
       }
-    } else if (passo.porProduto) {
+    } else if (rep.tipo === 'produto') {
       for (k in estado.produtos) {
         var pr = estado.produtos[k] || {}, mp = pr.metricas || {};
         lista.push({ id: k, peso: mp.vendas_pagas || 0 });
       }
     }
     lista.sort(function (a, b) { return b.peso - a.peso; });
-    return lista.slice(0, passo.limite || 20).map(function (x) { return x.id; });
+    return lista.slice(0, rep.limite || 20).map(function (x) { return x.id; });
   }
 
   function itensParaLote(tamanho) {
@@ -1582,84 +1554,79 @@
     return out;
   }
 
-  function uuidReceita() {
-    function h4() { return Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1); }
-    return h4() + h4() + '-' + h4() + '-' + h4() + '-' + h4() + '-' + h4() + h4() + h4();
-  }
 
-  /* Executa um passo. Devolve quantas chamadas fez. */
-  async function executarPasso(passo, vals, prog, lojaCiclo) {
+
+  /* Executa um passo. A URL e o corpo vem PRONTOS do servidor — aqui so
+     se dispara e se entrega o resultado. Quando o passo se repete, cada
+     repeticao e pedida separadamente, com o alvo da vez. */
+  async function executarPasso(r, modo, indice, vals, lojaCiclo) {
     var feitas = 0;
-    var pausaMs = passo.pausa || (RECEITA_CACHE && RECEITA_CACHE.dados.limites
-      ? RECEITA_CACHE.dados.limites.pausaEntreChamadas : 250);
+    var pausaMs = r.pausa || 250;
 
     function entregar(url, corpo, dados) {
       processarPacote({
-        url: url.split('?')[0], metodo: passo.metodo, corpo: corpo,
+        url: String(url).split('?')[0], metodo: r.chamada.metodo, corpo: corpo,
         dados: dados, ts: Date.now(), loja: lojaCiclo,
-        periodo: passo.carimbaPeriodo ? (vals.ini + '_' + vals.fimAds) : null
+        periodo: r.carimbaPeriodo ? (vals.ini + '_' + vals.fimAds) : null
       });
     }
 
-    // --- por campanha ou por produto ---
-    if (passo.porCampanha || passo.porProduto) {
-      var alvos = alvosDoPasso(passo);
-      for (var a = 0; a < alvos.length; a++) {
-        var v2 = Object.assign({}, vals, {
-          campanha: parseInt(alvos[a], 10), produto: alvos[a], uuid: uuidReceita()
-        });
-        var u2 = preencher(passo.url, v2);
-        var c2 = passo.corpo ? JSON.stringify(preencherCorpo(passo.corpo, v2)) : null;
-        var r2 = await buscar(u2, passo.metodo, c2);
+    // --- passo simples: uma chamada so ---
+    if (!r.repete) {
+      var r1 = await buscar(r.chamada.url, r.chamada.metodo, r.chamada.corpo);
+      feitas++;
+      if (r1.ok && r1.dados) entregar(r.chamada.url, r.chamada.corpo, r1.dados);
+      await pausa(pausaMs);
+      return feitas;
+    }
+
+    var rep = r.repete;
+
+    // --- paginado ---
+    if (rep.tipo === 'pagina') {
+      for (var pg = 1; pg <= (rep.ate || 10); pg++) {
+        var rp = pg === 1 ? r : await pedirPasso(modo, indice, Object.assign({}, vals, {
+          pagina: pg, offset: (pg - 1) * (rep.tamanho || 20)
+        }));
+        var rr = await buscar(rp.chamada.url, rp.chamada.metodo, rp.chamada.corpo);
         feitas++;
-        if (r2.ok && r2.dados) entregar(u2 + (passo.porCampanha ? '&campaign_id=' + alvos[a] : ''), c2, r2.dados);
+        if (!rr.ok || !rr.dados) break;
+        entregar(rp.chamada.url, rp.chamada.corpo, rr.dados);
+        if (contarItens(rr.dados) < (rep.tamanho || 20)) break;
+        await pausa(pausaMs);
+      }
+      return feitas;
+    }
+
+    // --- por campanha ou produto ---
+    if (rep.tipo === 'campanha' || rep.tipo === 'produto') {
+      var alvos = alvosDoPasso(rep);
+      for (var a = 0; a < alvos.length; a++) {
+        var ra = await pedirPasso(modo, indice, Object.assign({}, vals, {
+          campanha: parseInt(alvos[a], 10), produto: alvos[a]
+        }));
+        var r2 = await buscar(ra.chamada.url, ra.chamada.metodo, ra.chamada.corpo);
+        feitas++;
+        if (r2.ok && r2.dados) {
+          entregar(ra.chamada.url + (rep.tipo === 'campanha' ? '&campaign_id=' + alvos[a] : ''), ra.chamada.corpo, r2.dados);
+        }
         await pausa(pausaMs);
       }
       return feitas;
     }
 
     // --- lote de itens ---
-    if (passo.loteItens) {
-      var itens = itensParaLote(passo.tamanho);
+    if (rep.tipo === 'itens') {
+      var itens = itensParaLote(rep.tamanho);
       if (!itens.length) return 0;
-      var v3 = Object.assign({}, vals, { itens: itens, uuid: uuidReceita() });
-      var u3 = preencher(passo.url, v3);
-      var c3 = passo.corpo ? JSON.stringify(preencherCorpo(passo.corpo, v3)) : null;
-      var r3 = await buscar(u3, passo.metodo, c3);
+      var ri = await pedirPasso(modo, indice, Object.assign({}, vals, { itens: itens }));
+      var r3 = await buscar(ri.chamada.url, ri.chamada.metodo, ri.chamada.corpo);
       feitas++;
-      if (r3.ok && r3.dados) entregar(u3, c3, r3.dados);
+      if (r3.ok && r3.dados) entregar(ri.chamada.url, ri.chamada.corpo, r3.dados);
       await pausa(pausaMs);
       return feitas;
     }
 
-    // --- paginado ---
-    if (passo.paginado) {
-      for (var pg = 1; pg <= (passo.paginas || 10); pg++) {
-        var v4 = Object.assign({}, vals, {
-          pagina: pg, offset: (pg - 1) * (passo.tamanho || 20), uuid: uuidReceita()
-        });
-        var u4 = preencher(passo.url, v4);
-        var c4 = passo.corpo ? JSON.stringify(preencherCorpo(passo.corpo, v4)) : null;
-        var r4 = await buscar(u4, passo.metodo, c4);
-        feitas++;
-        if (!r4.ok || !r4.dados) break;
-        entregar(u4, c4, r4.dados);
-        // para quando a pagina volta incompleta, que e o fim real da lista
-        var qtd = contarItens(r4.dados);
-        if (qtd < (passo.tamanho || 20)) break;
-        await pausa(pausaMs);
-      }
-      return feitas;
-    }
-
-    // --- chamada simples ---
-    var v5 = Object.assign({}, vals, { uuid: uuidReceita() });
-    var u5 = preencher(passo.url, v5);
-    var c5 = passo.corpo ? JSON.stringify(preencherCorpo(passo.corpo, v5)) : null;
-    var r5 = await buscar(u5, passo.metodo, c5);
-    feitas++;
-    if (r5.ok && r5.dados) entregar(u5, c5, r5.dados);
-    await pausa(pausaMs);
     return feitas;
   }
 
@@ -1788,20 +1755,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         var iniAnterior = ini - duracao;
 
         prog('Preparando a leitura...');
-        var receita;
-        try {
-          receita = await pedirReceita(PROFUNDA ? 'profunda' : 'normal');
-        } catch (e) {
-          resolver({
-            ok: false,
-            erro: 'Nao consegui preparar a leitura: ' + String(e && e.message || e) +
-              '. Verifique a sua conexao e tente de novo.',
-            chamadas: 0, campanhas: 0, produtos: 0
-          });
-          return;
-        }
-
-        var passos = receita.passos || [];
+        var modo = PROFUNDA ? 'profunda' : 'normal';
         var totalChamadas = 0;
 
         // datas e sessao: e o que a extensao sabe e o servidor nao
@@ -1811,22 +1765,39 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           iniAnt: iniAnterior, fimAnt: fimAnterior
         };
 
-        for (var ip = 0; ip < passos.length; ip++) {
-          var passo = passos[ip];
+        // Pede UM passo por vez. Sem a lista completa em lugar nenhum, nem
+        // na memoria da extensao: cada passo chega, e executado e some.
+        for (var ip = 0; ip < 60; ip++) {
+          var passo;
+          try {
+            passo = await pedirPasso(modo, ip, vals);
+          } catch (e0) {
+            if (ip === 0) {
+              resolver({
+                ok: false,
+                erro: 'Nao consegui preparar a leitura: ' + String(e0 && e0.message || e0) +
+                  '. Verifique a sua conexao e tente de novo.',
+                chamadas: 0, campanhas: 0, produtos: 0
+              });
+              return;
+            }
+            break;
+          }
+          if (passo.fim) break;
           if (passo.somenteProfunda && !PROFUNDA) continue;
           prog(passo.fase || 'Lendo...');
           try {
-            totalChamadas += await executarPasso(passo, vals, prog, lojaDoCiclo);
+            totalChamadas += await executarPasso(passo, modo, ip, vals, lojaDoCiclo);
           } catch (e2) {
             // Passo opcional que falha nao derruba a coleta. Mas o erro
             // precisa ficar registrado: coleta que "nao faz nada" sem dizer
             // por que foi o pior sintoma que a gente ja teve.
-            try { console.error('[Seller.IA] passo ' + passo.id + ':', e2); } catch (e4) { }
+            try { console.error('[Seller.IA] passo ' + ip + ' (' + (passo.fase || '?') + '):', e2); } catch (e4) { }
             estado.faltando = estado.faltando || [];
-            estado.faltando.push((passo.fase || passo.id) + ': ' + String(e2 && e2.message || e2).slice(0, 60));
+            estado.faltando.push((passo.fase || ('passo ' + ip)) + ': ' + String(e2 && e2.message || e2).slice(0, 60));
             if (!passo.opcional) {
               estado.diarioColeta = estado.diarioColeta || {};
-              estado.diarioColeta.ultimoErro = passo.id + ' — ' + String(e2 && e2.message || e2);
+              estado.diarioColeta.ultimoErro = (passo.fase || ('passo ' + ip)) + ' — ' + String(e2 && e2.message || e2);
             }
           }
         }
@@ -4102,13 +4073,15 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     // nada escrito sobre COMO se pergunta o volume de uma palavra.
     fetch(SIA_URL_RECEITA, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: estado.acessoToken, consulta: 'volume_palavras', termos: termos.slice(0, 12) })
+      body: JSON.stringify({
+        token: estado.acessoToken, consulta: 'volume_palavras',
+        termos: termos.slice(0, 12),
+        spc: 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2'
+      })
     }).then(function (rr) { return rr.json(); }).then(function (rc) {
-      if (!rc || !rc.ok) { aoPronto({}); return; }
-      var urlV = String(rc.url).replace('{spc}', 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2');
-      var corpo = JSON.stringify(rc.corpo);
+      if (!rc || !rc.ok || !rc.chamada) { aoPronto({}); return; }
       chrome.runtime.sendMessage({
-        tipo: 'sia:buscar', url: urlV, metodo: rc.metodo, corpo: corpo
+        tipo: 'sia:buscar', url: rc.chamada.url, metodo: rc.chamada.metodo, corpo: rc.chamada.corpo
       }, function (r) {
       void chrome.runtime.lastError;
       var mapa = {};

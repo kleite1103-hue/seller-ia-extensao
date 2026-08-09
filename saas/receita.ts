@@ -285,21 +285,97 @@ async function atender(req: Request): Promise<Response> {
     const c = String(body.consulta);
     if (c === "volume_palavras") {
       const termos = Array.isArray(body.termos) ? body.termos.slice(0, 12) : [];
+      const spc = String(body.spc || "");
+      if (!spc) return json({ ok: false, erro: "sem sessao" }, 400);
+      // URL ja montada: a extensao nao aprende o formato
       return json({
         ok: true,
-        url: "/api/pas/v1/setup_helper/list_recommended_keyword/?{spc}",
-        metodo: "POST",
-        corpo: { campaign_type: "shop", keyword_list: termos, limit: 40 },
+        chamada: {
+          url: "/api/pas/v1/setup_helper/list_recommended_keyword/?" + spc,
+          metodo: "POST",
+          corpo: JSON.stringify({ campaign_type: "shop", keyword_list: termos, limit: 40 }),
+        },
       });
     }
     return json({ ok: false, erro: "consulta desconhecida" }, 400);
   }
 
+  /* ============================================================
+     ENTREGA PASSO A PASSO
+     A receita inteira numa resposta so ficava legivel no console:
+     bastava abrir a aba de rede para ler as 28 rotas de uma vez.
+     Agora o servidor entrega UMA chamada por vez, ja montada, e a
+     extensao devolve o resultado para receber a proxima. Quem
+     quiser a receita completa precisa rodar a coleta inteira e
+     juntar os pedacos — e cada pedido fica registrado.
+     ============================================================ */
+  if (body.passo !== undefined) {
+    const modo = String(body.modo || "normal");
+    const passos0 = montarReceita(modo, body);
+    const idx = parseInt(String(body.passo), 10) || 0;
+    if (idx >= passos0.length) {
+      return json({ ok: true, fim: true, total: passos0.length });
+    }
+    const passo = passos0[idx];
+    const vals = body.vals || {};
+    // o reference_id que algumas rotas exigem e gerado AQUI: a extensao nao
+    // sabe nem que ele existe
+    vals.uuid = crypto.randomUUID();
+
+    // troca os marcadores AQUI, no servidor: a extensao recebe a URL
+    // final e nao aprende o formato dela
+    function preencher(txt: string): string {
+      return String(txt).replace(/\{(\w+)\}/g, (m, k) => vals[k] !== undefined ? String(vals[k]) : m);
+    }
+    function preencherObj(o: any): any {
+      if (o == null) return o;
+      if (typeof o === "string") {
+        const so = o.match(/^\{(\w+)\}$/);
+        if (so && vals[so[1]] !== undefined) return vals[so[1]];
+        return preencher(o);
+      }
+      if (Array.isArray(o)) return o.map(preencherObj);
+      if (typeof o === "object") {
+        const out: any = {};
+        for (const k in o) out[k] = preencherObj(o[k]);
+        return out;
+      }
+      return o;
+    }
+
+    return json({
+      ok: true,
+      indice: idx,
+      total: passos0.length,
+      fase: passo.fase,
+      // so o que a extensao precisa para EXECUTAR, nada sobre o formato
+      chamada: {
+        url: preencher(passo.url),
+        metodo: passo.metodo,
+        corpo: passo.corpo ? JSON.stringify(preencherObj(passo.corpo)) : null,
+      },
+      // como repetir, quando o passo tem varias chamadas
+      repete: passo.paginado ? { tipo: "pagina", ate: passo.paginas, tamanho: passo.tamanho }
+        : passo.porCampanha ? { tipo: "campanha", limite: passo.limite, so: passo.so }
+        : passo.porProduto ? { tipo: "produto", limite: passo.limite }
+        : passo.loteItens ? { tipo: "itens", tamanho: passo.tamanho }
+        : null,
+      carimbaPeriodo: !!passo.carimbaPeriodo,
+      opcional: !!passo.opcional,
+      somenteProfunda: !!passo.somenteProfunda,
+      pausa: passo.pausa || 250,
+    });
+  }
+
+  // modo antigo, mantido so para depuracao com papel de administrador
+  if (u.papel !== "adm") {
+    return json({ ok: false, erro: "peca um passo por vez" }, 400);
+  }
   const passos = montarReceita(String(body.modo || "normal"), body);
   return json({
     ok: true,
     versao: CODE_VERSION,
-    validade: 3600,          // a extensao pode reusar por 1 hora na mesma sessao
+    validade: 3600,
     passos,
     // limiares que a extensao usa para decidir o que buscar
     limites: {
