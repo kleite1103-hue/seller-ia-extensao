@@ -73,6 +73,12 @@ function montarReceita(modo: string, ctx: any) {
     url: "/api/mydata/v1/product/traffic/item-list/?{spc}&keyword=&order_by=&page_size=50&page_num={pagina}&category_type=shop&start_time={ini}&end_time={fim}&period=month&category_id=-1",
     metodo: "GET", fase: "Lendo o trafego dos produtos", opcional: true,
   });
+  // evolucao diaria: alimenta o grafico de tendencia
+  p.push({
+    id: "tendencia",
+    url: "/api/mydata/v2/product/overview/metric-trends/?{spc}&start_time={ini}&end_time={fim}&period=day",
+    metodo: "GET", fase: "Lendo a evolucao diaria", opcional: true,
+  });
   p.push({
     id: "funil_overview",
     url: "/api/mydata/v1/product/traffic/overview/?{spc}&start_time={ini}&end_time={fim}&period=month&order_type=paid",
@@ -137,6 +143,21 @@ function montarReceita(modo: string, ctx: any) {
     fase: "Ligando produto e campanha",
   });
 
+  // variacao por campanha: e o que permite dizer "subiu 20% contra o
+  // periodo anterior" em cada card
+  p.push({
+    id: "variacao_campanha", porCampanha: true, limite: PROFUNDA ? 60 : 30, so: "ativa_com_gasto",
+    url: "/api/pas/v1/report/get/?{spc}",
+    metodo: "POST",
+    corpo: {
+      start_time: "{ini}", end_time: "{fimAds}",
+      campaign_type: "product", agg_type: "campaign_id",
+      filter_params: { campaign_id: "{campanha}" },
+      need_ratio: true,
+    },
+    fase: "Lendo a variacao das campanhas", pausa: 200,
+  });
+
   p.push({
     id: "recomendacoes", url: "/api/pas/v1/todo/list_task/?{spc}",
     metodo: "POST", corpo: {}, fase: "Lendo o que a Shopee recomenda", opcional: true,
@@ -148,6 +169,21 @@ function montarReceita(modo: string, ctx: any) {
   p.push({ id: "descontos", url: "/api/marketing/v3/public/discount/list/?{spc}&discount_type=0&time_status=1&offset=0&limit=30", metodo: "GET", fase: "Lendo os descontos", opcional: true });
   p.push({ id: "campanhas_shopee", url: "/api/marketing/v4/public/get_marketing_center_campaign_list/?{spc}&language=pt-br", metodo: "GET", fase: "Lendo as campanhas da Shopee", opcional: true });
   p.push({ id: "ferramentas", url: "/api/marketing/v4/public/get_toggle/?{spc}", metodo: "GET", fase: "Lendo as ferramentas liberadas", opcional: true });
+  // quanto cada ferramenta de marketing rendeu no periodo
+  p.push({
+    id: "metricas_desconto", url: "/api/marketing/v4/discount/metrics/?{spc}",
+    metodo: "POST", corpo: { start_time: "{ini}", end_time: "{fim}" },
+    fase: "Lendo o resultado dos descontos", opcional: true,
+  });
+  p.push({
+    id: "metricas_cupom", url: "/api/marketing/v3/voucher/promotion_tool/metrics/?{spc}&tool_name=marketing_voucher",
+    metodo: "GET", fase: "Lendo o resultado dos cupons", opcional: true,
+  });
+  p.push({
+    id: "metricas_combo", url: "/api/marketing/v3/bundle_deal/metrics/?{spc}",
+    metodo: "POST", corpo: { start_time: "{ini}", end_time: "{fim}" },
+    fase: "Lendo o resultado dos combos", opcional: true,
+  });
 
   // ---------- 6. AFILIADOS ----------
   const paramsAf = "&order_type=2&channel=0&has_meta_feature=1&sm_parameter=0&sort_rule=3&is_real_time=0&period_type=1";
