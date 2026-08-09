@@ -1725,6 +1725,64 @@
            Esta versao nao guarda rota, parametro nem corpo de
            requisicao. Ela pergunta o que fazer e executa.
            ==================================================== */
+if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina do Central do Vendedor e tente de novo (chave de sessao ainda nao capturada).' }); return; }
+        // A Shopee EXIGE datas alinhadas ao dia no fuso do Brasil (UTC-3),
+        // senao retorna code 10006 "invalid param". Calculamos inicio do dia
+        // (00:00 BRT = 03:00 UTC) e fim do dia (23:59 BRT).
+        // BRT = UTC-3, entao o offset e 3*3600 = 10800s.
+        var BRT = 3 * 3600;
+        var agora = Math.floor(Date.now() / 1000);
+        var ini, fim;
+        // MAIS FORTE QUE TUDO: periodo escolhido no seletor de mes do Relatorio.
+        // Sem isto, o mes do relatorio era so um rotulo e os numeros continuavam
+        // sendo os do recorte que estivesse aberto no painel da Shopee.
+        if (periodoForcado && periodoForcado.inicio && periodoForcado.fim) {
+          ini = periodoForcado.inicio;
+          fim = periodoForcado.fim;
+        } else if (estado.periodoMydata && estado.periodoMydata.inicio && estado.periodoMydata.fim) {
+          ini = estado.periodoMydata.inicio;
+          fim = estado.periodoMydata.fim;
+        } else {
+          // FALLBACK: calcula (inicio do mes ate ontem 00:00 BRT)
+          var hoje0 = inicioDoDiaBRT(agora);
+          var dNow = new Date(hoje0 * 1000);
+          var primeiroMes = new Date(Date.UTC(dNow.getUTCFullYear(), dNow.getUTCMonth(), 1, 3, 0, 0));
+          ini = Math.floor(primeiroMes.getTime() / 1000);
+          // end = HOJE 00:00 BRT. Isso representa "ate o fim de ontem" (D-1),
+          // que e o que a Shopee disponibiliza. Testado: funciona (v0.23.6).
+          fim = hoje0;
+        }
+        // A URL da tela de Ads tem from/to proprios, e quando a pessoa esta
+        // com "Todo o periodo" selecionado ali, isso SOBRESCREVIA o recorte da
+        // conta inteira — era assim que apareciam 305 campanhas com gasto de
+        // um intervalo completamente diferente do faturamento lido. Agora so
+        // aceita a janela do Ads se ela for compativel: no maximo 90 dias e
+        // terminando no mesmo periodo da conta.
+        var mFrom = location.search.match(/[?&]from=(\d{9,11})/);
+        var mTo = location.search.match(/[?&]to=(\d{9,11})/);
+        if (mFrom && mTo && !periodoForcado) {
+          // O 'to' da URL vem como 23:59:59 do ultimo dia. Alinhar para 00:00
+          // encurtava a janela em um dia e a checagem de compatibilidade
+          // falhava — por isso o periodo do Ads nunca era aceito e ele seguia
+          // usando outro recorte. Soma-se 1 dia ao fim antes de alinhar.
+          var iA = inicioDoDiaBRT(parseInt(mFrom[1], 10));
+          var fA = inicioDoDiaBRT(parseInt(mTo[1], 10) + 60);
+          var diasAds = Math.round((fA - iA) / 86400);
+          var diasConta = Math.round((fim - ini) / 86400);
+          if (diasAds > 0 && diasAds <= 92 && Math.abs(diasAds - diasConta) <= 3) { ini = iA; fim = fA; }
+        }
+        var spcQ = 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2';
+
+        // A rota de Ads pede o ultimo segundo do dia, nao a meia-noite
+        // seguinte: por isso fimAds e fim menos um.
+        var fimAds = fim - 1;
+
+        // Periodo anterior, do mesmo tamanho, para a comparacao. A receita
+        // pede iniAnt e fimAnt e eles precisam existir aqui.
+        var duracao = fim - ini;
+        var fimAnterior = ini - 1;
+        var iniAnterior = ini - duracao;
+
         prog('Preparando a leitura...');
         var receita;
         try {
@@ -1756,10 +1814,15 @@
           try {
             totalChamadas += await executarPasso(passo, vals, prog, lojaDoCiclo);
           } catch (e2) {
-            // passo opcional que falha nao derruba a coleta inteira
+            // Passo opcional que falha nao derruba a coleta. Mas o erro
+            // precisa ficar registrado: coleta que "nao faz nada" sem dizer
+            // por que foi o pior sintoma que a gente ja teve.
+            try { console.error('[Seller.IA] passo ' + passo.id + ':', e2); } catch (e4) { }
+            estado.faltando = estado.faltando || [];
+            estado.faltando.push((passo.fase || passo.id) + ': ' + String(e2 && e2.message || e2).slice(0, 60));
             if (!passo.opcional) {
-              estado.faltando = estado.faltando || [];
-              estado.faltando.push(passo.fase || passo.id);
+              estado.diarioColeta = estado.diarioColeta || {};
+              estado.diarioColeta.ultimoErro = passo.id + ' — ' + String(e2 && e2.message || e2);
             }
           }
         }
@@ -1771,6 +1834,7 @@
 
         resolver({ ok: true, chamadas: totalChamadas, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
       })().catch(function (err) {
+        try { console.error('[Seller.IA] coleta:', err); } catch (e5) { }
         // sem este catch, uma excecao no meio deixava a Promise pendurada
         try { console.error('[Seller.IA] coleta:', err); } catch (e) { }
         resolver({ ok: false, erro: String((err && err.message) || err),
