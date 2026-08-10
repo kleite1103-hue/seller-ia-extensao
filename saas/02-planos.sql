@@ -193,7 +193,11 @@ $$;
 -- ============================================================
 -- PAINEL: visao atualizada
 -- ============================================================
-create or replace view sia_painel_usuarios as
+-- O create or replace nao aceita mudar as colunas de uma view que ja
+-- existe, e estas ganharam plano e lojas. Apagar antes resolve: nenhuma
+-- delas guarda dado, sao so leituras.
+drop view if exists sia_painel_usuarios;
+create view sia_painel_usuarios as
 select
   u.id, u.email, u.nome, u.papel, pa.rotulo as papel_rotulo,
   u.status, u.origem, u.plano, u.plano_id, pl.nome as plano_nome,
@@ -217,7 +221,8 @@ from sia_usuarios u
 join sia_papeis pa on pa.papel = u.papel
 left join sia_planos pl on pl.id = u.plano_id;
 
-create or replace view sia_painel_resumo as
+drop view if exists sia_painel_resumo;
+create view sia_painel_resumo as
 select
   (select count(*) from sia_usuarios where status = 'ativo')    as ativos,
   (select count(*) from sia_usuarios where status = 'suspenso') as suspensos,
@@ -232,7 +237,8 @@ select
   (select coalesce(sum(custo_estimado),0) from sia_relatorios where em > now() - interval '30 days') as custo_ia_30d;
 
 -- lojas atendidas, para o painel
-create or replace view sia_painel_lojas as
+drop view if exists sia_painel_lojas;
+create view sia_painel_lojas as
 select l.shop_id, coalesce(l.shop_nome, l.shop_id) as nome,
   u.email, u.nome as dono, u.papel,
   l.registrada_em, l.ultimo_uso,
