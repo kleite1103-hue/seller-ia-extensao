@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.12.4';
+  var VERSAO = '1.12.5';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -2393,6 +2393,12 @@
     while (voltaA && voltaA !== this) {
       if (voltaA.getAttribute) {
         if (voltaA.tagName === 'INPUT' || voltaA.tagName === 'SELECT' || voltaA.tagName === 'TEXTAREA') return;
+        // COMPARAR primeiro: havia dezenas de verificacoes antes dele no
+        // laco, e qualquer uma que casasse com um elemento pai consumia o
+        // clique — por isso o botao "nao fazia nada".
+        var _cmp2 = voltaA.getAttribute('data-comparar');
+        if (_cmp2) { compararComVitrine(_cmp2); return; }
+
         if (voltaA.getAttribute('data-link-externo')) return;
         if (voltaA.id === 'sia-esp-exportar') {
           if (!estado.espiaoCru) {
@@ -2526,6 +2532,17 @@
           try { window.open('https://clipseller.com.br/assinatura', '_blank', 'noopener'); } catch (e) { /* noop */ }
           return;
         }
+        if (voltaA.id === 'sia-prec-calcular') {
+          // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
+          // render recria os campos e a ligacao se perde, entao o valor
+          // digitado nunca chegava em estado.precific e a conta nao saia.
+          estado.precific = estado.precific || {};
+          var campos = corpoEl().querySelectorAll('[data-prec]');
+          for (var cp2 = 0; cp2 < campos.length; cp2++) {
+            estado.precific[campos[cp2].getAttribute('data-prec')] = campos[cp2].value;
+          }
+          estado.sujo = true; render(); return;
+        }
         if (voltaA.id === 'sia-marg-calcular') {
           estado.margemCalc = estado.margemCalc || {};
           var cm = corpoEl().querySelectorAll('[data-marg]');
@@ -2546,18 +2563,6 @@
           var cm3 = corpoEl().querySelectorAll('[data-marg]');
           for (var mq3 = 0; mq3 < cm3.length; mq3++) estado.margemCalc[cm3[mq3].getAttribute('data-marg')] = cm3[mq3].value;
           estado.margemCalc.tipoVendedor = _mt;
-          estado.sujo = true; render(); return;
-        }
-        if (voltaA.getAttribute && voltaA.getAttribute('data-marg')) return;
-        if (voltaA.id === 'sia-prec-calcular') {
-          // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
-          // render recria os campos e a ligacao se perde, entao o valor
-          // digitado nunca chegava em estado.precific e a conta nao saia.
-          estado.precific = estado.precific || {};
-          var campos = corpoEl().querySelectorAll('[data-prec]');
-          for (var cp2 = 0; cp2 < campos.length; cp2++) {
-            estado.precific[campos[cp2].getAttribute('data-prec')] = campos[cp2].value;
-          }
           estado.sujo = true; render(); return;
         }
         if (voltaA.id === 'sia-anon-salvar') {
@@ -2606,8 +2611,6 @@
           }
           return;
         }
-        var _cmp2 = voltaA.getAttribute('data-comparar');
-        if (_cmp2) { compararComVitrine(_cmp2); return; }
         if (voltaA.id === 'sia-sem-gerar') { estado.semanal = estado.semanal || {}; try { gerarSemanal(); } catch (e3) { estado.semanal.erro = 'Erro: ' + String(e3 && e3.message || e3); render(); } return; }
         if (voltaA.id === 'sia-sem-novo') { estado.semanal = estado.semanal || {}; estado.semanal.markdown = null; render(); return; }
         if (voltaA.id === 'sia-sem-pdf') { imprimirSemanal(); return; }
