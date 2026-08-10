@@ -262,21 +262,36 @@ async function atender(req: Request): Promise<Response> {
 
   // ---------- REGISTRA QUEM PEDIU ----------
   // Pedido demais em pouco tempo e raspagem, nao uso.
-  const desde = new Date(Date.now() - 3600 * 1000).toISOString();
-  const { count } = await db.from("sia_eventos")
-    .select("id", { count: "exact", head: true })
-    .eq("usuario_id", u.id).eq("evento", "receita").gte("em", desde);
-  if ((count || 0) > 40) {
+  /* LIMITE POR COLETA, nao por pedido.
+     A entrega passo a passo faz UMA coleta virar 30 a 80 pedidos: cada
+     passo, cada pagina, cada campanha. O teto de 40 pedidos por hora que
+     eu tinha posto matava a segunda coleta do dia — foi o que aconteceu
+     no teste. Agora conta so o inicio de cada coleta, que e o passo zero,
+     e o teto e generoso: 30 coletas por hora nao e uso normal de ninguem,
+     mas 3 ou 4 seguidas sao, quando a pessoa esta ajustando o periodo. */
+  const ehInicio = parseInt(String(body.passo ?? "0"), 10) === 0;
+  if (ehInicio) {
+    const desde = new Date(Date.now() - 3600 * 1000).toISOString();
+    const { count } = await db.from("sia_eventos")
+      .select("id", { count: "exact", head: true })
+      .eq("usuario_id", u.id).eq("evento", "receita").gte("em", desde);
+    if ((count || 0) > 30) {
+      await db.from("sia_eventos").insert({
+        usuario_id: u.id, evento: "receita_bloqueada",
+        detalhe: { motivo: "mais de 30 coletas na ultima hora", total: count },
+      });
+      return json({
+        ok: false,
+        erro: "Voce fez muitas leituras seguidas. Aguarde alguns minutos e tente de novo.",
+      }, 429);
+    }
+    // registra so o inicio: o log fica legivel e o painel mostra coletas,
+    // nao pedidos soltos
     await db.from("sia_eventos").insert({
-      usuario_id: u.id, evento: "receita_bloqueada",
-      detalhe: { motivo: "mais de 40 pedidos na ultima hora", total: count },
+      usuario_id: u.id, evento: "receita",
+      detalhe: { modo: body.modo || "normal", loja: body.loja || null },
     });
-    return json({ ok: false, erro: "muitos pedidos em pouco tempo. Aguarde alguns minutos." }, 429);
   }
-  await db.from("sia_eventos").insert({
-    usuario_id: u.id, evento: "receita",
-    detalhe: { modo: body.modo || "normal", loja: body.loja || null },
-  });
 
   // ---------- CONSULTAS AVULSAS ----------
   // O Espiao e o volume de palavras rodam sob demanda, fora da coleta.

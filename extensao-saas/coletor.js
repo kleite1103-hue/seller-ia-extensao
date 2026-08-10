@@ -1518,8 +1518,14 @@
         loja: estado.loja ? estado.loja.shop_id : null
       })
     }).then(function (r) { return r.json(); }).then(function (r) {
-      if (!r || !r.ok) throw new Error((r && r.erro) || 'nao consegui o proximo passo');
+      if (!r || !r.ok) {
+        try { console.error('[Seller.IA] servidor recusou o passo ' + indice + ':', r && r.erro); } catch (e) { }
+        throw new Error((r && r.erro) || 'nao consegui o proximo passo');
+      }
       return r;
+    }).catch(function (e) {
+      try { console.error('[Seller.IA] falha ao pedir o passo ' + indice + ':', e && e.message); } catch (e2) { }
+      throw e;
     });
   }
 
@@ -1580,6 +1586,7 @@
     if (!r.repete) {
       var r1 = await buscar(r.chamada.url, r.chamada.metodo, r.chamada.corpo);
       feitas++;
+      try { console.log('[Seller.IA]   -> ' + (r1.ok ? 'ok' : 'FALHOU: ' + (r1.erro || '?'))); } catch (e9) { }
       if (r1.ok && r1.dados) entregar(r.chamada.url, r.chamada.corpo, r1.dados);
       await pausa(pausaMs);
       return feitas;
@@ -1800,18 +1807,23 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
             passo = await pedirPasso(modo, ip, vals);
           } catch (e0) {
             if (ip === 0) {
+              var msg0 = String(e0 && e0.message || e0);
               resolver({
                 ok: false,
-                erro: 'Nao consegui preparar a leitura: ' + String(e0 && e0.message || e0) +
-                  '. Verifique a sua conexao e tente de novo.',
+                // a mensagem do servidor ja e escrita para a pessoa ler:
+                // repetir "nao consegui preparar" na frente so confunde
+                erro: /muitas leituras|aguarde/i.test(msg0)
+                  ? msg0
+                  : 'Nao consegui preparar a leitura: ' + msg0 + '. Verifique a sua conexao e tente de novo.',
                 chamadas: 0, campanhas: 0, produtos: 0
               });
               return;
             }
             break;
           }
-          if (passo.fim) break;
+          if (passo.fim) { try { console.log('[Seller.IA] fim da receita no passo ' + ip); } catch (e7) { } break; }
           if (passo.somenteProfunda && !PROFUNDA) continue;
+          try { console.log('[Seller.IA] passo ' + ip + ': ' + (passo.fase || '?') + ' -> ' + (passo.chamada && passo.chamada.url || 'SEM URL')); } catch (e8) { }
           prog(passo.fase || 'Lendo...');
           try {
             totalChamadas += await executarPasso(passo, modo, ip, vals, lojaDoCiclo);
