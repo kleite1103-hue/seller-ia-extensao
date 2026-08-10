@@ -3,30 +3,40 @@
   "name": "Seller.IA · Analista de Mercado",
   "version": "1.0.0",
   "description": "Le um nicho da Shopee por dentro: quem vende, quanto vende, a que preco, e onde da para entrar.",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://shopee.com.br/*",
     "https://seller.shopee.com.br/*"
   ],
-  "background": { "service_worker": "bg.js" },
+  "background": {
+    "service_worker": "bg.js"
+  },
   "content_scripts": [
     {
-      "matches": ["https://shopee.com.br/*", "https://seller.shopee.com.br/*"],
-      "js": ["interceptor.js"],
-      "run_at": "document_start",
-      "world": "MAIN",
-      "all_frames": true
-    },
-    {
-      "matches": ["https://shopee.com.br/*", "https://seller.shopee.com.br/*"],
-      "js": ["mercado.js"],
+      "matches": [
+        "https://shopee.com.br/*",
+        "https://seller.shopee.com.br/*"
+      ],
+      "js": [
+        "mercado.js"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }
   ],
-  "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "action": {
     "default_title": "Analista de Mercado",
-    "default_icon": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" }
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
   }
 }
