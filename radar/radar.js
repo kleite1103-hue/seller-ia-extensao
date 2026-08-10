@@ -157,11 +157,12 @@
     '<style>' +
     ':host{all:initial}' +
     '*{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif}' +
-    '.btn{position:fixed;bottom:20px;right:20px;width:52px;height:52px;border-radius:16px;' +
+    '.btn{position:fixed;top:38%;transform:translateY(-50%);right:0;width:44px;height:56px;border-radius:15px 0 0 15px;' +
       'background:#0F1115;color:#fff;border:none;cursor:pointer;font-size:22px;' +
       'box-shadow:0 8px 24px rgba(0,0,0,.35);display:grid;place-items:center}' +
-    '.btn b{position:absolute;top:-6px;right:-6px;background:#E63E1B;color:#fff;font-size:11px;' +
-      'min-width:22px;height:22px;border-radius:99px;display:grid;place-items:center;padding:0 5px}' +
+    '.btn b{position:absolute;top:-7px;left:-9px;background:#E63E1B;color:#fff;font-size:10.5px;' +
+      'min-width:21px;height:21px;border-radius:99px;display:grid;place-items:center;padding:0 5px;' +
+      'font-family:ui-monospace,monospace}' +
     '.painel{position:fixed;top:0;right:0;height:100vh;width:min(760px,100vw);background:#0F1115;' +
       'color:#F2F4F7;display:flex;flex-direction:column;transform:translateX(102%);' +
       'transition:transform .25s;box-shadow:-16px 0 50px rgba(0,0,0,.5)}' +

@@ -239,9 +239,13 @@
     '<style>' +
     ':host{all:initial}' +
     '*{box-sizing:border-box;font-family:Outfit,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif}' +
-    '.btn{position:fixed;bottom:22px;right:22px;width:54px;height:54px;border-radius:17px;background:#1C1A17;' +
-      'color:#FBF8F3;border:none;cursor:pointer;font:600 25px Archivo,Arial;box-shadow:0 8px 26px rgba(0,0,0,.3);' +
-      'display:grid;place-items:center;z-index:2147483000}' +
+    // No meio da lateral, nao no canto de baixo: ali ele cobria o chat da
+    // Shopee e os botoes que a pessoa usa enquanto navega.
+    '.btn{position:fixed;top:50%;transform:translateY(-50%);right:0;width:44px;height:60px;' +
+      'border-radius:16px 0 0 16px;background:#1C1A17;' +
+      'color:#FBF8F3;border:none;cursor:pointer;font:600 21px Archivo,Arial;box-shadow:-4px 4px 18px rgba(0,0,0,.22);' +
+      'display:grid;place-items:center;z-index:2147483000;transition:width .15s,background .15s}' +
+    '.btn:hover{width:52px;background:#E63E1B}' +
     '.btn em{font-style:normal;color:#E63E1B}' +
     '.painel{position:fixed;inset:0 0 0 auto;height:100vh;width:min(900px,100vw);background:#FEFCF9;color:#1A1610;' +
       'display:flex;flex-direction:column;transform:translateX(102%);transition:transform .26s;' +
