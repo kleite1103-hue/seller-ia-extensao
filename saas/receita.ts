@@ -279,6 +279,46 @@ async function atender(req: Request): Promise<Response> {
     });
   }
 
+  /* ---------- CONSULTAS AVULSAS ----------
+     O Espiao e a pesquisa de palavras rodam sob demanda, fora da coleta.
+     Ficam aqui pelo mesmo motivo de todo o resto: nao deixar rota nem
+     corpo escritos na extensao. A chamada vai pronta. */
+  if (body.consulta) {
+    const c = String(body.consulta);
+    const spc = String(body.spc || "");
+    if (!spc) return json({ ok: false, erro: "sem sessao" }, 400);
+
+    // volume de uma lista de termos que ja existe
+    if (c === "volume_palavras") {
+      const termos = Array.isArray(body.termos) ? body.termos.slice(0, 12) : [];
+      return json({
+        ok: true,
+        chamada: {
+          url: "/api/pas/v1/setup_helper/list_recommended_keyword/?" + spc,
+          metodo: "POST",
+          corpo: JSON.stringify({ campaign_type: "shop", keyword_list: termos, limit: 40 }),
+        },
+      });
+    }
+
+    // sugestoes a partir de UM termo: e o que devolve as semelhantes e as
+    // de cauda longa, com o volume de cada uma
+    if (c === "sugerir_palavras") {
+      const termo = String(body.termo || "").trim().slice(0, 60);
+      if (!termo) return json({ ok: false, erro: "sem termo" }, 400);
+      return json({
+        ok: true,
+        chamada: {
+          url: "/api/pas/v1/setup_helper/list_recommended_keyword/?" + spc,
+          metodo: "POST",
+          corpo: JSON.stringify({ campaign_type: "shop", keyword_list: [termo], limit: 60 }),
+        },
+      });
+    }
+
+    return json({ ok: false, erro: "consulta desconhecida" }, 400);
+  }
+
   /* ============================================================
      ENTREGA PASSO A PASSO
      A receita inteira numa resposta so ficava legivel no console:

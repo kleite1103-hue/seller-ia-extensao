@@ -81,6 +81,8 @@
       email: '', erro: null, entrando: false, aviso: null
     },
     acessoToken: null,
+    kw: {},                  // pesquisa de palavras
+    kwHistorico: null,       // serie de volume que a gente monta
     limiteLojas: null,       // mensagem quando a loja nao cabe no plano
     lojasPlano: null,        // quantas usadas de quantas
     telaServico: null,       // atualizar | suporte | assinatura
@@ -2309,6 +2311,12 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           return;
         }
         if (voltaA.id === 'sia-acesso-sair') { acessoSair(); return; }
+        if (voltaA.id === 'sia-kw-pesquisar') {
+          var campoKw = $('sia-kw-pesquisa');
+          var termoKw = (campoKw && campoKw.value || '').trim();
+          if (termoKw) pesquisarPalavra(termoKw);
+          return;
+        }
         if (voltaA.id === 'sia-ver-planos') {
           try { window.open('https://selleriaclub.com/planos', '_blank', 'noopener'); } catch (e) { }
           return;
@@ -2962,7 +2970,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     }
 
     var busca = (estado.buscaPalavra || '').toLowerCase().trim();
-    var h = '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
+    var h = pesq + '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
       '<input id="sia-kw-busca" value="' + esc(estado.buscaPalavra || '') + '" placeholder="procurar um termo na lista" ' +
       'style="flex:1;min-width:200px;background:var(--b0);border:1px solid var(--li);border-radius:9px;padding:11px 12px;color:var(--t0);font-size:13.5px"></div>';
     h += '<div class="leitura"><div class="fr">' + frase + '</div><div class="ex">' + expl + '</div></div>';
@@ -6948,7 +6956,188 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
      e devolve os termos que a Shopee considera relevantes para ESTA loja.
      Pesquisar uma palavra qualquer nunca ia funcionar, entao a funcao de
      busca livre foi removida em vez de continuar frustrando. */
+  /* ============ PESQUISA DE PALAVRAS ============
+     Digite um termo e a Shopee devolve as relacionadas, com o volume de
+     busca de cada uma. O volume vem como numero unico, sem historico —
+     entao guardamos o nosso a cada consulta, e em duas semanas da para
+     dizer o que esta subindo. */
+
+  function pesquisarPalavra(termo) {
+    if (!termo || !estado.spc) return;
+    estado.kw = estado.kw || {};
+    estado.kw.buscando = true;
+    estado.kw.termo = termo;
+    estado.kw.erro = null;
+    render();
+
+    fetch(SIA_URL_RECEITA, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: estado.acessoToken, consulta: 'sugerir_palavras', termo: termo,
+        spc: 'SPC_CDS=' + estado.spc + '&SPC_CDS_VER=2'
+      })
+    }).then(function (r) { return r.json(); }).then(function (rc) {
+      if (!rc || !rc.ok || !rc.chamada) throw new Error((rc && rc.erro) || 'sem resposta');
+      chrome.runtime.sendMessage({
+        tipo: 'sia:buscar', url: rc.chamada.url, metodo: rc.chamada.metodo, corpo: rc.chamada.corpo
+      }, function (r) {
+        void chrome.runtime.lastError;
+        estado.kw.buscando = false;
+        var lista = [];
+        try {
+          var bruto = (((r || {}).dados || {}).data || {}).keyword_list || [];
+          for (var i = 0; i < bruto.length; i++) {
+            var k = bruto[i];
+            if (!k || k.keyword == null) continue;
+            var nome = String(k.keyword);
+            lista.push({
+              termo: nome,
+              volume: k.search_volume != null ? k.search_volume : null,
+              lance: k.suggested_bid != null ? k.suggested_bid / 100000 : null,
+              qualidade: k.quality_score != null ? k.quality_score : null,
+              palavras: nome.trim().split(/\s+/).length
+            });
+          }
+        } catch (e) { /* noop */ }
+        lista.sort(function (a, b) { return (b.volume || 0) - (a.volume || 0); });
+        estado.kw.lista = lista;
+        if (!lista.length) estado.kw.erro = 'A Shopee nao devolveu sugestoes para este termo.';
+        guardarVolumes(lista);
+        estado.sujo = true;
+        render();
+      });
+    }).catch(function (e) {
+      estado.kw.buscando = false;
+      estado.kw.erro = 'Nao consegui consultar: ' + String(e && e.message || e);
+      render();
+    });
+  }
+
+  /* O historico de volume. A Shopee da um numero unico, sem serie: se a
+     gente guardar o de hoje, em duas semanas o crescimento existe. */
+  function guardarVolumes(lista) {
+    if (!lista || !lista.length) return;
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'kw_historico' }, function (r) {
+        void chrome.runtime.lastError;
+        var h = {};
+        try { h = JSON.parse((r && r.valor) || '{}') || {}; } catch (e) { h = {}; }
+        var hoje = new Date().toISOString().slice(0, 10);
+        for (var i = 0; i < lista.length && i < 60; i++) {
+          var k = lista[i];
+          if (k.volume == null) continue;
+          var chave = k.termo.toLowerCase();
+          h[chave] = h[chave] || [];
+          // um registro por dia, o ultimo vence
+          if (h[chave].length && h[chave][h[chave].length - 1].d === hoje) {
+            h[chave][h[chave].length - 1].v = k.volume;
+          } else {
+            h[chave].push({ d: hoje, v: k.volume });
+          }
+          if (h[chave].length > 60) h[chave] = h[chave].slice(-60);
+        }
+        // teto de 400 termos, para nao inchar o armazenamento
+        var chaves = Object.keys(h);
+        if (chaves.length > 400) {
+          chaves.slice(0, chaves.length - 400).forEach(function (c) { delete h[c]; });
+        }
+        try {
+          chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'kw_historico', valor: JSON.stringify(h) },
+            function () { void chrome.runtime.lastError; });
+        } catch (e) { /* noop */ }
+        estado.kwHistorico = h;
+      });
+    } catch (e) { /* noop */ }
+  }
+
+  /* Quanto o termo subiu ou caiu, comparando o registro mais antigo que
+     temos com o de hoje. */
+  function tendenciaDoTermo(termo) {
+    var h = estado.kwHistorico;
+    if (!h) return null;
+    var serie = h[String(termo).toLowerCase()];
+    if (!serie || serie.length < 2) return null;
+    var primeiro = serie[0], ultimo = serie[serie.length - 1];
+    if (!primeiro.v) return null;
+    var dias = Math.round((new Date(ultimo.d) - new Date(primeiro.d)) / 86400000);
+    if (dias < 1) return null;
+    return { pct: ((ultimo.v - primeiro.v) / primeiro.v) * 100, dias: dias, de: primeiro.v, para: ultimo.v };
+  }
+
+  function renderPesquisaPalavra() {
+    var K = estado.kw || {};
+    var h = '<div class="leitura"><div class="fr">O que o comprador digita</div>' +
+      '<div class="ex">Escreva um termo e a Shopee devolve as palavras relacionadas, com o volume de busca de cada uma. ' +
+      'As de tres ou mais palavras sao a <b>cauda longa</b>: buscam menos, mas quem busca sabe o que quer \u2014 costumam converter melhor e custar menos.</div></div>';
+
+    h += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">' +
+      '<input id="sia-kw-pesquisa" value="' + esc(K.termo || '') + '" placeholder="ex: suporte de vinho" ' +
+      'style="flex:1;min-width:200px;background:var(--b0);border:1px solid var(--li);border-radius:12px;padding:12px 13px;color:var(--t0);font-family:inherit;font-size:14.5px">' +
+      '<button id="sia-kw-pesquisar" style="background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:14px;padding:12px 22px;border-radius:12px;cursor:pointer">' +
+      (K.buscando ? 'Buscando...' : 'Pesquisar') + '</button></div>';
+
+    if (K.erro) {
+      h += '<div class="nota" style="color:var(--rd)">' + esc(K.erro) + '</div>';
+    }
+
+    var L = K.lista || [];
+    if (!L.length) return h;
+
+    var curtas = L.filter(function (x) { return x.palavras <= 2; });
+    var longas = L.filter(function (x) { return x.palavras >= 3; });
+
+    // o que subiu, se ja houver historico
+    var subindo = L.map(function (x) {
+      var t2 = tendenciaDoTermo(x.termo);
+      return t2 && t2.pct >= 15 ? { termo: x.termo, t: t2, volume: x.volume } : null;
+    }).filter(Boolean).sort(function (a, b) { return b.t.pct - a.t.pct; });
+
+    if (subindo.length) {
+      h += olho('O QUE ESTA SUBINDO', 'A Shopee nao guarda historico de busca por palavra \u2014 este e o nosso, montado a cada pesquisa que voce faz. Quanto mais voce consulta, mais longa fica a serie.');
+      h += '<div style="background:color-mix(in srgb,var(--vd) var(--tin,9%),var(--b0));border-left:3px solid var(--vd);border-radius:0 18px 18px 0;padding:14px 16px;margin-bottom:12px">';
+      for (var si = 0; si < subindo.length && si < 6; si++) {
+        var S = subindo[si];
+        h += '<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:4px 0;color:var(--t1)">' +
+          '<span><b style="color:var(--t0)">' + esc(S.termo) + '</b></span>' +
+          '<span style="font-family:Space Mono,monospace;color:var(--vd)">+' + fmt(S.t.pct, 0) + '% em ' + S.t.dias + 'd</span></div>';
+      }
+      h += '</div>';
+    }
+
+    function tabela(titulo, itens, ajuda) {
+      if (!itens.length) return '';
+      var x = olho(titulo, ajuda);
+      x += '<table><tr><th>TERMO</th><th class="num">BUSCAS</th><th class="num">LANCE SUGERIDO</th><th class="num">30 DIAS</th></tr>';
+      for (var i = 0; i < itens.length && i < 25; i++) {
+        var it = itens[i];
+        var tend = tendenciaDoTermo(it.termo);
+        x += '<tr><td><b>' + esc(it.termo) + '</b></td>' +
+          '<td class="num">' + (it.volume != null ? fmt(it.volume, 0) : '\u2014') + '</td>' +
+          '<td class="num">' + (it.lance != null ? reais(it.lance) : '\u2014') + '</td>' +
+          '<td class="num" style="color:' + (tend ? (tend.pct > 0 ? 'var(--vd)' : 'var(--rd)') : 'var(--t3)') + '">' +
+          (tend ? (tend.pct > 0 ? '+' : '') + fmt(tend.pct, 0) + '%' : '\u2014') + '</td></tr>';
+      }
+      return x + '</table>';
+    }
+
+    h += tabela('AS MAIS BUSCADAS', curtas,
+      'Termos curtos, de ate duas palavras. Buscam muito, mas a disputa e maior e o comprador ainda esta decidindo o que quer.');
+    h += tabela('CAUDA LONGA', longas,
+      'Tres palavras ou mais. Quem busca assim ja sabe o que quer \u2014 converte melhor e o lance costuma ser mais barato. E onde vale comecar quando o orcamento e curto.');
+
+    if (longas.length && curtas.length) {
+      var medCurta = curtas.reduce(function (a, b) { return a + (b.lance || 0); }, 0) / curtas.length;
+      var medLonga = longas.reduce(function (a, b) { return a + (b.lance || 0); }, 0) / longas.length;
+      if (medCurta && medLonga && medLonga < medCurta) {
+        h += '<div class="nota">A cauda longa custa <b>' + fmt(((medCurta - medLonga) / medCurta) * 100, 0) +
+          '% menos</b> por clique neste termo \u2014 ' + reais(medLonga) + ' contra ' + reais(medCurta) + '.</div>';
+      }
+    }
+    return h;
+  }
+
   function renderPalavras() {
+    var pesq = renderPesquisaPalavra();
     var D = null;
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (er) { /* noop */ }
     var K = (D && D.busca && D.busca.keywords) || [];
@@ -9262,6 +9451,10 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     if (abaAtiva === 'palavras') {
       try {
         corpo.innerHTML = capa('O QUE O COMPRADOR PROCURA', 'AS', 'PALAVRAS', '06') + renderSubAbas('espiao') + renderPalavras();
+        var kp = $('sia-kw-pesquisa');
+        if (kp) kp.addEventListener('keydown', function (ev3) {
+          if (ev3.key === 'Enter') { var v3 = kp.value.trim(); if (v3) pesquisarPalavra(v3); }
+        });
         var kb = $('sia-kw-busca');
         if (kb) kb.addEventListener('input', function () { estado.buscaPalavra = kb.value; estado.sujo = true; });
         var kc = $('sia-kw-coletar');
@@ -9827,6 +10020,13 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     if (r && r.valor) { estado.anonKey = r.valor; }
   });
   if (SIA_EXIGIR_ACESSO) acessoValidar();
+  // traz o historico de volume que ja foi guardado
+  try {
+    chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'kw_historico' }, function (rh) {
+      void chrome.runtime.lastError;
+      try { estado.kwHistorico = JSON.parse((rh && rh.valor) || '{}'); } catch (e) { estado.kwHistorico = {}; }
+    });
+  } catch (e) { /* noop */ }
   chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'temaEscuro' }, function (r) {
       void chrome.runtime.lastError;
       if (r && r.valor) aplicarTema(true);
