@@ -262,57 +262,16 @@ async function atender(req: Request): Promise<Response> {
 
   // ---------- REGISTRA QUEM PEDIU ----------
   // Pedido demais em pouco tempo e raspagem, nao uso.
-  /* LIMITE POR COLETA, nao por pedido.
-     A entrega passo a passo faz UMA coleta virar 30 a 80 pedidos: cada
-     passo, cada pagina, cada campanha. O teto de 40 pedidos por hora que
-     eu tinha posto matava a segunda coleta do dia — foi o que aconteceu
-     no teste. Agora conta so o inicio de cada coleta, que e o passo zero,
-     e o teto e generoso: 30 coletas por hora nao e uso normal de ninguem,
-     mas 3 ou 4 seguidas sao, quando a pessoa esta ajustando o periodo. */
-  const ehInicio = parseInt(String(body.passo ?? "0"), 10) === 0;
-  if (ehInicio) {
-    const desde = new Date(Date.now() - 3600 * 1000).toISOString();
-    const { count } = await db.from("sia_eventos")
-      .select("id", { count: "exact", head: true })
-      .eq("usuario_id", u.id).eq("evento", "receita").gte("em", desde);
-    if ((count || 0) > 30) {
-      await db.from("sia_eventos").insert({
-        usuario_id: u.id, evento: "receita_bloqueada",
-        detalhe: { motivo: "mais de 30 coletas na ultima hora", total: count },
-      });
-      return json({
-        ok: false,
-        erro: "Voce fez muitas leituras seguidas. Aguarde alguns minutos e tente de novo.",
-      }, 429);
-    }
-    // registra so o inicio: o log fica legivel e o painel mostra coletas,
-    // nao pedidos soltos
+  /* Registra o inicio de cada coleta, para o painel mostrar o uso.
+     NAO ha teto: a trava por hora atrapalhava o trabalho real — fechar e
+     reabrir a gaveta ja disparava recoleta — e protegia pouco, porque
+     quem quisesse copiar faria as chamadas espacadas. O que protege e a
+     sessao unica, a assinatura ativa e a receita nunca vir inteira. */
+  if (parseInt(String(body.passo ?? "0"), 10) === 0) {
     await db.from("sia_eventos").insert({
       usuario_id: u.id, evento: "receita",
       detalhe: { modo: body.modo || "normal", loja: body.loja || null },
     });
-  }
-
-  // ---------- CONSULTAS AVULSAS ----------
-  // O Espiao e o volume de palavras rodam sob demanda, fora da coleta.
-  // Ficam aqui pelo mesmo motivo: nao deixar rota escrita na extensao.
-  if (body.consulta) {
-    const c = String(body.consulta);
-    if (c === "volume_palavras") {
-      const termos = Array.isArray(body.termos) ? body.termos.slice(0, 12) : [];
-      const spc = String(body.spc || "");
-      if (!spc) return json({ ok: false, erro: "sem sessao" }, 400);
-      // URL ja montada: a extensao nao aprende o formato
-      return json({
-        ok: true,
-        chamada: {
-          url: "/api/pas/v1/setup_helper/list_recommended_keyword/?" + spc,
-          metodo: "POST",
-          corpo: JSON.stringify({ campaign_type: "shop", keyword_list: termos, limit: 40 }),
-        },
-      });
-    }
-    return json({ ok: false, erro: "consulta desconhecida" }, 400);
   }
 
   /* ============================================================

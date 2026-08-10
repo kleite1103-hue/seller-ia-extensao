@@ -8352,7 +8352,14 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     // NAO exigir `antigo`: ao ENTRAR numa conta, antigo e null e a auto-coleta
     // nunca disparava — ela so funcionava trocando de uma conta para outra,
     // que e justamente o caso menos comum.
-    if (estado.autoColeta) agendarAutoColeta();
+    //
+    // O ESPACO DE ESPERA IMPORTA: a leitura do disco e assincrona, e sem
+    // esperar por ela a auto-coleta olhava um estado ainda vazio e recoletava
+    // tudo. Era por isso que fechar e reabrir a gaveta disparava leitura nova
+    // mesmo com o dado salvo. 1,2s cobre a resposta do armazenamento; se ela
+    // chegar antes, o proprio carregamento chama agendarAutoColeta e o
+    // controle por loja impede a repeticao.
+    if (estado.autoColeta) setTimeout(agendarAutoColeta, 1200);
   }
   /* ---- AUTO-COLETA ----
      Dispara sozinha quando a conta e identificada, desde que ela ainda nao
