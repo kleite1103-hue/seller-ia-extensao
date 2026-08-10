@@ -30,7 +30,12 @@ function json(b: unknown, s = 200) {
    extensao com os valores da sessao dela.
    ============================================================ */
 function montarReceita(modo: string, ctx: any) {
-  const PROFUNDA = modo === "profunda";
+  /* MODO UNICO. Havia normal e profunda, mas medindo as chamadas reais a
+     diferenca era de 84 para 125 numa conta com 20 campanhas ativas — uns
+     trinta segundos. Nao vale ter duas leituras e a pessoa escolher entre
+     elas: agora toda coleta e completa, com palavras, avaliacoes e o
+     diagnostico de todas as campanhas que gastaram. */
+  const PROFUNDA = true;
   const p: any[] = [];
 
   // ---------- 1. IDENTIDADE E SAUDE ----------

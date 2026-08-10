@@ -2056,7 +2056,8 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     '  </div>' +
     '  <div class="abas" id="sia-abas"></div>' +
     '  <div class="corpo" id="sia-corpo"></div>' +
-    '  <div class="rodape"><button id="sia-recoletar">Recoletar conta + Analisar</button></div>' +
+    '  <div class="rodape"><button id="sia-recoletar">Recoletar conta + Analisar</button>' +
+    '<div id="sia-rodape-nota" style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t3);margin-top:7px"></div></div>' +
     '  <div class="expl" id="sia-expl"></div>' +
     '</div>';
 
@@ -2489,7 +2490,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         if (voltaA.id === 'sia-sem-gerar') { estado.semanal = estado.semanal || {}; try { gerarSemanal(); } catch (e3) { estado.semanal.erro = 'Erro: ' + String(e3 && e3.message || e3); render(); } return; }
         if (voltaA.id === 'sia-sem-novo') { estado.semanal = estado.semanal || {}; estado.semanal.markdown = null; render(); return; }
         if (voltaA.id === 'sia-sem-pdf') { imprimirSemanal(); return; }
-        if (voltaA.id === 'sia-profunda') { if (estado.coletaProgresso === null) { coletaCompleta(function () { render(); }, null, 'profunda'); render(); } return; }
+        if (voltaA.id === 'sia-profunda-DESATIVADO') { if (estado.coletaProgresso === null) { coletaCompleta(function () { render(); }, null, 'profunda'); render(); } return; }
         if (voltaA.id === 'sia-rel-gerar' || voltaA.id === 'sia-rel-pdf' || voltaA.id === 'sia-rel-copiar' || voltaA.id === 'sia-rel-novo') break;
       }
       voltaA = voltaA.parentNode;
@@ -4342,8 +4343,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     var nC = Object.keys(estado.campanhas).length, nP = Object.keys(estado.produtos).length;
 
     var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">' + seloFonte() +
-      '<button id="sia-coletar-tudo" style="background:var(--mk);border:none;color:#fff;font-weight:600;font-size:13px;padding:9px 16px;border-radius:var(--r-btn,14px);cursor:pointer">' +
-      (estado.coletaProgresso !== null ? esc(String(estado.coletaProgresso)) : 'Ler a conta de novo') + '</button></div>';
+      '';
 
     if (!nC && !nP) {
       return h + '<div class="nota" style="color:var(--am)">Ainda nao li esta conta. Clique em <b>Ler a conta de novo</b> — leva cerca de um minuto.</div>';
@@ -8361,6 +8361,25 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     // controle por loja impede a repeticao.
     if (estado.autoColeta) setTimeout(agendarAutoColeta, 1200);
   }
+  /* Mesmo dia no fuso de Brasilia, que e o que a Shopee usa para fechar
+     o dia. Comparar so a data local do navegador erraria para quem esta
+     em outro fuso. */
+  function ehMesmoDia(quando) {
+    if (!quando) return false;
+    // A Shopee fecha o dia em Brasilia. Em vez de fazer conta de fuso na mao,
+    // que ja me deu dois resultados errados aqui, uso o proprio formatador do
+    // navegador com o fuso fixo — ele resolve horario de verao e virada.
+    function diaBRT(ms) {
+      try {
+        return new Date(ms).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      } catch (e) {
+        var d = new Date(ms);
+        return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+      }
+    }
+    return diaBRT(quando) === diaBRT(Date.now());
+  }
+
   /* ---- AUTO-COLETA ----
      Dispara sozinha quando a conta e identificada, desde que ela ainda nao
      tenha sido lida nesta sessao. Espera o painel assentar e nao repete. */
@@ -8375,6 +8394,15 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
                                                            // aqui bagunçaria os periodos
     var temDado = Object.keys(estado.campanhas).length || Object.keys(estado.produtos).length;
     if (temDado) { autoColetaFeita[id] = true; return; }   // veio do disco, nao precisa
+
+    // REGRA DO DIA. Os numeros da Shopee sao D-1: o que foi lido hoje de manha
+    // e o mesmo a tarde. Recoletar de hora em hora e gastar chamada para
+    // receber o mesmo. Se ja houve leitura hoje nesta loja, nao repete —
+    // quem quiser forcar usa o botao do rodape.
+    if (estado.lidoEm && ehMesmoDia(estado.lidoEm)) {
+      autoColetaFeita[id] = true;
+      return;
+    }
     autoColetaFeita[id] = true;
     setTimeout(function () {
       if (!estado.loja || estado.loja.shop_id !== id) return;   // trocou no meio
@@ -9280,6 +9308,16 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     // nao fazia nada — que foi o que a Karina viu no Inicio.
     var abasEl2 = $('sia-abas');
     if (abasEl2) { abasEl2.style.display = ''; renderAbas(); }
+
+    // Quando foi lido: com a regra do dia, a pessoa precisa saber que o
+    // numero na tela e de hoje de manha e nao de agora.
+    var nota = $('sia-rodape-nota');
+    if (nota) {
+      var q = lidoHa();
+      nota.textContent = q
+        ? ('lido ' + q + (estado.lidoEm && ehMesmoDia(estado.lidoEm) ? '' : ' \u00b7 toque para atualizar'))
+        : '';
+    }
     var rodEl2 = corpo.parentNode && corpo.parentNode.querySelector('.rodape');
     if (rodEl2) rodEl2.style.display = '';
 
@@ -9382,11 +9420,6 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       corpo.innerHTML = capa('A ANALISE COMPLETA', 'O', 'ESPECIALISTA', '07') + renderSubAbas('conta360') + renderEspecialista() + renderSemaforo();
       ligarChamadaCerebro();
       ligarCalculadora();
-      var be = $('sia-coletar-tudo');
-      if (be) be.addEventListener('click', function () {
-        if (estado.coletaProgresso !== null) return;
-        coletaCompleta(function (r) { guardarLimite(r); render(); });
-      });
       return;
     }
     if (abaAtiva === 'visao') {

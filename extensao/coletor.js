@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.12.5';
+  var VERSAO = '1.13.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -8218,8 +8218,25 @@
     // NAO exigir `antigo`: ao ENTRAR numa conta, antigo e null e a auto-coleta
     // nunca disparava — ela so funcionava trocando de uma conta para outra,
     // que e justamente o caso menos comum.
-    if (estado.autoColeta) agendarAutoColeta();
+    // espera a leitura do disco, que e assincrona: sem isso a decisao
+    // olhava um estado ainda vazio e recoletava tudo
+    if (estado.autoColeta) setTimeout(agendarAutoColeta, 1200);
   }
+  /* Mesmo dia no fuso de Brasilia, que e onde a Shopee fecha o dia. Uso o
+     formatador do navegador em vez de conta de fuso na mao. */
+  function ehMesmoDia(quando) {
+    if (!quando) return false;
+    function diaBRT(ms) {
+      try {
+        return new Date(ms).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      } catch (e) {
+        var d = new Date(ms);
+        return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+      }
+    }
+    return diaBRT(quando) === diaBRT(Date.now());
+  }
+
   /* ---- AUTO-COLETA ----
      Dispara sozinha quando a conta e identificada, desde que ela ainda nao
      tenha sido lida nesta sessao. Espera o painel assentar e nao repete. */
@@ -8234,6 +8251,14 @@
                                                            // aqui bagunçaria os periodos
     var temDado = Object.keys(estado.campanhas).length || Object.keys(estado.produtos).length;
     if (temDado) { autoColetaFeita[id] = true; return; }   // veio do disco, nao precisa
+
+    // REGRA DO DIA: os numeros da Shopee sao D-1, entao o que foi lido hoje
+    // de manha e o mesmo a tarde. Recoletar sozinha e gastar tempo para
+    // receber igual — quem quiser forcar usa o botao do rodape.
+    if (estado.lidoEm && ehMesmoDia(estado.lidoEm)) {
+      autoColetaFeita[id] = true;
+      return;
+    }
     autoColetaFeita[id] = true;
     setTimeout(function () {
       if (!estado.loja || estado.loja.shop_id !== id) return;   // trocou no meio
