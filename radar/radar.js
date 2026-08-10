@@ -11,9 +11,13 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.0.0';
+  var VERSAO = '1.1.0';
   var MAX_ROTAS = 400;
-  var MAX_AMOSTRA = 60000;   // caracteres por amostra guardada
+  // SEM CORTE. O radar existe para descobrir o que a Shopee entrega, e
+  // cortar a amostra escondia justamente os itens do fim da lista — foi
+  // assim que quatro produtos com venda viraram "so quatro tem o campo".
+  // O arquivo fica maior; e o preco de nao perder informacao.
+  var MAX_AMOSTRA = 0;       // 0 = guarda inteiro
 
   var MAPA = {};             // rota -> { chamadas, campos, amostra, ... }
   var aberto = false;
@@ -55,8 +59,10 @@
   /* Mapeia a estrutura ate 3 niveis, guardando um exemplo de cada campo.
      E o que responde "o que essa rota me da?" sem ler o JSON inteiro. */
   function mapearCampos(obj, prefixo, saida, nivel) {
-    if (nivel > 3 || !obj || typeof obj !== 'object') return saida;
-    var chaves = Object.keys(obj).slice(0, 60);
+    // 5 niveis e 200 chaves: o item da busca tem estrutura funda, e parar
+    // no terceiro nivel escondia campos que so aparecem la embaixo.
+    if (nivel > 5 || !obj || typeof obj !== 'object') return saida;
+    var chaves = Object.keys(obj).slice(0, 200);
     for (var i = 0; i < chaves.length; i++) {
       var k = chaves[i], v = obj[k];
       var caminho = prefixo ? prefixo + '.' + k : k;
@@ -83,7 +89,7 @@
       if (Object.keys(MAPA).length >= MAX_ROTAS) return;
       MAPA[rota] = {
         rota: rota, metodo: p.metodo || 'GET', chamadas: 0,
-        campos: {}, corpos: [], params: {}, amostra: null,
+        campos: {}, corpos: [], params: {}, amostra: null, amostras: [],
         primeiraEm: Date.now(), pagina: location.pathname
       };
     }
@@ -116,7 +122,17 @@
       try {
         var raiz = p.dados.data !== undefined ? p.dados.data : p.dados;
         mapearCampos(raiz, '', m.campos, 0);
-        if (!m.amostra) m.amostra = JSON.stringify(p.dados).slice(0, MAX_AMOSTRA);
+        if (!m.amostra) {
+          var txt = JSON.stringify(p.dados);
+          m.amostra = MAX_AMOSTRA > 0 ? txt.slice(0, MAX_AMOSTRA) : txt;
+          m.tamanhoReal = txt.length;
+        }
+        // guarda ate tres respostas diferentes da mesma rota: e o que
+        // permite ver se um campo vem sempre ou so as vezes
+        if (m.amostras.length < 3) {
+          var t2 = JSON.stringify(p.dados);
+          if (!m.amostras.some(function (x) { return x === t2; })) m.amostras.push(t2);
+        }
       } catch (e) { }
     }
     // O contador precisa subir mesmo com o painel fechado: e ele que diz
@@ -326,12 +342,19 @@
           parametros: m.params,
           corpos: m.corpos,
           campos: m.campos,
-          amostra: m.amostra
+          tamanhoReal: m.tamanhoReal || null,
+          amostra: m.amostra,
+          // ate tres respostas diferentes da mesma rota, para dar para
+          // comparar se um campo vem sempre ou so as vezes
+          amostras: m.amostras && m.amostras.length > 1 ? m.amostras : undefined
         };
       })
     };
     try {
-      var blob = new Blob([JSON.stringify(saida, null, 1)], { type: 'application/json' });
+      var texto = JSON.stringify(saida, null, 1);
+      var mb = Math.round(texto.length / 1048576 * 10) / 10;
+      if (mb > 40 && !confirm('O arquivo tem cerca de ' + mb + ' MB porque nada foi cortado. Baixar mesmo assim?')) return;
+      var blob = new Blob([texto], { type: 'application/json' });
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');
       a.href = url;
