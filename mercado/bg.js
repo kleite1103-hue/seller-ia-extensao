@@ -15,17 +15,31 @@ chrome.runtime.onMessage.addListener(function (msg, remetente, responder) {
     fetch('https://shopee.com.br' + msg.url, {
       method: msg.metodo || 'GET',
       credentials: 'include',
+      // Cabecalhos que a vitrine manda. O af-ac-enc-dat vazio e proposital:
+      // a Shopee aceita, e mandar um valor inventado seria pior.
       headers: {
         'Content-Type': 'application/json',
-        'af-ac-enc-dat': '',
         'x-api-source': 'pc',
         'x-shopee-language': 'pt-BR',
-        'x-requested-with': 'XMLHttpRequest'
+        'x-requested-with': 'XMLHttpRequest',
+        'af-ac-enc-dat': 'null',
+        'Referer': 'https://shopee.com.br/'
       },
       body: msg.corpo || undefined
     })
-      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, dados: d }; }); })
-      .then(function (r) { responder(r); })
+      .then(function (r) {
+        return r.json()
+          .then(function (d) { return { ok: r.ok, status: r.status, dados: d }; })
+          .catch(function () { return { ok: false, status: r.status, erro: 'resposta nao e json' }; });
+      })
+      .then(function (r) {
+        // a Shopee responde 200 com error dentro; sem olhar isso o erro
+        // aparece como "sem resultado" e a pessoa nao sabe o motivo
+        if (r.dados && r.dados.error) {
+          console.warn('[Mercado] Shopee devolveu erro', r.dados.error, r.dados.error_msg || '');
+        }
+        responder(r);
+      })
       .catch(function (e) { responder({ ok: false, erro: String(e && e.message || e) }); });
     return true;   // resposta assincrona
   }

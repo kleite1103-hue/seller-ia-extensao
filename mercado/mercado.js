@@ -48,6 +48,16 @@
   }
   function espera(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+  /* A vitrine manda um identificador de sessao de visualizacao em toda
+     busca. Um por analise basta. */
+  var _sessao = null;
+  function sessaoDaBusca() {
+    if (_sessao) return _sessao;
+    function h4() { return Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1); }
+    _sessao = h4() + h4() + '-' + h4() + '-' + h4() + '-' + h4() + '-' + h4() + h4() + h4();
+    return _sessao;
+  }
+
   /* ============ LEITURA DO NICHO ============ */
   async function analisar(termo) {
     E.termo = termo; E.buscando = true; E.erro = null; E.itens = []; E.detalhe = null;
@@ -57,13 +67,34 @@
     for (var pg = 0; pg < MAX_PAGINAS; pg++) {
       E.progresso = 'Lendo a pagina ' + (pg + 1) + ' de ' + MAX_PAGINAS + '...';
       desenhar();
+      // A URL segue exatamente a que a propria vitrine usa. Faltavam
+      // source=SRP e os identificadores de sessao — sem eles a Shopee
+      // responde, mas sem itens.
       var url = '/api/v4/search/search_items?by=relevancy&keyword=' +
         encodeURIComponent(termo) + '&limit=60&newest=' + (pg * 60) +
-        '&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2';
+        '&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2' +
+        '&source=SRP&view_session_id=' + sessaoDaBusca() +
+        '&extra_params=' + encodeURIComponent(JSON.stringify({ global_search_session_id: 'gs-' + Math.random().toString(16).slice(2, 10) }));
       var r = await api(url);
-      if (!r.ok || !r.dados) break;
+      if (!r.ok || !r.dados) {
+        E.erro = 'A Shopee nao respondeu a busca' + (r.status ? ' (codigo ' + r.status + ')' : '') +
+          (r.erro ? ': ' + r.erro : '') + '.';
+        break;
+      }
+      if (r.dados.error) {
+        E.erro = 'A Shopee recusou a busca (erro ' + r.dados.error + ')' +
+          (r.dados.error_msg ? ': ' + r.dados.error_msg : '') +
+          '. Abra a Shopee logada nesta aba e tente de novo.';
+        break;
+      }
       var its = (r.dados.items || (r.dados.data && r.dados.data.items) || []);
-      if (!its.length) break;
+      if (!its.length) {
+        if (pg === 0) {
+          E.erro = 'A Shopee respondeu mas nao devolveu produtos. ' +
+            'Confira se voce esta logada na Shopee nesta aba \u2014 deslogada ela nao entrega os dados.';
+        }
+        break;
+      }
       todos = todos.concat(its);
       if (its.length < 60) break;
       await espera(PAUSA);
