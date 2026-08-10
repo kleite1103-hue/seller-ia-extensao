@@ -1567,7 +1567,10 @@
 
     function entregar(url, corpo, dados) {
       processarPacote({
-        url: String(url).split('?')[0], metodo: r.chamada.metodo, corpo: corpo,
+        // URL INTEIRA, com a query: o processarPacote procura o SPC_CDS nela
+        // para saber de qual conta o dado e. Cortando a query, ele nunca
+        // achava a sessao e o dado entrava sem dono — ou nao entrava.
+        url: String(url), metodo: r.chamada.metodo, corpo: corpo,
         dados: dados, ts: Date.now(), loja: lojaCiclo,
         periodo: r.carimbaPeriodo ? (vals.ini + '_' + vals.fimAds) : null
       });
@@ -1832,7 +1835,21 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         if (estado.loja) guardarConta(estado.loja.shop_id);
         try { if (window.SIA_Diamantes && window.SIA_Diamantes.persistir) window.SIA_Diamantes.persistir(); } catch (e3) { }
 
-        resolver({ ok: true, chamadas: totalChamadas, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
+        // Diagnostico visivel: coleta que termina "ok" com tudo vazio e o
+        // pior cenario, porque parece que funcionou.
+        var nCamp = Object.keys(estado.campanhas).length;
+        var nProd = Object.keys(estado.produtos).length;
+        estado.diarioColeta = estado.diarioColeta || {};
+        estado.diarioColeta.ultimoResumo = totalChamadas + ' chamadas \u00b7 ' +
+          nCamp + ' campanhas \u00b7 ' + nProd + ' produtos' +
+          (estado.faltando && estado.faltando.length ? ' \u00b7 falhas: ' + estado.faltando.slice(0, 3).join(' | ') : '');
+        try { console.log('[Seller.IA] coleta: ' + estado.diarioColeta.ultimoResumo); } catch (e6) { }
+        resolver({
+          ok: true, chamadas: totalChamadas, campanhas: nCamp, produtos: nProd,
+          erro: (totalChamadas > 0 && nCamp === 0 && nProd === 0)
+            ? 'A leitura fez ' + totalChamadas + ' chamadas mas nao guardou nada. Abra o console com F12 e me mande as linhas [Seller.IA].'
+            : null
+        });
       })().catch(function (err) {
         try { console.error('[Seller.IA] coleta:', err); } catch (e5) { }
         // sem este catch, uma excecao no meio deixava a Promise pendurada
