@@ -1586,8 +1586,12 @@
 
     // --- paginado ---
     if (rep.tipo === 'pagina') {
+      // A primeira pagina PRECISA ser pedida de novo com pagina e offset:
+      // o pedido inicial nao os manda, entao os marcadores {pagina} e
+      // {offset} voltavam sem preencher e a Shopee recusava a chamada.
+      // Era por isso que campanhas e produtos vinham vazios.
       for (var pg = 1; pg <= (rep.ate || 10); pg++) {
-        var rp = pg === 1 ? r : await pedirPasso(modo, indice, Object.assign({}, vals, {
+        var rp = await pedirPasso(modo, indice, Object.assign({}, vals, {
           pagina: pg, offset: (pg - 1) * (rep.tamanho || 20)
         }));
         var rr = await buscar(rp.chamada.url, rp.chamada.metodo, rp.chamada.corpo);
