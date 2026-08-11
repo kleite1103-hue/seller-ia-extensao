@@ -14,14 +14,15 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.4.0';
-  var MAX_PAGINAS = 3;          // 60 itens por pagina
+  var VERSAO = '1.5.0';
+  var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
   var E = {
     termo: '', buscando: false, erro: null,
     itens: [], categorias: {}, historico: null,
     aba: 'nicho', ordem: 'mes', progresso: null,
+    paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null
   };
@@ -91,15 +92,114 @@
     return b + '-' + b.slice(0, 4) + '-4' + b.slice(1, 4) + '-8' + b.slice(2, 5) + '-' + b + b.slice(0, 4);
   }
 
+
+  /* ============ BUSCA POR FOTO ============
+     A IA descreve o que ve e a descricao vira a busca. Ela acerta o tipo
+     do produto, nao a marca — para pesquisa de mercado isso basta, e a
+     tela diz o que ela entendeu antes de buscar, para a pessoa corrigir. */
+  var URL_FOTO = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/mercado-foto';
+
+  function lerFoto(arquivo) {
+    if (!arquivo) return;
+    if (arquivo.size > 5 * 1024 * 1024) {
+      E.erro = 'A foto tem mais de 5 MB. Use uma menor.';
+      desenhar(); return;
+    }
+    E.buscando = true;
+    E.progresso = 'Olhando a foto...';
+    E.erro = null;
+    desenhar();
+
+    var leitor = new FileReader();
+    leitor.onload = function () {
+      var base64 = String(leitor.result).split(',')[1];
+      var tipo = arquivo.type || 'image/jpeg';
+      fetch(URL_FOTO, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imagem: base64, tipo: tipo })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        E.buscando = false;
+        E.progresso = null;
+        if (!j || !j.ok || !j.termo) {
+          E.erro = (j && j.erro) || 'Nao consegui entender a foto.';
+          desenhar(); return;
+        }
+        E.fotoDescricao = j.descricao || null;
+        var campo = $('termo');
+        if (campo) campo.value = j.termo;
+        analisar(j.termo);
+      }).catch(function (e) {
+        E.buscando = false; E.progresso = null;
+        E.erro = /failed to fetch/i.test(String(e && e.message))
+          ? 'Nao consegui falar com o servidor. Verifique se a funcao mercado-foto foi publicada no Supabase.'
+          : String(e && e.message || e);
+        desenhar();
+      });
+    };
+    leitor.onerror = function () {
+      E.buscando = false; E.erro = 'Nao consegui ler o arquivo.'; desenhar();
+    };
+    leitor.readAsDataURL(arquivo);
+  }
+
   /* ============ LEITURA DO NICHO ============ */
+  /* As variacoes que a propria Shopee sugere para o termo. Buscar so a
+     palavra que a pessoa digitou mostra uma fatia; o nicho de verdade
+     aparece quando se junta o que os compradores realmente escrevem. */
+  async function variacoesDoTermo(termo) {
+    var r = await api('/api/v4/search/search_suggestion?keyword=' +
+      encodeURIComponent(termo) + '&limit=12&version=3');
+    var out = [];
+    try {
+      var lista = (r.dados && (r.dados.data || r.dados)) || {};
+      var arr = lista.suggestions || lista.items || lista.keywords || [];
+      for (var i = 0; i < arr.length; i++) {
+        var s2 = typeof arr[i] === 'string' ? arr[i] : (arr[i].keyword || arr[i].suggestion || arr[i].text);
+        if (!s2) continue;
+        s2 = String(s2).trim().toLowerCase();
+        if (s2 === termo.toLowerCase()) continue;
+        if (s2.indexOf(termo.toLowerCase().split(' ')[0]) < 0) continue;   // fora do assunto
+        out.push(s2);
+      }
+    } catch (e) { }
+    return out.slice(0, 4);
+  }
+
   async function analisar(termo) {
     try { console.log('[Mercado] analisando:', termo); } catch (e) { }
     E.termo = termo; E.buscando = true; E.erro = null; E.itens = []; E.detalhe = null;
+    E.variacoes = [];
     desenhar();
 
+    var termos = [termo];
+    if (E.ampliar) {
+      E.progresso = 'Vendo como as pessoas procuram isto...';
+      desenhar();
+      var vs = await variacoesDoTermo(termo);
+      E.variacoes = vs;
+      termos = termos.concat(vs);
+    }
+
+    var vistos = {};
     var todos = [];
-    for (var pg = 0; pg < MAX_PAGINAS; pg++) {
-      E.progresso = 'Lendo a pagina ' + (pg + 1) + ' de ' + MAX_PAGINAS + '...';
+    for (var it2 = 0; it2 < termos.length; it2++) {
+      var tAtual = termos[it2];
+      var achou = await lerTermo(tAtual, termos.length > 1 ? (it2 + 1) + ' de ' + termos.length : null, vistos);
+      todos = todos.concat(achou);
+    }
+
+    E.progresso = 'Organizando...';
+    desenhar();
+    await fecharAnalise(todos);
+  }
+
+  /* Le um termo inteiro, pagina por pagina, ignorando o que ja veio de
+     outra busca — senao o mesmo produto conta duas vezes no faturamento. */
+  async function lerTermo(termo, rotulo, vistos) {
+    var todos = [];
+    for (var pg = 0; pg < E.paginas; pg++) {
+      E.progresso = (rotulo ? '\u201c' + termo + '\u201d (' + rotulo + ') \u00b7 ' : '') +
+        'pagina ' + (pg + 1) + ' de ' + E.paginas + '...';
       desenhar();
       // A URL segue exatamente a que a propria vitrine usa. Faltavam
       // source=SRP e os identificadores de sessao — sem eles a Shopee
@@ -143,18 +243,26 @@
         }
         break;
       }
-      todos = todos.concat(its);
-      E.paginasLidas = pg + 1;
+      // sem isto, o mesmo produto aparece em duas buscas e o faturamento
+      // conta ele duas vezes
+      for (var q = 0; q < its.length; q++) {
+        var idq = its[q].itemid;
+        if (idq && vistos[idq]) continue;
+        if (idq) vistos[idq] = 1;
+        todos.push(its[q]);
+      }
+      E.paginasLidas = (E.paginasLidas || 0) + 1;
       // A Shopee nem sempre devolve 60: quando vem menos, e o fim do que
       // ela tem para esse termo. Guardar isso importa porque o total lido
       // muda a leitura de faturamento.
       if (its.length < 60) break;
       await espera(PAUSA);
     }
+    return todos;
+  }
 
-    E.progresso = 'Organizando...';
-    desenhar();
-
+  /* Fecha a analise: traduz, nomeia, guarda e desenha. */
+  async function fecharAnalise(todos) {
     // Diagnostico: se a resposta vier com outra estrutura, e aqui que se
     // descobre — em vez de a tela ficar vazia sem dizer por que.
     try {
@@ -1131,6 +1239,8 @@
       'border-radius:16px;cursor:pointer;box-shadow:0 6px 16px rgba(238,77,45,.28)}' +
     'button.go:hover{background:#d94326}' +
     'button.go:disabled{opacity:.6;cursor:default;box-shadow:none}' +
+    '.opcoes{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding-bottom:12px}' +
+    '.opcoes .g{font:400 9px "Space Mono",monospace;letter-spacing:.1em;color:var(--tx6);margin-right:2px}' +
     '.ctx{font:400 10.5px "Space Mono",monospace;color:var(--tx6);letter-spacing:.05em;' +
       'padding-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}' +
     '.p-sessao{background:var(--tintG);color:#1F8A5F;border-radius:999px;padding:3px 9px;' +
@@ -1221,7 +1331,9 @@
     '        <input id="termo" placeholder="digite um nicho: copo descartavel, luminaria 3d...">' +
     '      </div>' +
     '      <button class="go" id="ir">Analisar</button>' +
+    '      <input type="file" id="foto" accept="image/*" style="display:none">' +
     '    </div>' +
+    '    <div class="opcoes" id="opcoes"></div>' +
     '    <div class="ctx" id="ctx"></div>' +
     '  </div>' +
     '  <div class="abas" id="abas"></div>' +
@@ -1250,13 +1362,28 @@
         : new Date(E.quando).toLocaleDateString('pt-BR');
     }
     $('ctx').innerHTML = E.itens.length
-      ? ('\u201c' + esc(E.termo) + '\u201d \u00b7 ' + E.itens.length + ' PRODUTOS \u00b7 ' +
+      ? ((E.fotoDescricao ? 'DA FOTO: ' + esc(E.fotoDescricao).toUpperCase() + ' \u00b7 ' : '') +
+         '\u201c' + esc(E.termo) + '\u201d \u00b7 ' + E.itens.length + ' PRODUTOS \u00b7 ' +
          (E.paginasLidas || 1) + ' PAGINA' + ((E.paginasLidas || 1) > 1 ? 'S' : '') + ' LIDA' + ((E.paginasLidas || 1) > 1 ? 'S' : '') +
          (quando ? ' \u00b7 ' + quando.toUpperCase() : '') +
          (E.minhaLoja ? ' <span class="p-sessao">SESSAO LOGADA</span>' : ''))
       : 'NENHUM NICHO LIDO AINDA';
     $('ir').textContent = E.buscando ? 'Lendo...' : 'Analisar';
     $('ir').disabled = !!E.buscando;
+
+    // profundidade e busca ampliada
+    $('opcoes').innerHTML =
+      '<span class="g">LER</span>' +
+      [3, 5, 10].map(function (n2) {
+        return '<button class="chip' + (E.paginas === n2 ? ' on' : '') + '" data-pg="' + n2 + '">' +
+          (n2 * 60) + ' produtos</button>';
+      }).join('') +
+      '<span style="width:10px"></span>' +
+      '<button class="chip' + (E.ampliar ? ' on' : '') + '" id="ampliar" ' +
+      'title="Busca tambem as variacoes que a Shopee sugere para o termo">' +
+      (E.ampliar ? '\u2713 ' : '') + 'incluir variacoes do termo</button>' +
+      '<span style="width:10px"></span>' +
+      '<button class="chip" id="por-foto" title="Descreve a foto e busca o que ela mostra">buscar por foto</button>';
 
     $('abas').innerHTML = E.itens.length
       ? ABAS.map(function (a) {
@@ -1694,6 +1821,16 @@
     var t = $('termo').value.trim();
     try { console.log('[Mercado] clique no Analisar. termo:', t, '| ja buscando:', E.buscando); } catch (e) { }
     if (t && !E.buscando) analisar(t);
+  });
+  raiz.addEventListener('click', function (ev) {
+    var b = ev.target.closest ? ev.target.closest('[data-pg]') : null;
+    if (b) { E.paginas = parseInt(b.getAttribute('data-pg'), 10); desenhar(); return; }
+    if (ev.target.id === 'ampliar') { E.ampliar = !E.ampliar; desenhar(); return; }
+    if (ev.target.id === 'por-foto') { $('foto').click(); return; }
+  });
+  $('foto').addEventListener('change', function () {
+    if (this.files && this.files[0]) lerFoto(this.files[0]);
+    this.value = '';
   });
   $('termo').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { var t = this.value.trim(); if (t && !E.buscando) analisar(t); }

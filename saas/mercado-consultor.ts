@@ -35,7 +35,12 @@ REGRAS QUE NAO SE QUEBRAM
 3. A AMOSTRA NAO E O MERCADO. O dossie cobre X produtos de uma busca, nao o
    nicho inteiro. Nunca escreva "o mercado fatura Y" — escreva "estes X
    produtos somam Y".
-4. Portugues do Brasil, com acentos. Frases curtas. Sem jargao de consultoria.
+4. Portugues do Brasil, com acentos. Frases curtas.
+5. TERMO TECNICO SO COM EXPLICACAO NA MESMA FRASE. Voce pode dizer
+   "commodity", "cauda longa", "ticket medio" — mas nunca sozinho. Escreva
+   "commodity, ou seja, produto sem diferenca entre um vendedor e outro, onde
+   so o preco decide". A pessoa que le e vendedora experiente, nao consultora:
+   ela conhece o mercado dela, nao o vocabulario de quem faz slide.
 
 O QUE ESCREVER
 
