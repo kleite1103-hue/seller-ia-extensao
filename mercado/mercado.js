@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.9.0';
+  var VERSAO = '1.9.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -1502,7 +1502,7 @@
     '  <div class="cab">' +
     '    <div class="l1">' +
     '      <div class="logo">' + LOGO + '</div>' +
-    '      <div class="marca">Seller<em>.</em>ia<span>MERCADO</span></div>' +
+    '      <div class="marca">Seller<em>.</em>ia<span>RADAR 360</span></div>' +
     '      <div class="campo">' + ICO_LUPA +
     '        <input id="termo" placeholder="digite um nicho: copo descartavel, luminaria 3d...">' +
     '      </div>' +
@@ -1702,42 +1702,77 @@
       }
     }
 
-    /* ---- O MESMO PRODUTO, VARIAS LOJAS ----
-       Onde a briga e so de preco, e quanta margem de manobra existe. */
+    /* ---- MESMO PRODUTO, LOJAS DIFERENTES ----
+       O dado mostrou algo que derrubou a leitura que eu tinha escrito: no
+       kit de carrinhos, quem cobra R$69,99 vende 2.303 e quem cobra R$45,99
+       vende 75. Nao e o mais barato que vende. Entao o bloco parou de falar
+       de "espaco de preco" e passou a mostrar QUEM ganha e por que. */
     var iguais = agruparIguais();
     if (iguais.length) {
-      h += olho('PRODUTOS QUE VARIAS LOJAS VENDEM',
-        'O mesmo produto anunciado por lojas diferentes. A coluna da direita mostra quanto o mais caro cobra a mais que o mais barato: <b>quanto maior essa diferença, mais espaço existe para entrar sem ser o mais barato</b>.');
-      h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">QUANTAS LOJAS</th>' +
-        '<th class="num">MAIS BARATO</th><th class="num">MAIS CARO</th>' +
-        '<th class="num">VENDAS SOMADAS</th><th class="num">O CARO COBRA</th></tr>';
-      iguais.slice(0, 10).forEach(function (g) {
-        var dif = g.precoMin ? ((g.precoMax - g.precoMin) / g.precoMin) * 100 : 0;
-        h += '<tr><td><b>' + esc(g.nome.slice(0, 42)) + '</b></td>' +
-          '<td class="num">' + g.lojas + ' lojas</td>' +
-          '<td class="num">' + reais(g.precoMin) + '</td>' +
-          '<td class="num">' + reais(g.precoMax) + '</td>' +
-          '<td class="num">' + num(g.vendas) + '/mês</td>' +
-          '<td class="num" style="color:' + (dif > 30 ? '#1F8A5F' : dif > 12 ? '#C98A1E' : '#D64545') + '">' +
-          '+' + num(dif, 0) + '%</td></tr>';
+      h += olho('O MESMO PRODUTO EM LOJAS DIFERENTES',
+        'Quando várias lojas vendem a mesma coisa, dá para ver o que separa quem vende muito de quem vende pouco. Cada linha compara a loja que mais vende com a que menos vende dentro do grupo.');
+
+      iguais.slice(0, 5).forEach(function (g) {
+        var lista = g.itens.slice().sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
+        var campeao = lista[0], ultimo = lista[lista.length - 1];
+        h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-radius:20px;padding:16px 18px;margin-bottom:10px">' +
+          '<div style="font-size:14.5px;font-weight:600;color:var(--tx1);margin-bottom:3px">' + esc(g.nome.slice(0, 54)) + '</div>' +
+          '<div style="font:400 10px \'Space Mono\',monospace;color:var(--tx6);margin-bottom:12px">' +
+          g.lojas + ' LOJAS VENDEM ISTO \u00b7 ' + num(g.vendas) + ' UNIDADES/MÊS SOMADAS</div>' +
+          '<table style="border:none"><tr><th style="background:none;padding-left:0">LOJA</th>' +
+          '<th class="num" style="background:none">PREÇO</th><th class="num" style="background:none">NOTA</th>' +
+          '<th class="num" style="background:none;padding-right:0">VENDE/MÊS</th></tr>';
+        lista.slice(0, 5).forEach(function (x, ix) {
+          h += '<tr><td style="padding-left:0">' +
+            (x.linkLoja ? '<a href="' + x.linkLoja + '" target="_blank" rel="noopener">' + esc((x.lojaNome || 'loja').slice(0, 24)) + '</a>' : esc((x.lojaNome || 'loja').slice(0, 24))) +
+            (ix === 0 ? ' <span class="pill p-ads">o que mais vende</span>' : '') + '</td>' +
+            '<td class="num">' + reais(x.preco) + '</td>' +
+            '<td class="num">' + (x.nota != null ? num(x.nota, 2) : '\u2014') + '</td>' +
+            '<td class="num"' + (ix === 0 ? ' style="color:#EE4D2D"' : '') + '>' + num(x.mes) + '</td></tr>';
+        });
+        h += '</table>';
+
+        // o que separa o primeiro do ultimo
+        var pistas = [];
+        if (campeao.preco && ultimo.preco) {
+          var difP = ((campeao.preco - ultimo.preco) / ultimo.preco) * 100;
+          if (difP > 12) pistas.push('o que mais vende é <b>' + num(difP, 0) + '% mais caro</b> que o que menos vende');
+          else if (difP < -12) pistas.push('o que mais vende é <b>' + num(-difP, 0) + '% mais barato</b>');
+          else pistas.push('os preços são <b>parecidos</b>');
+        }
+        if (campeao.fotos && ultimo.fotos && campeao.fotos > ultimo.fotos + 1) {
+          pistas.push('tem <b>' + campeao.fotos + ' fotos</b> contra ' + ultimo.fotos);
+        }
+        if (campeao.estrelas && ultimo.estrelas) {
+          var av1 = campeao.estrelas.reduce(function (a, b) { return a + b; }, 0);
+          var av2 = ultimo.estrelas.reduce(function (a, b) { return a + b; }, 0);
+          if (av1 > av2 * 2) pistas.push('tem <b>' + num(av1) + ' avaliações</b> contra ' + num(av2));
+        }
+        if (campeao.anuncio && !ultimo.anuncio) pistas.push('<b>está anunciando</b> e o outro não');
+        if (pistas.length) {
+          h += '<div style="font-size:13.5px;color:var(--tx2);line-height:1.6;margin-top:11px;padding-top:11px;border-top:1px solid var(--bd5)">' +
+            'Comparando o primeiro com o último: ' + pistas.join(', ') + '.</div>';
+        }
+        h += '</div>';
       });
-      h += '</table></div>';
-      var apertados = iguais.filter(function (g) {
-        return g.precoMin && ((g.precoMax - g.precoMin) / g.precoMin) < 0.12;
+
+      // a conclusao geral, tirada dos grupos
+      var maisCaroVence = 0, maisBaratoVence = 0;
+      iguais.forEach(function (g) {
+        var l = g.itens.slice().sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
+        if (l.length < 2 || !l[0].preco) return;
+        var precos = g.itens.map(function (x) { return x.preco; }).filter(Boolean);
+        var maisBarato = Math.min.apply(null, precos);
+        if (l[0].preco > maisBarato * 1.1) maisCaroVence++;
+        else maisBaratoVence++;
       });
-      var folgados = iguais.filter(function (g) {
-        return g.precoMin && ((g.precoMax - g.precoMin) / g.precoMin) > 0.30;
-      });
-      var rec = [];
-      if (folgados.length) {
-        rec.push('Em <b>' + folgados.length + '</b> destes produtos, a loja mais cara cobra mais de 30% acima da mais barata ' +
-          'e mesmo assim vende. Isso mostra que o comprador não decide só por preço aqui, então você não precisa ser o mais barato para entrar.');
+      if (maisCaroVence + maisBaratoVence >= 3) {
+        h += '<div class="nota">Em <b>' + maisCaroVence + ' de ' + (maisCaroVence + maisBaratoVence) +
+          '</b> destes produtos, quem mais vende <b>não é o mais barato</b>. ' +
+          (maisCaroVence > maisBaratoVence
+            ? 'Neste nicho o comprador não decide só por preço, então baixar o seu não é o caminho mais rápido.'
+            : 'Aqui o preço pesa: na maioria dos casos quem cobra menos vende mais.') + '</div>';
       }
-      if (apertados.length) {
-        rec.push('Em <b>' + apertados.length + '</b> deles todas as lojas cobram quase o mesmo, com menos de 12% de diferença. ' +
-          'Nesses, quem ganha é quem cobra menos, e a margem some rápido.');
-      }
-      if (rec.length) h += '<div class="nota">' + rec.join('<br><br>') + '</div>';
     }
 
     /* ---- QUEM ENTROU HA POUCO E JA VENDE ----
