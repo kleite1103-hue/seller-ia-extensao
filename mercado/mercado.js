@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.7.0';
+  var VERSAO = '1.8.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -1355,39 +1355,39 @@
     '.btn:hover em{color:#fff}' +
 
     /* o painel flutuante */
-    '.painel{position:fixed;top:24px;right:24px;bottom:24px;width:47vw;min-width:640px;max-width:810px;' +
+    /* Colado no topo e no fim: 24px de folga em cima e embaixo era quase
+       uma linha de conteudo perdida de cada lado. */
+    '.painel{position:fixed;top:12px;right:12px;bottom:12px;width:48vw;min-width:660px;max-width:860px;' +
       'background:var(--card);color:var(--tx1);border-radius:30px;display:flex;flex-direction:column;' +
       'overflow:hidden;box-shadow:var(--shadow);z-index:2147483000;' +
       'opacity:0;pointer-events:none;transform:translateX(24px) scale(.99);transition:opacity .2s,transform .2s}' +
     '.painel.on{opacity:1;pointer-events:auto;transform:none}' +
 
     /* cabecalho */
-    '.cab{padding:16px 24px 0}' +
-    '.cab .l1{display:flex;align-items:center;gap:12px}' +
+    '.cab{padding:13px 22px 0}' +
+    '.cab .l1{display:flex;align-items:center;gap:9px}' +
+    '.cab .l2{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 0 10px}' +
     '.logo{width:38px;height:38px;border-radius:13px;background:var(--tx1);color:var(--card);' +
       'display:grid;place-items:center;font:500 26px Archivo,Arial;letter-spacing:-.04em;flex:none}' +
     '.logo em{font-style:normal;color:#EE4D2D}' +
-    '.marca{font:500 23px Archivo,Arial;letter-spacing:-.035em;color:var(--tx1);line-height:1}' +
-    '.marca em{font-style:normal;color:#EE4D2D}' +
-    '.sub{font:400 9.5px "Space Mono",monospace;letter-spacing:.13em;color:var(--tx6);margin-top:4px}' +
-    '.ico{background:none;border:1px solid var(--bd3);color:var(--tx3);border-radius:12px;' +
-      'width:34px;height:34px;display:grid;place-items:center;cursor:pointer;flex:none}' +
+    '.logo{width:34px;height:34px;border-radius:11px;font:500 23px Archivo,Arial}' +
+    '.ico{background:none;border:1px solid var(--bd3);color:var(--tx3);border-radius:11px;' +
+      'width:32px;height:32px;display:grid;place-items:center;cursor:pointer;flex:none}' +
     '.ico:hover{border-color:#EE4D2D;color:#EE4D2D}' +
     '.ico.fechar{width:32px;height:32px}' +
 
     /* busca */
-    '.busca{display:flex;gap:9px;margin:13px 0 10px}' +
-    '.campo{flex:1;display:flex;align-items:center;gap:9px;background:var(--fill);border:1px solid var(--bd3);' +
-      'border-radius:16px;padding:0 14px}' +
+    '.campo{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--fill);' +
+      'border:1px solid var(--bd3);border-radius:14px;padding:0 13px}' +
     '.campo:focus-within{border-color:#EE4D2D}' +
     '.campo svg{color:var(--tx6);flex:none}' +
-    '.campo input{flex:1;background:none;border:none;outline:none;padding:13px 0;font-size:14.5px;color:var(--tx1)}' +
+    '.campo input{flex:1;background:none;border:none;outline:none;padding:11px 0;font-size:14px;color:var(--tx1)}' +
     '.campo input::placeholder{color:var(--tx6)}' +
-    'button.go{background:#EE4D2D;border:none;color:#fff;font:500 14.5px Outfit,Arial;padding:0 26px;' +
-      'border-radius:16px;cursor:pointer;box-shadow:0 6px 16px rgba(238,77,45,.28)}' +
+    'button.go{background:#EE4D2D;border:none;color:#fff;font:500 13.5px Outfit,Arial;padding:0 20px;' +
+      'height:38px;border-radius:14px;cursor:pointer;box-shadow:0 5px 14px rgba(238,77,45,.26);white-space:nowrap}' +
     'button.go:hover{background:#d94326}' +
     'button.go:disabled{opacity:.6;cursor:default;box-shadow:none}' +
-    '.opcoes{display:flex;gap:6px;align-items:center;padding-bottom:10px;flex-wrap:wrap}' +
+    '.opcoes{display:flex;gap:5px;align-items:center;flex-wrap:wrap}' +
     '.opcoes select{background:var(--fill);border:1px solid var(--bd3);color:var(--tx2);' +
       'font:400 10.5px "Space Mono",monospace;padding:6px 9px;border-radius:10px;cursor:pointer;outline:none}' +
     '.opcoes select:focus{border-color:#EE4D2D}' +
@@ -1401,15 +1401,15 @@
       'font-size:8.5px;letter-spacing:.06em}' +
 
     /* abas */
-    '.abas{display:flex;gap:4px 6px;flex-wrap:wrap;padding:0 24px;border-bottom:1px solid var(--bd2)}' +
-    '.aba{display:flex;align-items:center;gap:7px;background:none;border:none;' +
-      'border-bottom:2px solid transparent;color:var(--tx5);font:400 12px "Space Mono",monospace;' +
-      'letter-spacing:.02em;padding:11px 9px 10px;cursor:pointer;margin-bottom:-1px}' +
+    '.abas{display:flex;gap:2px 4px;flex-wrap:wrap;padding:0 22px;border-bottom:1px solid var(--bd2)}' +
+    '.aba{display:flex;align-items:center;gap:6px;background:none;border:none;' +
+      'border-bottom:2px solid transparent;color:var(--tx5);font:400 11.5px "Space Mono",monospace;' +
+      'letter-spacing:.01em;padding:9px 8px 8px;cursor:pointer;margin-bottom:-1px}' +
     '.aba svg{width:15px;height:15px;flex:none}' +
     '.aba:hover{color:var(--tx2)}' +
     '.aba.on{color:#EE4D2D;border-bottom-color:#EE4D2D}' +
 
-    '.corpo{flex:1;overflow-y:auto;padding:18px 24px 28px}' +
+    '.corpo{flex:1;overflow-y:auto;padding:16px 22px 26px}' +
     '.corpo::-webkit-scrollbar{width:8px}' +
     '.corpo::-webkit-scrollbar-thumb{background:var(--mut4);border-radius:99px}' +
 
@@ -1417,21 +1417,26 @@
     '.kicker{display:flex;align-items:center;gap:9px;font:400 10px "Space Mono",monospace;' +
       'letter-spacing:.16em;color:#EE4D2D;margin:26px 0 11px}' +
     '.kicker:before{content:"";width:18px;height:2px;background:#EE4D2D;flex:none}' +
-    '.olho{font:400 9.5px "Space Mono",monospace;letter-spacing:.13em;color:var(--tx6);margin-bottom:9px}' +
-    '.card{background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:18px 20px;margin-bottom:12px}' +
-    '.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:12px}' +
+    /* Os rotulos de secao e os numeros grandes em laranja: e a cor de acao
+       da marca, e sem ela a tela fica sem ponto de foco. */
+    '.olho{display:flex;align-items:center;gap:9px;font:400 9.5px "Space Mono",monospace;' +
+      'letter-spacing:.13em;color:#EE4D2D;margin:24px 0 9px}' +
+    '.olho:before{content:"";width:16px;height:2px;background:#EE4D2D;flex:none}' +
+    '.olho:first-child{margin-top:0}' +
+    '.card{background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:16px 18px;margin-bottom:10px}' +
+    '.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px}' +
     '.kpi{background:var(--surf);border:1px solid var(--bd2);border-radius:20px;padding:16px 18px}' +
     '.kpi .r{font:400 9px "Space Mono",monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px}' +
     '.kpi .n{font:400 30px Outfit,Arial;letter-spacing:-.035em;color:var(--tx1);line-height:1}' +
     '.kpi .o{font-size:12px;color:var(--tx5);margin-top:5px}' +
-    '.heroi{font:300 46px Outfit,Arial;letter-spacing:-.045em;color:var(--tx1);line-height:1}' +
+    '.heroi{font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1}' +
 
     /* tabela */
     '.tab{background:var(--surf);border:1px solid var(--bd2);border-radius:22px;overflow:hidden;margin-bottom:12px}' +
     'table{width:100%;border-collapse:collapse}' +
     'th{text-align:left;background:var(--fill);font:400 9px "Space Mono",monospace;letter-spacing:.09em;' +
-      'color:var(--tx6);padding:11px 18px;border-bottom:1px solid var(--bd2);white-space:nowrap}' +
-    'td{padding:13px 18px;border-bottom:1px solid var(--bd5);font-size:14.5px;color:var(--tx1);vertical-align:top}' +
+      'color:var(--tx6);padding:9px 16px;border-bottom:1px solid var(--bd2);white-space:nowrap}' +
+    'td{padding:11px 16px;border-bottom:1px solid var(--bd5);font-size:14px;color:var(--tx1);vertical-align:top}' +
     'tr:last-child td{border-bottom:none}' +
     /* linhas alternadas: com trinta linhas na tela, o olho perde a fila */
     'tr:nth-child(even) td{background:var(--fill2)}' +
@@ -1462,8 +1467,8 @@
       'font:400 13.5px Outfit,Arial;padding:11px 20px;border-radius:14px;cursor:pointer}' +
     'button.sec:hover{border-color:#EE4D2D;color:#EE4D2D}' +
 
-    '.nota{font-size:14.5px;color:var(--tx1);line-height:1.65;background:var(--surf);' +
-      'border:1px solid var(--bd2);border-radius:18px;padding:14px 17px;margin-bottom:12px}' +
+    '.nota{font-size:14px;color:var(--tx1);line-height:1.6;background:var(--surf);' +
+      'border:1px solid var(--bd2);border-radius:16px;padding:12px 15px;margin-bottom:10px}' +
     '.aviso{background:var(--fill2);border:1px dashed var(--bd6);border-radius:18px;' +
       'padding:8px 13px;font-size:12px;color:var(--tx4);line-height:1.45;margin-bottom:14px}' +
     '.vazio{text-align:center;padding:56px 24px;color:var(--tx4);font-size:14.5px;line-height:1.7}' +
@@ -1472,23 +1477,22 @@
 
     '<button class="btn" id="abrir" title="Analista de Mercado">S<em>.</em></button>' +
     '<div id="tudo"><div class="painel" id="painel">' +
+    /* TUDO EM DUAS LINHAS. A marca dividia a linha sozinha, a busca outra,
+       as opcoes outra e o contexto mais uma: quatro linhas de cabecalho
+       comiam quase metade da altura util. */
     '  <div class="cab">' +
     '    <div class="l1">' +
     '      <div class="logo">S<em>.</em></div>' +
-    '      <div><div class="marca">Seller<em>.</em>ia</div><div class="sub">ANALISTA DE MERCADO</div></div>' +
-    '      <div style="flex:1"></div>' +
-    '      <button class="ico" id="tema" title="Trocar o tema">' + ICO_LUA + '</button>' +
-    '      <button class="ico fechar" id="fechar" title="Fechar">\u2715</button>' +
-    '    </div>' +
-    '    <div class="busca">' +
     '      <div class="campo">' + ICO_LUPA +
     '        <input id="termo" placeholder="digite um nicho: copo descartavel, luminaria 3d...">' +
     '      </div>' +
     '      <button class="go" id="ir">Analisar</button>' +
     '      <input type="file" id="foto" accept="image/*" style="display:none">' +
+    '      <button class="ico" id="tema" title="Trocar o tema">' + ICO_LUA + '</button>' +
+    '      <button class="ico fechar" id="fechar" title="Fechar">\u2715</button>' +
     '    </div>' +
-    '    <div class="opcoes" id="opcoes"></div>' +
-    '    <div class="ctx" id="ctx"></div>' +
+    '    <div class="l2"><div class="opcoes" id="opcoes"></div>' +
+    '      <div class="ctx" id="ctx"></div></div>' +
     '  </div>' +
     '  <div class="abas" id="abas"></div>' +
     '  <div class="corpo" id="corpo"></div>' +
@@ -1587,11 +1591,11 @@
       '<div style="display:flex;align-items:baseline;gap:26px;flex-wrap:wrap">' +
       '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.11em;color:var(--tx6);margin-bottom:9px">' +
       'ESTES ' + R.itens + ' PRODUTOS FATURAM, POR MÊS</div>' +
-      '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:var(--tx1);line-height:1">' +
+      '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1">' +
       reais(R.faturamento) + '</div></div>' +
       '<div style="border-left:1px solid var(--bd5);padding-left:24px">' +
       '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.11em;color:var(--tx6);margin-bottom:9px">UNIDADES VENDIDAS</div>' +
-      '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:var(--tx1);line-height:1">' + num(R.vendas) + '</div></div>' +
+      '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:#EE4D2D;line-height:1">' + num(R.vendas) + '</div></div>' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:22px;margin-top:20px;padding-top:18px;border-top:1px solid var(--bd5)">' +
       celula(reais(R.ticket), 'TICKET MÉDIO') +
@@ -1601,7 +1605,7 @@
       '</div></div>';
 
     h += '<div class="olho">A FAIXA DE PREÇO</div>';
-    h += '<div class="nota">De <b>' + reais(R.precoMin) + '</b> a <b>' + reais(R.precoMax) + '</b>, com a mediana em <b>' + reais(R.precoMediano) + '</b>.<br>' +
+    h += '<div class="nota">De <b>' + reais(R.precoMin) + '</b> a <b>' + reais(R.precoMax) + '</b>, com o preço do meio da lista em <b>' + reais(R.precoMediano) + '</b>.<br>' +
       'O ticket médio de <b>' + reais(R.ticket) + '</b> é onde o dinheiro realmente está \u2014 ' +
       (R.ticket > R.precoMediano
         ? 'está acima do preço médio, então quem vende volume aqui são os produtos mais caros.'

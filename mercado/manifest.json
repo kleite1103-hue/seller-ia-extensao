@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Seller.IA · Analista de Mercado",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Le um nicho da Shopee por dentro: quem vende, quanto vende, a que preco, e onde da para entrar.",
   "permissions": [
     "storage"
