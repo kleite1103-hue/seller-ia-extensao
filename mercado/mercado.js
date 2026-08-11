@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.0.0';
+  var VERSAO = '1.1.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -22,7 +22,8 @@
     termo: '', buscando: false, erro: null,
     itens: [], categorias: {}, historico: null,
     aba: 'nicho', ordem: 'mes', progresso: null,
-    detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null
+    detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
+    calc: null, consulta: null, consultando: false, consultaErro: null
   };
 
   /* ============ CHAMADAS ============ */
@@ -361,6 +362,219 @@
   }
 
 
+
+
+  /* ============ O CONSULTOR ============
+     A IA NAO calcula. Ela recebe os numeros ja prontos e diz o que fazer
+     com eles — porque conta ela erra e a pessoa nao teria como conferir,
+     enquanto leitura de mercado e justamente onde ela ajuda.
+
+     O texto sai do cerebro que ja existe no Supabase, com a chave que
+     nunca passa pela extensao. */
+
+  var URL_CONSULTOR = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/mercado-consultor';
+
+  function dossie() {
+    var R = resumo();
+    if (!R) return null;
+    var ordV = E.itens.filter(function (x) { return x.mes != null; })
+      .sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
+    var top = ordV.slice(0, 10), resto = ordV.slice(10);
+    function m(l, c) {
+      var v = l.map(function (x) { return x[c]; }).filter(function (x) { return x != null; });
+      return v.length ? Math.round((v.reduce(function (a, b) { return a + b; }, 0) / v.length) * 100) / 100 : null;
+    }
+    var C = E.calc || {};
+    var preco = C.preco || R.precoMediano;
+    var comp = quantoPagar(preco, 15, C.roas || 10, C.imposto || 0, C.embalagem || 0);
+    var saud = quantoPagar(preco, 20, C.roas || 10, C.imposto || 0, C.embalagem || 0);
+
+    var lojas = {};
+    E.itens.forEach(function (x) {
+      if (!x.loja) return;
+      lojas[x.loja] = lojas[x.loja] || { nome: x.lojaNome, itens: 0, fat: 0, local: x.local };
+      lojas[x.loja].itens++; lojas[x.loja].fat += x.fatMes || 0;
+    });
+    var ordL = Object.keys(lojas).map(function (k) { return lojas[k]; })
+      .sort(function (a, b) { return b.fat - a.fat; }).slice(0, 5);
+
+    var meus = E.minhaLoja ? E.itens.filter(function (x) { return x.loja === E.minhaLoja; }) : [];
+
+    return {
+      termo: E.termo,
+      amostra: { produtos: E.itens.length, paginas: E.paginasLidas || 1 },
+      mercado: {
+        vendasMes: R.vendas, faturamentoAmostra: Math.round(R.faturamento),
+        ticket: Math.round(R.ticket * 100) / 100,
+        precoMin: R.precoMin, precoMax: R.precoMax, precoMediano: R.precoMediano,
+        vendedores: R.lojas, concentracaoTop5: Math.round(R.concentracao),
+        anunciando: R.anuncios, semVenda: R.semVenda
+      },
+      campeoes: top.map(function (x) {
+        return {
+          nome: String(x.nome).slice(0, 70), vendeMes: x.mes, total: x.total,
+          preco: x.preco, loja: x.lojaNome, fotos: x.fotos, nota: x.nota,
+          anuncio: x.anuncio, local: x.local,
+          diasNoAr: x.cadastro ? Math.round((Date.now() / 1000 - x.cadastro) / 86400) : null
+        };
+      }),
+      comparacao: {
+        top10: { fotos: m(top, 'fotos'), nota: m(top, 'nota'), preco: m(top, 'preco'), anunciando: top.filter(function (x) { return x.anuncio; }).length },
+        resto: { fotos: m(resto, 'fotos'), nota: m(resto, 'nota'), preco: m(resto, 'preco'), anunciando: resto.filter(function (x) { return x.anuncio; }).length, quantos: resto.length }
+      },
+      lideres: ordL.map(function (l) { return { nome: l.nome, produtos: l.itens, faturamento: Math.round(l.fat), local: l.local }; }),
+      custo: {
+        precoBase: preco, roas: C.roas || 10, imposto: C.imposto || 0, embalagem: C.embalagem || 0,
+        pagueAte15: Math.round(comp.teto * 100) / 100,
+        pagueAte20: Math.round(saud.teto * 100) / 100,
+        comissao: Math.round(comp.comissao * 100) / 100,
+        ads: Math.round(comp.ads * 100) / 100
+      },
+      voce: E.minhaLoja ? {
+        produtosAqui: meus.length,
+        vendasMes: meus.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
+        faturamento: Math.round(meus.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0)),
+        posicoes: meus.map(function (x) { return { nome: String(x.nome).slice(0, 50), posicao: ordV.indexOf(x) + 1, vende: x.mes, preco: x.preco }; })
+      } : null
+    };
+  }
+
+  async function consultar() {
+    var d = dossie();
+    if (!d) { alert('Analise um nicho antes de pedir a leitura.'); return; }
+    E.consultando = true; E.consulta = null; desenhar();
+    try {
+      var r = await fetch(URL_CONSULTOR, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dossie: d })
+      });
+      var j = await r.json();
+      E.consulta = (j && j.texto) || null;
+      if (!E.consulta) E.consultaErro = (j && j.erro) || 'nao veio resposta';
+    } catch (e) {
+      E.consultaErro = String(e && e.message || e);
+    }
+    E.consultando = false;
+    desenhar();
+  }
+
+  /* ============ QUANTO PAGAR PELO PRODUTO ============
+     A conta inversa da precificacao: partindo do preco que o mercado
+     pratica, tira comissao, Ads, imposto e embalagem, e o que sobra e o
+     maximo que da para pagar ao fornecedor mantendo a margem.
+
+     Nao ha IA aqui de proposito: conta e matematica, e a pessoa precisa
+     poder conferir cada linha. */
+
+  function comissaoShopee(preco) {
+    // Faixas confirmadas: ate 80 e 20% + R$4; acima disso 14% mais um fixo
+    // que muda por faixa de preco.
+    if (preco < 80) return preco * 0.20 + 4;
+    if (preco < 100) return preco * 0.14 + 16;
+    if (preco < 200) return preco * 0.14 + 20;
+    return preco * 0.14 + 26;
+  }
+
+  function quantoPagar(preco, margemPct, roas, impostoPct, embalagem) {
+    if (!preco) return null;
+    var com = comissaoShopee(preco);
+    var ads = roas > 0 ? preco / roas : 0;        // o que o anuncio come por venda
+    var imp = preco * ((impostoPct || 0) / 100);
+    var mar = preco * ((margemPct || 0) / 100);
+    var teto = preco - com - ads - imp - mar - (embalagem || 0);
+    return {
+      preco: preco, comissao: com, ads: ads, imposto: imp, margem: mar,
+      embalagem: embalagem || 0, teto: teto,
+      viavel: teto > 0
+    };
+  }
+
+  function renderCalculo() {
+    var R = resumo();
+    if (!R) return '';
+    var C = E.calc = E.calc || { margem: 15, roas: 10, imposto: 0, embalagem: 0, preco: null };
+    var preco = C.preco != null ? C.preco : R.precoMediano;
+
+    function campo(id, rot, val, suf) {
+      return '<div><div style="font:400 9.5px \'Space Mono\',monospace;color:#6B6355;margin-bottom:5px">' + rot + '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+        '<input data-calc="' + id + '" value="' + esc(String(val == null ? '' : val)) + '" ' +
+        'style="width:100%;background:#fff;border:1px solid #D9CFBC;border-radius:10px;padding:9px 11px;font-size:14px;font-family:\'Space Mono\',monospace">' +
+        (suf ? '<span style="font-size:12px;color:#6B6355">' + suf + '</span>' : '') + '</div></div>';
+    }
+
+    var h = olho('POR QUANTO VOCE PRECISA COMPRAR',
+      'Partindo do preco que este nicho pratica, a conta tira a comissao da Shopee, o que o anuncio come, o imposto e a embalagem. O que sobra e o <b>maximo que da para pagar ao fornecedor</b> mantendo a margem que voce quer.');
+
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin-bottom:16px">' +
+      campo('preco', 'PRECO DE VENDA', num(preco, 2), 'R$') +
+      campo('margem', 'MARGEM', C.margem, '%') +
+      campo('roas', 'ROAS ALVO', C.roas, 'x') +
+      campo('imposto', 'IMPOSTO', C.imposto, '%') +
+      campo('embalagem', 'EMBALAGEM', C.embalagem, 'R$') +
+      '</div>';
+
+    // os dois cenarios que a Karina pediu
+    var comp = quantoPagar(preco, 15, C.roas, C.imposto, C.embalagem);
+    var saud = quantoPagar(preco, 20, C.roas, C.imposto, C.embalagem);
+    var seu = quantoPagar(preco, numeroPuro(C.margem), C.roas, C.imposto, C.embalagem);
+
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:14px">';
+    [['PARA COMPETIR \u00b7 margem 15%', comp, '#B07208'],
+     ['PARA SER SAUDAVEL \u00b7 margem 20%', saud, '#0F7A4A']].forEach(function (c) {
+      h += '<div style="background:#fff;border:1px solid #D9CFBC;border-left:3px solid ' + c[2] + ';border-radius:0 19px 19px 0;padding:16px 18px">' +
+        '<div style="font:400 9.5px \'Space Mono\',monospace;color:#6B6355;letter-spacing:.06em;margin-bottom:8px">' + c[0] + '</div>' +
+        '<div style="font:600 30px Archivo,Arial;letter-spacing:-.03em;color:' + (c[1].viavel ? c[2] : '#C1121F') + '">' +
+        (c[1].viavel ? reais(c[1].teto) : 'nao fecha') + '</div>' +
+        '<div style="font-size:13px;color:#463F33;margin-top:5px">' +
+        (c[1].viavel ? 'e o maximo por unidade' : 'a este preco nao sobra nada') + '</div></div>';
+    });
+    h += '</div>';
+
+    // de onde sai cada real
+    h += '<div style="background:#fff;border:1px solid #D9CFBC;border-radius:19px;padding:16px 18px;margin-bottom:14px">';
+    function ln(rot, v, cor) {
+      return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:5px 0;color:' + (cor || '#1A1610') + '">' +
+        '<span>' + rot + '</span><span style="font-family:\'Space Mono\',monospace">' + v + '</span></div>';
+    }
+    h += ln('Preco de venda', reais(seu.preco), '#000');
+    h += ln('\u2212 Comissao Shopee', '\u2212 ' + reais(seu.comissao), '#463F33');
+    h += ln('\u2212 Ads (ROAS ' + C.roas + 'x)', '\u2212 ' + reais(seu.ads), '#463F33');
+    if (seu.imposto) h += ln('\u2212 Imposto', '\u2212 ' + reais(seu.imposto), '#463F33');
+    if (seu.embalagem) h += ln('\u2212 Embalagem', '\u2212 ' + reais(seu.embalagem), '#463F33');
+    h += ln('\u2212 Sua margem (' + C.margem + '%)', '\u2212 ' + reais(seu.margem), '#463F33');
+    h += '<div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #D9CFBC;margin-top:8px;padding-top:9px">' +
+      '<span style="font-size:15px;font-weight:600">Pague ate</span>' +
+      '<span style="font:600 26px Archivo,Arial;letter-spacing:-.02em;color:' + (seu.viavel ? '#0F7A4A' : '#C1121F') + '">' +
+      (seu.viavel ? reais(seu.teto) : reais(seu.teto)) + '</span></div></div>';
+
+    // o efeito do ROAS
+    h += olho('O QUE MUDA SE O ANUNCIO RENDER MAIS OU MENOS');
+    h += '<table><tr><th>ROAS</th><th class="num">ADS COME</th><th class="num">PAGUE ATE (15%)</th><th class="num">PAGUE ATE (20%)</th></tr>';
+    [4, 6, 8, 10, 15, 20].forEach(function (r) {
+      var a = quantoPagar(preco, 15, r, C.imposto, C.embalagem);
+      var b2 = quantoPagar(preco, 20, r, C.imposto, C.embalagem);
+      h += '<tr' + (String(r) === String(C.roas) ? ' style="background:rgba(230,62,27,.06)"' : '') + '>' +
+        '<td><b>' + r + 'x</b></td><td class="num">' + reais(a.ads) + '</td>' +
+        '<td class="num" style="color:' + (a.viavel ? '#0F7A4A' : '#C1121F') + '">' + reais(a.teto) + '</td>' +
+        '<td class="num" style="color:' + (b2.viavel ? '#0F7A4A' : '#C1121F') + '">' + reais(b2.teto) + '</td></tr>';
+    });
+    h += '</table>';
+    h += '<div class="nota">Quanto mais o anuncio rende, mais sobra para o produto. Um ROAS de <b>4x</b> come ' +
+      reais(quantoPagar(preco, 15, 4, C.imposto, C.embalagem).ads) + ' por venda; a <b>20x</b>, apenas ' +
+      reais(quantoPagar(preco, 15, 20, C.imposto, C.embalagem).ads) + '. ' +
+      'A diferenca entre os dois e o que voce pode pagar a mais pelo produto.</div>';
+
+    return h;
+  }
+
+  function numeroPuro(v) {
+    if (v == null || v === '') return 0;
+    var s = String(v).replace(/[^0-9,.-]/g, '').replace(/\.(?=.*[.,])/g, '').replace(',', '.');
+    var n = parseFloat(s);
+    return isFinite(n) ? n : 0;
+  }
+
   /* ============ RELATORIO ============
      Um arquivo que a pessoa guarda, manda para o time, ou abre depois. Os
      links sao clicaveis porque a analise so vale se der para ir ver o
@@ -594,6 +808,8 @@
     { id: 'nicho', rot: 'O nicho' },
     { id: 'produtos', rot: 'Os produtos' },
     { id: 'lojas', rot: 'Os vendedores' },
+    { id: 'calculo', rot: 'Quanto pagar' },
+    { id: 'consultor', rot: 'A leitura' },
     { id: 'eu', rot: 'Onde eu estou' }
   ];
 
@@ -629,8 +845,11 @@
     c.innerHTML = E.aba === 'nicho' ? viewNicho()
       : E.aba === 'produtos' ? viewProdutos()
       : E.aba === 'lojas' ? viewLojas()
+      : E.aba === 'calculo' ? renderCalculo()
+      : E.aba === 'consultor' ? viewConsultor()
       : viewEu();
     ligarTabela();
+    ligarCalculo();
   }
 
   function avisoSessao() {
@@ -812,6 +1031,35 @@
     return h + '</table>';
   }
 
+  function viewConsultor() {
+    var h = olho('O QUE ESTES NUMEROS DIZEM',
+      'A leitura le os numeros que ja estao na tela e diz o que fazer com eles. As contas continuam sendo do sistema \u2014 a IA nao calcula, porque conta errada ninguem confere.');
+
+    if (E.consultando) {
+      return h + '<div class="vazio">Lendo o mercado...</div>';
+    }
+    if (!E.consulta) {
+      h += '<div class="nota">Ela vai olhar a concentracao, a faixa de preco, o que os campeoes fazem de diferente, ' +
+        'quanto da para pagar pelo produto, e onde voce esta \u2014 e dizer se vale entrar, por qual preco, e o que copiar.</div>';
+      h += '<button class="go" id="pedir-leitura" style="margin-top:6px">Pedir a leitura</button>';
+      if (E.consultaErro) {
+        h += '<div class="nota" style="color:#C1121F">Nao consegui: ' + esc(E.consultaErro) + '</div>';
+      }
+      return h;
+    }
+
+    // o texto vem em markdown simples; converte o basico
+    var txt = esc(E.consulta)
+      .replace(/^### (.+)$/gm, '<div class="olho">$1</div>')
+      .replace(/^## (.+)$/gm, '<div style="font:600 18px Archivo,Arial;letter-spacing:-.02em;margin:22px 0 10px">$1</div>')
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/^- (.+)$/gm, '<div style="padding-left:14px;position:relative"><span style="position:absolute;left:0;color:#E63E1B">\u00b7</span>$1</div>')
+      .replace(/\n\n/g, '<br><br>');
+    h += '<div style="font-size:15px;line-height:1.7;color:#1A1610">' + txt + '</div>';
+    h += '<button class="go" id="pedir-leitura" style="margin-top:20px;background:#F2EDE4;color:#463F33">Ler de novo</button>';
+    return h;
+  }
+
   function viewEu() {
     if (!E.minhaLoja) {
       return '<div class="vazio">Nao consegui identificar a sua loja nesta sessao.<br>Abra a Shopee logada e analise de novo.</div>';
@@ -931,6 +1179,31 @@
   }
 
   /* ============ EVENTOS ============ */
+  /* Os campos da calculadora leem do DOM no momento do toque, e nao por
+     listener que se perde a cada redesenho — foi assim que a calculadora
+     da extensao principal deixou de responder. */
+  function ligarCalculo() {
+    var campos = raiz.querySelectorAll('[data-calc]');
+    if (!campos.length) return;
+    var tmr = null;
+    for (var i = 0; i < campos.length; i++) {
+      campos[i].addEventListener('input', function () {
+        E.calc = E.calc || {};
+        var todos = raiz.querySelectorAll('[data-calc]');
+        for (var j = 0; j < todos.length; j++) {
+          E.calc[todos[j].getAttribute('data-calc')] = numeroPuro(todos[j].value);
+        }
+        if (tmr) clearTimeout(tmr);
+        var foco = this.getAttribute('data-calc');
+        tmr = setTimeout(function () {
+          desenhar();
+          var volta = raiz.querySelector('[data-calc="' + foco + '"]');
+          if (volta) { volta.focus(); try { volta.setSelectionRange(volta.value.length, volta.value.length); } catch (e) { } }
+        }, 500);
+      });
+    }
+  }
+
   function ligarTabela() {
     raiz.querySelectorAll('[data-ord]').forEach(function (t) {
       t.addEventListener('click', function () { E.ordem = this.getAttribute('data-ord'); desenhar(); });
@@ -940,6 +1213,8 @@
     });
     var v = $('voltar');
     if (v) v.addEventListener('click', function () { E.detalhe = null; desenhar(); });
+    var pl = $('pedir-leitura');
+    if (pl) pl.addEventListener('click', consultar);
     raiz.querySelectorAll('.aba[data-aba]').forEach(function (b) {
       b.addEventListener('click', function () { E.aba = this.getAttribute('data-aba'); E.detalhe = null; desenhar(); });
     });

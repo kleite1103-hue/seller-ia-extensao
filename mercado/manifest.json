@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Seller.IA · Analista de Mercado",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Le um nicho da Shopee por dentro: quem vende, quanto vende, a que preco, e onde da para entrar.",
   "permissions": [
     "storage"
   ],
   "host_permissions": [
     "https://shopee.com.br/*",
-    "https://seller.shopee.com.br/*"
+    "https://seller.shopee.com.br/*",
+    "https://mkfreezlizdbfpjjpxoo.supabase.co/*"
   ],
   "background": {
     "service_worker": "bg.js"
