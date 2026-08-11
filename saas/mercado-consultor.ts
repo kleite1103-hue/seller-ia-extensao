@@ -62,9 +62,7 @@ precisar liderar. E lembre que a margem de contribuicao NAO e lucro — o lucro
 vem depois do custo fixo.
 
 ## Onde ha brecha
-Use "repetidos", "idade" e "brechasDeAtendimento", nesta ordem de importancia:
-- Produto vendido por varias lojas com diferenca de preco acima de 30% tem
-  espaco: o comprador aceita pagar mais. Abaixo de 12%, a briga e so de centavo.
+Use "idade" e "brechasDeAtendimento":
 - Se ha anuncios com menos de 6 meses ja vendendo bem, o nicho aceita gente
   nova. Se nao ha, entrar exige paciencia e voce deve dizer isso.
 - Produto que vende bem com nota abaixo de 4,6 e a brecha mais concreta que

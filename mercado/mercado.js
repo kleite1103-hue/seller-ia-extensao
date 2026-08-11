@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.9.1';
+  var VERSAO = '1.9.2';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -457,71 +457,6 @@
   }
 
 
-  /* ============ AGRUPAR O MESMO PRODUTO ============
-     "Kit 48 Carrinhos de Metal" e "Brinquedo Kit 48 Carrinhos com Friccao"
-     sao o mesmo produto vendido por lojas diferentes. Agrupar por palavras
-     em comum nao e perfeito, mas erra pouco — e mostra onde a briga e so
-     de preco. */
-
-  var VAZIAS = { 'de': 1, 'da': 1, 'do': 1, 'para': 1, 'com': 1, 'sem': 1, 'e': 1, 'o': 1, 'a': 1,
-    'em': 1, 'no': 1, 'na': 1, 'por': 1, 'kit': 0.4, 'novo': 1, 'novos': 1, 'un': 1, 'unidades': 1,
-    'pcs': 1, 'frete': 1, 'gratis': 1, 'promocao': 1, 'envio': 1, 'rapido': 1, 'brasil': 1, 'pronta': 1,
-    'entrega': 1, 'original': 1, 'qualidade': 1, 'top': 1, 'melhor': 1 };
-
-  function palavrasChave(nome) {
-    return String(nome || '').toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter(function (p) { return p.length >= 3 && VAZIAS[p] !== 1; });
-  }
-
-  function pareceMesmoProduto(a, b) {
-    var pa = palavrasChave(a.nome), pb = palavrasChave(b.nome);
-    if (pa.length < 2 || pb.length < 2) return false;
-    var set = {}; pa.forEach(function (p) { set[p] = 1; });
-    var comuns = pb.filter(function (p) { return set[p]; }).length;
-    var menor = Math.min(pa.length, pb.length);
-    // 60% das palavras do menor titulo em comum, e preco na mesma ordem
-    if (comuns / menor < 0.6) return false;
-    if (a.preco && b.preco) {
-      var r = a.preco > b.preco ? a.preco / b.preco : b.preco / a.preco;
-      if (r > 2.5) return false;   // preco muito diferente: nao e o mesmo
-    }
-    return true;
-  }
-
-  function agruparIguais() {
-    var itens = E.itens.filter(function (x) { return x.mes != null && x.nome; })
-      .sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
-    var grupos = [];
-    var usado = {};
-    for (var i = 0; i < itens.length; i++) {
-      if (usado[itens[i].id]) continue;
-      var g = { itens: [itens[i]] };
-      usado[itens[i].id] = 1;
-      for (var j = i + 1; j < itens.length; j++) {
-        if (usado[itens[j].id]) continue;
-        if (itens[j].loja === itens[i].loja) continue;   // mesma loja nao e concorrencia
-        if (!pareceMesmoProduto(itens[i], itens[j])) continue;
-        g.itens.push(itens[j]);
-        usado[itens[j].id] = 1;
-      }
-      if (g.itens.length > 1) grupos.push(g);
-    }
-    return grupos.map(function (g) {
-      var ps = g.itens.map(function (x) { return x.preco; }).filter(Boolean).sort(function (a, b) { return a - b; });
-      return {
-        nome: g.itens[0].nome,
-        lojas: g.itens.length,
-        vendas: g.itens.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
-        fat: g.itens.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0),
-        precoMin: ps[0], precoMax: ps[ps.length - 1],
-        itens: g.itens
-      };
-    }).sort(function (a, b) { return b.vendas - a.vendas; });
-  }
-
   /* ============ AS CONTAS ============ */
   function resumo() {
     var I = E.itens.filter(function (x) { return x.mes != null; });
@@ -609,16 +544,6 @@
         resto: { fotos: m(resto, 'fotos'), nota: m(resto, 'nota'), preco: m(resto, 'preco'), anunciando: resto.filter(function (x) { return x.anuncio; }).length, quantos: resto.length }
       },
       lideres: ordL.map(function (l) { return { nome: l.nome, produtos: l.itens, faturamento: Math.round(l.fat), local: l.local }; }),
-
-      // o mesmo produto em varias lojas: onde a briga e so de preco
-      repetidos: agruparIguais().slice(0, 6).map(function (g) {
-        return {
-          nome: String(g.nome).slice(0, 60), lojas: g.lojas,
-          precoMin: g.precoMin, precoMax: g.precoMax,
-          diferencaPct: g.precoMin ? Math.round(((g.precoMax - g.precoMin) / g.precoMin) * 100) : null,
-          vendasSomadas: g.vendas
-        };
-      }),
 
       // o nicho aceita gente nova?
       idade: (function () {
@@ -1126,28 +1051,6 @@
     }
 
     // ---- onde ha brecha ----
-    var igu = agruparIguais();
-    if (igu.length) {
-      H.push('<h2>O mesmo produto, várias lojas</h2>');
-      H.push('<table><tr><th>PRODUTO</th><th style="text-align:right">LOJAS</th>' +
-        '<th style="text-align:right">DE ATÉ</th><th style="text-align:right">VENDE/MÊS</th>' +
-        '<th style="text-align:right">DIFERENÇA</th></tr>');
-      igu.slice(0, 8).forEach(function (g) {
-        var dif = g.precoMin ? ((g.precoMax - g.precoMin) / g.precoMin) * 100 : 0;
-        H.push('<tr><td>' + esc(g.nome.slice(0, 52)) + '</td>' +
-          '<td class="n">' + g.lojas + '</td>' +
-          '<td class="n">' + reais(g.precoMin) + ' a ' + reais(g.precoMax) + '</td>' +
-          '<td class="n">' + num(g.vendas) + '</td>' +
-          '<td class="n ' + (dif > 30 ? 'bom' : dif < 12 ? 'ruim' : '') + '">' + num(dif, 0) + '%</td></tr>');
-      });
-      H.push('</table>');
-      var folg = igu.filter(function (g) { return g.precoMin && ((g.precoMax - g.precoMin) / g.precoMin) > 0.30; });
-      if (folg.length) {
-        H.push('<div class="leitura"><b>' + folg.length + '</b> destes produtos têm mais de 30% de diferença entre a loja mais barata e a mais cara. ' +
-          'O comprador aceita pagar mais por eles, então há espaço para entrar sem precisar ser o mais barato.</div>');
-      }
-    }
-
     var cdR = E.itens.filter(function (x) { return x.cadastro && x.mes != null; });
     if (cdR.length >= 10) {
       var agR = Date.now() / 1000;
@@ -1702,78 +1605,12 @@
       }
     }
 
-    /* ---- MESMO PRODUTO, LOJAS DIFERENTES ----
-       O dado mostrou algo que derrubou a leitura que eu tinha escrito: no
-       kit de carrinhos, quem cobra R$69,99 vende 2.303 e quem cobra R$45,99
-       vende 75. Nao e o mais barato que vende. Entao o bloco parou de falar
-       de "espaco de preco" e passou a mostrar QUEM ganha e por que. */
-    var iguais = agruparIguais();
-    if (iguais.length) {
-      h += olho('O MESMO PRODUTO EM LOJAS DIFERENTES',
-        'Quando várias lojas vendem a mesma coisa, dá para ver o que separa quem vende muito de quem vende pouco. Cada linha compara a loja que mais vende com a que menos vende dentro do grupo.');
-
-      iguais.slice(0, 5).forEach(function (g) {
-        var lista = g.itens.slice().sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
-        var campeao = lista[0], ultimo = lista[lista.length - 1];
-        h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-radius:20px;padding:16px 18px;margin-bottom:10px">' +
-          '<div style="font-size:14.5px;font-weight:600;color:var(--tx1);margin-bottom:3px">' + esc(g.nome.slice(0, 54)) + '</div>' +
-          '<div style="font:400 10px \'Space Mono\',monospace;color:var(--tx6);margin-bottom:12px">' +
-          g.lojas + ' LOJAS VENDEM ISTO \u00b7 ' + num(g.vendas) + ' UNIDADES/MÊS SOMADAS</div>' +
-          '<table style="border:none"><tr><th style="background:none;padding-left:0">LOJA</th>' +
-          '<th class="num" style="background:none">PREÇO</th><th class="num" style="background:none">NOTA</th>' +
-          '<th class="num" style="background:none;padding-right:0">VENDE/MÊS</th></tr>';
-        lista.slice(0, 5).forEach(function (x, ix) {
-          h += '<tr><td style="padding-left:0">' +
-            (x.linkLoja ? '<a href="' + x.linkLoja + '" target="_blank" rel="noopener">' + esc((x.lojaNome || 'loja').slice(0, 24)) + '</a>' : esc((x.lojaNome || 'loja').slice(0, 24))) +
-            (ix === 0 ? ' <span class="pill p-ads">o que mais vende</span>' : '') + '</td>' +
-            '<td class="num">' + reais(x.preco) + '</td>' +
-            '<td class="num">' + (x.nota != null ? num(x.nota, 2) : '\u2014') + '</td>' +
-            '<td class="num"' + (ix === 0 ? ' style="color:#EE4D2D"' : '') + '>' + num(x.mes) + '</td></tr>';
-        });
-        h += '</table>';
-
-        // o que separa o primeiro do ultimo
-        var pistas = [];
-        if (campeao.preco && ultimo.preco) {
-          var difP = ((campeao.preco - ultimo.preco) / ultimo.preco) * 100;
-          if (difP > 12) pistas.push('o que mais vende é <b>' + num(difP, 0) + '% mais caro</b> que o que menos vende');
-          else if (difP < -12) pistas.push('o que mais vende é <b>' + num(-difP, 0) + '% mais barato</b>');
-          else pistas.push('os preços são <b>parecidos</b>');
-        }
-        if (campeao.fotos && ultimo.fotos && campeao.fotos > ultimo.fotos + 1) {
-          pistas.push('tem <b>' + campeao.fotos + ' fotos</b> contra ' + ultimo.fotos);
-        }
-        if (campeao.estrelas && ultimo.estrelas) {
-          var av1 = campeao.estrelas.reduce(function (a, b) { return a + b; }, 0);
-          var av2 = ultimo.estrelas.reduce(function (a, b) { return a + b; }, 0);
-          if (av1 > av2 * 2) pistas.push('tem <b>' + num(av1) + ' avaliações</b> contra ' + num(av2));
-        }
-        if (campeao.anuncio && !ultimo.anuncio) pistas.push('<b>está anunciando</b> e o outro não');
-        if (pistas.length) {
-          h += '<div style="font-size:13.5px;color:var(--tx2);line-height:1.6;margin-top:11px;padding-top:11px;border-top:1px solid var(--bd5)">' +
-            'Comparando o primeiro com o último: ' + pistas.join(', ') + '.</div>';
-        }
-        h += '</div>';
-      });
-
-      // a conclusao geral, tirada dos grupos
-      var maisCaroVence = 0, maisBaratoVence = 0;
-      iguais.forEach(function (g) {
-        var l = g.itens.slice().sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
-        if (l.length < 2 || !l[0].preco) return;
-        var precos = g.itens.map(function (x) { return x.preco; }).filter(Boolean);
-        var maisBarato = Math.min.apply(null, precos);
-        if (l[0].preco > maisBarato * 1.1) maisCaroVence++;
-        else maisBaratoVence++;
-      });
-      if (maisCaroVence + maisBaratoVence >= 3) {
-        h += '<div class="nota">Em <b>' + maisCaroVence + ' de ' + (maisCaroVence + maisBaratoVence) +
-          '</b> destes produtos, quem mais vende <b>não é o mais barato</b>. ' +
-          (maisCaroVence > maisBaratoVence
-            ? 'Neste nicho o comprador não decide só por preço, então baixar o seu não é o caminho mais rápido.'
-            : 'Aqui o preço pesa: na maioria dos casos quem cobra menos vende mais.') + '</div>';
-      }
-    }
+    /* O bloco do mesmo produto em varias lojas saiu. Ele agrupava por
+       titulo parecido, e titulo parecido nao garante produto igual: um
+       "Kit 48 Carrinhos" pode ser de metal e o outro de plastico, um pode
+       ter 48 pecas e o outro 12 com nome enganoso. Comparando os dois eu
+       diria que o mais caro vende mais quando ele so e melhor — inferencia
+       sem base no dado. Melhor nao ter o bloco do que ter um que engana. */
 
     /* ---- QUEM ENTROU HA POUCO E JA VENDE ----
        Diz se o nicho ainda aceita gente nova ou se so quem esta ha anos
