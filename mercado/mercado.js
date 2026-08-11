@@ -144,7 +144,25 @@
     E.progresso = 'Organizando...';
     desenhar();
 
+    // Diagnostico: se a resposta vier com outra estrutura, e aqui que se
+    // descobre — em vez de a tela ficar vazia sem dizer por que.
+    try {
+      if (todos.length) {
+        var am = todos[0];
+        console.log('[Mercado] chaves do item:', Object.keys(am).slice(0, 20).join(', '));
+        console.log('[Mercado] tem item_data:', !!am.item_data, '| tem item_basic:', !!am.item_basic,
+          '| tem asset:', !!am.item_card_displayed_asset);
+      }
+    } catch (e) { }
+
     E.itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
+
+    try {
+      console.log('[Mercado] traduzidos:', E.itens.length,
+        '| com nome:', E.itens.filter(function (x) { return x.nome; }).length,
+        '| com preco:', E.itens.filter(function (x) { return x.preco != null; }).length,
+        '| com venda:', E.itens.filter(function (x) { return x.mes != null; }).length);
+    } catch (e) { }
     await nomearCategorias();
     await guardarVolumes();
     await identificarMinhaLoja();
@@ -158,21 +176,28 @@
   /* Traduz o item da busca para o que a analise usa. Cada campo aqui
      existe na resposta — nada e calculado por fora. */
   function traduzirItem(it) {
-    var d = it.item_data || {};
-    var a = it.item_card_displayed_asset || {};
+    // A vitrine ja devolveu duas formas: item_data com o asset ao lado, e
+    // item_basic com tudo dentro. Aceita as duas em vez de assumir uma.
+    var b = it.item_basic || {};
+    var d = it.item_data || b;
+    var a = it.item_card_displayed_asset || b;
     var sc = d.item_card_display_sold_count || {};
     var pr = d.item_card_display_price || {};
     var sd = d.shop_data || {};
     var t = {};
     try { t = JSON.parse(it.search_item_tracking || '{}'); } catch (e) { }
 
-    var preco = pr.price != null ? pr.price / 100000 : null;
-    var mes = sc.monthly_sold_count != null ? sc.monthly_sold_count : null;
-    var total = sc.historical_sold_count != null ? sc.historical_sold_count : null;
+    var preco = pr.price != null ? pr.price / 100000
+      : (b.price != null ? b.price / 100000 : null);
+    var mes = sc.monthly_sold_count != null ? sc.monthly_sold_count
+      : (b.sold != null ? b.sold : null);
+    var total = sc.historical_sold_count != null ? sc.historical_sold_count
+      : (b.historical_sold != null ? b.historical_sold : null);
 
     return {
-      id: it.itemid, loja: it.shopid,
-      nome: a.name || '',
+      id: it.itemid || b.itemid || d.itemid,
+      loja: it.shopid || b.shopid || d.shopid,
+      nome: a.name || b.name || it.display_name || '',
       lojaNome: sd.shop_name || '',
       local: a.shop_location || sd.shop_location || '',
       preco: preco,
