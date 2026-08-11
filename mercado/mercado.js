@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.1.0';
+  var VERSAO = '1.1.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -848,6 +848,15 @@
     if (n == null) return '\u2014';
     return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: casas || 0, maximumFractionDigits: casas || 0 });
   }
+  /* O rotulo de secao, com o tracinho laranja antes. Estava sendo usado em
+     cinco lugares e nunca foi definido — quebrava a tela inteira depois de
+     a coleta terminar com sucesso, que e o pior momento para quebrar. */
+  function olho(titulo, ajuda) {
+    var h = '<div class="olho">' + esc(titulo) + '</div>';
+    if (ajuda) h += '<div style="font-size:13.5px;color:#463F33;line-height:1.6;margin:-6px 0 12px">' + ajuda + '</div>';
+    return h;
+  }
+
   function idade(ts) {
     if (!ts) return null;
     var d = Math.round((Date.now() / 1000 - ts) / 86400);
