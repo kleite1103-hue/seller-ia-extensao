@@ -26,24 +26,42 @@
   };
 
   /* ============ CHAMADAS ============ */
+  /* "Extension context invalidated" acontece quando a extensao e recarregada
+     com a pagina da Shopee aberta: este script fica orfao, sem ponte com o
+     service worker. Sem tratar, o erro estoura solto no console e a busca
+     morre em silencio. Agora ele vira uma mensagem que diz o que fazer. */
   function api(url, metodo, corpo) {
     return new Promise(function (ok) {
-      chrome.runtime.sendMessage(
-        { tipo: 'mercado:buscar', url: url, metodo: metodo || 'GET', corpo: corpo || null },
-        function (r) { void chrome.runtime.lastError; ok(r || { ok: false }); }
-      );
+      try {
+        chrome.runtime.sendMessage(
+          { tipo: 'mercado:buscar', url: url, metodo: metodo || 'GET', corpo: corpo || null },
+          function (r) {
+            if (chrome.runtime.lastError) {
+              ok({ ok: false, erro: 'ponte', detalhe: chrome.runtime.lastError.message });
+              return;
+            }
+            ok(r || { ok: false });
+          }
+        );
+      } catch (e) {
+        ok({ ok: false, erro: 'ponte', detalhe: String(e && e.message || e) });
+      }
     });
   }
   function guardar(chave, valor) {
     return new Promise(function (ok) {
-      chrome.runtime.sendMessage({ tipo: 'mercado:guardar', chave: chave, valor: valor },
-        function () { void chrome.runtime.lastError; ok(); });
+      try {
+        chrome.runtime.sendMessage({ tipo: 'mercado:guardar', chave: chave, valor: valor },
+          function () { void chrome.runtime.lastError; ok(); });
+      } catch (e) { ok(); }
     });
   }
   function ler(chave) {
     return new Promise(function (ok) {
-      chrome.runtime.sendMessage({ tipo: 'mercado:ler', chave: chave },
-        function (r) { void chrome.runtime.lastError; ok(r && r.valor); });
+      try {
+        chrome.runtime.sendMessage({ tipo: 'mercado:ler', chave: chave },
+          function (r) { void chrome.runtime.lastError; ok(r && r.valor); });
+      } catch (e) { ok(null); }
     });
   }
   function espera(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -76,6 +94,11 @@
         '&source=SRP&view_session_id=' + sessaoDaBusca() +
         '&extra_params=' + encodeURIComponent(JSON.stringify({ global_search_session_id: 'gs-' + Math.random().toString(16).slice(2, 10) }));
       var r = await api(url);
+      if (r.erro === 'ponte') {
+        E.erro = 'A extensao foi atualizada com esta pagina aberta. ' +
+          'Recarregue a Shopee com F5 e tente de novo.';
+        break;
+      }
       if (!r.ok || !r.dados) {
         E.erro = 'A Shopee nao respondeu a busca' + (r.status ? ' (codigo ' + r.status + ')' : '') +
           (r.erro ? ': ' + r.erro : '') + '.';
@@ -640,6 +663,21 @@
   ler('hist_volume').then(function (v) {
     try { E.historico = JSON.parse(v || '{}'); } catch (e) { E.historico = {}; }
   });
+
+  /* Se a ponte ja nasceu quebrada, avisa antes da pessoa tentar buscar. */
+  (function conferirPonte() {
+    try {
+      chrome.runtime.sendMessage({ tipo: 'mercado:ler', chave: '__ping' }, function () {
+        if (chrome.runtime.lastError) {
+          E.erro = 'A extensao foi atualizada com esta pagina aberta. Recarregue a Shopee com F5.';
+          desenhar();
+        }
+      });
+    } catch (e) {
+      E.erro = 'A extensao foi atualizada com esta pagina aberta. Recarregue a Shopee com F5.';
+      desenhar();
+    }
+  })();
 
   desenhar();
   console.log('[Seller.IA Mercado] v' + VERSAO + ' pronto.');
