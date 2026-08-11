@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.5.0';
+  var VERSAO = '1.6.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -283,7 +283,7 @@
         '| com preco:', E.itens.filter(function (x) { return x.preco != null; }).length,
         '| com venda:', E.itens.filter(function (x) { return x.mes != null; }).length);
     } catch (e) { }
-    await nomearCategorias();
+
     await guardarVolumes();
     await identificarMinhaLoja();
 
@@ -294,7 +294,7 @@
       try {
         await guardar('ultima_analise', JSON.stringify({
           termo: E.termo, em: Date.now(), paginas: E.paginasLidas,
-          itens: E.itens, categorias: E.categorias, minhaLoja: E.minhaLoja
+          itens: E.itens, minhaLoja: E.minhaLoja
         }));
       } catch (e) { }
     }
@@ -394,40 +394,11 @@
   }
 
   /* A Shopee entrega a arvore de categorias com o nome em portugues. */
-  async function nomearCategorias() {
-    var ids = {};
-    E.itens.forEach(function (x) { if (x.catid) ids[x.catid] = 1; });
-    if (!Object.keys(ids).length) return;
-    if (Object.keys(E.categorias).length) return;   // ja temos
-    // A arvore da vitrine. Se a Shopee mudar o caminho, a tela mostra o
-    // numero da categoria em vez de quebrar — categoria e enfeite util,
-    // nao a analise.
-    // dois caminhos: o da vitrine e o do painel. Se nenhum responder, a
-    // tela mostra o codigo em vez de quebrar.
-    var caminhos = ['/api/v4/pages/get_category_tree', '/api/v4/category_list/get_category_tree'];
-    var lista = null;
-    for (var ci = 0; ci < caminhos.length; ci++) {
-      var r = await api(caminhos[ci]);
-      if (!r.ok || !r.dados || r.dados.error) continue;
-      lista = (r.dados.data && (r.dados.data.category_list || r.dados.data.categories)) ||
-        r.dados.category_list || r.dados.categories || null;
-      if (lista && lista.length) break;
-    }
-    if (!lista || !lista.length) {
-      try { console.warn('[Mercado] arvore de categorias indisponivel; mostrando o codigo'); } catch (e) { }
-      return;
-    }
-    function percorrer(ns, caminho) {
-      for (var i = 0; i < ns.length; i++) {
-        var n = ns[i];
-        var nome = n.display_name || n.name || n.category_name || '';
-        if (n.catid) E.categorias[n.catid] = caminho ? caminho + ' > ' + nome : nome;
-        var filhos = n.children || n.sub_category || n.subcategory;
-        if (filhos && filhos.length) percorrer(filhos, caminho ? caminho + ' > ' + nome : nome);
-      }
-    }
-    percorrer(lista, '');
-  }
+  /* A funcao que buscava a arvore de categorias saiu daqui: ficou provado
+     que ela nao serve. A vitrine entrega 284 categorias em 2 niveis, e o
+     catid do produto e de nivel mais fundo — nenhum dos que aparecem na
+     busca existe nela. O bloco virou EM QUE PRECO O DINHEIRO ESTA. */
+
 
   /* O historico de volume. A Shopee da o numero de hoje; guardando o
      nosso, em duas semanas da para dizer quem esta acelerando. */
@@ -1017,14 +988,26 @@
     });
     H.push('</table>');
 
-    // ---- categorias ----
-    if (ordC.length > 1) {
-      H.push('<h2>Onde o dinheiro está</h2>');
-      H.push('<table><tr><th>CATEGORIA</th><th style="text-align:right">FATURAMENTO</th><th style="text-align:right">FATIA</th></tr>');
-      ordC.slice(0, 8).forEach(function (k) {
-        H.push('<tr><td>' + esc(E.categorias[k] || 'categoria sem nome') + '<small>' + esc(k) + '</small></td>' +
-          '<td class="n">' + reais(cats[k]) + '</td><td class="n">' + num((cats[k] / totC) * 100, 0) + '%</td></tr>');
-      });
+    // ---- em que preco o dinheiro esta ----
+    var comPr = E.itens.filter(function (x) { return x.preco && x.mes != null; });
+    if (comPr.length >= 8) {
+      var psR = comPr.map(function (x) { return x.preco; }).sort(function (a, b) { return a - b; });
+      var loR = psR[0], hiR = psR[psR.length - 1];
+      H.push('<h2>Em que preço o dinheiro está</h2>');
+      H.push('<table><tr><th>FAIXA</th><th style="text-align:right">PRODUTOS</th>' +
+        '<th style="text-align:right">VENDE/MÊS</th><th style="text-align:right">FATURA</th>' +
+        '<th style="text-align:right">FATIA</th></tr>');
+      for (var fj = 0; fj < 4; fj++) {
+        var deR = loR + ((hiR - loR) / 4) * fj;
+        var ateR = fj === 3 ? hiR + 0.01 : loR + ((hiR - loR) / 4) * (fj + 1);
+        var dtr = comPr.filter(function (x) { return x.preco >= deR && x.preco < ateR; });
+        var fatR = dtr.reduce(function (a, b2) { return a + (b2.fatMes || 0); }, 0);
+        H.push('<tr><td>' + reais(deR) + ' a ' + reais(ateR) + '</td>' +
+          '<td class="n">' + dtr.length + '</td>' +
+          '<td class="n">' + num(dtr.reduce(function (a, b2) { return a + (b2.mes || 0); }, 0)) + '</td>' +
+          '<td class="n">' + reais(fatR) + '</td>' +
+          '<td class="n">' + num(R.faturamento ? (fatR / R.faturamento) * 100 : 0, 0) + '%</td></tr>');
+      }
       H.push('</table>');
     }
 
@@ -1214,7 +1197,7 @@
     '.painel.on{opacity:1;pointer-events:auto;transform:none}' +
 
     /* cabecalho */
-    '.cab{padding:20px 24px 0}' +
+    '.cab{padding:16px 24px 0}' +
     '.cab .l1{display:flex;align-items:center;gap:12px}' +
     '.logo{width:38px;height:38px;border-radius:13px;background:var(--tx1);color:var(--card);' +
       'display:grid;place-items:center;font:500 26px Archivo,Arial;letter-spacing:-.04em;flex:none}' +
@@ -1228,7 +1211,7 @@
     '.ico.fechar{width:32px;height:32px}' +
 
     /* busca */
-    '.busca{display:flex;gap:9px;margin:16px 0 12px}' +
+    '.busca{display:flex;gap:9px;margin:13px 0 10px}' +
     '.campo{flex:1;display:flex;align-items:center;gap:9px;background:var(--fill);border:1px solid var(--bd3);' +
       'border-radius:16px;padding:0 14px}' +
     '.campo:focus-within{border-color:#EE4D2D}' +
@@ -1239,8 +1222,14 @@
       'border-radius:16px;cursor:pointer;box-shadow:0 6px 16px rgba(238,77,45,.28)}' +
     'button.go:hover{background:#d94326}' +
     'button.go:disabled{opacity:.6;cursor:default;box-shadow:none}' +
-    '.opcoes{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding-bottom:12px}' +
-    '.opcoes .g{font:400 9px "Space Mono",monospace;letter-spacing:.1em;color:var(--tx6);margin-right:2px}' +
+    '.opcoes{display:flex;gap:6px;align-items:center;padding-bottom:10px;flex-wrap:wrap}' +
+    '.opcoes select{background:var(--fill);border:1px solid var(--bd3);color:var(--tx2);' +
+      'font:400 10.5px "Space Mono",monospace;padding:6px 9px;border-radius:10px;cursor:pointer;outline:none}' +
+    '.opcoes select:focus{border-color:#EE4D2D}' +
+    '.mini{display:inline-flex;align-items:center;gap:5px;background:var(--fill);border:1px solid var(--bd3);' +
+      'color:var(--tx5);font:400 10.5px "Space Mono",monospace;padding:6px 11px;border-radius:10px;cursor:pointer}' +
+    '.mini:hover{border-color:#EE4D2D;color:#EE4D2D}' +
+    '.mini.on{background:var(--tintO2);border-color:#EE4D2D;color:#EE4D2D}' +
     '.ctx{font:400 10.5px "Space Mono",monospace;color:var(--tx6);letter-spacing:.05em;' +
       'padding-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}' +
     '.p-sessao{background:var(--tintG);color:#1F8A5F;border-radius:999px;padding:3px 9px;' +
@@ -1255,7 +1244,7 @@
     '.aba:hover{color:var(--tx2)}' +
     '.aba.on{color:#EE4D2D;border-bottom-color:#EE4D2D}' +
 
-    '.corpo{flex:1;overflow-y:auto;padding:22px 24px 28px}' +
+    '.corpo{flex:1;overflow-y:auto;padding:18px 24px 28px}' +
     '.corpo::-webkit-scrollbar{width:8px}' +
     '.corpo::-webkit-scrollbar-thumb{background:var(--mut4);border-radius:99px}' +
 
@@ -1311,7 +1300,7 @@
     '.nota{font-size:14.5px;color:var(--tx1);line-height:1.65;background:var(--surf);' +
       'border:1px solid var(--bd2);border-radius:18px;padding:14px 17px;margin-bottom:12px}' +
     '.aviso{background:var(--fill2);border:1px dashed var(--bd6);border-radius:18px;' +
-      'padding:12px 16px;font-size:12.5px;color:var(--tx4);line-height:1.55;margin-bottom:16px}' +
+      'padding:8px 13px;font-size:12px;color:var(--tx4);line-height:1.45;margin-bottom:14px}' +
     '.vazio{text-align:center;padding:56px 24px;color:var(--tx4);font-size:14.5px;line-height:1.7}' +
     'a{color:#EE4D2D;text-decoration:none}' +
     '</style>' +
@@ -1361,29 +1350,33 @@
         : min < 1440 ? 'ha ' + Math.round(min / 60) + 'h'
         : new Date(E.quando).toLocaleDateString('pt-BR');
     }
+    // A descricao da foto vira dica do titulo, em vez de ocupar a linha
     $('ctx').innerHTML = E.itens.length
-      ? ((E.fotoDescricao ? 'DA FOTO: ' + esc(E.fotoDescricao).toUpperCase() + ' \u00b7 ' : '') +
-         '\u201c' + esc(E.termo) + '\u201d \u00b7 ' + E.itens.length + ' PRODUTOS \u00b7 ' +
-         (E.paginasLidas || 1) + ' PAGINA' + ((E.paginasLidas || 1) > 1 ? 'S' : '') + ' LIDA' + ((E.paginasLidas || 1) > 1 ? 'S' : '') +
+      ? ('<span' + (E.fotoDescricao ? ' title="A foto mostrava: ' + esc(E.fotoDescricao) + '"' : '') + '>' +
+         (E.fotoDescricao ? '\u25c9 ' : '') + '\u201c' + esc(E.termo) + '\u201d</span> \u00b7 ' +
+         E.itens.length + ' PRODUTOS' +
          (quando ? ' \u00b7 ' + quando.toUpperCase() : '') +
-         (E.minhaLoja ? ' <span class="p-sessao">SESSAO LOGADA</span>' : ''))
+         (E.minhaLoja ? ' <span class="p-sessao">LOGADA</span>' : ''))
       : 'NENHUM NICHO LIDO AINDA';
     $('ir').textContent = E.buscando ? 'Lendo...' : 'Analisar';
     $('ir').disabled = !!E.buscando;
 
     // profundidade e busca ampliada
+    /* Tudo numa linha. A barra com seis botoes comia a altura do resultado,
+       que e o que a pessoa veio ver. */
     $('opcoes').innerHTML =
-      '<span class="g">LER</span>' +
+      '<select id="sel-pg" title="Quantos produtos ler">' +
       [3, 5, 10].map(function (n2) {
-        return '<button class="chip' + (E.paginas === n2 ? ' on' : '') + '" data-pg="' + n2 + '">' +
-          (n2 * 60) + ' produtos</button>';
-      }).join('') +
-      '<span style="width:10px"></span>' +
-      '<button class="chip' + (E.ampliar ? ' on' : '') + '" id="ampliar" ' +
-      'title="Busca tambem as variacoes que a Shopee sugere para o termo">' +
-      (E.ampliar ? '\u2713 ' : '') + 'incluir variacoes do termo</button>' +
-      '<span style="width:10px"></span>' +
-      '<button class="chip" id="por-foto" title="Descreve a foto e busca o que ela mostra">buscar por foto</button>';
+        return '<option value="' + n2 + '"' + (E.paginas === n2 ? ' selected' : '') + '>' + (n2 * 60) + ' produtos</option>';
+      }).join('') + '</select>' +
+      '<button class="mini' + (E.ampliar ? ' on' : '') + '" id="ampliar" ' +
+      'title="Busca tambem as variacoes que a Shopee sugere para este termo">' +
+      (E.ampliar ? '\u2713 ' : '+ ') + 'variacoes</button>' +
+      '<button class="mini" id="por-foto" title="Manda uma foto e eu descubro o produto">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13" style="vertical-align:-2px">' +
+      '<path d="M3 8.5h3l1.5-2.5h9L18 8.5h3v11H3z" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="3.5"/></svg> foto</button>' +
+      (E.variacoes && E.variacoes.length
+        ? '<span style="font:400 9.5px \'Space Mono\',monospace;color:var(--tx6)">+' + E.variacoes.length + ' VARIACOES</span>' : '');
 
     $('abas').innerHTML = E.itens.length
       ? ABAS.map(function (a) {
@@ -1415,8 +1408,7 @@
   /* O aviso e curto de proposito: repetir tres paragrafos toda vez cansa e
      a pessoa para de ler. Uma linha, sempre visivel. */
   function avisoSessao() {
-    return '<div class="aviso">Amostra de <b>' + E.itens.length + '</b> produtos lidos na busca por ' +
-      '<b>' + esc(E.termo) + '</b>, não o nicho inteiro.</div>';
+    return '<div class="aviso">Amostra de <b>' + E.itens.length + '</b> produtos, não o nicho inteiro.</div>';
   }
 
   function viewNicho() {
@@ -1520,20 +1512,49 @@
       }
     }
 
-    // categorias
-    var cats = {};
-    E.itens.forEach(function (x) { if (x.catid) cats[x.catid] = (cats[x.catid] || 0) + (x.fatMes || 0); });
-    var ordC = Object.keys(cats).sort(function (a, b) { return cats[b] - cats[a]; });
-    if (ordC.length) {
-      h += '<div class="olho">POR CATEGORIA</div><table><tr><th>CATEGORIA</th><th class="num">FATURAMENTO</th><th class="num">%</th></tr>';
-      var totC = ordC.reduce(function (a, k) { return a + cats[k]; }, 0);
-      ordC.slice(0, 8).forEach(function (k) {
-        h += '<tr><td>' + esc(E.categorias[k] || 'categoria sem nome') +
-          '<br><span style="font-family:\'Space Mono\',monospace;font-size:10px;color:var(--tx6)">' + esc(k) + '</span></td>' +
-          '<td class="num">' + reais(cats[k]) + '</td>' +
-          '<td class="num">' + num((cats[k] / totC) * 100, 0) + '%</td></tr>';
+    /* EM QUE PRECO O DINHEIRO ESTA — substitui o bloco de categoria.
+       A arvore que a vitrine entrega tem 284 categorias em 2 niveis, e o
+       catid do produto e de nivel mais fundo: NENHUM dos que aparecem na
+       busca existe nela. Mostrar "categoria sem nome" nao ajudava ninguem.
+       A faixa de preco responde a mesma pergunta, com dado que existe. */
+    var comP = E.itens.filter(function (x) { return x.preco && x.mes != null; });
+    if (comP.length >= 8) {
+      var ps = comP.map(function (x) { return x.preco; }).sort(function (a, b) { return a - b; });
+      var lo = ps[0], hi = ps[ps.length - 1];
+      var faixas = [];
+      for (var fi = 0; fi < 4; fi++) {
+        var de = lo + ((hi - lo) / 4) * fi;
+        var ate = fi === 3 ? hi + 0.01 : lo + ((hi - lo) / 4) * (fi + 1);
+        var dentro = comP.filter(function (x) { return x.preco >= de && x.preco < ate; });
+        faixas.push({
+          de: de, ate: ate, qtd: dentro.length,
+          vendas: dentro.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
+          fat: dentro.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0)
+        });
+      }
+      var maiorFat = Math.max.apply(null, faixas.map(function (x) { return x.fat; }));
+      var campea = null;
+      for (var ci = 0; ci < faixas.length; ci++) if (faixas[ci].fat === maiorFat) { campea = faixas[ci]; break; }
+
+      h += olho('EM QUE PRECO O DINHEIRO ESTA',
+        'A amostra dividida em quatro faixas, da mais barata para a mais cara, com quanto cada uma fatura por mes.');
+      h += '<div class="tab"><table><tr><th>FAIXA DE PRECO</th><th class="num">PRODUTOS</th>' +
+        '<th class="num">VENDAS/MÊS</th><th class="num">FATURA</th><th class="num">FATIA</th></tr>';
+      faixas.forEach(function (fx) {
+        var pctF = R.faturamento ? (fx.fat / R.faturamento) * 100 : 0;
+        h += '<tr><td><b>' + reais(fx.de) + ' a ' + reais(fx.ate) + '</b>' +
+          (fx === campea ? ' <span class="pill p-ads">aqui esta o dinheiro</span>' : '') + '</td>' +
+          '<td class="num">' + fx.qtd + '</td>' +
+          '<td class="num">' + num(fx.vendas) + '</td>' +
+          '<td class="num">' + reais(fx.fat) + '</td>' +
+          '<td class="num">' + num(pctF, 0) + '%</td></tr>';
       });
-      h += '</table>';
+      h += '</table></div>';
+      if (campea && campea.qtd) {
+        h += '<div class="nota">A faixa de <b>' + reais(campea.de) + ' a ' + reais(campea.ate) +
+          '</b> concentra <b>' + num(R.faturamento ? (campea.fat / R.faturamento) * 100 : 0, 0) +
+          '%</b> do faturamento com ' + campea.qtd + ' produtos. É onde o comprador deste nicho gasta.</div>';
+      }
     }
     return h;
   }
@@ -1709,7 +1730,8 @@
       '</div>';
 
     var linhas = [];
-    if (x.catid) linhas.push(['Categoria', esc(E.categorias[x.catid] || x.catid)]);
+    // a Shopee nao expoe o nome da categoria profunda na busca, e so o
+    // codigo nao diz nada — a linha saiu
     if (x.marca) linhas.push(['Marca', esc(x.marca)]);
     if (x.cadastro) {
       linhas.push(['Anuncio no ar ha', idade(x.cadastro) +
@@ -1823,10 +1845,13 @@
     if (t && !E.buscando) analisar(t);
   });
   raiz.addEventListener('click', function (ev) {
-    var b = ev.target.closest ? ev.target.closest('[data-pg]') : null;
-    if (b) { E.paginas = parseInt(b.getAttribute('data-pg'), 10); desenhar(); return; }
-    if (ev.target.id === 'ampliar') { E.ampliar = !E.ampliar; desenhar(); return; }
-    if (ev.target.id === 'por-foto') { $('foto').click(); return; }
+    var alvo = ev.target.closest ? ev.target.closest('button') : ev.target;
+    if (!alvo) return;
+    if (alvo.id === 'ampliar') { E.ampliar = !E.ampliar; desenhar(); return; }
+    if (alvo.id === 'por-foto') { $('foto').click(); return; }
+  });
+  raiz.addEventListener('change', function (ev) {
+    if (ev.target.id === 'sel-pg') E.paginas = parseInt(ev.target.value, 10) || 3;
   });
   $('foto').addEventListener('change', function () {
     if (this.files && this.files[0]) lerFoto(this.files[0]);
@@ -1857,7 +1882,7 @@
       var a = JSON.parse(v);
       if (!a || !a.itens || !a.itens.length) return;
       E.termo = a.termo; E.itens = a.itens;
-      E.categorias = a.categorias || {};
+
       E.minhaLoja = a.minhaLoja || null;
       E.paginasLidas = a.paginas || 1;
       E.quando = a.em;
