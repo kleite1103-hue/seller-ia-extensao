@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.8.0';
+  var VERSAO = '1.9.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -332,6 +332,7 @@
       link: (it.shopid && it.itemid)
         ? ('https://shopee.com.br/product/' + it.shopid + '/' + it.itemid)
         : null,
+      linkLoja: it.shopid ? ('https://shopee.com.br/shop/' + it.shopid) : null,
       nome: a.name || b.name || it.display_name || '',
       // O nome da loja so vem em item_data.shop_data. Na estrutura
       // item_basic ele nao existe, e ai fica so o id — que nao serve para
@@ -939,7 +940,7 @@
     var LJ = {};
     E.itens.forEach(function (x) {
       if (!x.loja) return;
-      var l = LJ[x.loja] = LJ[x.loja] || { nome: x.lojaNome, id: x.loja, itens: 0, mes: 0, fat: 0, local: x.local, precos: [] };
+      var l = LJ[x.loja] = LJ[x.loja] || { nome: x.lojaNome, id: x.loja, itens: 0, mes: 0, fat: 0, local: x.local, precos: [], link: x.linkLoja };
       l.itens++; l.mes += x.mes || 0; l.fat += x.fatMes || 0;
       if (x.preco) l.precos.push(x.preco);
     });
@@ -1021,13 +1022,21 @@
       lin('Sem nenhuma venda no mês', R.semVenda + ' produtos') +
       '</table>');
 
+    // a faixa de preco, que estava so na tela
+    H.push('<h2>A faixa de preço</h2>');
+    H.push('<div class="nota">Os produtos vão de <b>' + reais(R.precoMin) + '</b> a <b>' + reais(R.precoMax) +
+      '</b>, com o preço do meio da lista em <b>' + reais(R.precoMediano) + '</b>. ' +
+      'O ticket médio de <b>' + reais(R.ticket) + '</b> ' +
+      (R.ticket > R.precoMediano
+        ? 'está acima disso, então quem vende volume aqui são os produtos mais caros.'
+        : 'está abaixo disso, então o volume está concentrado nos mais baratos.') + '</div>');
+
     var recado = [];
-    if (R.concentracao > 70) recado.push('O nicho é <b>dominado</b>: cinco lojas ficam com ' + num(R.concentracao, 0) + '% de tudo. Entrar exige preço ou diferencial forte.');
-    else if (R.concentracao < 45) recado.push('O nicho é <b>pulverizado</b>: ninguém manda sozinho, e um produto bem feito encontra lugar.');
-    else recado.push('Há líderes, mas o bolo se divide. Dá para pegar espaço sem enfrentar o primeiro.');
-    var pctA = (R.anuncios / E.itens.length) * 100;
-    if (pctA < 15) recado.push('Só ' + num(pctA, 0) + '% pagam anúncio, então dá para aparecer no orgânico.');
-    else if (pctA > 35) recado.push(num(pctA, 0) + '% pagam anúncio: sem investir, dificilmente você aparece.');
+    if (R.concentracao > 70) recado.push('Poucas lojas concentram quase tudo: cinco delas ficam com ' + num(R.concentracao, 0) + '% do faturamento. Para entrar você precisa de preço melhor ou de algo que elas não ofereçam.');
+    else if (R.concentracao < 45) recado.push('O faturamento está espalhado entre muitas lojas, sem uma dominante. Um produto bem feito consegue espaço aqui.');
+    else recado.push('Existem lojas maiores, mas o faturamento se divide entre várias. Dá para conquistar espaço sem bater de frente com a primeira.');
+    recado.push('<b>' + R.anuncios + ' dos ' + E.itens.length + '</b> produtos vieram marcados como anúncio nesta busca. ' +
+      'A Shopee mostra anúncios diferentes a cada busca, então este é o número de agora, não o total de quem anuncia no nicho.');
     if (R.semVenda > E.itens.length * 0.25) recado.push('<b>' + R.semVenda + ' produtos não venderam nada no mês</b>, o que mostra que estar na busca não garante venda.');
     H.push('<div class="leitura">' + recado.join(' ') + '</div>');
 
@@ -1037,7 +1046,8 @@
       '<th style="text-align:right">PREÇO</th><th style="text-align:right">FATURA</th></tr>');
     top.forEach(function (x, i2) {
       H.push('<tr><td class="n">' + (i2 + 1) + '</td>' +
-        '<td>' + linkP(x, 62) + '<small>' + esc(x.lojaNome || ('loja ' + x.loja)) +
+        '<td>' + linkP(x, 62) + '<small>' +
+        (x.linkLoja ? '<a href="' + x.linkLoja + '" target="_blank">' + esc(x.lojaNome || 'ver loja') + '</a>' : esc(x.lojaNome || '')) +
         (x.local ? ' · ' + esc(x.local) : '') + (x.anuncio ? ' · ANÚNCIO' : '') + '</small></td>' +
         '<td class="n">' + num(x.mes) + '</td><td class="n">' + reais(x.preco) + '</td>' +
         '<td class="n">' + (x.fatMes != null ? reais(x.fatMes) : '—') + '</td></tr>');
@@ -1084,7 +1094,7 @@
       '<th style="text-align:right">VENDE/MÊS</th><th style="text-align:right">FATURAMENTO</th>' +
       '<th style="text-align:right">FATIA</th></tr>');
     ordL.slice(0, 12).forEach(function (l) {
-      H.push('<tr><td>' + esc(l.nome || ('loja ' + l.id)) +
+      H.push('<tr><td>' + (l.link ? '<a href="' + l.link + '" target="_blank">' + esc(l.nome || ('loja ' + l.id)) + '</a>' : esc(l.nome || ('loja ' + l.id))) +
         '<small>' + (l.local || '') + (l.id === E.minhaLoja ? ' · VOCÊ' : '') + '</small></td>' +
         '<td class="n">' + l.itens + '</td><td class="n">' + num(l.mes) + '</td>' +
         '<td class="n">' + reais(l.fat) + '</td>' +
@@ -1334,6 +1344,13 @@
       '--shadow:0 40px 90px rgba(0,0,0,.5), 0 6px 18px rgba(0,0,0,.28);'
   };
 
+  /* A logo oficial da Seller.IA, a mesma do painel principal. O "S." em
+     texto ficava desalinhado e com peso errado em cada fonte carregada. */
+  var LOGO = '<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">' +
+    '<rect x="0" y="0" width="128" height="128" rx="30" fill="#1C1A17"/>' +
+    '<text x="46" y="88" font-family="Archivo,Outfit,Arial" font-size="74" font-weight="500" fill="#FBF8F3" text-anchor="middle" letter-spacing="-2">S</text>' +
+    '<circle cx="88" cy="80" r="8" fill="#EE4D2D"/></svg>';
+
   var ICO_LUA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var ICO_SOL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-linecap="round"/></svg>';
   var ICO_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="15" height="15"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4" stroke-linecap="round"/></svg>';
@@ -1350,9 +1367,9 @@
       'border-radius:16px 0 0 16px;background:#2C2A26;color:#FBF8F3;border:none;cursor:pointer;' +
       'font:500 21px Archivo,Arial;letter-spacing:-.035em;box-shadow:-4px 4px 18px rgba(0,0,0,.2);' +
       'display:grid;place-items:center;z-index:2147483000;transition:width .15s,background .15s}' +
-    '.btn em{font-style:normal;color:#EE4D2D}' +
-    '.btn:hover{width:52px;background:#EE4D2D}' +
-    '.btn:hover em{color:#fff}' +
+    '.btn span{display:block;width:28px;height:28px;line-height:0}' +
+    '.btn span svg{width:100%;height:100%;display:block;border-radius:8px}' +
+    '.btn:hover{width:52px}' +
 
     /* o painel flutuante */
     /* Colado no topo e no fim: 24px de folga em cima e embaixo era quase
@@ -1364,13 +1381,15 @@
     '.painel.on{opacity:1;pointer-events:auto;transform:none}' +
 
     /* cabecalho */
-    '.cab{padding:13px 22px 0}' +
-    '.cab .l1{display:flex;align-items:center;gap:9px}' +
-    '.cab .l2{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 0 10px}' +
-    '.logo{width:38px;height:38px;border-radius:13px;background:var(--tx1);color:var(--card);' +
-      'display:grid;place-items:center;font:500 26px Archivo,Arial;letter-spacing:-.04em;flex:none}' +
-    '.logo em{font-style:normal;color:#EE4D2D}' +
-    '.logo{width:34px;height:34px;border-radius:11px;font:500 23px Archivo,Arial}' +
+    '.cab{padding:14px 22px 0}' +
+    '.cab .l1{display:flex;align-items:center;gap:11px}' +
+    '.cab .l2{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 0 11px}' +
+    '.marca{font:500 19px Archivo,Arial;letter-spacing:-.03em;color:var(--tx1);line-height:1.05;flex:none}' +
+    '.marca em{font-style:normal;color:#EE4D2D}' +
+    '.marca span{display:block;font:400 8px "Space Mono",monospace;letter-spacing:.15em;color:var(--tx6);margin-top:2px}' +
+
+    '.logo{width:36px;height:36px;flex:none;line-height:0}' +
+    '.logo svg{width:100%;height:100%;display:block;border-radius:11px}' +
     '.ico{background:none;border:1px solid var(--bd3);color:var(--tx3);border-radius:11px;' +
       'width:32px;height:32px;display:grid;place-items:center;cursor:pointer;flex:none}' +
     '.ico:hover{border-color:#EE4D2D;color:#EE4D2D}' +
@@ -1475,14 +1494,15 @@
     'a{color:#EE4D2D;text-decoration:none}' +
     '</style>' +
 
-    '<button class="btn" id="abrir" title="Analista de Mercado">S<em>.</em></button>' +
+    '<button class="btn" id="abrir" title="Analista de Mercado"><span>' + LOGO + '</span></button>' +
     '<div id="tudo"><div class="painel" id="painel">' +
     /* TUDO EM DUAS LINHAS. A marca dividia a linha sozinha, a busca outra,
        as opcoes outra e o contexto mais uma: quatro linhas de cabecalho
        comiam quase metade da altura util. */
     '  <div class="cab">' +
     '    <div class="l1">' +
-    '      <div class="logo">S<em>.</em></div>' +
+    '      <div class="logo">' + LOGO + '</div>' +
+    '      <div class="marca">Seller<em>.</em>ia<span>MERCADO</span></div>' +
     '      <div class="campo">' + ICO_LUPA +
     '        <input id="termo" placeholder="digite um nicho: copo descartavel, luminaria 3d...">' +
     '      </div>' +
@@ -1539,8 +1559,9 @@
         return '<option value="' + n2 + '"' + (E.paginas === n2 ? ' selected' : '') + '>' + (n2 * 60) + ' produtos</option>';
       }).join('') + '</select>' +
       '<button class="mini' + (E.ampliar ? ' on' : '') + '" id="ampliar" ' +
-      'title="Busca tambem as variacoes que a Shopee sugere para este termo">' +
-      (E.ampliar ? '\u2713 ' : '+ ') + 'variacoes</button>' +
+      'title="Alem do termo que voce escreveu, busca tambem o que as pessoas digitam parecido, ' +
+      'como copo descartavel 200ml ou copo descartavel festa. Junta tudo numa analise so.">' +
+      (E.ampliar ? '\u2713 ' : '+ ') + 'termos parecidos</button>' +
       '<button class="mini" id="por-foto" title="Manda uma foto e eu descubro o produto">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13" style="vertical-align:-2px">' +
       '<path d="M3 8.5h3l1.5-2.5h9L18 8.5h3v11H3z" stroke-linejoin="round"/><circle cx="12" cy="13.5" r="3.5"/></svg> foto</button>' +
@@ -1685,18 +1706,20 @@
        Onde a briga e so de preco, e quanta margem de manobra existe. */
     var iguais = agruparIguais();
     if (iguais.length) {
-      h += olho('O MESMO PRODUTO, VENDIDO POR VARIAS LOJAS',
-        'Produtos que aparecem em mais de uma loja com titulo parecido. Onde a diferenca de preco e grande, ha espaco. Onde e pequena, a briga e so de centavo.');
-      h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">LOJAS</th>' +
-        '<th class="num">DE ATÉ</th><th class="num">VENDAS/MÊS</th><th class="num">DIFERENÇA</th></tr>';
+      h += olho('PRODUTOS QUE VARIAS LOJAS VENDEM',
+        'O mesmo produto anunciado por lojas diferentes. A coluna da direita mostra quanto o mais caro cobra a mais que o mais barato: <b>quanto maior essa diferença, mais espaço existe para entrar sem ser o mais barato</b>.');
+      h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">QUANTAS LOJAS</th>' +
+        '<th class="num">MAIS BARATO</th><th class="num">MAIS CARO</th>' +
+        '<th class="num">VENDAS SOMADAS</th><th class="num">O CARO COBRA</th></tr>';
       iguais.slice(0, 10).forEach(function (g) {
         var dif = g.precoMin ? ((g.precoMax - g.precoMin) / g.precoMin) * 100 : 0;
-        h += '<tr><td><b>' + esc(g.nome.slice(0, 46)) + '</b></td>' +
-          '<td class="num">' + g.lojas + '</td>' +
-          '<td class="num">' + reais(g.precoMin) + '<br>' + reais(g.precoMax) + '</td>' +
-          '<td class="num">' + num(g.vendas) + '</td>' +
+        h += '<tr><td><b>' + esc(g.nome.slice(0, 42)) + '</b></td>' +
+          '<td class="num">' + g.lojas + ' lojas</td>' +
+          '<td class="num">' + reais(g.precoMin) + '</td>' +
+          '<td class="num">' + reais(g.precoMax) + '</td>' +
+          '<td class="num">' + num(g.vendas) + '/mês</td>' +
           '<td class="num" style="color:' + (dif > 30 ? '#1F8A5F' : dif > 12 ? '#C98A1E' : '#D64545') + '">' +
-          num(dif, 0) + '%</td></tr>';
+          '+' + num(dif, 0) + '%</td></tr>';
       });
       h += '</table></div>';
       var apertados = iguais.filter(function (g) {
@@ -1706,8 +1729,14 @@
         return g.precoMin && ((g.precoMax - g.precoMin) / g.precoMin) > 0.30;
       });
       var rec = [];
-      if (folgados.length) rec.push('<b>' + folgados.length + '</b> destes produtos tem mais de 30% de diferença entre a loja mais barata e a mais cara. Ou seja, o comprador aceita pagar mais por eles, e há espaço para entrar sem ser o mais barato.');
-      if (apertados.length) rec.push('<b>' + apertados.length + '</b> tem menos de 12% de diferença. Nesses, todo mundo cobra quase igual e a briga é de centavo.');
+      if (folgados.length) {
+        rec.push('Em <b>' + folgados.length + '</b> destes produtos, a loja mais cara cobra mais de 30% acima da mais barata ' +
+          'e mesmo assim vende. Isso mostra que o comprador não decide só por preço aqui, então você não precisa ser o mais barato para entrar.');
+      }
+      if (apertados.length) {
+        rec.push('Em <b>' + apertados.length + '</b> deles todas as lojas cobram quase o mesmo, com menos de 12% de diferença. ' +
+          'Nesses, quem ganha é quem cobra menos, e a margem some rápido.');
+      }
       if (rec.length) h += '<div class="nota">' + rec.join('<br><br>') + '</div>';
     }
 
@@ -1817,7 +1846,8 @@
           'style="color:#EE4D2D;text-decoration:none;font-size:12px">\u2197</a>' : '') +
         (x.anuncio ? ' <span class="pill p-ads">ads</span>' : '') +
         (meu ? ' <span class="pill p-eu">seu</span>' : '') +
-        '<br><span style="color:var(--tx3);font-size:12px">' + esc(x.lojaNome || '') +
+        '<br><span style="color:var(--tx3);font-size:12px">' +
+        (x.linkLoja ? '<a href="' + x.linkLoja + '" target="_blank" rel="noopener">' + esc(x.lojaNome || 'ver loja') + '</a>' : esc(x.lojaNome || '')) +
         (x.local ? ' \u00b7 ' + esc(x.local) : '') + '</span></td>' +
         '<td class="num">' + num(x.mes) + '</td>' +
         '<td class="num">' + num(x.total) + '</td>' +
@@ -1838,7 +1868,7 @@
       if (!x.loja) return;
       var l = L[x.loja] = L[x.loja] || {
         id: x.loja, nome: x.lojaNome, local: x.local, itens: 0, mes: 0, fat: 0,
-        oficial: x.oficial, verificada: x.verificada, precos: []
+        oficial: x.oficial, verificada: x.verificada, precos: [], link: x.linkLoja
       };
       l.itens++; l.mes += x.mes || 0; l.fat += x.fatMes || 0;
       if (x.preco) l.precos.push(x.preco);
@@ -1852,6 +1882,8 @@
       var meu = E.minhaLoja && l.id === E.minhaLoja;
       var med = l.precos.length ? l.precos.reduce(function (a, b) { return a + b; }, 0) / l.precos.length : null;
       h += '<tr class="' + (meu ? 'eu' : '') + '"><td><b>' + esc(l.nome || ('loja ' + l.id)) + '</b>' +
+        (l.link ? ' <a href="' + l.link + '" target="_blank" rel="noopener" title="abrir a loja na Shopee" ' +
+          'style="font-size:12px">\u2197</a>' : '') +
         (l.oficial ? ' <span class="pill p-of">oficial</span>' : '') +
         (meu ? ' <span class="pill p-eu">voce</span>' : '') +
         '<br><span style="color:var(--tx3);font-size:12px">' + esc(l.local || '') + '</span></td>' +
