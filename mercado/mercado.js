@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.1.1';
+  var VERSAO = '1.2.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -468,7 +468,12 @@
       E.consulta = (j && j.texto) || null;
       if (!E.consulta) E.consultaErro = (j && j.erro) || 'nao veio resposta';
     } catch (e) {
-      E.consultaErro = String(e && e.message || e);
+      // "Failed to fetch" nao diz nada para quem le. O motivo quase sempre
+      // e a funcao ainda nao publicada no Supabase.
+      var m = String(e && e.message || e);
+      E.consultaErro = /failed to fetch|networkerror/i.test(m)
+        ? 'Nao consegui falar com o servidor. Verifique se a funcao mercado-consultor foi publicada no Supabase.'
+        : m;
     }
     E.consultando = false;
     desenhar();
@@ -853,7 +858,7 @@
      a coleta terminar com sucesso, que e o pior momento para quebrar. */
   function olho(titulo, ajuda) {
     var h = '<div class="olho">' + esc(titulo) + '</div>';
-    if (ajuda) h += '<div style="font-size:13.5px;color:#463F33;line-height:1.6;margin:-6px 0 12px">' + ajuda + '</div>';
+    if (ajuda) h += '<div style="font-size:13.5px;color:var(--tx2);line-height:1.6;margin:-6px 0 12px">' + ajuda + '</div>';
     return h;
   }
 
@@ -865,99 +870,207 @@
     return (Math.round(d / 365 * 10) / 10) + ' anos';
   }
 
+  /* Os tokens vem da especificacao aprovada. Bege como padrao, laranja
+     como unica cor de acao, e o escuro como alternativa. */
+  var TEMAS = {
+    claro: '--card:#FBF8F3;--surf:var(--surf);--fill:#F8F4ED;--fill2:#F5F1E9;--fill3:#F0EAE0;' +
+      '--bd1:#EAE2D6;--bd2:#EFE8DC;--bd3:#E7DFD2;--bd4:#E3DBCD;--bd5:#F3EEE5;--bd6:#DED5C6;' +
+      '--mut4:#D3CCC0;--mut5:#C9BFAD;' +
+      '--tx1:#2C2A26;--tx2:#4A4238;--tx3:var(--tx3);--tx4:#7C7466;--tx5:#8A8272;--tx6:var(--tx6);--tx7:#A39A88;' +
+      '--tintO:#FFF4EF;--tintObd:#FBD9CD;--tintO2:#FFF1EC;--tintO2bd:#F7C9BA;' +
+      '--tintG:#EAF6EF;--tintB:#EDF3FB;' +
+      '--shadow:0 40px 90px rgba(72,56,38,.22), 0 6px 18px rgba(72,56,38,.08);',
+    escuro: '--card:#0F1115;--surf:#151920;--fill:#1A1F27;--fill2:#171B22;--fill3:#232833;' +
+      '--bd1:#232833;--bd2:#232833;--bd3:#2A303B;--bd4:#2A303B;--bd5:#1C212A;--bd6:#2A303B;' +
+      '--mut4:#3A4150;--mut5:#4A5262;' +
+      '--tx1:#F2F4F7;--tx2:#DCE0E6;--tx3:#AEB5C0;--tx4:#98A0AC;--tx5:#8A929E;--tx6:#79818D;--tx7:#6A727E;' +
+      '--tintO:#2A1712;--tintObd:#4A2418;--tintO2:#2A1712;--tintO2bd:#5A2C1C;' +
+      '--tintG:#12251D;--tintB:#141E2A;' +
+      '--shadow:0 40px 90px rgba(0,0,0,.5), 0 6px 18px rgba(0,0,0,.28);'
+  };
+
+  var ICO_LUA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var ICO_SOL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-linecap="round"/></svg>';
+  var ICO_LUPA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="15" height="15"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4" stroke-linecap="round"/></svg>';
+
   raiz.innerHTML =
     '<style>' +
     ':host{all:initial}' +
+    '#tudo{' + TEMAS.claro + '}' +
+    '#tudo.escuro{' + TEMAS.escuro + '}' +
     '*{box-sizing:border-box;font-family:Outfit,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif}' +
-    // No meio da lateral, nao no canto de baixo: ali ele cobria o chat da
-    // Shopee e os botoes que a pessoa usa enquanto navega.
+
+    /* a aba lateral */
     '.btn{position:fixed;top:50%;transform:translateY(-50%);right:0;width:44px;height:60px;' +
-      'border-radius:16px 0 0 16px;background:#1C1A17;' +
-      'color:#FBF8F3;border:none;cursor:pointer;font:600 21px Archivo,Arial;box-shadow:-4px 4px 18px rgba(0,0,0,.22);' +
+      'border-radius:16px 0 0 16px;background:#2C2A26;color:#FBF8F3;border:none;cursor:pointer;' +
+      'font:500 21px Archivo,Arial;letter-spacing:-.035em;box-shadow:-4px 4px 18px rgba(0,0,0,.2);' +
       'display:grid;place-items:center;z-index:2147483000;transition:width .15s,background .15s}' +
-    '.btn:hover{width:52px;background:#E63E1B}' +
-    '.btn em{font-style:normal;color:#E63E1B}' +
-    '.painel{position:fixed;inset:0 0 0 auto;height:100vh;width:min(900px,100vw);background:#FEFCF9;color:#1A1610;' +
-      'display:flex;flex-direction:column;transform:translateX(102%);transition:transform .26s;' +
-      'box-shadow:-18px 0 60px rgba(72,56,38,.22);z-index:2147483000}' +
-    '.painel.on{transform:none}' +
-    '.cab{padding:18px 24px;border-bottom:1px solid #D9CFBC;display:flex;align-items:center;gap:14px}' +
-    '.cab h1{margin:0;font:600 21px Archivo,Arial;letter-spacing:-.03em}' +
-    '.cab .sub{font:400 11px "Space Mono",monospace;color:#6B6355;letter-spacing:.07em}' +
-    '.x{margin-left:auto;background:none;border:1px solid #D9CFBC;color:#463F33;font-size:15px;' +
-      'width:34px;height:34px;border-radius:10px;cursor:pointer}' +
-    '.busca{padding:16px 24px;border-bottom:1px solid #D9CFBC;display:flex;gap:9px}' +
-    'input{flex:1;background:#fff;border:1px solid #D9CFBC;border-radius:13px;padding:13px 15px;font-size:15px;color:#000}' +
-    'input:focus{outline:none;border-color:#E63E1B}' +
-    'button.go{background:#E63E1B;border:none;color:#fff;font:600 15px inherit;padding:13px 28px;border-radius:13px;cursor:pointer}' +
-    '.abas{display:flex;gap:2px;padding:0 24px;border-bottom:1px solid #D9CFBC}' +
-    '.aba{background:none;border:none;border-bottom:2px solid transparent;color:#463F33;font:inherit;' +
-      'font-size:14px;padding:12px 15px;cursor:pointer}' +
-    '.aba.on{color:#E63E1B;border-bottom-color:#E63E1B;font-weight:600}' +
-    '.corpo{flex:1;overflow-y:auto;padding:20px 24px 40px}' +
-    '.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin-bottom:20px}' +
-    '.card{background:#fff;border:1px solid #D9CFBC;border-radius:19px;padding:15px 17px}' +
-    '.card .n{font:600 27px Archivo,Arial;letter-spacing:-.03em;line-height:1}' +
-    '.card .r{font:400 9.5px "Space Mono",monospace;letter-spacing:.08em;color:#6B6355;margin-top:6px}' +
-    'table{width:100%;border-collapse:collapse;font-size:13.5px}' +
-    'th{text-align:left;font:400 9.5px "Space Mono",monospace;letter-spacing:.08em;color:#6B6355;' +
-      'padding:9px 8px;border-bottom:1.5px solid #D9CFBC;cursor:pointer;white-space:nowrap}' +
-    'th:hover{color:#E63E1B}' +
-    'td{padding:10px 8px;border-bottom:1px solid #F2EDE4;vertical-align:top}' +
-    'tr:hover td{background:#FEFCF9}' +
-    '.num{text-align:right;font-family:"Space Mono",monospace;white-space:nowrap}' +
-    '.eu{background:rgba(230,62,27,.06)!important}' +
-    '.pill{display:inline-block;font:400 10px "Space Mono",monospace;padding:2px 8px;border-radius:99px;border:1px solid}' +
-    '.p-ads{color:#B07208;border-color:#B07208}' +
-    '.p-of{color:#6D28D9;border-color:#6D28D9}' +
-    '.p-eu{color:#E63E1B;border-color:#E63E1B}' +
-    '.olho{display:flex;align-items:center;gap:10px;font:400 10.5px "Space Mono",monospace;letter-spacing:.1em;' +
-      'color:#463F33;margin:26px 0 12px}' +
-    '.olho:before{content:"";width:15px;height:1px;background:#E63E1B;flex:none}' +
-    '.nota{font-size:14px;color:#1A1610;line-height:1.6;margin:12px 0;background:#fff;border:1px solid #D9CFBC;' +
-      'border-radius:17px;padding:14px 16px}' +
-    '.aviso{background:rgba(176,114,8,.07);border-left:3px solid #B07208;border-radius:0 15px 15px 0;' +
-      'padding:13px 15px;font-size:13.5px;line-height:1.55;margin-bottom:16px}' +
-    '.vazio{text-align:center;padding:60px 24px;color:#6B6355;font-size:15px;line-height:1.7}' +
-    '.barra{height:8px;background:#F2EDE4;border-radius:99px;overflow:hidden;display:flex;margin:10px 0}' +
+    '.btn em{font-style:normal;color:#EE4D2D}' +
+    '.btn:hover{width:52px;background:#EE4D2D}' +
+    '.btn:hover em{color:#fff}' +
+
+    /* o painel flutuante */
+    '.painel{position:fixed;top:24px;right:24px;bottom:24px;width:47vw;min-width:640px;max-width:810px;' +
+      'background:var(--card);color:var(--tx1);border-radius:30px;display:flex;flex-direction:column;' +
+      'overflow:hidden;box-shadow:var(--shadow);z-index:2147483000;' +
+      'opacity:0;pointer-events:none;transform:translateX(24px) scale(.99);transition:opacity .2s,transform .2s}' +
+    '.painel.on{opacity:1;pointer-events:auto;transform:none}' +
+
+    /* cabecalho */
+    '.cab{padding:20px 24px 0}' +
+    '.cab .l1{display:flex;align-items:center;gap:12px}' +
+    '.logo{width:38px;height:38px;border-radius:13px;background:var(--tx1);color:var(--card);' +
+      'display:grid;place-items:center;font:500 26px Archivo,Arial;letter-spacing:-.04em;flex:none}' +
+    '.logo em{font-style:normal;color:#EE4D2D}' +
+    '.marca{font:500 23px Archivo,Arial;letter-spacing:-.035em;color:var(--tx1);line-height:1}' +
+    '.marca em{font-style:normal;color:#EE4D2D}' +
+    '.sub{font:400 9.5px "Space Mono",monospace;letter-spacing:.13em;color:var(--tx6);margin-top:4px}' +
+    '.ico{background:none;border:1px solid var(--bd3);color:var(--tx3);border-radius:12px;' +
+      'width:34px;height:34px;display:grid;place-items:center;cursor:pointer;flex:none}' +
+    '.ico:hover{border-color:#EE4D2D;color:#EE4D2D}' +
+    '.ico.fechar{width:32px;height:32px}' +
+
+    /* busca */
+    '.busca{display:flex;gap:9px;margin:16px 0 12px}' +
+    '.campo{flex:1;display:flex;align-items:center;gap:9px;background:var(--fill);border:1px solid var(--bd3);' +
+      'border-radius:16px;padding:0 14px}' +
+    '.campo:focus-within{border-color:#EE4D2D}' +
+    '.campo svg{color:var(--tx6);flex:none}' +
+    '.campo input{flex:1;background:none;border:none;outline:none;padding:13px 0;font-size:14.5px;color:var(--tx1)}' +
+    '.campo input::placeholder{color:var(--tx6)}' +
+    'button.go{background:#EE4D2D;border:none;color:#fff;font:500 14.5px Outfit,Arial;padding:0 26px;' +
+      'border-radius:16px;cursor:pointer;box-shadow:0 6px 16px rgba(238,77,45,.28)}' +
+    'button.go:hover{background:#d94326}' +
+    'button.go:disabled{opacity:.6;cursor:default;box-shadow:none}' +
+    '.ctx{font:400 10.5px "Space Mono",monospace;color:var(--tx6);letter-spacing:.05em;' +
+      'padding-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}' +
+    '.p-sessao{background:var(--tintG);color:#1F8A5F;border-radius:999px;padding:3px 9px;' +
+      'font-size:8.5px;letter-spacing:.06em}' +
+
+    /* abas */
+    '.abas{display:flex;gap:4px 6px;flex-wrap:wrap;padding:0 24px;border-bottom:1px solid var(--bd2)}' +
+    '.aba{display:flex;align-items:center;gap:7px;background:none;border:none;' +
+      'border-bottom:2px solid transparent;color:var(--tx5);font:400 12px "Space Mono",monospace;' +
+      'letter-spacing:.02em;padding:11px 9px 10px;cursor:pointer;margin-bottom:-1px}' +
+    '.aba svg{width:15px;height:15px;flex:none}' +
+    '.aba:hover{color:var(--tx2)}' +
+    '.aba.on{color:#EE4D2D;border-bottom-color:#EE4D2D}' +
+
+    '.corpo{flex:1;overflow-y:auto;padding:22px 24px 28px}' +
+    '.corpo::-webkit-scrollbar{width:8px}' +
+    '.corpo::-webkit-scrollbar-thumb{background:var(--mut4);border-radius:99px}' +
+
+    /* blocos */
+    '.kicker{display:flex;align-items:center;gap:9px;font:400 10px "Space Mono",monospace;' +
+      'letter-spacing:.16em;color:#EE4D2D;margin:26px 0 11px}' +
+    '.kicker:before{content:"";width:18px;height:2px;background:#EE4D2D;flex:none}' +
+    '.olho{font:400 9.5px "Space Mono",monospace;letter-spacing:.13em;color:var(--tx6);margin-bottom:9px}' +
+    '.card{background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:18px 20px;margin-bottom:12px}' +
+    '.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:12px}' +
+    '.kpi{background:var(--surf);border:1px solid var(--bd2);border-radius:20px;padding:16px 18px}' +
+    '.kpi .r{font:400 9px "Space Mono",monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px}' +
+    '.kpi .n{font:400 24px Outfit,Arial;letter-spacing:-.03em;color:var(--tx1);line-height:1}' +
+    '.kpi .o{font-size:12px;color:var(--tx5);margin-top:5px}' +
+    '.heroi{font:300 42px Outfit,Arial;letter-spacing:-.04em;color:var(--tx1);line-height:1}' +
+
+    /* tabela */
+    '.tab{background:var(--surf);border:1px solid var(--bd2);border-radius:22px;overflow:hidden;margin-bottom:12px}' +
+    'table{width:100%;border-collapse:collapse}' +
+    'th{text-align:left;background:var(--fill);font:400 9px "Space Mono",monospace;letter-spacing:.09em;' +
+      'color:var(--tx6);padding:11px 18px;border-bottom:1px solid var(--bd2);white-space:nowrap}' +
+    'td{padding:13px 18px;border-bottom:1px solid var(--bd5);font-size:14px;color:var(--tx1);vertical-align:top}' +
+    'tr:last-child td{border-bottom:none}' +
+    'tbody tr:hover td{background:var(--fill)}' +
+    '.num{text-align:right;font-family:"Space Mono",monospace;font-size:11.5px;white-space:nowrap}' +
+    '.sub2{font:400 10px "Space Mono",monospace;color:var(--tx6);margin-top:3px;display:block}' +
+    '.eu td{background:var(--tintG)!important}' +
+    '.rodape{font-size:12.5px;color:var(--tx4);padding:12px 18px;background:var(--fill2);line-height:1.55}' +
+
+    /* pilulas e barras */
+    '.pill{display:inline-block;font:400 8.5px "Space Mono",monospace;letter-spacing:.06em;' +
+      'padding:3px 8px;border-radius:999px;vertical-align:middle}' +
+    '.p-ads{background:var(--tintO);color:#EE4D2D}' +
+    '.p-eu{background:var(--tintG);color:#1F8A5F}' +
+    '.p-of{background:var(--tintB);color:#3A6EA8}' +
+    '.barra{height:7px;background:var(--fill3);border-radius:4px;overflow:hidden;display:flex;margin:10px 0}' +
     '.barra i{display:block;height:100%}' +
+
+    /* entradas */
+    'input.n{width:100%;background:var(--fill);border:1px solid var(--bd3);border-radius:14px;' +
+      'padding:11px 14px;font:400 14px "Space Mono",monospace;color:var(--tx1);outline:none}' +
+    'input.n:focus{border-color:#EE4D2D}' +
+    '.rot{font:400 9px "Space Mono",monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:6px}' +
+    '.chip{background:var(--fill);border:1px solid var(--bd3);color:var(--tx5);' +
+      'font:400 10.5px "Space Mono",monospace;letter-spacing:.05em;padding:7px 13px;border-radius:12px;cursor:pointer}' +
+    '.chip.on{background:var(--tintO2);border-color:#EE4D2D;color:#EE4D2D}' +
+    'button.sec{background:var(--surf);border:1px solid var(--bd4);color:var(--tx2);' +
+      'font:400 13.5px Outfit,Arial;padding:11px 20px;border-radius:14px;cursor:pointer}' +
+    'button.sec:hover{border-color:#EE4D2D;color:#EE4D2D}' +
+
+    '.nota{font-size:13.5px;color:var(--tx2);line-height:1.6;background:var(--surf);' +
+      'border:1px solid var(--bd2);border-radius:18px;padding:14px 17px;margin-bottom:12px}' +
+    '.aviso{background:var(--fill2);border:1px dashed var(--bd6);border-radius:18px;' +
+      'padding:12px 16px;font-size:12.5px;color:var(--tx4);line-height:1.55;margin-bottom:16px}' +
+    '.vazio{text-align:center;padding:56px 24px;color:var(--tx4);font-size:14.5px;line-height:1.7}' +
+    'a{color:#EE4D2D;text-decoration:none}' +
     '</style>' +
+
     '<button class="btn" id="abrir" title="Analista de Mercado">S<em>.</em></button>' +
-    '<div class="painel" id="painel">' +
-    '  <div class="cab"><div><h1>Analista de Mercado</h1>' +
-    '    <div class="sub" id="sub">nenhum nicho lido ainda</div></div>' +
-    '    <button class="x" id="relatorio" title="Baixar o relatorio" style="width:auto;padding:0 14px;margin-left:auto">relatorio</button>' +
-    '    <button class="x" id="fechar" style="margin-left:8px">\u2715</button></div>' +
-    '  <div class="busca"><input id="termo" placeholder="digite um nicho: comedouro lento, luminaria 3d..."><button class="go" id="ir">Analisar</button></div>' +
+    '<div id="tudo"><div class="painel" id="painel">' +
+    '  <div class="cab">' +
+    '    <div class="l1">' +
+    '      <div class="logo">S<em>.</em></div>' +
+    '      <div><div class="marca">Seller<em>.</em>ia</div><div class="sub">ANALISTA DE MERCADO</div></div>' +
+    '      <div style="flex:1"></div>' +
+    '      <button class="ico" id="tema" title="Trocar o tema">' + ICO_LUA + '</button>' +
+    '      <button class="ico fechar" id="fechar" title="Fechar">\u2715</button>' +
+    '    </div>' +
+    '    <div class="busca">' +
+    '      <div class="campo">' + ICO_LUPA +
+    '        <input id="termo" placeholder="digite um nicho: copo descartavel, luminaria 3d...">' +
+    '      </div>' +
+    '      <button class="go" id="ir">Analisar</button>' +
+    '    </div>' +
+    '    <div class="ctx" id="ctx"></div>' +
+    '  </div>' +
     '  <div class="abas" id="abas"></div>' +
     '  <div class="corpo" id="corpo"></div>' +
-    '</div>';
+    '</div></div>';
 
   var ABAS = [
-    { id: 'nicho', rot: 'O nicho' },
-    { id: 'produtos', rot: 'Os produtos' },
-    { id: 'lojas', rot: 'Os vendedores' },
-    { id: 'calculo', rot: 'Quanto pagar' },
-    { id: 'consultor', rot: 'A leitura' },
-    { id: 'eu', rot: 'Onde eu estou' }
+    { id: 'nicho', rot: 'O nicho', d: 'M3.5 20.5V13M9 20.5V7M14.5 20.5v-5M20 20.5V3.5' },
+    { id: 'produtos', rot: 'Os produtos', d: 'M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9' },
+    { id: 'lojas', rot: 'As lojas', d: 'M4 9.5h16M4 9.5 6 4h12l2 5.5M5.5 9.5v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-10' },
+    { id: 'calculo', rot: 'Quanto pagar', d: 'M7.5 4.5h9a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3zM8.5 8.5h7M9 13h1.5M14 13h1.5M9 16.5h1.5M14 16.5h1.5' },
+    { id: 'consultor', rot: 'A leitura', d: 'M12 3.5l2 5 5 2-5 2-2 5-2-5-5-2 5-2zM18.5 16.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z' },
+    { id: 'eu', rot: 'Onde eu estou', d: 'M12 2.5 3.5 7v6.5c0 4.6 3.6 7.4 8.5 8.5 4.9-1.1 8.5-3.9 8.5-8.5V7zM9 12l2.2 2.2L15.5 10' }
   ];
+  function svgAba(d) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg>';
+  }
 
   function desenhar() {
     var quando = '';
     if (E.quando) {
       var min = Math.round((Date.now() - E.quando) / 60000);
-      quando = min < 1 ? ' \u00b7 agora' : min < 60 ? ' \u00b7 ha ' + min + ' min'
-        : min < 1440 ? ' \u00b7 ha ' + Math.round(min / 60) + 'h'
-        : ' \u00b7 ' + new Date(E.quando).toLocaleDateString('pt-BR');
+      quando = min < 1 ? 'agora' : min < 60 ? 'ha ' + min + ' min'
+        : min < 1440 ? 'ha ' + Math.round(min / 60) + 'h'
+        : new Date(E.quando).toLocaleDateString('pt-BR');
     }
-    $('sub').textContent = E.itens.length
-      ? (E.itens.length + ' produtos \u00b7 ' + E.termo + quando)
-      : 'nenhum nicho lido ainda';
+    $('ctx').innerHTML = E.itens.length
+      ? ('\u201c' + esc(E.termo) + '\u201d \u00b7 ' + E.itens.length + ' PRODUTOS \u00b7 ' +
+         (E.paginasLidas || 1) + ' PAGINA' + ((E.paginasLidas || 1) > 1 ? 'S' : '') + ' LIDA' + ((E.paginasLidas || 1) > 1 ? 'S' : '') +
+         (quando ? ' \u00b7 ' + quando.toUpperCase() : '') +
+         (E.minhaLoja ? ' <span class="p-sessao">SESSAO LOGADA</span>' : ''))
+      : 'NENHUM NICHO LIDO AINDA';
     $('ir').textContent = E.buscando ? 'Lendo...' : 'Analisar';
+    $('ir').disabled = !!E.buscando;
 
     $('abas').innerHTML = E.itens.length
       ? ABAS.map(function (a) {
-          return '<button class="aba' + (E.aba === a.id ? ' on' : '') + '" data-aba="' + a.id + '">' + a.rot + '</button>';
+          return '<button class="aba' + (E.aba === a.id ? ' on' : '') + '" data-aba="' + a.id + '">' +
+            svgAba(a.d) + a.rot + '</button>';
         }).join('')
       : '';
 
@@ -981,15 +1094,11 @@
     ligarCalculo();
   }
 
+  /* O aviso e curto de proposito: repetir tres paragrafos toda vez cansa e
+     a pessoa para de ler. Uma linha, sempre visivel. */
   function avisoSessao() {
-    var lidas = E.paginasLidas || 1;
-    return '<div class="aviso">' +
-      '<b>Isto e uma amostra, nao o nicho inteiro.</b> Foram lidos ' + E.itens.length + ' produtos em ' +
-      lidas + ' pagina' + (lidas > 1 ? 's' : '') + ' de busca \u2014 e o que a Shopee mostra para quem procura por ' +
-      '<b>' + esc(E.termo) + '</b>. Existem outros vendedores alem destes, e o faturamento somado aqui e o <b>desta amostra</b>, ' +
-      'nao do mercado todo.<br><br>' +
-      'A leitura tambem vem da <b>sua sessao</b>: a Shopee so entrega volume de venda para quem esta logado, e personaliza a ordem ' +
-      '\u2014 os seus produtos podem aparecer mais acima do que apareceriam para um comprador.</div>';
+    return '<div class="aviso">Amostra de <b>' + E.itens.length + '</b> produtos lidos na busca por ' +
+      '<b>' + esc(E.termo) + '</b>, nao o nicho inteiro. Os totais somam apenas estes.</div>';
   }
 
   function viewNicho() {
@@ -1009,8 +1118,8 @@
     h += '<div class="nota">De <b>' + reais(R.precoMin) + '</b> a <b>' + reais(R.precoMax) + '</b>, com a mediana em <b>' + reais(R.precoMediano) + '</b>.<br>' +
       'O ticket medio de <b>' + reais(R.ticket) + '</b> e onde o dinheiro realmente esta \u2014 ' +
       (R.ticket > R.precoMediano
-        ? 'acima da mediana, o que significa que os produtos mais caros puxam o volume.'
-        : 'abaixo da mediana, o que significa que o barato e quem vende.') + '</div>';
+        ? 'acima da media, o que significa que os produtos mais caros puxam o volume.'
+        : 'abaixo da media, o que significa que o barato e quem vende.') + '</div>';
 
     h += '<div class="olho">CONCENTRACAO</div>';
     h += '<div class="nota">Os <b>5 maiores</b> ficam com <b>' + num(R.concentracao, 0) + '%</b> do faturamento do nicho.<br>' +
@@ -1050,19 +1159,19 @@
       var adsT = topo.filter(function (x) { return x.anuncio; }).length;
 
       h += olho('O QUE OS 10 MAIS VENDIDOS TEM DE DIFERENTE',
-        'Comparando os dez primeiros com todo o resto da amostra. E o que da para copiar sem adivinhar.');
+        'A media de cada coisa entre os dez que mais vendem, contra a media de todo o resto. Onde a diferenca passa de 15%, ha algo a copiar.');
       h += '<table><tr><th></th><th class="num">TOP 10</th><th class="num">O RESTO</th><th class="num">DIFERENCA</th></tr>';
       function linhaC(rot, a, b, fmt) {
         if (a == null || b == null) return '';
         var dif = b ? ((a - b) / b) * 100 : 0;
         return '<tr><td>' + rot + '</td><td class="num">' + fmt(a) + '</td><td class="num">' + fmt(b) + '</td>' +
-          '<td class="num" style="color:' + (Math.abs(dif) < 8 ? '#6B6355' : dif > 0 ? '#0F7A4A' : '#C1121F') + '">' +
+          '<td class="num" style="color:' + (Math.abs(dif) < 8 ? 'var(--tx3)' : dif > 0 ? '#1F8A5F' : '#D64545') + '">' +
           (dif > 0 ? '+' : '') + num(dif, 0) + '%</td></tr>';
       }
-      h += linhaC('Fotos no anuncio', fotoT, fotoR, function (v) { return num(v, 1); });
-      h += linhaC('Nota', notaT, notaR, function (v) { return num(v, 2); });
-      h += linhaC('Avaliacoes', avT, avR, function (v) { return num(v, 0); });
-      h += linhaC('Preco', precoT, precoR, function (v) { return reais(v); });
+      h += linhaC('Fotos por anuncio', fotoT, fotoR, function (v) { return num(v, 1); });
+      h += linhaC('Nota media', notaT, notaR, function (v) { return num(v, 2); });
+      h += linhaC('Avaliacoes por produto', avT, avR, function (v) { return num(v, 0); });
+      h += linhaC('Preco medio', precoT, precoR, function (v) { return reais(v); });
       h += '<tr><td>Anunciando</td><td class="num">' + adsT + ' de 10</td>' +
         '<td class="num">' + resto.filter(function (x) { return x.anuncio; }).length + ' de ' + resto.length + '</td><td></td></tr>';
       h += '</table>';
@@ -1073,7 +1182,10 @@
       if (precoT && precoR && Math.abs(precoT - precoR) / precoR > 0.15) {
         recado.push('vendem <b>' + (precoT > precoR ? 'mais caro' : 'mais barato') + '</b>: ' + reais(precoT) + ' contra ' + reais(precoR));
       }
-      if (recado.length) h += '<div class="nota">Em uma frase: ' + recado.join(', ') + '.</div>';
+      if (recado.length) {
+        var fr = recado.join(', ');
+        h += '<div class="nota">' + fr.charAt(0).toUpperCase() + fr.slice(1) + '.</div>';
+      }
     }
 
     // categorias
@@ -1084,7 +1196,8 @@
       h += '<div class="olho">POR CATEGORIA</div><table><tr><th>CATEGORIA</th><th class="num">FATURAMENTO</th><th class="num">%</th></tr>';
       var totC = ordC.reduce(function (a, k) { return a + cats[k]; }, 0);
       ordC.slice(0, 8).forEach(function (k) {
-        h += '<tr><td>' + esc(E.categorias[k] || ('categoria ' + k)) + '</td>' +
+        h += '<tr><td>' + esc(E.categorias[k] || 'categoria sem nome') +
+          '<br><span style="font-family:\'Space Mono\',monospace;font-size:10px;color:var(--tx6)">' + esc(k) + '</span></td>' +
           '<td class="num">' + reais(cats[k]) + '</td>' +
           '<td class="num">' + num((cats[k] / totC) * 100, 0) + '%</td></tr>';
       });
@@ -1111,20 +1224,20 @@
       h += '<tr class="' + (meu ? 'eu' : '') + '"><td style="cursor:pointer">' +
         '<b data-item="' + x.id + '">' + esc(x.nome.slice(0, 52)) + '</b>' +
         (x.link ? ' <a href="' + x.link + '" target="_blank" rel="noopener" title="abrir na Shopee" ' +
-          'style="color:#E63E1B;text-decoration:none;font-size:12px">\u2197</a>' : '') +
+          'style="color:#EE4D2D;text-decoration:none;font-size:12px">\u2197</a>' : '') +
         (x.anuncio ? ' <span class="pill p-ads">ads</span>' : '') +
         (meu ? ' <span class="pill p-eu">seu</span>' : '') +
-        '<br><span style="color:#6B6355;font-size:12px">' + esc(x.lojaNome || '') +
+        '<br><span style="color:var(--tx3);font-size:12px">' + esc(x.lojaNome || '') +
         (x.local ? ' \u00b7 ' + esc(x.local) : '') + '</span></td>' +
         '<td class="num">' + num(x.mes) + '</td>' +
         '<td class="num">' + num(x.total) + '</td>' +
         '<td class="num">' + reais(x.preco) + '</td>' +
         '<td class="num">' + (x.fatMes != null ? reais(x.fatMes) : '\u2014') + '</td>' +
-        '<td class="num" style="color:' + (t ? (t.pct > 0 ? '#0F7A4A' : '#C1121F') : '#6B6355') + '">' +
+        '<td class="num" style="color:' + (t ? (t.pct > 0 ? '#1F8A5F' : '#D64545') : 'var(--tx3)') + '">' +
         (t ? (t.pct > 0 ? '+' : '') + num(t.pct, 0) + '%' : '\u2014') + '</td></tr>';
     });
     h += '</table>';
-    h += '<div class="nota" style="font-size:13px;color:#463F33">A coluna <b>30 dias</b> compara o volume de hoje com o da primeira vez que voce leu este produto. ' +
+    h += '<div class="nota" style="font-size:13px;color:var(--tx2)">A coluna <b>30 dias</b> compara o volume de hoje com o da primeira vez que voce leu este produto. ' +
       'A Shopee nao entrega historico \u2014 este e o nosso, e cresce a cada analise.</div>';
     return h;
   }
@@ -1151,7 +1264,7 @@
       h += '<tr class="' + (meu ? 'eu' : '') + '"><td><b>' + esc(l.nome || ('loja ' + l.id)) + '</b>' +
         (l.oficial ? ' <span class="pill p-of">oficial</span>' : '') +
         (meu ? ' <span class="pill p-eu">voce</span>' : '') +
-        '<br><span style="color:#6B6355;font-size:12px">' + esc(l.local || '') + '</span></td>' +
+        '<br><span style="color:var(--tx3);font-size:12px">' + esc(l.local || '') + '</span></td>' +
         '<td class="num">' + l.itens + '</td>' +
         '<td class="num">' + num(l.mes) + '</td>' +
         '<td class="num">' + reais(l.fat) + '</td>' +
@@ -1170,9 +1283,11 @@
     if (!E.consulta) {
       h += '<div class="nota">Ela vai olhar a concentracao, a faixa de preco, o que os campeoes fazem de diferente, ' +
         'quanto da para pagar pelo produto, e onde voce esta \u2014 e dizer se vale entrar, por qual preco, e o que copiar.</div>';
-      h += '<button class="go" id="pedir-leitura" style="margin-top:6px">Pedir a leitura</button>';
+      h += '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:6px">' +
+        '<button class="go" id="pedir-leitura">Pedir a leitura</button>' +
+        '<button class="sec" id="baixar-relatorio">Gerar relatorio completo</button></div>';
       if (E.consultaErro) {
-        h += '<div class="nota" style="color:#C1121F">Nao consegui: ' + esc(E.consultaErro) + '</div>';
+        h += '<div class="nota" style="color:#D64545">Nao consegui: ' + esc(E.consultaErro) + '</div>';
       }
       return h;
     }
@@ -1182,10 +1297,12 @@
       .replace(/^### (.+)$/gm, '<div class="olho">$1</div>')
       .replace(/^## (.+)$/gm, '<div style="font:600 18px Archivo,Arial;letter-spacing:-.02em;margin:22px 0 10px">$1</div>')
       .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-      .replace(/^- (.+)$/gm, '<div style="padding-left:14px;position:relative"><span style="position:absolute;left:0;color:#E63E1B">\u00b7</span>$1</div>')
+      .replace(/^- (.+)$/gm, '<div style="padding-left:14px;position:relative"><span style="position:absolute;left:0;color:#EE4D2D">\u00b7</span>$1</div>')
       .replace(/\n\n/g, '<br><br>');
-    h += '<div style="font-size:15px;line-height:1.7;color:#1A1610">' + txt + '</div>';
-    h += '<button class="go" id="pedir-leitura" style="margin-top:20px;background:#F2EDE4;color:#463F33">Ler de novo</button>';
+    h += '<div style="font-size:15px;line-height:1.7;color:var(--tx1)">' + txt + '</div>';
+    h += '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:20px">' +
+      '<button class="go" id="baixar-relatorio">Gerar relatorio completo</button>' +
+      '<button class="sec" id="pedir-leitura">Ler de novo</button></div>';
     return h;
   }
 
@@ -1245,7 +1362,7 @@
     h += '<div style="font:600 20px Archivo,Arial;letter-spacing:-.02em;margin-bottom:8px">' + esc(x.nome) + '</div>';
     if (x.link) {
       h += '<a href="' + x.link + '" target="_blank" rel="noopener" ' +
-        'style="display:inline-block;color:#E63E1B;text-decoration:none;font-size:14px;margin-bottom:14px">' +
+        'style="display:inline-block;color:#EE4D2D;text-decoration:none;font-size:14px;margin-bottom:14px">' +
         'Abrir na Shopee \u2197</a>';
     }
     h += '<div class="cards">' +
@@ -1258,7 +1375,11 @@
     var linhas = [];
     if (x.catid) linhas.push(['Categoria', esc(E.categorias[x.catid] || x.catid)]);
     if (x.marca) linhas.push(['Marca', esc(x.marca)]);
-    if (x.cadastro) linhas.push(['No ar ha', idade(x.cadastro)]);
+    if (x.cadastro) {
+      linhas.push(['Anuncio no ar ha', idade(x.cadastro) +
+        ' <span style="color:var(--tx6);font-size:12px">(cadastrado em ' +
+        new Date(x.cadastro * 1000).toLocaleDateString('pt-BR') + ')</span>']);
+    }
     if (x.nota != null) linhas.push(['Nota', num(x.nota, 2) + (x.estrelas ? ' \u00b7 ' + num(x.estrelas.reduce(function (a, b) { return a + b; }, 0)) + ' avaliacoes' : '')]);
     if (x.curtidas != null) linhas.push(['Curtidas', num(x.curtidas)]);
     if (x.desconto) linhas.push(['Desconto', x.desconto + (x.precoAntes ? ' \u00b7 de ' + reais(x.precoAntes) : '')]);
@@ -1268,7 +1389,7 @@
 
     h += '<div class="olho">O QUE SE SABE</div><table>';
     linhas.forEach(function (l) {
-      h += '<tr><td style="color:#6B6355;width:34%">' + l[0] + '</td><td><b>' + l[1] + '</b></td></tr>';
+      h += '<tr><td style="color:var(--tx3);width:34%">' + l[0] + '</td><td><b>' + l[1] + '</b></td></tr>';
     });
     h += '</table>';
 
@@ -1278,7 +1399,7 @@
       var porDia = x.total / dias;
       var agora = (x.mes || 0) / 30;
       h += '<div class="olho">ESTA ACELERANDO OU CAINDO?</div>';
-      h += '<div class="nota">Na media da vida inteira, vende <b>' + num(porDia, 1) + '</b> por dia. ' +
+      h += '<div class="nota">Desde que o anuncio foi criado, vende <b>' + num(porDia, 1) + '</b> por dia na media. ' +
         'Agora vende <b>' + num(agora, 1) + '</b> por dia.<br>' +
         (agora > porDia * 1.3
           ? 'Esta <b>acelerando</b> \u2014 vende bem mais agora do que vendeu na media.'
@@ -1294,7 +1415,7 @@
       h += '<div class="barra">';
       for (var e = 5; e >= 1; e--) {
         var q = x.estrelas[e] || 0;
-        var cor = e >= 4 ? '#0F7A4A' : e === 3 ? '#B07208' : '#C1121F';
+        var cor = e >= 4 ? '#1F8A5F' : e === 3 ? '#C98A1E' : '#D64545';
         h += '<i style="width:' + (tot ? (q / tot) * 100 : 0) + '%;background:' + cor + '"></i>';
       }
       h += '</div>';
@@ -1344,14 +1465,22 @@
     if (v) v.addEventListener('click', function () { E.detalhe = null; desenhar(); });
     var pl = $('pedir-leitura');
     if (pl) pl.addEventListener('click', consultar);
+    var br = $('baixar-relatorio');
+    if (br) br.addEventListener('click', gerarRelatorio);
     raiz.querySelectorAll('.aba[data-aba]').forEach(function (b) {
       b.addEventListener('click', function () { E.aba = this.getAttribute('data-aba'); E.detalhe = null; desenhar(); });
     });
   }
 
   $('abrir').addEventListener('click', function () { $('painel').classList.toggle('on'); });
+  $('tema').addEventListener('click', function () {
+    var r = $('tudo');
+    var escuro = r.classList.toggle('escuro');
+    this.innerHTML = escuro ? ICO_SOL : ICO_LUA;
+    guardar('tema', escuro ? 'escuro' : 'claro');
+  });
   $('fechar').addEventListener('click', function () { $('painel').classList.remove('on'); });
-  $('relatorio').addEventListener('click', gerarRelatorio);
+
   $('ir').addEventListener('click', function () {
     var t = $('termo').value.trim();
     try { console.log('[Mercado] clique no Analisar. termo:', t, '| ja buscando:', E.buscando); } catch (e) { }
@@ -1365,6 +1494,10 @@
       if (m && m.tipo === 'mercado:abrir') $('painel').classList.toggle('on');
     });
   } catch (e) { }
+
+  ler('tema').then(function (v) {
+    if (v === 'escuro') { $('tudo').classList.add('escuro'); $('tema').innerHTML = ICO_SOL; }
+  });
 
   // traz o historico guardado
   ler('hist_volume').then(function (v) {
