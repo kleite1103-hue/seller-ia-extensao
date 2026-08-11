@@ -20,6 +20,18 @@
         "https://seller.shopee.com.br/*"
       ],
       "js": [
+        "ponte.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://shopee.com.br/*",
+        "https://seller.shopee.com.br/*"
+      ],
+      "js": [
         "mercado.js"
       ],
       "run_at": "document_idle",

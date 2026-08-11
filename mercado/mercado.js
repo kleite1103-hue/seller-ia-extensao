@@ -26,26 +26,36 @@
   };
 
   /* ============ CHAMADAS ============ */
-  /* "Extension context invalidated" acontece quando a extensao e recarregada
-     com a pagina da Shopee aberta: este script fica orfao, sem ponte com o
-     service worker. Sem tratar, o erro estoura solto no console e a busca
-     morre em silencio. Agora ele vira uma mensagem que diz o que fazer. */
+  /* A CHAMADA PRECISA SAIR DA PROPRIA PAGINA.
+     Chamar do service worker devolvia erro 90309999, error_not_found: a
+     Shopee assina cada requisicao com um cabecalho que so o codigo da
+     pagina sabe montar. Do lado de fora, sem essa assinatura, ela recusa.
+     Entao a extensao pede a pagina que chame — o mesmo caminho que o
+     radar usa para escutar, so que ao contrario. */
+  var pendentes = {}, seq = 0;
+  window.addEventListener('SIA_MK_RESP', function (ev) {
+    var r;
+    try { r = JSON.parse(ev.detail); } catch (e) { return; }
+    var f = pendentes[r.id];
+    if (f) { delete pendentes[r.id]; f(r); }
+  });
+
   function api(url, metodo, corpo) {
     return new Promise(function (ok) {
+      var id = 'm' + (++seq) + '_' + Date.now();
+      pendentes[id] = ok;
       try {
-        chrome.runtime.sendMessage(
-          { tipo: 'mercado:buscar', url: url, metodo: metodo || 'GET', corpo: corpo || null },
-          function (r) {
-            if (chrome.runtime.lastError) {
-              ok({ ok: false, erro: 'ponte', detalhe: chrome.runtime.lastError.message });
-              return;
-            }
-            ok(r || { ok: false });
-          }
-        );
+        window.dispatchEvent(new CustomEvent('SIA_MK_PEDE', {
+          detail: JSON.stringify({ id: id, url: url, metodo: metodo || 'GET', corpo: corpo || null })
+        }));
       } catch (e) {
+        delete pendentes[id];
         ok({ ok: false, erro: 'ponte', detalhe: String(e && e.message || e) });
+        return;
       }
+      setTimeout(function () {
+        if (pendentes[id]) { delete pendentes[id]; ok({ ok: false, erro: 'sem resposta em 25s' }); }
+      }, 25000);
     });
   }
   function guardar(chave, valor) {
@@ -78,6 +88,7 @@
 
   /* ============ LEITURA DO NICHO ============ */
   async function analisar(termo) {
+    try { console.log('[Mercado] analisando:', termo); } catch (e) { }
     E.termo = termo; E.buscando = true; E.erro = null; E.itens = []; E.detalhe = null;
     desenhar();
 
@@ -93,7 +104,14 @@
         '&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2' +
         '&source=SRP&view_session_id=' + sessaoDaBusca() +
         '&extra_params=' + encodeURIComponent(JSON.stringify({ global_search_session_id: 'gs-' + Math.random().toString(16).slice(2, 10) }));
+      try { console.log('[Mercado] pagina ' + (pg + 1) + ' ->', url.slice(0, 90)); } catch (e) { }
       var r = await api(url);
+      try {
+        console.log('[Mercado] resposta:', r && r.ok, '| status:', r && r.status,
+          '| erro:', r && r.erro, '| itens:',
+          r && r.dados ? ((r.dados.items || (r.dados.data && r.dados.data.items) || []).length) : 'sem dados');
+        if (r && r.dados && r.dados.error) console.warn('[Mercado] Shopee error:', r.dados.error, r.dados.error_msg);
+      } catch (e) { }
       if (r.erro === 'ponte') {
         E.erro = 'A extensao foi atualizada com esta pagina aberta. ' +
           'Recarregue a Shopee com F5 e tente de novo.';
@@ -132,7 +150,8 @@
     await identificarMinhaLoja();
 
     E.buscando = false; E.progresso = null;
-    if (!E.itens.length) E.erro = 'A Shopee nao devolveu resultados para este termo.';
+    if (!E.itens.length && !E.erro) E.erro = 'A Shopee nao devolveu resultados para este termo.';
+    try { console.log('[Mercado] fim:', E.itens.length, 'produtos | erro:', E.erro || 'nenhum'); } catch (e) { }
     desenhar();
   }
 
@@ -648,6 +667,7 @@
   $('fechar').addEventListener('click', function () { $('painel').classList.remove('on'); });
   $('ir').addEventListener('click', function () {
     var t = $('termo').value.trim();
+    try { console.log('[Mercado] clique no Analisar. termo:', t, '| ja buscando:', E.buscando); } catch (e) { }
     if (t && !E.buscando) analisar(t);
   });
   $('termo').addEventListener('keydown', function (e) {
