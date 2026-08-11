@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.6.0';
+  var VERSAO = '1.7.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -455,6 +455,72 @@
     try { console.warn('[Mercado] nao consegui identificar a loja logada'); } catch (e) { }
   }
 
+
+  /* ============ AGRUPAR O MESMO PRODUTO ============
+     "Kit 48 Carrinhos de Metal" e "Brinquedo Kit 48 Carrinhos com Friccao"
+     sao o mesmo produto vendido por lojas diferentes. Agrupar por palavras
+     em comum nao e perfeito, mas erra pouco — e mostra onde a briga e so
+     de preco. */
+
+  var VAZIAS = { 'de': 1, 'da': 1, 'do': 1, 'para': 1, 'com': 1, 'sem': 1, 'e': 1, 'o': 1, 'a': 1,
+    'em': 1, 'no': 1, 'na': 1, 'por': 1, 'kit': 0.4, 'novo': 1, 'novos': 1, 'un': 1, 'unidades': 1,
+    'pcs': 1, 'frete': 1, 'gratis': 1, 'promocao': 1, 'envio': 1, 'rapido': 1, 'brasil': 1, 'pronta': 1,
+    'entrega': 1, 'original': 1, 'qualidade': 1, 'top': 1, 'melhor': 1 };
+
+  function palavrasChave(nome) {
+    return String(nome || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(function (p) { return p.length >= 3 && VAZIAS[p] !== 1; });
+  }
+
+  function pareceMesmoProduto(a, b) {
+    var pa = palavrasChave(a.nome), pb = palavrasChave(b.nome);
+    if (pa.length < 2 || pb.length < 2) return false;
+    var set = {}; pa.forEach(function (p) { set[p] = 1; });
+    var comuns = pb.filter(function (p) { return set[p]; }).length;
+    var menor = Math.min(pa.length, pb.length);
+    // 60% das palavras do menor titulo em comum, e preco na mesma ordem
+    if (comuns / menor < 0.6) return false;
+    if (a.preco && b.preco) {
+      var r = a.preco > b.preco ? a.preco / b.preco : b.preco / a.preco;
+      if (r > 2.5) return false;   // preco muito diferente: nao e o mesmo
+    }
+    return true;
+  }
+
+  function agruparIguais() {
+    var itens = E.itens.filter(function (x) { return x.mes != null && x.nome; })
+      .sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
+    var grupos = [];
+    var usado = {};
+    for (var i = 0; i < itens.length; i++) {
+      if (usado[itens[i].id]) continue;
+      var g = { itens: [itens[i]] };
+      usado[itens[i].id] = 1;
+      for (var j = i + 1; j < itens.length; j++) {
+        if (usado[itens[j].id]) continue;
+        if (itens[j].loja === itens[i].loja) continue;   // mesma loja nao e concorrencia
+        if (!pareceMesmoProduto(itens[i], itens[j])) continue;
+        g.itens.push(itens[j]);
+        usado[itens[j].id] = 1;
+      }
+      if (g.itens.length > 1) grupos.push(g);
+    }
+    return grupos.map(function (g) {
+      var ps = g.itens.map(function (x) { return x.preco; }).filter(Boolean).sort(function (a, b) { return a - b; });
+      return {
+        nome: g.itens[0].nome,
+        lojas: g.itens.length,
+        vendas: g.itens.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
+        fat: g.itens.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0),
+        precoMin: ps[0], precoMax: ps[ps.length - 1],
+        itens: g.itens
+      };
+    }).sort(function (a, b) { return b.vendas - a.vendas; });
+  }
+
   /* ============ AS CONTAS ============ */
   function resumo() {
     var I = E.itens.filter(function (x) { return x.mes != null; });
@@ -542,6 +608,44 @@
         resto: { fotos: m(resto, 'fotos'), nota: m(resto, 'nota'), preco: m(resto, 'preco'), anunciando: resto.filter(function (x) { return x.anuncio; }).length, quantos: resto.length }
       },
       lideres: ordL.map(function (l) { return { nome: l.nome, produtos: l.itens, faturamento: Math.round(l.fat), local: l.local }; }),
+
+      // o mesmo produto em varias lojas: onde a briga e so de preco
+      repetidos: agruparIguais().slice(0, 6).map(function (g) {
+        return {
+          nome: String(g.nome).slice(0, 60), lojas: g.lojas,
+          precoMin: g.precoMin, precoMax: g.precoMax,
+          diferencaPct: g.precoMin ? Math.round(((g.precoMax - g.precoMin) / g.precoMin) * 100) : null,
+          vendasSomadas: g.vendas
+        };
+      }),
+
+      // o nicho aceita gente nova?
+      idade: (function () {
+        var ag = Date.now() / 1000;
+        var cd = E.itens.filter(function (x) { return x.cadastro && x.mes != null; });
+        if (cd.length < 10) return null;
+        function ms(x) { return (ag - x.cadastro) / 2592000; }
+        var nv = cd.filter(function (x) { return ms(x) <= 6; });
+        var mt = ordV.slice(0, 10).filter(function (x) { return x.cadastro; }).map(ms);
+        return {
+          anunciosAte6Meses: nv.length,
+          dessesVendendoBem: nv.filter(function (x) { return x.mes >= 30; }).length,
+          anunciosComMaisDe1Ano: cd.filter(function (x) { return ms(x) > 12; }).length,
+          mesesNoArDosDezMaioresNaMedia: mt.length ? Math.round(mt.reduce(function (a, b) { return a + b; }, 0) / mt.length) : null
+        };
+      })(),
+
+      // vende bem apesar da nota baixa: brecha de atendimento
+      brechasDeAtendimento: (function () {
+        var cn = E.itens.filter(function (x) { return x.nota != null && x.mes > 0; });
+        if (cn.length < 8) return null;
+        var metade = cn.slice().sort(function (a, b) { return b.mes - a.mes; }).slice(0, Math.ceil(cn.length / 2));
+        return metade.filter(function (x) { return x.nota < 4.6; })
+          .sort(function (a, b) { return a.nota - b.nota; }).slice(0, 5)
+          .map(function (x) {
+            return { nome: String(x.nome).slice(0, 55), nota: Math.round(x.nota * 100) / 100, vendeMes: x.mes, preco: x.preco, loja: x.lojaNome };
+          });
+      })(),
       custo: {
         precoBase: preco, roas: C.roas || 10, imposto: C.imposto || 0, embalagem: C.embalagem || 0,
         pagueAte15: Math.round(comp.teto * 100) / 100,
@@ -1009,6 +1113,67 @@
           '<td class="n">' + num(R.faturamento ? (fatR / R.faturamento) * 100 : 0, 0) + '%</td></tr>');
       }
       H.push('</table>');
+    }
+
+    // ---- onde ha brecha ----
+    var igu = agruparIguais();
+    if (igu.length) {
+      H.push('<h2>O mesmo produto, várias lojas</h2>');
+      H.push('<table><tr><th>PRODUTO</th><th style="text-align:right">LOJAS</th>' +
+        '<th style="text-align:right">DE ATÉ</th><th style="text-align:right">VENDE/MÊS</th>' +
+        '<th style="text-align:right">DIFERENÇA</th></tr>');
+      igu.slice(0, 8).forEach(function (g) {
+        var dif = g.precoMin ? ((g.precoMax - g.precoMin) / g.precoMin) * 100 : 0;
+        H.push('<tr><td>' + esc(g.nome.slice(0, 52)) + '</td>' +
+          '<td class="n">' + g.lojas + '</td>' +
+          '<td class="n">' + reais(g.precoMin) + ' a ' + reais(g.precoMax) + '</td>' +
+          '<td class="n">' + num(g.vendas) + '</td>' +
+          '<td class="n ' + (dif > 30 ? 'bom' : dif < 12 ? 'ruim' : '') + '">' + num(dif, 0) + '%</td></tr>');
+      });
+      H.push('</table>');
+      var folg = igu.filter(function (g) { return g.precoMin && ((g.precoMax - g.precoMin) / g.precoMin) > 0.30; });
+      if (folg.length) {
+        H.push('<div class="leitura"><b>' + folg.length + '</b> destes produtos têm mais de 30% de diferença entre a loja mais barata e a mais cara. ' +
+          'O comprador aceita pagar mais por eles, então há espaço para entrar sem precisar ser o mais barato.</div>');
+      }
+    }
+
+    var cdR = E.itens.filter(function (x) { return x.cadastro && x.mes != null; });
+    if (cdR.length >= 10) {
+      var agR = Date.now() / 1000;
+      var nvR = cdR.filter(function (x) { return (agR - x.cadastro) / 2592000 <= 6; });
+      var nvVend = nvR.filter(function (x) { return x.mes >= 30; });
+      H.push('<h2>O nicho aceita gente nova?</h2>');
+      H.push('<div class="kpis">' +
+        '<div class="kpi"><div class="r">ANÚNCIOS COM ATÉ 6 MESES</div><div class="v">' + nvR.length + '</div></div>' +
+        '<div class="kpi"><div class="r">DESSES, JÁ VENDEM BEM</div><div class="v">' + nvVend.length + '</div></div>' +
+        '<div class="kpi"><div class="r">NO AR HÁ MAIS DE 1 ANO</div><div class="v">' +
+        cdR.filter(function (x) { return (agR - x.cadastro) / 2592000 > 12; }).length + '</div></div></div>');
+      H.push('<div class="leitura">' +
+        (nvVend.length >= 3
+          ? '<b>' + nvVend.length + ' anúncios com menos de 6 meses já vendem mais de 30 por mês.</b> O nicho aceita gente nova.'
+          : 'Poucos anúncios recentes vendem bem aqui. Entrar exige paciência: o resultado não vem nas primeiras semanas.') +
+        '</div>');
+    }
+
+    var cnR = E.itens.filter(function (x) { return x.nota != null && x.mes > 0; });
+    if (cnR.length >= 8) {
+      var metR = cnR.slice().sort(function (a, b) { return b.mes - a.mes; }).slice(0, Math.ceil(cnR.length / 2));
+      var brR = metR.filter(function (x) { return x.nota < 4.6; }).sort(function (a, b) { return a.nota - b.nota; });
+      if (brR.length) {
+        H.push('<h2>Onde o vendedor deixa a desejar</h2>');
+        H.push('<table><tr><th>PRODUTO</th><th style="text-align:right">NOTA</th>' +
+          '<th style="text-align:right">VENDE/MÊS</th><th style="text-align:right">PREÇO</th></tr>');
+        brR.slice(0, 6).forEach(function (x) {
+          H.push('<tr><td>' + linkP(x, 50) + '<small>' + esc(x.lojaNome || '') + '</small></td>' +
+            '<td class="n ' + (x.nota < 4.3 ? 'ruim' : 'aten') + '">' + num(x.nota, 2) + '</td>' +
+            '<td class="n">' + num(x.mes) + '</td><td class="n">' + reais(x.preco) + '</td></tr>');
+        });
+        H.push('</table>');
+        H.push('<div class="leitura"><b>' + brR.length + ' produtos</b> vendem bem com nota abaixo de 4,6. ' +
+          'A demanda está provada e o comprador está aceitando um atendimento ruim. ' +
+          'Vender o mesmo produto com nota alta é a forma mais direta de tirar venda de alguém aqui.</div>');
+      }
     }
 
     // ---- quanto pagar ----
@@ -1512,50 +1677,114 @@
       }
     }
 
-    /* EM QUE PRECO O DINHEIRO ESTA — substitui o bloco de categoria.
-       A arvore que a vitrine entrega tem 284 categorias em 2 niveis, e o
-       catid do produto e de nivel mais fundo: NENHUM dos que aparecem na
-       busca existe nela. Mostrar "categoria sem nome" nao ajudava ninguem.
-       A faixa de preco responde a mesma pergunta, com dado que existe. */
-    var comP = E.itens.filter(function (x) { return x.preco && x.mes != null; });
-    if (comP.length >= 8) {
-      var ps = comP.map(function (x) { return x.preco; }).sort(function (a, b) { return a - b; });
-      var lo = ps[0], hi = ps[ps.length - 1];
-      var faixas = [];
-      for (var fi = 0; fi < 4; fi++) {
-        var de = lo + ((hi - lo) / 4) * fi;
-        var ate = fi === 3 ? hi + 0.01 : lo + ((hi - lo) / 4) * (fi + 1);
-        var dentro = comP.filter(function (x) { return x.preco >= de && x.preco < ate; });
-        faixas.push({
-          de: de, ate: ate, qtd: dentro.length,
-          vendas: dentro.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
-          fat: dentro.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0)
-        });
-      }
-      var maiorFat = Math.max.apply(null, faixas.map(function (x) { return x.fat; }));
-      var campea = null;
-      for (var ci = 0; ci < faixas.length; ci++) if (faixas[ci].fat === maiorFat) { campea = faixas[ci]; break; }
-
-      h += olho('EM QUE PRECO O DINHEIRO ESTA',
-        'A amostra dividida em quatro faixas, da mais barata para a mais cara, com quanto cada uma fatura por mes.');
-      h += '<div class="tab"><table><tr><th>FAIXA DE PRECO</th><th class="num">PRODUTOS</th>' +
-        '<th class="num">VENDAS/MÊS</th><th class="num">FATURA</th><th class="num">FATIA</th></tr>';
-      faixas.forEach(function (fx) {
-        var pctF = R.faturamento ? (fx.fat / R.faturamento) * 100 : 0;
-        h += '<tr><td><b>' + reais(fx.de) + ' a ' + reais(fx.ate) + '</b>' +
-          (fx === campea ? ' <span class="pill p-ads">aqui esta o dinheiro</span>' : '') + '</td>' +
-          '<td class="num">' + fx.qtd + '</td>' +
-          '<td class="num">' + num(fx.vendas) + '</td>' +
-          '<td class="num">' + reais(fx.fat) + '</td>' +
-          '<td class="num">' + num(pctF, 0) + '%</td></tr>';
+    /* ---- O MESMO PRODUTO, VARIAS LOJAS ----
+       Onde a briga e so de preco, e quanta margem de manobra existe. */
+    var iguais = agruparIguais();
+    if (iguais.length) {
+      h += olho('O MESMO PRODUTO, VENDIDO POR VARIAS LOJAS',
+        'Produtos que aparecem em mais de uma loja com titulo parecido. Onde a diferenca de preco e grande, ha espaco. Onde e pequena, a briga e so de centavo.');
+      h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">LOJAS</th>' +
+        '<th class="num">DE ATÉ</th><th class="num">VENDAS/MÊS</th><th class="num">DIFERENÇA</th></tr>';
+      iguais.slice(0, 10).forEach(function (g) {
+        var dif = g.precoMin ? ((g.precoMax - g.precoMin) / g.precoMin) * 100 : 0;
+        h += '<tr><td><b>' + esc(g.nome.slice(0, 46)) + '</b></td>' +
+          '<td class="num">' + g.lojas + '</td>' +
+          '<td class="num">' + reais(g.precoMin) + '<br>' + reais(g.precoMax) + '</td>' +
+          '<td class="num">' + num(g.vendas) + '</td>' +
+          '<td class="num" style="color:' + (dif > 30 ? '#1F8A5F' : dif > 12 ? '#C98A1E' : '#D64545') + '">' +
+          num(dif, 0) + '%</td></tr>';
       });
       h += '</table></div>';
-      if (campea && campea.qtd) {
-        h += '<div class="nota">A faixa de <b>' + reais(campea.de) + ' a ' + reais(campea.ate) +
-          '</b> concentra <b>' + num(R.faturamento ? (campea.fat / R.faturamento) * 100 : 0, 0) +
-          '%</b> do faturamento com ' + campea.qtd + ' produtos. É onde o comprador deste nicho gasta.</div>';
+      var apertados = iguais.filter(function (g) {
+        return g.precoMin && ((g.precoMax - g.precoMin) / g.precoMin) < 0.12;
+      });
+      var folgados = iguais.filter(function (g) {
+        return g.precoMin && ((g.precoMax - g.precoMin) / g.precoMin) > 0.30;
+      });
+      var rec = [];
+      if (folgados.length) rec.push('<b>' + folgados.length + '</b> destes produtos tem mais de 30% de diferença entre a loja mais barata e a mais cara. Ou seja, o comprador aceita pagar mais por eles, e há espaço para entrar sem ser o mais barato.');
+      if (apertados.length) rec.push('<b>' + apertados.length + '</b> tem menos de 12% de diferença. Nesses, todo mundo cobra quase igual e a briga é de centavo.');
+      if (rec.length) h += '<div class="nota">' + rec.join('<br><br>') + '</div>';
+    }
+
+    /* ---- QUEM ENTROU HA POUCO E JA VENDE ----
+       Diz se o nicho ainda aceita gente nova ou se so quem esta ha anos
+       consegue vender. */
+    var comData = E.itens.filter(function (x) { return x.cadastro && x.mes != null; });
+    if (comData.length >= 10) {
+      var agora = Date.now() / 1000;
+      function meses(x) { return (agora - x.cadastro) / 2592000; }
+      var novos = comData.filter(function (x) { return meses(x) <= 6; });
+      var velhos = comData.filter(function (x) { return meses(x) > 12; });
+      var novosVendendo = novos.filter(function (x) { return x.mes >= 30; });
+
+      h += olho('O NICHO ACEITA GENTE NOVA?',
+        'Quanto tempo os anúncios que vendem estão no ar. Se só produto antigo vende, entrar é mais difícil.');
+      h += '<div style="display:flex;gap:28px;flex-wrap:wrap;background:var(--surf);border:1px solid var(--bd2);' +
+        'border-radius:22px;padding:18px 20px;margin-bottom:12px">' +
+        celula(num(novos.length), 'ANÚNCIOS COM ATÉ 6 MESES') +
+        celula(num(novosVendendo.length), 'DESSES, JÁ VENDEM BEM') +
+        celula(num(velhos.length), 'ESTÃO NO AR HÁ MAIS DE 1 ANO') +
+        '</div>';
+
+      var pctNovos = comData.length ? (novos.length / comData.length) * 100 : 0;
+      var ordVendas = E.itens.filter(function (x) { return x.mes != null; })
+        .sort(function (a, b) { return b.mes - a.mes; });
+      var mesesTop = ordVendas.slice(0, 10)
+        .filter(function (x) { return x.cadastro; })
+        .map(meses);
+      var medTop = mesesTop.length ? mesesTop.reduce(function (a, b) { return a + b; }, 0) / mesesTop.length : null;
+
+      h += '<div class="nota">';
+      if (novosVendendo.length >= 3) {
+        h += '<b>' + novosVendendo.length + ' anúncios com menos de 6 meses já vendem mais de 30 por mês.</b> ' +
+          'O nicho aceita gente nova, e o algoritmo ainda dá espaço para quem chega.';
+      } else if (pctNovos < 15) {
+        h += 'Quase tudo que vende aqui está no ar <b>há mais de 6 meses</b>. ' +
+          'Entrar exige paciência: o resultado não vem nas primeiras semanas.';
+      } else {
+        h += 'Há anúncios novos na busca, mas <b>poucos deles vendem bem ainda</b>. ' +
+          'Dá para entrar, mas o volume demora a aparecer.';
+      }
+      if (medTop != null) {
+        h += '<br><br>Os dez que mais vendem estão no ar há <b>' +
+          (medTop < 12 ? num(medTop, 0) + ' meses' : num(medTop / 12, 1) + ' anos') + '</b> em média.';
+      }
+      h += '</div>';
+    }
+
+    /* ---- ONDE O VENDEDOR E RUIM ----
+       Nota baixa com venda alta e a brecha mais concreta que existe: o
+       produto vende apesar do vendedor. */
+    var comNota = E.itens.filter(function (x) { return x.nota != null && x.mes != null && x.mes > 0; });
+    if (comNota.length >= 8) {
+      var vendeMuito = comNota.slice().sort(function (a, b) { return b.mes - a.mes; }).slice(0, Math.ceil(comNota.length / 2));
+      var brechas = vendeMuito.filter(function (x) { return x.nota < 4.6; })
+        .sort(function (a, b) { return a.nota - b.nota; });
+      if (brechas.length) {
+        h += olho('ONDE O VENDEDOR DEIXA A DESEJAR',
+          'Produtos que vendem bem apesar da nota baixa. Se o comprador aceita comprar de quem atende mal, ele aceitaria melhor de quem atende bem.');
+        h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">NOTA</th>' +
+          '<th class="num">VENDE/MÊS</th><th class="num">PREÇO</th></tr>';
+        brechas.slice(0, 8).forEach(function (x) {
+          h += '<tr><td><b>' + esc(x.nome.slice(0, 44)) + '</b>' +
+            (x.link ? ' <a href="' + x.link + '" target="_blank" rel="noopener" style="font-size:12px">\u2197</a>' : '') +
+            '<span class="sub2">' + esc(x.lojaNome || '') + '</span></td>' +
+            '<td class="num" style="color:' + (x.nota < 4.3 ? '#D64545' : '#C98A1E') + '">' + num(x.nota, 2) + '</td>' +
+            '<td class="num">' + num(x.mes) + '</td>' +
+            '<td class="num">' + reais(x.preco) + '</td></tr>';
+        });
+        h += '</table></div>';
+        h += '<div class="nota"><b>' + brechas.length + ' produtos</b> vendem bem com nota abaixo de 4,6. ' +
+          'Isso significa que a demanda existe e o comprador está engolindo um atendimento ruim. ' +
+          'Vender o mesmo produto com nota alta é a forma mais direta de tirar venda de alguém aqui.</div>';
+      } else {
+        h += olho('QUALIDADE DO ATENDIMENTO');
+        h += '<div class="nota">Todos os que vendem bem têm nota <b>4,6 ou mais</b>. ' +
+          'Não há brecha de atendimento neste nicho: para tirar venda de alguém, será por produto ou preço.</div>';
       }
     }
+
     return h;
   }
   function card(n, r) { return '<div class="kpi"><div class="r">' + r + '</div><div class="n">' + n + '</div></div>'; }

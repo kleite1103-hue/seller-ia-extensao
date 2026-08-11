@@ -61,6 +61,16 @@ sozinho nao paga a operacao. Se fica abaixo da mediana, diga que cabe sem
 precisar liderar. E lembre que a margem de contribuicao NAO e lucro — o lucro
 vem depois do custo fixo.
 
+## Onde ha brecha
+Use "repetidos", "idade" e "brechasDeAtendimento", nesta ordem de importancia:
+- Produto vendido por varias lojas com diferenca de preco acima de 30% tem
+  espaco: o comprador aceita pagar mais. Abaixo de 12%, a briga e so de centavo.
+- Se ha anuncios com menos de 6 meses ja vendendo bem, o nicho aceita gente
+  nova. Se nao ha, entrar exige paciencia e voce deve dizer isso.
+- Produto que vende bem com nota abaixo de 4,6 e a brecha mais concreta que
+  existe: a demanda esta provada e o comprador esta engolindo atendimento ruim.
+Se alguma dessas nao vier no dossie, pule sem comentar.
+
 ## O que os campeoes fazem
 Compare top10 com o resto usando os numeros da comparacao. Fotos, nota, preco,
 quantos anunciam. Aponte so as diferencas que passam de 15% — o resto e ruido.
