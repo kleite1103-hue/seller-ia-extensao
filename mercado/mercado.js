@@ -182,12 +182,16 @@
       // faturamento no mes: os dois numeros vem da Shopee, a multiplicacao
       // e nossa e a tela diz isso
       fatMes: (mes != null && preco != null) ? mes * preco : null,
-      nota: a.item_rating && a.item_rating.rating_star != null ? a.item_rating.rating_star : null,
-      estrelas: (a.item_rating && a.item_rating.rating_count) || null,
+      // A nota vive em item_data.item_rating, nao no asset: eu procurava no
+      // lugar errado e ela vinha sempre vazia.
+      nota: (d.item_rating && d.item_rating.rating_star != null) ? d.item_rating.rating_star
+        : (a.rating && a.rating.rating_star != null ? a.rating.rating_star : null),
+      estrelas: (d.item_rating && d.item_rating.rating_count) || (a.rating && a.rating.rating_count) || null,
       curtidas: d.liked_count != null ? d.liked_count : null,
       cadastro: d.ctime || null,
       catid: d.catid || null,
-      marca: d.brand || null,
+      // global_brand e um objeto com display_name dentro
+      marca: (d.global_brand && d.global_brand.display_name) || d.brand || null,
       verificada: !!d.shopee_verified,
       oficial: !!d.is_official_shop,
       anuncio: !!it.adsid,
