@@ -202,8 +202,14 @@
     E.itens.forEach(function (x) { if (x.catid) ids[x.catid] = 1; });
     if (!Object.keys(ids).length) return;
     if (Object.keys(E.categorias).length) return;   // ja temos
+    // A arvore da vitrine. Se a Shopee mudar o caminho, a tela mostra o
+    // numero da categoria em vez de quebrar — categoria e enfeite util,
+    // nao a analise.
     var r = await api('/api/v4/pages/get_category_tree');
-    if (!r.ok || !r.dados) return;
+    if (!r.ok || !r.dados || r.dados.error) {
+      try { console.warn('[Mercado] arvore de categorias indisponivel; mostrando o codigo'); } catch (e) { }
+      return;
+    }
     var lista = (r.dados.data && r.dados.data.category_list) || r.dados.category_list || [];
     function percorrer(ns, caminho) {
       for (var i = 0; i < ns.length; i++) {
@@ -247,13 +253,28 @@
     return { pct: ((b.v - a.v) / a.v) * 100, dias: dias };
   }
 
+  /* O caminho certo tem o "basic" no meio: sem ele a Shopee devolve 404 e
+     a aba "onde eu estou" nao sabe quais produtos sao seus. Confirmado na
+     captura do radar. */
   async function identificarMinhaLoja() {
     if (E.minhaLoja) return;
-    var r = await api('/api/v4/account/get_account_info');
-    try {
-      var d = (r.dados && (r.dados.data || r.dados)) || {};
-      if (d.shopid) E.minhaLoja = d.shopid;
-    } catch (e) { }
+    var caminhos = [
+      '/api/v4/account/basic/get_account_info',
+      '/api/v2/login/'
+    ];
+    for (var i = 0; i < caminhos.length; i++) {
+      var r = await api(caminhos[i]);
+      try {
+        var d = (r.dados && (r.dados.data || r.dados)) || {};
+        var id = d.shopid || d.shop_id;
+        if (id) {
+          E.minhaLoja = id;
+          try { console.log('[Mercado] sua loja:', id, d.username || ''); } catch (e) { }
+          return;
+        }
+      } catch (e) { }
+    }
+    try { console.warn('[Mercado] nao consegui identificar a loja logada'); } catch (e) { }
   }
 
   /* ============ AS CONTAS ============ */
