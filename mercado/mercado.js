@@ -430,6 +430,22 @@
         comissao: Math.round(comp.comissao * 100) / 100,
         ads: Math.round(comp.ads * 100) / 100
       },
+      // A pergunta que importa mais que o preco: da para vender o
+      // suficiente para pagar a operacao?
+      viabilidade: (function () {
+        var f = numeroPuro(C.fixo);
+        if (!f || !saud.viavel) return null;
+        var precisa = Math.ceil(f / saud.margem);
+        var lider = ordV.length ? ordV[0].mes : 0;
+        var mediana = ordV.length ? ordV[Math.floor(ordV.length / 2)].mes : 0;
+        return {
+          custoFixoMes: f,
+          margemPorVenda: Math.round(saud.margem * 100) / 100,
+          vendasParaEmpatar: precisa,
+          liderVende: lider, medianaVende: mediana,
+          pctDoLider: lider ? Math.round((precisa / lider) * 100) : null
+        };
+      })(),
       voce: E.minhaLoja ? {
         produtosAqui: meus.length,
         vendasMes: meus.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
@@ -512,6 +528,7 @@
       campo('roas', 'ROAS ALVO', C.roas, 'x') +
       campo('imposto', 'IMPOSTO', C.imposto, '%') +
       campo('embalagem', 'EMBALAGEM', C.embalagem, 'R$') +
+      campo('fixo', 'CUSTO FIXO/MES', C.fixo, 'R$') +
       '</div>';
 
     // os dois cenarios que a Karina pediu
@@ -547,6 +564,69 @@
       '<span style="font-size:15px;font-weight:600">Pague ate</span>' +
       '<span style="font:600 26px Archivo,Arial;letter-spacing:-.02em;color:' + (seu.viavel ? '#0F7A4A' : '#C1121F') + '">' +
       (seu.viavel ? reais(seu.teto) : reais(seu.teto)) + '</span></div></div>';
+
+    /* EU CONSIGO VENDER O SUFICIENTE AQUI?
+       A margem de contribuicao nao e lucro: e o que sobra para pagar
+       aluguel, salario e energia antes de virar lucro. Com o custo fixo
+       na mao, da para dizer quantas vendas o produto precisa fazer — e
+       cruzando com o volume do nicho, se isso e alcancavel. */
+    var fixo = numeroPuro(C.fixo);
+    if (fixo > 0 && seu.viavel) {
+      var ordVol = E.itens.filter(function (x) { return x.mes != null; })
+        .sort(function (a, b) { return b.mes - a.mes; });
+      var precisa = Math.ceil(fixo / seu.margem);
+      var lider = ordVol.length ? ordVol[0].mes : 0;
+      var medianaVol = ordVol.length ? ordVol[Math.floor(ordVol.length / 2)].mes : 0;
+      var pctLider = lider ? (precisa / lider) * 100 : null;
+
+      h += olho('EU CONSIGO VENDER O SUFICIENTE AQUI?',
+        'A margem de contribuicao nao e lucro \u2014 e o que sobra para pagar o custo fixo. Estas contas dizem quantas vendas o produto precisa fazer por mes so para empatar.');
+
+      h += '<div style="background:#fff;border:1px solid #D9CFBC;border-radius:19px;padding:18px 20px;margin-bottom:12px">' +
+        '<div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:14px">' +
+        '<div><div style="font:600 34px Archivo,Arial;letter-spacing:-.03em;line-height:1;color:' +
+        (pctLider != null && pctLider <= 100 ? '#0F7A4A' : '#C1121F') + '">' + num(precisa) + '</div>' +
+        '<div style="font:400 9.5px \'Space Mono\',monospace;color:#6B6355;margin-top:5px">VENDAS/MES SO PARA EMPATAR</div></div>' +
+        '<div><div style="font:600 34px Archivo,Arial;letter-spacing:-.03em;line-height:1">' + num(lider) + '</div>' +
+        '<div style="font:400 9.5px \'Space Mono\',monospace;color:#6B6355;margin-top:5px">O LIDER FAZ</div></div>' +
+        '<div><div style="font:600 34px Archivo,Arial;letter-spacing:-.03em;line-height:1">' + num(medianaVol) + '</div>' +
+        '<div style="font:400 9.5px \'Space Mono\',monospace;color:#6B6355;margin-top:5px">A MEDIANA FAZ</div></div>' +
+        '</div>';
+
+      if (pctLider != null) {
+        h += '<div class="barra"><i style="width:' + Math.min(100, pctLider) + '%;background:' +
+          (pctLider <= 60 ? '#0F7A4A' : pctLider <= 100 ? '#B07208' : '#C1121F') + '"></i></div>';
+        h += '<div style="font-size:14.5px;line-height:1.6;color:#1A1610;margin-top:8px">';
+        if (pctLider > 100) {
+          h += 'Para cobrir <b>' + reais(fixo) + '</b> de custo fixo, este produto precisaria vender <b>' + num(precisa) +
+            '</b> por mes \u2014 <b>mais que o lider do nicho</b>, que faz ' + num(lider) + '. ' +
+            'Neste preco e com esta margem, o produto sozinho nao paga a operacao. ' +
+            'Ou o custo fixo se divide entre mais produtos, ou a margem precisa ser maior.';
+        } else if (pctLider > 60) {
+          h += 'Precisa de <b>' + num(precisa) + '</b> vendas por mes, o que e <b>' + num(pctLider, 0) +
+            '% do que o lider faz</b>. E possivel, mas exige chegar perto do topo \u2014 nao e um produto para ficar no meio da lista.';
+        } else {
+          h += 'Precisa de <b>' + num(precisa) + '</b> vendas por mes, <b>' + num(pctLider, 0) +
+            '% do que o lider faz</b>. Cabe sem precisar liderar: ' +
+            (medianaVol >= precisa
+              ? 'ate a mediana do nicho ja vende mais que isso.'
+              : 'mas a mediana vende ' + num(medianaVol) + ', entao voce precisa ficar acima da media.');
+        }
+        h += '</div>';
+      }
+      h += '</div>';
+
+      // e se dividir entre varios produtos
+      if (pctLider != null && pctLider > 60) {
+        [2, 3, 5].forEach(function (n2, i2) {
+          if (i2) return;
+          var porProduto = Math.ceil(precisa / n2);
+          h += '<div class="nota">Dividindo o custo fixo entre <b>' + n2 + ' produtos</b> como este, cada um precisa de <b>' +
+            num(porProduto) + '</b> vendas por mes' +
+            (medianaVol >= porProduto ? ' \u2014 o que a mediana do nicho ja faz.' : '.') + '</div>';
+        });
+      }
+    }
 
     // o efeito do ROAS
     h += olho('O QUE MUDA SE O ANUNCIO RENDER MAIS OU MENOS');
@@ -646,6 +726,46 @@
         resto.filter(function (x) { return x.anuncio; }).length + ' de ' + resto.length + ' |');
       L.push('');
     }
+
+    // da para vender o suficiente
+    var Cr = E.calc || {};
+    var fixoR = numeroPuro(Cr.fixo);
+    if (fixoR > 0) {
+      var precoR = Cr.preco || R.precoMediano;
+      var sr = quantoPagar(precoR, 20, Cr.roas || 10, Cr.imposto || 0, Cr.embalagem || 0);
+      if (sr.viavel) {
+        var precisaR = Math.ceil(fixoR / sr.margem);
+        var liderR = ordV.length ? ordV[0].mes : 0;
+        L.push('## Da para vender o suficiente?');
+        L.push('');
+        L.push('Com custo fixo de ' + reais(fixoR) + ' por mes e margem de ' + reais(sr.margem) + ' por venda,');
+        L.push('este produto precisa vender **' + num(precisaR) + ' por mes** so para empatar.');
+        L.push('');
+        L.push('O lider do nicho faz ' + num(liderR) + ' por mes' +
+          (liderR ? ' \u2014 ou seja, ' + num((precisaR / liderR) * 100, 0) + '% do que ele vende.' : '.'));
+        L.push('');
+        L.push('_Margem de contribuicao nao e lucro: e o que sobra para pagar o custo fixo._');
+        L.push('');
+      }
+    }
+
+    // quanto pagar
+    var precoRel = (E.calc && E.calc.preco) || R.precoMediano;
+    var c15 = quantoPagar(precoRel, 15, (E.calc && E.calc.roas) || 10, (E.calc && E.calc.imposto) || 0, (E.calc && E.calc.embalagem) || 0);
+    var c20 = quantoPagar(precoRel, 20, (E.calc && E.calc.roas) || 10, (E.calc && E.calc.imposto) || 0, (E.calc && E.calc.embalagem) || 0);
+    L.push('## Por quanto comprar');
+    L.push('');
+    L.push('Vendendo a ' + reais(precoRel) + ', com ROAS ' + ((E.calc && E.calc.roas) || 10) + 'x:');
+    L.push('');
+    L.push('| Margem | Pague ate |');
+    L.push('|---|---|');
+    L.push('| 15% (competitivo) | **' + reais(c15.teto) + '** |');
+    L.push('| 20% (saudavel) | **' + reais(c20.teto) + '** |');
+    L.push('');
+    L.push('Descontando comissao ' + reais(c15.comissao) + ', Ads ' + reais(c15.ads) +
+      (c15.imposto ? ', imposto ' + reais(c15.imposto) : '') +
+      (c15.embalagem ? ', embalagem ' + reais(c15.embalagem) : '') + '.');
+    L.push('');
 
     // os vendedores
     var LJ = {};

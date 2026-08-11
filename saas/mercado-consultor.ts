@@ -47,6 +47,15 @@ vendem zero, e quanto do topo e anuncio. Se nao vale, diga que nao vale.
 Use o "pague ate" do dossie. Diga o preco de venda que faz sentido e o teto de
 compra. Se o teto for baixo demais para o produto ser importavel, diga.
 
+## Da para vender o suficiente?
+So escreva esta secao se vier "viabilidade" no dossie. Ela e mais importante
+que o preco: diz quantas vendas por mes o produto precisa fazer so para pagar
+o custo fixo, e compara com o que o lider e a mediana do nicho fazem.
+Se "vendasParaEmpatar" passa do que o lider vende, seja direto: o produto
+sozinho nao paga a operacao. Se fica abaixo da mediana, diga que cabe sem
+precisar liderar. E lembre que a margem de contribuicao NAO e lucro — o lucro
+vem depois do custo fixo.
+
 ## O que os campeoes fazem
 Compare top10 com o resto usando os numeros da comparacao. Fotos, nota, preco,
 quantos anunciam. Aponte so as diferencas que passam de 15% — o resto e ruido.
