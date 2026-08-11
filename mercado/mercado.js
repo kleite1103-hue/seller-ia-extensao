@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.3.0';
+  var VERSAO = '1.4.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -576,22 +576,49 @@
       campo('fixo', 'CUSTO FIXO/MES', C.fixo, 'R$') +
       '</div>';
 
-    // os dois cenarios que a Karina pediu
+    /* UM cartao grande, o da SUA margem. Dois cartoes fixos em 15 e 20
+       faziam parecer que a calculadora nao respondia: a pessoa trocava a
+       margem e os numeros grandes ficavam parados na tela. */
+    var suaMargem = numeroPuro(C.margem) || 15;
     var comp = quantoPagar(preco, 15, C.roas, C.imposto, C.embalagem);
     var saud = quantoPagar(preco, 20, C.roas, C.imposto, C.embalagem);
-    var seu = quantoPagar(preco, numeroPuro(C.margem), C.roas, C.imposto, C.embalagem);
+    var seu = quantoPagar(preco, suaMargem, C.roas, C.imposto, C.embalagem);
+
+    var corTeto = !seu.viavel ? '#D64545' : (seu.teto / preco) > 0.30 ? '#1F8A5F' : '#C98A1E';
+    h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-left:3px solid ' + corTeto + ';' +
+      'border-radius:0 22px 22px 0;padding:22px 24px;margin-bottom:12px">' +
+      '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:10px">' +
+      'PAGUE NO MAXIMO ISTO AO FORNECEDOR, POR UNIDADE</div>' +
+      '<div style="display:flex;align-items:baseline;gap:18px;flex-wrap:wrap">' +
+      '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:' + corTeto + ';line-height:1">' +
+      (seu.viavel ? reais(seu.teto) : 'nao fecha') + '</div>' +
+      '<div style="font-size:14px;color:var(--tx2);line-height:1.5">vendendo a <b>' + reais(preco) +
+      '</b><br>com margem de <b>' + num(suaMargem, 0) + '%</b></div></div>';
+    if (seu.viavel) {
+      h += '<div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:17px;padding-top:15px;border-top:1px solid var(--bd5)">' +
+        '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:5px">SOBRA POR VENDA</div>' +
+        '<div style="font:400 21px Outfit,Arial;color:var(--tx1);letter-spacing:-.025em">' + reais(seu.margem) + '</div></div>' +
+        '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:5px">O PRODUTO PODE CUSTAR</div>' +
+        '<div style="font:400 21px Outfit,Arial;color:var(--tx1);letter-spacing:-.025em">ate ' + num((seu.teto / preco) * 100, 0) + '% do preco</div></div></div>';
+    } else {
+      h += '<div style="font-size:14px;color:#D64545;margin-top:13px;line-height:1.6">' +
+        'A este preco, com margem de ' + num(suaMargem, 0) + '%, nao sobra nada para o produto. ' +
+        'Ou o preco de venda sobe, ou a margem baixa.</div>';
+    }
+    h += '</div>';
 
     h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:14px">';
-    [['PARA COMPETIR \u00b7 margem 15%', comp, '#B07208'],
-     ['PARA SER SAUDAVEL \u00b7 margem 20%', saud, '#0F7A4A']].forEach(function (c) {
-      h += '<div style="background:#fff;border:1px solid #D9CFBC;border-left:3px solid ' + c[2] + ';border-radius:0 19px 19px 0;padding:16px 18px">' +
-        '<div style="font:400 9.5px \'Space Mono\',monospace;color:#6B6355;letter-spacing:.06em;margin-bottom:8px">' + c[0] + '</div>' +
-        '<div style="font:600 30px Archivo,Arial;letter-spacing:-.03em;color:' + (c[1].viavel ? c[2] : '#C1121F') + '">' +
-        (c[1].viavel ? reais(c[1].teto) : 'nao fecha') + '</div>' +
-        '<div style="font-size:13px;color:#463F33;margin-top:5px">' +
-        (c[1].viavel ? 'e o maximo por unidade' : 'a este preco nao sobra nada') + '</div></div>';
+    [['SE QUISER SER COMPETITIVO', 'margem de 15%', comp],
+     ['SE QUISER SER SAUDAVEL', 'margem de 20%', saud]].forEach(function (c) {
+      h += '<div style="background:var(--fill2);border:1px solid var(--bd3);border-radius:18px;padding:15px 17px">' +
+        '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.09em;color:var(--tx6);margin-bottom:7px">' + c[0] + '</div>' +
+        '<div style="font:400 23px Outfit,Arial;letter-spacing:-.03em;color:' + (c[2].viavel ? 'var(--tx1)' : '#D64545') + '">' +
+        (c[2].viavel ? reais(c[2].teto) : 'nao fecha') + '</div>' +
+        '<div style="font-size:12.5px;color:var(--tx5);margin-top:5px">' + c[1] + '</div></div>';
     });
     h += '</div>';
+    h += '<div class="nota">Este e o <b>teto por unidade</b>, ou por kit se voce vende em kit. ' +
+      'Comprando abaixo dele a margem sobe. Comprando acima, ela some.</div>';
 
     // de onde sai cada real
     h += '<div style="background:#fff;border:1px solid #D9CFBC;border-radius:19px;padding:16px 18px;margin-bottom:14px">';
@@ -635,7 +662,7 @@
         '<div><div style="font:600 34px Archivo,Arial;letter-spacing:-.03em;line-height:1">' + num(lider) + '</div>' +
         '<div style="font:400 9.5px \'Space Mono\',monospace;color:#6B6355;margin-top:5px">O LIDER FAZ</div></div>' +
         '<div><div style="font:600 34px Archivo,Arial;letter-spacing:-.03em;line-height:1">' + num(medianaVol) + '</div>' +
-        '<div style="font:400 9.5px \'Space Mono\',monospace;color:#6B6355;margin-top:5px">A MEDIANA FAZ</div></div>' +
+        '<div style="font:400 9.5px \'Space Mono\',monospace;color:var(--tx6);margin-top:5px">O DO MEIO DA LISTA FAZ</div></div>' +
         '</div>';
 
       if (pctLider != null) {
@@ -654,8 +681,8 @@
           h += 'Precisa de <b>' + num(precisa) + '</b> vendas por mes, <b>' + num(pctLider, 0) +
             '% do que o lider faz</b>. Cabe sem precisar liderar: ' +
             (medianaVol >= precisa
-              ? 'ate a mediana do nicho ja vende mais que isso.'
-              : 'mas a mediana vende ' + num(medianaVol) + ', entao voce precisa ficar acima da media.');
+              ? 'até o produto do meio da lista já vende mais que isso.'
+              : 'mas o produto do meio da lista vende ' + num(medianaVol) + ', então você precisa ficar acima da maioria.');
         }
         h += '</div>';
       }
@@ -668,7 +695,7 @@
           var porProduto = Math.ceil(precisa / n2);
           h += '<div class="nota">Dividindo o custo fixo entre <b>' + n2 + ' produtos</b> como este, cada um precisa de <b>' +
             num(porProduto) + '</b> vendas por mes' +
-            (medianaVol >= porProduto ? ' \u2014 o que a mediana do nicho ja faz.' : '.') + '</div>';
+            (medianaVol >= porProduto ? ', o que o produto do meio da lista já faz.' : '.') + '</div>';
         });
       }
     }
@@ -1269,29 +1296,40 @@
     var R = resumo();
     if (!R) return avisoSessao() + '<div class="vazio">A Shopee nao devolveu volume de venda nesta busca. Confira se voce esta logada.</div>';
     var h = avisoSessao();
-    h += '<div class="cards">' +
-      card(num(R.vendas), 'VENDAS NO MÊS') +
-      card(reais(R.faturamento).replace('R$ ', 'R$'), 'DESTES ' + R.itens + ' PRODUTOS') +
-      card(reais(R.ticket), 'TICKET MÉDIO') +
-      card(R.lojas, 'VENDEDORES') +
-      card(R.anuncios + '/' + E.itens.length, 'SÃO ANÚNCIO') +
-      card(R.semVenda, 'SEM VENDA NO MÊS') +
-      '</div>';
+
+    /* O numero heroi primeiro, sozinho, e o resto embaixo. Seis cartoes
+       iguais nao dizem o que olhar antes. */
+    h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:24px 26px;margin-bottom:12px">' +
+      '<div style="display:flex;align-items:baseline;gap:26px;flex-wrap:wrap">' +
+      '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.11em;color:var(--tx6);margin-bottom:9px">' +
+      'ESTES ' + R.itens + ' PRODUTOS FATURAM, POR MÊS</div>' +
+      '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:var(--tx1);line-height:1">' +
+      reais(R.faturamento) + '</div></div>' +
+      '<div style="border-left:1px solid var(--bd5);padding-left:24px">' +
+      '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.11em;color:var(--tx6);margin-bottom:9px">UNIDADES VENDIDAS</div>' +
+      '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:var(--tx1);line-height:1">' + num(R.vendas) + '</div></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:22px;margin-top:20px;padding-top:18px;border-top:1px solid var(--bd5)">' +
+      celula(reais(R.ticket), 'TICKET MÉDIO') +
+      celula(num(R.lojas), 'LOJAS VENDENDO') +
+      celula(R.anuncios + ' de ' + E.itens.length, 'ESTAVAM ANUNCIANDO') +
+      celula(num(R.semVenda), 'NÃO VENDERAM NADA') +
+      '</div></div>';
 
     h += '<div class="olho">A FAIXA DE PREÇO</div>';
     h += '<div class="nota">De <b>' + reais(R.precoMin) + '</b> a <b>' + reais(R.precoMax) + '</b>, com a mediana em <b>' + reais(R.precoMediano) + '</b>.<br>' +
       'O ticket médio de <b>' + reais(R.ticket) + '</b> é onde o dinheiro realmente está \u2014 ' +
       (R.ticket > R.precoMediano
-        ? 'acima da média, ou seja, os produtos mais caros puxam o volume.'
-        : 'abaixo da média, ou seja, o barato é quem vende.') + '</div>';
+        ? 'está acima do preço médio, então quem vende volume aqui são os produtos mais caros.'
+        : 'está abaixo do preço médio, então o volume de vendas está concentrado nos produtos mais baratos.') + '</div>';
 
     h += '<div class="olho">CONCENTRAÇÃO</div>';
     h += '<div class="nota">Os <b>5 maiores</b> ficam com <b>' + num(R.concentracao, 0) + '%</b> do faturamento desta amostra.<br>' +
       (R.concentracao > 70
-        ? 'Nicho dominado. Entrar exige preço ou diferencial forte, porque o comprador já tem para quem olhar.'
+        ? 'Poucas lojas concentram quase tudo. Para entrar aqui você precisa de um preço melhor que o deles, ou de algo que elas não ofereçam.'
         : R.concentracao > 45
-          ? 'Há líderes, mas o bolo se divide. Dá para pegar espaço sem enfrentar o primeiro.'
-          : 'Nicho pulverizado. Ninguém manda sozinho, e um produto bem feito encontra lugar.') + '</div>';
+          ? 'Existem lojas maiores, mas o faturamento se divide entre várias. Dá para conquistar espaço sem precisar bater de frente com a primeira.'
+          : 'O faturamento está espalhado entre muitas lojas, sem uma dominante. Um produto bem feito consegue espaço aqui.') + '</div>';
 
     var pctAds = (R.anuncios / E.itens.length) * 100;
     h += '<div class="olho">QUANTO DO TOPO É PAGO</div>';
@@ -1323,7 +1361,7 @@
       var adsT = topo.filter(function (x) { return x.anuncio; }).length;
 
       h += olho('O QUE OS 10 MAIS VENDIDOS TÊM DE DIFERENTE',
-        'A média de cada coisa entre os dez que mais vendem, comparada com a média de todo o resto. Onde a diferença passa de 15%, há algo a copiar.');
+        'Cada linha mostra o valor médio entre os dez que mais vendem, ao lado do valor médio de todos os outros produtos da amostra. Diferenças acima de 15% indicam algo que os campeões fazem e vale copiar.');
       h += '<table><tr><th></th><th class="num">TOP 10</th><th class="num">O RESTO</th><th class="num">DIFERENCA</th></tr>';
       function linhaC(rot, a, b, fmt) {
         if (a == null || b == null) return '';
@@ -1372,7 +1410,11 @@
     }
     return h;
   }
-  function card(n, r) { return '<div class="card"><div class="n">' + n + '</div><div class="r">' + r + '</div></div>'; }
+  function card(n, r) { return '<div class="kpi"><div class="r">' + r + '</div><div class="n">' + n + '</div></div>'; }
+  function celula(n, r) {
+    return '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:6px">' + r + '</div>' +
+      '<div style="font:400 21px Outfit,Arial;letter-spacing:-.025em;color:var(--tx1)">' + n + '</div></div>';
+  }
 
   function viewProdutos() {
     var I = E.itens.slice().sort(function (a, b) {
