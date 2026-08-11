@@ -22,7 +22,7 @@
     termo: '', buscando: false, erro: null,
     itens: [], categorias: {}, historico: null,
     aba: 'nicho', ordem: 'mes', progresso: null,
-    detalhe: null, minhaLoja: null
+    detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null
   };
 
   /* ============ CHAMADAS ============ */
@@ -78,12 +78,16 @@
 
   /* A vitrine manda um identificador de sessao de visualizacao em toda
      busca. Um por analise basta. */
-  var _sessao = null;
-  function sessaoDaBusca() {
-    if (_sessao) return _sessao;
-    function h4() { return Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1); }
-    _sessao = h4() + h4() + '-' + h4() + '-' + h4() + '-' + h4() + '-' + h4() + h4() + h4();
-    return _sessao;
+  /* A sessao e derivada do TERMO, nao sorteada. A Shopee personaliza o
+     resultado por sessao de busca: com id novo a cada analise, a mesma
+     palavra devolvia conjuntos diferentes — foi o que fez o faturamento
+     sair 2,9 milhoes numa vez e 200 mil na outra. Mesmo termo, mesma
+     sessao, resultado comparavel. */
+  function sessaoDaBusca(termo) {
+    var h = 0, s = String(termo || '');
+    for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h = h & h; }
+    var b = Math.abs(h).toString(16).padStart(8, '0');
+    return b + '-' + b.slice(0, 4) + '-4' + b.slice(1, 4) + '-8' + b.slice(2, 5) + '-' + b + b.slice(0, 4);
   }
 
   /* ============ LEITURA DO NICHO ============ */
@@ -102,8 +106,10 @@
       var url = '/api/v4/search/search_items?by=relevancy&keyword=' +
         encodeURIComponent(termo) + '&limit=60&newest=' + (pg * 60) +
         '&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2' +
-        '&source=SRP&view_session_id=' + sessaoDaBusca() +
-        '&extra_params=' + encodeURIComponent(JSON.stringify({ global_search_session_id: 'gs-' + Math.random().toString(16).slice(2, 10) }));
+        '&source=SRP&view_session_id=' + sessaoDaBusca(termo) +
+        '&extra_params=' + encodeURIComponent(JSON.stringify({
+          global_search_session_id: 'gs-' + sessaoDaBusca(termo).slice(0, 8)
+        }));
       try { console.log('[Mercado] pagina ' + (pg + 1) + ' ->', url.slice(0, 90)); } catch (e) { }
       var r = await api(url);
       try {
@@ -137,6 +143,10 @@
         break;
       }
       todos = todos.concat(its);
+      E.paginasLidas = pg + 1;
+      // A Shopee nem sempre devolve 60: quando vem menos, e o fim do que
+      // ela tem para esse termo. Guardar isso importa porque o total lido
+      // muda a leitura de faturamento.
       if (its.length < 60) break;
       await espera(PAUSA);
     }
@@ -166,6 +176,18 @@
     await nomearCategorias();
     await guardarVolumes();
     await identificarMinhaLoja();
+
+    // GUARDA A ANALISE. Fechar a gaveta nao pode perder o trabalho: a
+    // pessoa fecha para olhar um anuncio e volta esperando encontrar tudo
+    // no lugar.
+    if (E.itens.length) {
+      try {
+        await guardar('ultima_analise', JSON.stringify({
+          termo: E.termo, em: Date.now(), paginas: E.paginasLidas,
+          itens: E.itens, categorias: E.categorias, minhaLoja: E.minhaLoja
+        }));
+      } catch (e) { }
+    }
 
     E.buscando = false; E.progresso = null;
     if (!E.itens.length && !E.erro) E.erro = 'A Shopee nao devolveu resultados para este termo.';
@@ -197,6 +219,9 @@
     return {
       id: it.itemid || b.itemid || d.itemid,
       loja: it.shopid || b.shopid || d.shopid,
+      link: (it.shopid && it.itemid)
+        ? ('https://shopee.com.br/product/' + it.shopid + '/' + it.itemid)
+        : null,
       nome: a.name || b.name || it.display_name || '',
       lojaNome: sd.shop_name || '',
       local: a.shop_location || sd.shop_location || '',
@@ -219,6 +244,10 @@
       marca: (d.global_brand && d.global_brand.display_name) || d.brand || null,
       verificada: !!d.shopee_verified,
       oficial: !!d.is_official_shop,
+      // Fotos: confirmado que existe na busca. Video, variacoes e estoque
+      // NAO vem aqui — so na pagina do produto — entao nao invento.
+      fotos: (d.images && d.images.length) || (b.images && b.images.length) ||
+        (a.images && a.images.length) || null,
       anuncio: !!it.adsid,
       adRank: t.ads_rank_bid || null,
       imagem: a.image || null
@@ -331,6 +360,141 @@
     };
   }
 
+
+  /* ============ RELATORIO ============
+     Um arquivo que a pessoa guarda, manda para o time, ou abre depois. Os
+     links sao clicaveis porque a analise so vale se der para ir ver o
+     anuncio. */
+  function gerarRelatorio() {
+    var R = resumo();
+    if (!R) { alert('Analise um nicho antes de gerar o relatorio.'); return; }
+    var ordV = E.itens.filter(function (x) { return x.mes != null; })
+      .sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
+    var top = ordV.slice(0, 10);
+    var data = new Date().toLocaleDateString('pt-BR');
+
+    var L = [];
+    L.push('# ' + E.termo.toUpperCase());
+    L.push('');
+    L.push('Analise de ' + data + ' \u00b7 ' + E.itens.length + ' produtos lidos em ' +
+      (E.paginasLidas || 1) + ' pagina(s) de busca.');
+    L.push('');
+    L.push('> **Isto e uma amostra, nao o mercado inteiro.** Os numeros abaixo somam apenas os ');
+    L.push('> ' + E.itens.length + ' produtos que a Shopee mostrou para quem procura por "' + E.termo + '". ');
+    L.push('> Existem outros vendedores alem destes. A leitura tambem vem de uma sessao logada, ');
+    L.push('> e a Shopee personaliza a ordem dos resultados.');
+    L.push('');
+    L.push('## O retrato');
+    L.push('');
+    L.push('| | |');
+    L.push('|---|---|');
+    L.push('| Vendas no mes | ' + num(R.vendas) + ' |');
+    L.push('| Faturamento da amostra | ' + reais(R.faturamento) + ' |');
+    L.push('| Ticket medio | ' + reais(R.ticket) + ' |');
+    L.push('| Faixa de preco | ' + reais(R.precoMin) + ' a ' + reais(R.precoMax) + ' |');
+    L.push('| Preco mediano | ' + reais(R.precoMediano) + ' |');
+    L.push('| Vendedores | ' + R.lojas + ' |');
+    L.push('| Concentracao nos 5 maiores | ' + num(R.concentracao, 0) + '% |');
+    L.push('| Anunciando | ' + R.anuncios + ' de ' + E.itens.length + ' |');
+    L.push('| Sem venda no mes | ' + R.semVenda + ' |');
+    L.push('');
+
+    L.push('## Os 10 que mais vendem');
+    L.push('');
+    L.push('| # | Produto | Vende/mes | Preco | Fatura | Loja |');
+    L.push('|---|---|---|---|---|---|');
+    top.forEach(function (x, i) {
+      var nome = String(x.nome).replace(/\|/g, ' ').slice(0, 60);
+      L.push('| ' + (i + 1) + ' | ' + (x.link ? '[' + nome + '](' + x.link + ')' : nome) + ' | ' +
+        num(x.mes) + ' | ' + reais(x.preco) + ' | ' + (x.fatMes != null ? reais(x.fatMes) : '\u2014') + ' | ' +
+        String(x.lojaNome || '').replace(/\|/g, ' ') + ' |');
+    });
+    L.push('');
+
+    // o que os campeoes tem
+    if (ordV.length >= 10) {
+      var resto = ordV.slice(10);
+      function m(l, c) {
+        var v = l.map(function (y) { return y[c]; }).filter(function (y) { return y != null; });
+        return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
+      }
+      L.push('## O que os campeoes tem de diferente');
+      L.push('');
+      L.push('| | Top 10 | O resto |');
+      L.push('|---|---|---|');
+      var ft = m(top, 'fotos'), fr = m(resto, 'fotos');
+      if (ft && fr) L.push('| Fotos | ' + num(ft, 1) + ' | ' + num(fr, 1) + ' |');
+      var nt = m(top, 'nota'), nr = m(resto, 'nota');
+      if (nt && nr) L.push('| Nota | ' + num(nt, 2) + ' | ' + num(nr, 2) + ' |');
+      var pt = m(top, 'preco'), prr = m(resto, 'preco');
+      if (pt && prr) L.push('| Preco medio | ' + reais(pt) + ' | ' + reais(prr) + ' |');
+      L.push('| Anunciando | ' + top.filter(function (x) { return x.anuncio; }).length + ' de 10 | ' +
+        resto.filter(function (x) { return x.anuncio; }).length + ' de ' + resto.length + ' |');
+      L.push('');
+    }
+
+    // os vendedores
+    var LJ = {};
+    E.itens.forEach(function (x) {
+      if (!x.loja) return;
+      var l = LJ[x.loja] = LJ[x.loja] || { nome: x.lojaNome, itens: 0, mes: 0, fat: 0, local: x.local };
+      l.itens++; l.mes += x.mes || 0; l.fat += x.fatMes || 0;
+    });
+    var ordL = Object.keys(LJ).map(function (k) { return LJ[k]; }).sort(function (a, b) { return b.fat - a.fat; });
+    L.push('## Quem domina');
+    L.push('');
+    L.push('| Loja | Produtos | Vendas/mes | Faturamento | Onde |');
+    L.push('|---|---|---|---|---|');
+    ordL.slice(0, 10).forEach(function (l) {
+      L.push('| ' + String(l.nome || '?').replace(/\|/g, ' ') + ' | ' + l.itens + ' | ' + num(l.mes) + ' | ' +
+        reais(l.fat) + ' | ' + (l.local || '') + ' |');
+    });
+    L.push('');
+
+    // onde voce esta
+    if (E.minhaLoja) {
+      var meus = E.itens.filter(function (x) { return x.loja === E.minhaLoja; });
+      L.push('## Onde voce esta');
+      L.push('');
+      if (!meus.length) {
+        L.push('Nenhum produto seu apareceu nesta amostra de ' + E.itens.length + ' resultados.');
+      } else {
+        var meuFat = meus.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0);
+        L.push('Voce tem **' + meus.length + '** produto(s) aqui, somando **' + reais(meuFat) + '** por mes \u2014 ' +
+          num(R.faturamento ? (meuFat / R.faturamento) * 100 : 0, 1) + '% da amostra.');
+        L.push('');
+        L.push('| Produto | Posicao | Vende/mes | Preco |');
+        L.push('|---|---|---|---|');
+        meus.forEach(function (x) {
+          var nome = String(x.nome).replace(/\|/g, ' ').slice(0, 50);
+          L.push('| ' + (x.link ? '[' + nome + '](' + x.link + ')' : nome) + ' | ' +
+            (ordV.indexOf(x) + 1) + '\u00ba | ' + num(x.mes) + ' | ' + reais(x.preco) + ' |');
+        });
+      }
+      L.push('');
+    }
+
+    L.push('---');
+    L.push('');
+    L.push('_Gerado pela Seller.IA \u00b7 Analista de Mercado. Os numeros de venda e preco vem da propria Shopee; ' +
+      'o faturamento e a multiplicacao dos dois._');
+
+    var texto = L.join('\n');
+    try {
+      var blob = new Blob([texto], { type: 'text/markdown;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a2 = document.createElement('a');
+      a2.href = url;
+      a2.download = 'mercado-' + E.termo.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-' +
+        new Date().toISOString().slice(0, 10) + '.md';
+      document.documentElement.appendChild(a2);
+      a2.click(); a2.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 20000);
+    } catch (e) {
+      alert('Nao consegui gerar o arquivo: ' + e.message);
+    }
+  }
+
   /* ============ TELA ============ */
   var host = document.createElement('div');
   host.id = 'sia-mercado';
@@ -419,7 +583,8 @@
     '<div class="painel" id="painel">' +
     '  <div class="cab"><div><h1>Analista de Mercado</h1>' +
     '    <div class="sub" id="sub">nenhum nicho lido ainda</div></div>' +
-    '    <button class="x" id="fechar">\u2715</button></div>' +
+    '    <button class="x" id="relatorio" title="Baixar o relatorio" style="width:auto;padding:0 14px;margin-left:auto">relatorio</button>' +
+    '    <button class="x" id="fechar" style="margin-left:8px">\u2715</button></div>' +
     '  <div class="busca"><input id="termo" placeholder="digite um nicho: comedouro lento, luminaria 3d..."><button class="go" id="ir">Analisar</button></div>' +
     '  <div class="abas" id="abas"></div>' +
     '  <div class="corpo" id="corpo"></div>' +
@@ -433,8 +598,15 @@
   ];
 
   function desenhar() {
+    var quando = '';
+    if (E.quando) {
+      var min = Math.round((Date.now() - E.quando) / 60000);
+      quando = min < 1 ? ' \u00b7 agora' : min < 60 ? ' \u00b7 ha ' + min + ' min'
+        : min < 1440 ? ' \u00b7 ha ' + Math.round(min / 60) + 'h'
+        : ' \u00b7 ' + new Date(E.quando).toLocaleDateString('pt-BR');
+    }
     $('sub').textContent = E.itens.length
-      ? (E.itens.length + ' produtos \u00b7 ' + esc(E.termo))
+      ? (E.itens.length + ' produtos \u00b7 ' + E.termo + quando)
       : 'nenhum nicho lido ainda';
     $('ir').textContent = E.buscando ? 'Lendo...' : 'Analisar';
 
@@ -462,8 +634,14 @@
   }
 
   function avisoSessao() {
-    return '<div class="aviso"><b>Esta leitura vem da sua sessao.</b> A Shopee so entrega volume de venda para quem esta logado, ' +
-      'e personaliza a ordem dos resultados \u2014 os seus produtos podem aparecer mais acima do que apareceriam para um comprador.</div>';
+    var lidas = E.paginasLidas || 1;
+    return '<div class="aviso">' +
+      '<b>Isto e uma amostra, nao o nicho inteiro.</b> Foram lidos ' + E.itens.length + ' produtos em ' +
+      lidas + ' pagina' + (lidas > 1 ? 's' : '') + ' de busca \u2014 e o que a Shopee mostra para quem procura por ' +
+      '<b>' + esc(E.termo) + '</b>. Existem outros vendedores alem destes, e o faturamento somado aqui e o <b>desta amostra</b>, ' +
+      'nao do mercado todo.<br><br>' +
+      'A leitura tambem vem da <b>sua sessao</b>: a Shopee so entrega volume de venda para quem esta logado, e personaliza a ordem ' +
+      '\u2014 os seus produtos podem aparecer mais acima do que apareceriam para um comprador.</div>';
   }
 
   function viewNicho() {
@@ -472,7 +650,7 @@
     var h = avisoSessao();
     h += '<div class="cards">' +
       card(num(R.vendas), 'VENDAS NO MES') +
-      card(reais(R.faturamento).replace('R$ ', 'R$'), 'FATURAMENTO DO NICHO') +
+      card(reais(R.faturamento).replace('R$ ', 'R$'), 'DESTES ' + R.itens + ' PRODUTOS') +
       card(reais(R.ticket), 'TICKET MEDIO') +
       card(R.lojas, 'VENDEDORES') +
       card(R.anuncios + '/' + E.itens.length, 'SAO ANUNCIO') +
@@ -502,6 +680,53 @@
         : pctAds < 35
           ? 'Disputa moderada. Anuncio ajuda, mas o organico ainda entrega.'
           : 'Muita gente pagando. Sem anuncio, dificilmente voce aparece nas primeiras posicoes.') + '</div>';
+
+    // O que os campeoes tem que os outros nao tem
+    var ordV = E.itens.filter(function (x) { return x.mes != null; })
+      .sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
+    if (ordV.length >= 10) {
+      var topo = ordV.slice(0, 10), resto = ordV.slice(10);
+      function med(l, c) {
+        var v = l.map(function (x) { return x[c]; }).filter(function (x) { return x != null; });
+        return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
+      }
+      var fotoT = med(topo, 'fotos'), fotoR = med(resto, 'fotos');
+      var notaT = med(topo, 'nota'), notaR = med(resto, 'nota');
+      var precoT = med(topo, 'preco'), precoR = med(resto, 'preco');
+      function avals(l) {
+        var v = l.map(function (x) { return x.estrelas ? x.estrelas.reduce(function (a, b) { return a + b; }, 0) : null; })
+          .filter(function (x) { return x != null; });
+        return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
+      }
+      var avT = avals(topo), avR = avals(resto);
+      var adsT = topo.filter(function (x) { return x.anuncio; }).length;
+
+      h += olho('O QUE OS 10 MAIS VENDIDOS TEM DE DIFERENTE',
+        'Comparando os dez primeiros com todo o resto da amostra. E o que da para copiar sem adivinhar.');
+      h += '<table><tr><th></th><th class="num">TOP 10</th><th class="num">O RESTO</th><th class="num">DIFERENCA</th></tr>';
+      function linhaC(rot, a, b, fmt) {
+        if (a == null || b == null) return '';
+        var dif = b ? ((a - b) / b) * 100 : 0;
+        return '<tr><td>' + rot + '</td><td class="num">' + fmt(a) + '</td><td class="num">' + fmt(b) + '</td>' +
+          '<td class="num" style="color:' + (Math.abs(dif) < 8 ? '#6B6355' : dif > 0 ? '#0F7A4A' : '#C1121F') + '">' +
+          (dif > 0 ? '+' : '') + num(dif, 0) + '%</td></tr>';
+      }
+      h += linhaC('Fotos no anuncio', fotoT, fotoR, function (v) { return num(v, 1); });
+      h += linhaC('Nota', notaT, notaR, function (v) { return num(v, 2); });
+      h += linhaC('Avaliacoes', avT, avR, function (v) { return num(v, 0); });
+      h += linhaC('Preco', precoT, precoR, function (v) { return reais(v); });
+      h += '<tr><td>Anunciando</td><td class="num">' + adsT + ' de 10</td>' +
+        '<td class="num">' + resto.filter(function (x) { return x.anuncio; }).length + ' de ' + resto.length + '</td><td></td></tr>';
+      h += '</table>';
+
+      var recado = [];
+      if (fotoT && fotoR && fotoT > fotoR * 1.15) recado.push('os campeoes tem <b>' + num(fotoT, 1) + ' fotos</b> contra ' + num(fotoR, 1) + ' do resto');
+      if (avT && avR && avT > avR * 1.5) recado.push('tem <b>' + num(avT, 0) + ' avaliacoes</b> em media, contra ' + num(avR, 0));
+      if (precoT && precoR && Math.abs(precoT - precoR) / precoR > 0.15) {
+        recado.push('vendem <b>' + (precoT > precoR ? 'mais caro' : 'mais barato') + '</b>: ' + reais(precoT) + ' contra ' + reais(precoR));
+      }
+      if (recado.length) h += '<div class="nota">Em uma frase: ' + recado.join(', ') + '.</div>';
+    }
 
     // categorias
     var cats = {};
@@ -535,8 +760,10 @@
     I.slice(0, 120).forEach(function (x) {
       var t = tendencia(x.id);
       var meu = E.minhaLoja && x.loja === E.minhaLoja;
-      h += '<tr class="' + (meu ? 'eu' : '') + '"><td data-item="' + x.id + '" style="cursor:pointer">' +
-        '<b>' + esc(x.nome.slice(0, 52)) + '</b>' +
+      h += '<tr class="' + (meu ? 'eu' : '') + '"><td style="cursor:pointer">' +
+        '<b data-item="' + x.id + '">' + esc(x.nome.slice(0, 52)) + '</b>' +
+        (x.link ? ' <a href="' + x.link + '" target="_blank" rel="noopener" title="abrir na Shopee" ' +
+          'style="color:#E63E1B;text-decoration:none;font-size:12px">\u2197</a>' : '') +
         (x.anuncio ? ' <span class="pill p-ads">ads</span>' : '') +
         (meu ? ' <span class="pill p-eu">seu</span>' : '') +
         '<br><span style="color:#6B6355;font-size:12px">' + esc(x.lojaNome || '') +
@@ -638,7 +865,12 @@
     var t = tendencia(x.id);
     var h = '<button class="aba" id="voltar">\u2190 voltar</button>';
     h += '<div class="olho">' + esc(x.lojaNome || '') + '</div>';
-    h += '<div style="font:600 20px Archivo,Arial;letter-spacing:-.02em;margin-bottom:14px">' + esc(x.nome) + '</div>';
+    h += '<div style="font:600 20px Archivo,Arial;letter-spacing:-.02em;margin-bottom:8px">' + esc(x.nome) + '</div>';
+    if (x.link) {
+      h += '<a href="' + x.link + '" target="_blank" rel="noopener" ' +
+        'style="display:inline-block;color:#E63E1B;text-decoration:none;font-size:14px;margin-bottom:14px">' +
+        'Abrir na Shopee \u2197</a>';
+    }
     h += '<div class="cards">' +
       card(num(x.mes), 'VENDAS NO MES') +
       card(num(x.total), 'DESDE SEMPRE') +
@@ -715,6 +947,7 @@
 
   $('abrir').addEventListener('click', function () { $('painel').classList.toggle('on'); });
   $('fechar').addEventListener('click', function () { $('painel').classList.remove('on'); });
+  $('relatorio').addEventListener('click', gerarRelatorio);
   $('ir').addEventListener('click', function () {
     var t = $('termo').value.trim();
     try { console.log('[Mercado] clique no Analisar. termo:', t, '| ja buscando:', E.buscando); } catch (e) { }
@@ -732,6 +965,21 @@
   // traz o historico guardado
   ler('hist_volume').then(function (v) {
     try { E.historico = JSON.parse(v || '{}'); } catch (e) { E.historico = {}; }
+  });
+
+  // e a ultima analise, para nao perder ao fechar
+  ler('ultima_analise').then(function (v) {
+    if (!v || E.itens.length || E.buscando) return;
+    try {
+      var a = JSON.parse(v);
+      if (!a || !a.itens || !a.itens.length) return;
+      E.termo = a.termo; E.itens = a.itens;
+      E.categorias = a.categorias || {};
+      E.minhaLoja = a.minhaLoja || null;
+      E.paginasLidas = a.paginas || 1;
+      E.quando = a.em;
+      desenhar();
+    } catch (e) { }
   });
 
   /* Se a ponte ja nasceu quebrada, avisa antes da pessoa tentar buscar. */
