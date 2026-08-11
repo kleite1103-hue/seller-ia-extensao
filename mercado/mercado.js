@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.2.0';
+  var VERSAO = '1.3.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -167,6 +167,7 @@
     } catch (e) { }
 
     E.itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
+    await nomearLojas();
 
     try {
       console.log('[Mercado] traduzidos:', E.itens.length,
@@ -224,7 +225,10 @@
         ? ('https://shopee.com.br/product/' + it.shopid + '/' + it.itemid)
         : null,
       nome: a.name || b.name || it.display_name || '',
-      lojaNome: sd.shop_name || '',
+      // O nome da loja so vem em item_data.shop_data. Na estrutura
+      // item_basic ele nao existe, e ai fica so o id — que nao serve para
+      // ninguem ler. Quando faltar, buscamos depois pela pagina do produto.
+      lojaNome: sd.shop_name || b.shop_name || d.shop_name || '',
       local: a.shop_location || sd.shop_location || '',
       preco: preco,
       precoAntes: pr.strikethrough_price != null ? pr.strikethrough_price / 100000 : null,
@@ -255,6 +259,32 @@
     };
   }
 
+  /* Quando o nome da loja nao vem na busca, pega das lojas que mais
+     aparecem. Uma chamada por loja, so para as maiores, porque o nome
+     importa mais nos lideres do que na cauda. */
+  async function nomearLojas() {
+    var semNome = {};
+    E.itens.forEach(function (x) {
+      if (x.loja && !x.lojaNome) semNome[x.loja] = (semNome[x.loja] || 0) + 1;
+    });
+    var ids = Object.keys(semNome).sort(function (a, b) { return semNome[b] - semNome[a]; }).slice(0, 12);
+    if (!ids.length) return;
+    E.progresso = 'Buscando o nome das lojas...';
+    desenhar();
+    for (var i = 0; i < ids.length; i++) {
+      var r = await api('/api/v4/shop/get_shop_base?shopid=' + ids[i]);
+      var nome = null;
+      try {
+        var dd = (r.dados && (r.dados.data || r.dados)) || {};
+        nome = dd.name || dd.shop_name || (dd.account && dd.account.username) || null;
+      } catch (e) { }
+      if (nome) {
+        E.itens.forEach(function (x) { if (String(x.loja) === String(ids[i]) && !x.lojaNome) x.lojaNome = nome; });
+      }
+      await espera(200);
+    }
+  }
+
   /* A Shopee entrega a arvore de categorias com o nome em portugues. */
   async function nomearCategorias() {
     var ids = {};
@@ -264,18 +294,28 @@
     // A arvore da vitrine. Se a Shopee mudar o caminho, a tela mostra o
     // numero da categoria em vez de quebrar — categoria e enfeite util,
     // nao a analise.
-    var r = await api('/api/v4/pages/get_category_tree');
-    if (!r.ok || !r.dados || r.dados.error) {
+    // dois caminhos: o da vitrine e o do painel. Se nenhum responder, a
+    // tela mostra o codigo em vez de quebrar.
+    var caminhos = ['/api/v4/pages/get_category_tree', '/api/v4/category_list/get_category_tree'];
+    var lista = null;
+    for (var ci = 0; ci < caminhos.length; ci++) {
+      var r = await api(caminhos[ci]);
+      if (!r.ok || !r.dados || r.dados.error) continue;
+      lista = (r.dados.data && (r.dados.data.category_list || r.dados.data.categories)) ||
+        r.dados.category_list || r.dados.categories || null;
+      if (lista && lista.length) break;
+    }
+    if (!lista || !lista.length) {
       try { console.warn('[Mercado] arvore de categorias indisponivel; mostrando o codigo'); } catch (e) { }
       return;
     }
-    var lista = (r.dados.data && r.dados.data.category_list) || r.dados.category_list || [];
     function percorrer(ns, caminho) {
       for (var i = 0; i < ns.length; i++) {
         var n = ns[i];
-        var nome = n.display_name || n.name || '';
+        var nome = n.display_name || n.name || n.category_name || '';
         if (n.catid) E.categorias[n.catid] = caminho ? caminho + ' > ' + nome : nome;
-        if (n.children && n.children.length) percorrer(n.children, caminho ? caminho + ' > ' + nome : nome);
+        var filhos = n.children || n.sub_category || n.subcategory;
+        if (filhos && filhos.length) percorrer(filhos, caminho ? caminho + ' > ' + nome : nome);
       }
     }
     percorrer(lista, '');
@@ -669,168 +709,290 @@
     if (!R) { alert('Analise um nicho antes de gerar o relatorio.'); return; }
     var ordV = E.itens.filter(function (x) { return x.mes != null; })
       .sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
-    var top = ordV.slice(0, 10);
-    var data = new Date().toLocaleDateString('pt-BR');
+    var top = ordV.slice(0, 10), resto = ordV.slice(10);
+    var C = E.calc || {};
+    var preco = C.preco || R.precoMediano;
+    var c15 = quantoPagar(preco, 15, C.roas || 10, C.imposto || 0, C.embalagem || 0);
+    var c20 = quantoPagar(preco, 20, C.roas || 10, C.imposto || 0, C.embalagem || 0);
 
-    var L = [];
-    L.push('# ' + E.termo.toUpperCase());
-    L.push('');
-    L.push('Analise de ' + data + ' \u00b7 ' + E.itens.length + ' produtos lidos em ' +
-      (E.paginasLidas || 1) + ' pagina(s) de busca.');
-    L.push('');
-    L.push('> **Isto e uma amostra, nao o mercado inteiro.** Os numeros abaixo somam apenas os ');
-    L.push('> ' + E.itens.length + ' produtos que a Shopee mostrou para quem procura por "' + E.termo + '". ');
-    L.push('> Existem outros vendedores alem destes. A leitura tambem vem de uma sessao logada, ');
-    L.push('> e a Shopee personaliza a ordem dos resultados.');
-    L.push('');
-    L.push('## O retrato');
-    L.push('');
-    L.push('| | |');
-    L.push('|---|---|');
-    L.push('| Vendas no mes | ' + num(R.vendas) + ' |');
-    L.push('| Faturamento da amostra | ' + reais(R.faturamento) + ' |');
-    L.push('| Ticket medio | ' + reais(R.ticket) + ' |');
-    L.push('| Faixa de preco | ' + reais(R.precoMin) + ' a ' + reais(R.precoMax) + ' |');
-    L.push('| Preco mediano | ' + reais(R.precoMediano) + ' |');
-    L.push('| Vendedores | ' + R.lojas + ' |');
-    L.push('| Concentracao nos 5 maiores | ' + num(R.concentracao, 0) + '% |');
-    L.push('| Anunciando | ' + R.anuncios + ' de ' + E.itens.length + ' |');
-    L.push('| Sem venda no mes | ' + R.semVenda + ' |');
-    L.push('');
-
-    L.push('## Os 10 que mais vendem');
-    L.push('');
-    L.push('| # | Produto | Vende/mes | Preco | Fatura | Loja |');
-    L.push('|---|---|---|---|---|---|');
-    top.forEach(function (x, i) {
-      var nome = String(x.nome).replace(/\|/g, ' ').slice(0, 60);
-      L.push('| ' + (i + 1) + ' | ' + (x.link ? '[' + nome + '](' + x.link + ')' : nome) + ' | ' +
-        num(x.mes) + ' | ' + reais(x.preco) + ' | ' + (x.fatMes != null ? reais(x.fatMes) : '\u2014') + ' | ' +
-        String(x.lojaNome || '').replace(/\|/g, ' ') + ' |');
-    });
-    L.push('');
-
-    // o que os campeoes tem
-    if (ordV.length >= 10) {
-      var resto = ordV.slice(10);
-      function m(l, c) {
-        var v = l.map(function (y) { return y[c]; }).filter(function (y) { return y != null; });
-        return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
-      }
-      L.push('## O que os campeoes tem de diferente');
-      L.push('');
-      L.push('| | Top 10 | O resto |');
-      L.push('|---|---|---|');
-      var ft = m(top, 'fotos'), fr = m(resto, 'fotos');
-      if (ft && fr) L.push('| Fotos | ' + num(ft, 1) + ' | ' + num(fr, 1) + ' |');
-      var nt = m(top, 'nota'), nr = m(resto, 'nota');
-      if (nt && nr) L.push('| Nota | ' + num(nt, 2) + ' | ' + num(nr, 2) + ' |');
-      var pt = m(top, 'preco'), prr = m(resto, 'preco');
-      if (pt && prr) L.push('| Preco medio | ' + reais(pt) + ' | ' + reais(prr) + ' |');
-      L.push('| Anunciando | ' + top.filter(function (x) { return x.anuncio; }).length + ' de 10 | ' +
-        resto.filter(function (x) { return x.anuncio; }).length + ' de ' + resto.length + ' |');
-      L.push('');
+    function m(l, c) {
+      var v = l.map(function (y) { return y[c]; }).filter(function (y) { return y != null; });
+      return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
+    }
+    function avals(l) {
+      var v = l.map(function (x) { return x.estrelas ? x.estrelas.reduce(function (a, b) { return a + b; }, 0) : null; })
+        .filter(function (x) { return x != null; });
+      return v.length ? v.reduce(function (a, b) { return a + b; }, 0) / v.length : null;
     }
 
-    // da para vender o suficiente
-    var Cr = E.calc || {};
-    var fixoR = numeroPuro(Cr.fixo);
-    if (fixoR > 0) {
-      var precoR = Cr.preco || R.precoMediano;
-      var sr = quantoPagar(precoR, 20, Cr.roas || 10, Cr.imposto || 0, Cr.embalagem || 0);
-      if (sr.viavel) {
-        var precisaR = Math.ceil(fixoR / sr.margem);
-        var liderR = ordV.length ? ordV[0].mes : 0;
-        L.push('## Da para vender o suficiente?');
-        L.push('');
-        L.push('Com custo fixo de ' + reais(fixoR) + ' por mes e margem de ' + reais(sr.margem) + ' por venda,');
-        L.push('este produto precisa vender **' + num(precisaR) + ' por mes** so para empatar.');
-        L.push('');
-        L.push('O lider do nicho faz ' + num(liderR) + ' por mes' +
-          (liderR ? ' \u2014 ou seja, ' + num((precisaR / liderR) * 100, 0) + '% do que ele vende.' : '.'));
-        L.push('');
-        L.push('_Margem de contribuicao nao e lucro: e o que sobra para pagar o custo fixo._');
-        L.push('');
-      }
-    }
-
-    // quanto pagar
-    var precoRel = (E.calc && E.calc.preco) || R.precoMediano;
-    var c15 = quantoPagar(precoRel, 15, (E.calc && E.calc.roas) || 10, (E.calc && E.calc.imposto) || 0, (E.calc && E.calc.embalagem) || 0);
-    var c20 = quantoPagar(precoRel, 20, (E.calc && E.calc.roas) || 10, (E.calc && E.calc.imposto) || 0, (E.calc && E.calc.embalagem) || 0);
-    L.push('## Por quanto comprar');
-    L.push('');
-    L.push('Vendendo a ' + reais(precoRel) + ', com ROAS ' + ((E.calc && E.calc.roas) || 10) + 'x:');
-    L.push('');
-    L.push('| Margem | Pague ate |');
-    L.push('|---|---|');
-    L.push('| 15% (competitivo) | **' + reais(c15.teto) + '** |');
-    L.push('| 20% (saudavel) | **' + reais(c20.teto) + '** |');
-    L.push('');
-    L.push('Descontando comissao ' + reais(c15.comissao) + ', Ads ' + reais(c15.ads) +
-      (c15.imposto ? ', imposto ' + reais(c15.imposto) : '') +
-      (c15.embalagem ? ', embalagem ' + reais(c15.embalagem) : '') + '.');
-    L.push('');
-
-    // os vendedores
+    // lojas
     var LJ = {};
     E.itens.forEach(function (x) {
       if (!x.loja) return;
-      var l = LJ[x.loja] = LJ[x.loja] || { nome: x.lojaNome, itens: 0, mes: 0, fat: 0, local: x.local };
+      var l = LJ[x.loja] = LJ[x.loja] || { nome: x.lojaNome, id: x.loja, itens: 0, mes: 0, fat: 0, local: x.local, precos: [] };
       l.itens++; l.mes += x.mes || 0; l.fat += x.fatMes || 0;
+      if (x.preco) l.precos.push(x.preco);
     });
     var ordL = Object.keys(LJ).map(function (k) { return LJ[k]; }).sort(function (a, b) { return b.fat - a.fat; });
-    L.push('## Quem domina');
-    L.push('');
-    L.push('| Loja | Produtos | Vendas/mes | Faturamento | Onde |');
-    L.push('|---|---|---|---|---|');
-    ordL.slice(0, 10).forEach(function (l) {
-      L.push('| ' + String(l.nome || '?').replace(/\|/g, ' ') + ' | ' + l.itens + ' | ' + num(l.mes) + ' | ' +
-        reais(l.fat) + ' | ' + (l.local || '') + ' |');
-    });
-    L.push('');
 
-    // onde voce esta
-    if (E.minhaLoja) {
-      var meus = E.itens.filter(function (x) { return x.loja === E.minhaLoja; });
-      L.push('## Onde voce esta');
-      L.push('');
-      if (!meus.length) {
-        L.push('Nenhum produto seu apareceu nesta amostra de ' + E.itens.length + ' resultados.');
-      } else {
-        var meuFat = meus.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0);
-        L.push('Voce tem **' + meus.length + '** produto(s) aqui, somando **' + reais(meuFat) + '** por mes \u2014 ' +
-          num(R.faturamento ? (meuFat / R.faturamento) * 100 : 0, 1) + '% da amostra.');
-        L.push('');
-        L.push('| Produto | Posicao | Vende/mes | Preco |');
-        L.push('|---|---|---|---|');
-        meus.forEach(function (x) {
-          var nome = String(x.nome).replace(/\|/g, ' ').slice(0, 50);
-          L.push('| ' + (x.link ? '[' + nome + '](' + x.link + ')' : nome) + ' | ' +
-            (ordV.indexOf(x) + 1) + '\u00ba | ' + num(x.mes) + ' | ' + reais(x.preco) + ' |');
-        });
-      }
-      L.push('');
+    // categorias
+    var cats = {};
+    E.itens.forEach(function (x) { if (x.catid) cats[x.catid] = (cats[x.catid] || 0) + (x.fatMes || 0); });
+    var ordC = Object.keys(cats).sort(function (a, b) { return cats[b] - cats[a]; });
+    var totC = ordC.reduce(function (a, k) { return a + cats[k]; }, 0);
+
+    var meus = E.minhaLoja ? E.itens.filter(function (x) { return x.loja === E.minhaLoja; }) : [];
+    var data = new Date().toLocaleDateString('pt-BR');
+
+    /* HTML e nao markdown: abre no navegador, imprime em PDF com Ctrl+P,
+       e os links funcionam de verdade. Markdown so vira PDF com ferramenta
+       de fora, e ninguem vai instalar uma para ler um relatorio. */
+    function lin(a, b2) { return '<tr><td>' + a + '</td><td class="n">' + b2 + '</td></tr>'; }
+    function linkP(x, corta) {
+      var nome = esc(String(x.nome).slice(0, corta || 70));
+      return x.link ? '<a href="' + x.link + '" target="_blank">' + nome + '</a>' : nome;
     }
 
-    L.push('---');
-    L.push('');
-    L.push('_Gerado pela Seller.IA \u00b7 Analista de Mercado. Os numeros de venda e preco vem da propria Shopee; ' +
-      'o faturamento e a multiplicacao dos dois._');
+    var H = [];
+    H.push('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">');
+    H.push('<title>' + esc(E.termo) + ' · analise de mercado</title>');
+    H.push('<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Outfit:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">');
+    H.push('<style>' +
+      '*{box-sizing:border-box;margin:0;padding:0}' +
+      'body{background:#FDFBF7;color:#2C2A26;font:400 14.5px/1.6 Outfit,Arial;padding:44px 32px 80px}' +
+      '.pag{max-width:860px;margin:0 auto}' +
+      'h1{font:500 34px Archivo,Arial;letter-spacing:-.035em;margin-bottom:6px}' +
+      'h1 em{font-style:normal;color:#EE4D2D}' +
+      'h2{font:500 21px Archivo,Arial;letter-spacing:-.025em;margin:38px 0 12px;padding-top:22px;border-top:1px solid #EAE2D6}' +
+      'h2:first-of-type{border-top:none;padding-top:0}' +
+      '.sub{font:400 10.5px "Space Mono",monospace;letter-spacing:.12em;color:#9C9484;margin-bottom:26px}' +
+      '.aviso{background:#F5F1E9;border:1px dashed #DED5C6;border-radius:16px;padding:14px 18px;font-size:13px;color:#7C7466;margin-bottom:30px;line-height:1.6}' +
+      '.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:8px}' +
+      '.kpi{background:#FFFDFA;border:1px solid #EFE8DC;border-radius:18px;padding:16px 18px}' +
+      '.kpi .r{font:400 9px "Space Mono",monospace;letter-spacing:.1em;color:#9C9484;margin-bottom:7px}' +
+      '.kpi .v{font:300 27px Outfit,Arial;letter-spacing:-.03em;color:#2C2A26}' +
+      'table{width:100%;border-collapse:collapse;background:#FFFDFA;border:1px solid #EFE8DC;border-radius:18px;overflow:hidden;margin-bottom:14px}' +
+      'th{text-align:left;background:#F8F4ED;font:400 9px "Space Mono",monospace;letter-spacing:.09em;color:#9C9484;padding:11px 16px;border-bottom:1px solid #EFE8DC}' +
+      'td{padding:12px 16px;border-bottom:1px solid #F3EEE5;font-size:14px;vertical-align:top}' +
+      'tr:last-child td{border-bottom:none}' +
+      'td.n{text-align:right;font:400 11.5px "Space Mono",monospace;white-space:nowrap}' +
+      'td small{display:block;font:400 10px "Space Mono",monospace;color:#9C9484;margin-top:3px}' +
+      'a{color:#EE4D2D;text-decoration:none}a:hover{text-decoration:underline}' +
+      '.nota{background:#FFFDFA;border:1px solid #EFE8DC;border-radius:16px;padding:14px 18px;font-size:13.5px;color:#4A4238;line-height:1.65;margin-bottom:14px}' +
+      '.leitura{background:#FFF4EF;border-left:3px solid #EE4D2D;border-radius:0 16px 16px 0;padding:16px 20px;font-size:14.5px;line-height:1.7;margin-bottom:14px}' +
+      '.bom{color:#1F8A5F}.ruim{color:#D64545}.aten{color:#C98A1E}' +
+      '.rod{margin-top:44px;padding-top:20px;border-top:1px solid #EAE2D6;font-size:12px;color:#9C9484;line-height:1.6}' +
+      '.imprimir{position:fixed;top:20px;right:20px;background:#EE4D2D;color:#fff;border:none;font:500 14px Outfit,Arial;padding:12px 24px;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(238,77,45,.3)}' +
+      '@media print{.imprimir{display:none}body{padding:0;background:#fff}h2{page-break-after:avoid}table{page-break-inside:avoid}}' +
+      '</style></head><body>');
+    H.push('<button class="imprimir" onclick="window.print()">Salvar em PDF</button>');
+    H.push('<div class="pag">');
+    H.push('<h1>' + esc(E.termo) + '<em>.</em></h1>');
+    H.push('<div class="sub">ANÁLISE DE MERCADO · ' + data + ' · SELLER.IA</div>');
 
-    var texto = L.join('\n');
+    H.push('<div class="aviso">Esta leitura cobre <b>' + E.itens.length + ' produtos</b> em ' +
+      (E.paginasLidas || 1) + ' página(s) da busca por &ldquo;' + esc(E.termo) + '&rdquo;. ' +
+      'É uma amostra do que a Shopee mostra a quem procura, não o nicho inteiro. ' +
+      'Os números de venda e preço vêm da própria Shopee; o faturamento é a multiplicação dos dois.</div>');
+
+    // ---- o retrato ----
+    H.push('<h2>O retrato</h2>');
+    H.push('<div class="kpis">' +
+      '<div class="kpi"><div class="r">VENDAS NO MÊS</div><div class="v">' + num(R.vendas) + '</div></div>' +
+      '<div class="kpi"><div class="r">FATURAMENTO</div><div class="v">' + reais(R.faturamento) + '</div></div>' +
+      '<div class="kpi"><div class="r">TICKET MÉDIO</div><div class="v">' + reais(R.ticket) + '</div></div>' +
+      '<div class="kpi"><div class="r">VENDEDORES</div><div class="v">' + R.lojas + '</div></div>' +
+      '</div>');
+    H.push('<table><tr><th>O QUE</th><th style="text-align:right">QUANTO</th></tr>' +
+      lin('Faixa de preço', reais(R.precoMin) + ' a ' + reais(R.precoMax)) +
+      lin('Preço médio', reais(R.precoMediano)) +
+      lin('Concentração nos 5 maiores', num(R.concentracao, 0) + '% do faturamento') +
+      lin('Pagando anúncio', R.anuncios + ' de ' + E.itens.length + ' (' + num((R.anuncios / E.itens.length) * 100, 0) + '%)') +
+      lin('Sem nenhuma venda no mês', R.semVenda + ' produtos') +
+      '</table>');
+
+    var recado = [];
+    if (R.concentracao > 70) recado.push('O nicho é <b>dominado</b>: cinco lojas ficam com ' + num(R.concentracao, 0) + '% de tudo. Entrar exige preço ou diferencial forte.');
+    else if (R.concentracao < 45) recado.push('O nicho é <b>pulverizado</b>: ninguém manda sozinho, e um produto bem feito encontra lugar.');
+    else recado.push('Há líderes, mas o bolo se divide. Dá para pegar espaço sem enfrentar o primeiro.');
+    var pctA = (R.anuncios / E.itens.length) * 100;
+    if (pctA < 15) recado.push('Só ' + num(pctA, 0) + '% pagam anúncio, então dá para aparecer no orgânico.');
+    else if (pctA > 35) recado.push(num(pctA, 0) + '% pagam anúncio: sem investir, dificilmente você aparece.');
+    if (R.semVenda > E.itens.length * 0.25) recado.push('<b>' + R.semVenda + ' produtos não venderam nada no mês</b>, o que mostra que estar na busca não garante venda.');
+    H.push('<div class="leitura">' + recado.join(' ') + '</div>');
+
+    // ---- os dez ----
+    H.push('<h2>Os dez que mais vendem</h2>');
+    H.push('<table><tr><th>#</th><th>PRODUTO</th><th style="text-align:right">VENDE/MÊS</th>' +
+      '<th style="text-align:right">PREÇO</th><th style="text-align:right">FATURA</th></tr>');
+    top.forEach(function (x, i2) {
+      H.push('<tr><td class="n">' + (i2 + 1) + '</td>' +
+        '<td>' + linkP(x, 62) + '<small>' + esc(x.lojaNome || ('loja ' + x.loja)) +
+        (x.local ? ' · ' + esc(x.local) : '') + (x.anuncio ? ' · ANÚNCIO' : '') + '</small></td>' +
+        '<td class="n">' + num(x.mes) + '</td><td class="n">' + reais(x.preco) + '</td>' +
+        '<td class="n">' + (x.fatMes != null ? reais(x.fatMes) : '—') + '</td></tr>');
+    });
+    H.push('</table>');
+    H.push('<div class="nota">Clique no nome para abrir o anúncio na Shopee.</div>');
+
+    // ---- o que eles tem de diferente ----
+    if (resto.length) {
+      H.push('<h2>O que os campeões têm de diferente</h2>');
+      H.push('<table><tr><th>O QUE</th><th style="text-align:right">OS 10 PRIMEIROS</th>' +
+        '<th style="text-align:right">OS OUTROS ' + resto.length + '</th><th style="text-align:right">DIFERENÇA</th></tr>');
+      function linC(rot, a, b2, f) {
+        if (a == null || b2 == null) return;
+        var dif = b2 ? ((a - b2) / b2) * 100 : 0;
+        var cls = Math.abs(dif) < 8 ? '' : dif > 0 ? 'bom' : 'ruim';
+        H.push('<tr><td>' + rot + '</td><td class="n">' + f(a) + '</td><td class="n">' + f(b2) + '</td>' +
+          '<td class="n ' + cls + '">' + (dif > 0 ? '+' : '') + num(dif, 0) + '%</td></tr>');
+      }
+      linC('Quantas fotos o anúncio tem', m(top, 'fotos'), m(resto, 'fotos'), function (v) { return num(v, 1) + ' fotos'; });
+      linC('Nota do produto', m(top, 'nota'), m(resto, 'nota'), function (v) { return num(v, 2) + ' de 5'; });
+      linC('Quantas pessoas avaliaram', avals(top), avals(resto), function (v) { return num(v, 0); });
+      linC('Preço cobrado', m(top, 'preco'), m(resto, 'preco'), function (v) { return reais(v); });
+      H.push('<tr><td>Quantos pagam anúncio</td><td class="n">' + top.filter(function (x) { return x.anuncio; }).length + ' de 10</td>' +
+        '<td class="n">' + resto.filter(function (x) { return x.anuncio; }).length + ' de ' + resto.length + '</td><td></td></tr>');
+      H.push('</table>');
+
+      var dif2 = [];
+      var ft = m(top, 'fotos'), fr = m(resto, 'fotos');
+      if (ft && fr && Math.abs(ft - fr) / fr > 0.15) dif2.push('os campeões usam <b>' + num(ft, 1) + ' fotos</b> contra ' + num(fr, 1) + ' dos outros');
+      var at = avals(top), ar = avals(resto);
+      if (at && ar && at > ar * 1.5) dif2.push('têm <b>' + num(at, 0) + ' avaliações</b> em média, contra ' + num(ar, 0));
+      var pt = m(top, 'preco'), pr2 = m(resto, 'preco');
+      if (pt && pr2 && Math.abs(pt - pr2) / pr2 > 0.15) dif2.push('vendem <b>' + (pt > pr2 ? 'mais caro' : 'mais barato') + '</b>, ' + reais(pt) + ' contra ' + reais(pr2));
+      if (dif2.length) {
+        var fr2 = dif2.join(', ');
+        H.push('<div class="leitura">' + fr2.charAt(0).toUpperCase() + fr2.slice(1) + '.</div>');
+      }
+    }
+
+    // ---- quem domina ----
+    H.push('<h2>Quem domina</h2>');
+    H.push('<table><tr><th>LOJA</th><th style="text-align:right">PRODUTOS</th>' +
+      '<th style="text-align:right">VENDE/MÊS</th><th style="text-align:right">FATURAMENTO</th>' +
+      '<th style="text-align:right">FATIA</th></tr>');
+    ordL.slice(0, 12).forEach(function (l) {
+      H.push('<tr><td>' + esc(l.nome || ('loja ' + l.id)) +
+        '<small>' + (l.local || '') + (l.id === E.minhaLoja ? ' · VOCÊ' : '') + '</small></td>' +
+        '<td class="n">' + l.itens + '</td><td class="n">' + num(l.mes) + '</td>' +
+        '<td class="n">' + reais(l.fat) + '</td>' +
+        '<td class="n">' + num(R.faturamento ? (l.fat / R.faturamento) * 100 : 0, 1) + '%</td></tr>');
+    });
+    H.push('</table>');
+
+    // ---- categorias ----
+    if (ordC.length > 1) {
+      H.push('<h2>Onde o dinheiro está</h2>');
+      H.push('<table><tr><th>CATEGORIA</th><th style="text-align:right">FATURAMENTO</th><th style="text-align:right">FATIA</th></tr>');
+      ordC.slice(0, 8).forEach(function (k) {
+        H.push('<tr><td>' + esc(E.categorias[k] || 'categoria sem nome') + '<small>' + esc(k) + '</small></td>' +
+          '<td class="n">' + reais(cats[k]) + '</td><td class="n">' + num((cats[k] / totC) * 100, 0) + '%</td></tr>');
+      });
+      H.push('</table>');
+    }
+
+    // ---- quanto pagar ----
+    H.push('<h2>Por quanto comprar</h2>');
+    H.push('<div class="nota">Partindo de um preço de venda de <b>' + reais(preco) + '</b>, com ROAS de ' +
+      (C.roas || 10) + 'x' + (C.imposto ? ', imposto de ' + num(C.imposto, 0) + '%' : '') +
+      (C.embalagem ? ' e embalagem de ' + reais(C.embalagem) : '') + '.</div>');
+    H.push('<div class="kpis">' +
+      '<div class="kpi"><div class="r">MARGEM 15% · COMPETITIVO</div><div class="v ' + (c15.viavel ? '' : 'ruim') + '">' +
+      (c15.viavel ? reais(c15.teto) : 'não fecha') + '</div></div>' +
+      '<div class="kpi"><div class="r">MARGEM 20% · SAUDÁVEL</div><div class="v ' + (c20.viavel ? '' : 'ruim') + '">' +
+      (c20.viavel ? reais(c20.teto) : 'não fecha') + '</div></div>' +
+      '</div>');
+    H.push('<table><tr><th>DE ONDE SAI CADA REAL</th><th style="text-align:right">QUANTO</th></tr>' +
+      lin('Preço de venda', reais(preco)) +
+      lin('Comissão da Shopee', '− ' + reais(c20.comissao)) +
+      lin('Anúncio, a ROAS ' + (C.roas || 10) + 'x', '− ' + reais(c20.ads)) +
+      (c20.imposto ? lin('Imposto', '− ' + reais(c20.imposto)) : '') +
+      (c20.embalagem ? lin('Embalagem', '− ' + reais(c20.embalagem)) : '') +
+      lin('Margem de 20%', '− ' + reais(c20.margem)) +
+      lin('<b>Sobra para o produto</b>', '<b>' + reais(c20.teto) + '</b>') +
+      '</table>');
+
+    // ---- da para vender o suficiente ----
+    var fixo = numeroPuro(C.fixo);
+    if (fixo > 0 && c20.viavel) {
+      var precisa = Math.ceil(fixo / c20.margem);
+      var lider = ordV.length ? ordV[0].mes : 0;
+      var med = ordV.length ? ordV[Math.floor(ordV.length / 2)].mes : 0;
+      H.push('<h2>Dá para vender o suficiente?</h2>');
+      H.push('<div class="kpis">' +
+        '<div class="kpi"><div class="r">VENDAS/MÊS SÓ PARA EMPATAR</div><div class="v">' + num(precisa) + '</div></div>' +
+        '<div class="kpi"><div class="r">O LÍDER FAZ</div><div class="v">' + num(lider) + '</div></div>' +
+        '<div class="kpi"><div class="r">A MÉDIA FAZ</div><div class="v">' + num(med) + '</div></div>' +
+        '</div>');
+      var pct2 = lider ? (precisa / lider) * 100 : null;
+      H.push('<div class="leitura">Com um custo fixo de <b>' + reais(fixo) + '</b> por mês e margem de ' +
+        reais(c20.margem) + ' por venda, este produto precisa vender <b>' + num(precisa) + ' por mês</b> só para empatar' +
+        (pct2 != null ? ', o que é <b>' + num(pct2, 0) + '% do que o líder vende</b>. ' : '. ') +
+        (pct2 != null && pct2 > 100
+          ? 'Ou seja, <b class="ruim">mais que o líder do nicho</b>. Sozinho, este produto não paga a operação.'
+          : pct2 != null && pct2 > 60
+            ? 'É possível, mas exige chegar perto do topo.'
+            : 'Cabe sem precisar liderar.') +
+        '<br><br>Lembrando que margem de contribuição não é lucro: é o que sobra para pagar o custo fixo. O lucro vem depois.</div>');
+    }
+
+    // ---- onde voce esta ----
+    if (E.minhaLoja) {
+      H.push('<h2>Onde você está</h2>');
+      if (!meus.length) {
+        H.push('<div class="leitura">Nenhum produto seu apareceu nesta amostra de ' + E.itens.length +
+          ' resultados. Ou você não vende neste nicho, ou seus itens estão além da terceira página, que na prática é o mesmo que não aparecer.</div>');
+      } else {
+        var meuFat = meus.reduce(function (a, b2) { return a + (b2.fatMes || 0); }, 0);
+        var meuMes = meus.reduce(function (a, b2) { return a + (b2.mes || 0); }, 0);
+        H.push('<div class="kpis">' +
+          '<div class="kpi"><div class="r">SEUS PRODUTOS AQUI</div><div class="v">' + meus.length + '</div></div>' +
+          '<div class="kpi"><div class="r">SUAS VENDAS/MÊS</div><div class="v">' + num(meuMes) + '</div></div>' +
+          '<div class="kpi"><div class="r">SEU FATURAMENTO</div><div class="v">' + reais(meuFat) + '</div></div>' +
+          '<div class="kpi"><div class="r">FATIA DA AMOSTRA</div><div class="v">' +
+          num(R.faturamento ? (meuFat / R.faturamento) * 100 : 0, 1) + '%</div></div></div>');
+        H.push('<table><tr><th>SEU PRODUTO</th><th style="text-align:right">POSIÇÃO</th>' +
+          '<th style="text-align:right">VENDE/MÊS</th><th style="text-align:right">PREÇO</th></tr>');
+        meus.forEach(function (x) {
+          H.push('<tr><td>' + linkP(x, 54) + '</td>' +
+            '<td class="n">' + (ordV.indexOf(x) + 1) + 'º de ' + ordV.length + '</td>' +
+            '<td class="n">' + num(x.mes) + '</td><td class="n">' + reais(x.preco) + '</td></tr>');
+        });
+        H.push('</table>');
+      }
+    }
+
+    // ---- a leitura da IA, se houver ----
+    if (E.consulta) {
+      H.push('<h2>A leitura</h2>');
+      H.push('<div class="nota">' + esc(E.consulta)
+        .replace(/^## (.+)$/gm, '<b style="display:block;margin:14px 0 6px;font-size:15px">$1</b>')
+        .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+        .replace(/\n\n/g, '<br><br>') + '</div>');
+    }
+
+    H.push('<div class="rod"><b>Seller.IA · Analista de Mercado</b><br>' +
+      'Volume de venda e preço vêm da Shopee. O faturamento é a multiplicação dos dois. ' +
+      'A leitura cobre ' + E.itens.length + ' produtos da busca por &ldquo;' + esc(E.termo) + '&rdquo;, não o nicho inteiro.<br>' +
+      'Para salvar em PDF, use o botão no topo ou Ctrl+P.</div>');
+    H.push('</div></body></html>');
+
     try {
-      var blob = new Blob([texto], { type: 'text/markdown;charset=utf-8' });
+      var blob = new Blob([H.join('\n')], { type: 'text/html;charset=utf-8' });
       var url = URL.createObjectURL(blob);
-      var a2 = document.createElement('a');
-      a2.href = url;
-      a2.download = 'mercado-' + E.termo.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-' +
-        new Date().toISOString().slice(0, 10) + '.md';
-      document.documentElement.appendChild(a2);
-      a2.click(); a2.remove();
-      setTimeout(function () { URL.revokeObjectURL(url); }, 20000);
+      var w2 = window.open(url, '_blank');
+      if (!w2) {
+        var a2 = document.createElement('a');
+        a2.href = url;
+        a2.download = 'mercado-' + E.termo.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-' +
+          new Date().toISOString().slice(0, 10) + '.html';
+        document.documentElement.appendChild(a2); a2.click(); a2.remove();
+      }
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
     } catch (e) {
-      alert('Nao consegui gerar o arquivo: ' + e.message);
+      alert('Nao consegui gerar o relatorio: ' + e.message);
     }
   }
 
@@ -858,7 +1020,7 @@
      a coleta terminar com sucesso, que e o pior momento para quebrar. */
   function olho(titulo, ajuda) {
     var h = '<div class="olho">' + esc(titulo) + '</div>';
-    if (ajuda) h += '<div style="font-size:13.5px;color:var(--tx2);line-height:1.6;margin:-6px 0 12px">' + ajuda + '</div>';
+    if (ajuda) h += '<div style="font-size:14px;color:var(--tx2);line-height:1.65;margin:-4px 0 13px">' + ajuda + '</div>';
     return h;
   }
 
@@ -969,19 +1131,21 @@
     '.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:12px}' +
     '.kpi{background:var(--surf);border:1px solid var(--bd2);border-radius:20px;padding:16px 18px}' +
     '.kpi .r{font:400 9px "Space Mono",monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px}' +
-    '.kpi .n{font:400 24px Outfit,Arial;letter-spacing:-.03em;color:var(--tx1);line-height:1}' +
+    '.kpi .n{font:400 30px Outfit,Arial;letter-spacing:-.035em;color:var(--tx1);line-height:1}' +
     '.kpi .o{font-size:12px;color:var(--tx5);margin-top:5px}' +
-    '.heroi{font:300 42px Outfit,Arial;letter-spacing:-.04em;color:var(--tx1);line-height:1}' +
+    '.heroi{font:300 46px Outfit,Arial;letter-spacing:-.045em;color:var(--tx1);line-height:1}' +
 
     /* tabela */
     '.tab{background:var(--surf);border:1px solid var(--bd2);border-radius:22px;overflow:hidden;margin-bottom:12px}' +
     'table{width:100%;border-collapse:collapse}' +
     'th{text-align:left;background:var(--fill);font:400 9px "Space Mono",monospace;letter-spacing:.09em;' +
       'color:var(--tx6);padding:11px 18px;border-bottom:1px solid var(--bd2);white-space:nowrap}' +
-    'td{padding:13px 18px;border-bottom:1px solid var(--bd5);font-size:14px;color:var(--tx1);vertical-align:top}' +
+    'td{padding:13px 18px;border-bottom:1px solid var(--bd5);font-size:14.5px;color:var(--tx1);vertical-align:top}' +
     'tr:last-child td{border-bottom:none}' +
-    'tbody tr:hover td{background:var(--fill)}' +
-    '.num{text-align:right;font-family:"Space Mono",monospace;font-size:11.5px;white-space:nowrap}' +
+    /* linhas alternadas: com trinta linhas na tela, o olho perde a fila */
+    'tr:nth-child(even) td{background:var(--fill2)}' +
+    'tbody tr:hover td{background:var(--tintO)}' +
+    '.num{text-align:right;font-family:"Space Mono",monospace;font-size:12.5px;color:var(--tx1);white-space:nowrap}' +
     '.sub2{font:400 10px "Space Mono",monospace;color:var(--tx6);margin-top:3px;display:block}' +
     '.eu td{background:var(--tintG)!important}' +
     '.rodape{font-size:12.5px;color:var(--tx4);padding:12px 18px;background:var(--fill2);line-height:1.55}' +
@@ -1007,7 +1171,7 @@
       'font:400 13.5px Outfit,Arial;padding:11px 20px;border-radius:14px;cursor:pointer}' +
     'button.sec:hover{border-color:#EE4D2D;color:#EE4D2D}' +
 
-    '.nota{font-size:13.5px;color:var(--tx2);line-height:1.6;background:var(--surf);' +
+    '.nota{font-size:14.5px;color:var(--tx1);line-height:1.65;background:var(--surf);' +
       'border:1px solid var(--bd2);border-radius:18px;padding:14px 17px;margin-bottom:12px}' +
     '.aviso{background:var(--fill2);border:1px dashed var(--bd6);border-radius:18px;' +
       'padding:12px 16px;font-size:12.5px;color:var(--tx4);line-height:1.55;margin-bottom:16px}' +
@@ -1098,7 +1262,7 @@
      a pessoa para de ler. Uma linha, sempre visivel. */
   function avisoSessao() {
     return '<div class="aviso">Amostra de <b>' + E.itens.length + '</b> produtos lidos na busca por ' +
-      '<b>' + esc(E.termo) + '</b>, nao o nicho inteiro. Os totais somam apenas estes.</div>';
+      '<b>' + esc(E.termo) + '</b>, não o nicho inteiro.</div>';
   }
 
   function viewNicho() {
@@ -1106,37 +1270,37 @@
     if (!R) return avisoSessao() + '<div class="vazio">A Shopee nao devolveu volume de venda nesta busca. Confira se voce esta logada.</div>';
     var h = avisoSessao();
     h += '<div class="cards">' +
-      card(num(R.vendas), 'VENDAS NO MES') +
+      card(num(R.vendas), 'VENDAS NO MÊS') +
       card(reais(R.faturamento).replace('R$ ', 'R$'), 'DESTES ' + R.itens + ' PRODUTOS') +
-      card(reais(R.ticket), 'TICKET MEDIO') +
+      card(reais(R.ticket), 'TICKET MÉDIO') +
       card(R.lojas, 'VENDEDORES') +
-      card(R.anuncios + '/' + E.itens.length, 'SAO ANUNCIO') +
-      card(R.semVenda, 'SEM VENDA NO MES') +
+      card(R.anuncios + '/' + E.itens.length, 'SÃO ANÚNCIO') +
+      card(R.semVenda, 'SEM VENDA NO MÊS') +
       '</div>';
 
-    h += '<div class="olho">A FAIXA DE PRECO</div>';
+    h += '<div class="olho">A FAIXA DE PREÇO</div>';
     h += '<div class="nota">De <b>' + reais(R.precoMin) + '</b> a <b>' + reais(R.precoMax) + '</b>, com a mediana em <b>' + reais(R.precoMediano) + '</b>.<br>' +
-      'O ticket medio de <b>' + reais(R.ticket) + '</b> e onde o dinheiro realmente esta \u2014 ' +
+      'O ticket médio de <b>' + reais(R.ticket) + '</b> é onde o dinheiro realmente está \u2014 ' +
       (R.ticket > R.precoMediano
-        ? 'acima da media, o que significa que os produtos mais caros puxam o volume.'
-        : 'abaixo da media, o que significa que o barato e quem vende.') + '</div>';
+        ? 'acima da média, ou seja, os produtos mais caros puxam o volume.'
+        : 'abaixo da média, ou seja, o barato é quem vende.') + '</div>';
 
-    h += '<div class="olho">CONCENTRACAO</div>';
-    h += '<div class="nota">Os <b>5 maiores</b> ficam com <b>' + num(R.concentracao, 0) + '%</b> do faturamento do nicho.<br>' +
+    h += '<div class="olho">CONCENTRAÇÃO</div>';
+    h += '<div class="nota">Os <b>5 maiores</b> ficam com <b>' + num(R.concentracao, 0) + '%</b> do faturamento desta amostra.<br>' +
       (R.concentracao > 70
-        ? 'Nicho dominado: entrar exige preco ou diferencial forte, porque o comprador ja tem para quem olhar.'
+        ? 'Nicho dominado. Entrar exige preço ou diferencial forte, porque o comprador já tem para quem olhar.'
         : R.concentracao > 45
-          ? 'Ha lideres, mas o bolo se divide. Da para pegar espaco sem enfrentar o primeiro.'
-          : 'Nicho pulverizado: ninguem manda sozinho, e um produto bem feito encontra lugar.') + '</div>';
+          ? 'Há líderes, mas o bolo se divide. Dá para pegar espaço sem enfrentar o primeiro.'
+          : 'Nicho pulverizado. Ninguém manda sozinho, e um produto bem feito encontra lugar.') + '</div>';
 
     var pctAds = (R.anuncios / E.itens.length) * 100;
-    h += '<div class="olho">QUANTO DO TOPO E PAGO</div>';
-    h += '<div class="nota"><b>' + R.anuncios + ' de ' + E.itens.length + '</b> resultados sao anuncio (' + num(pctAds, 0) + '%).<br>' +
+    h += '<div class="olho">QUANTO DO TOPO É PAGO</div>';
+    h += '<div class="nota"><b>' + R.anuncios + ' de ' + E.itens.length + '</b> resultados são anúncio (' + num(pctAds, 0) + '%).<br>' +
       (pctAds < 15
-        ? 'Pouca gente anunciando: da para aparecer organicamente, e quem anunciar tem pouca disputa.'
+        ? 'Pouca gente anunciando. Dá para aparecer organicamente, e quem anunciar tem pouca disputa.'
         : pctAds < 35
-          ? 'Disputa moderada. Anuncio ajuda, mas o organico ainda entrega.'
-          : 'Muita gente pagando. Sem anuncio, dificilmente voce aparece nas primeiras posicoes.') + '</div>';
+          ? 'Disputa moderada. O anúncio ajuda, mas o orgânico ainda entrega.'
+          : 'Muita gente pagando. Sem anúncio, dificilmente você aparece nas primeiras posições.') + '</div>';
 
     // O que os campeoes tem que os outros nao tem
     var ordV = E.itens.filter(function (x) { return x.mes != null; })
@@ -1158,8 +1322,8 @@
       var avT = avals(topo), avR = avals(resto);
       var adsT = topo.filter(function (x) { return x.anuncio; }).length;
 
-      h += olho('O QUE OS 10 MAIS VENDIDOS TEM DE DIFERENTE',
-        'A media de cada coisa entre os dez que mais vendem, contra a media de todo o resto. Onde a diferenca passa de 15%, ha algo a copiar.');
+      h += olho('O QUE OS 10 MAIS VENDIDOS TÊM DE DIFERENTE',
+        'A média de cada coisa entre os dez que mais vendem, comparada com a média de todo o resto. Onde a diferença passa de 15%, há algo a copiar.');
       h += '<table><tr><th></th><th class="num">TOP 10</th><th class="num">O RESTO</th><th class="num">DIFERENCA</th></tr>';
       function linhaC(rot, a, b, fmt) {
         if (a == null || b == null) return '';
@@ -1168,13 +1332,16 @@
           '<td class="num" style="color:' + (Math.abs(dif) < 8 ? 'var(--tx3)' : dif > 0 ? '#1F8A5F' : '#D64545') + '">' +
           (dif > 0 ? '+' : '') + num(dif, 0) + '%</td></tr>';
       }
-      h += linhaC('Fotos por anuncio', fotoT, fotoR, function (v) { return num(v, 1); });
-      h += linhaC('Nota media', notaT, notaR, function (v) { return num(v, 2); });
-      h += linhaC('Avaliacoes por produto', avT, avR, function (v) { return num(v, 0); });
-      h += linhaC('Preco medio', precoT, precoR, function (v) { return reais(v); });
-      h += '<tr><td>Anunciando</td><td class="num">' + adsT + ' de 10</td>' +
+      h += linhaC('Quantas fotos o anúncio tem', fotoT, fotoR, function (v) { return num(v, 1) + ' fotos'; });
+      h += linhaC('Nota do produto', notaT, notaR, function (v) { return num(v, 2) + ' de 5'; });
+      h += linhaC('Quantas pessoas avaliaram', avT, avR, function (v) { return num(v, 0); });
+      h += linhaC('Preço cobrado', precoT, precoR, function (v) { return reais(v); });
+      h += '<tr><td>Quantos pagam anúncio</td><td class="num">' + adsT + ' de 10</td>' +
         '<td class="num">' + resto.filter(function (x) { return x.anuncio; }).length + ' de ' + resto.length + '</td><td></td></tr>';
       h += '</table>';
+      h += '<div class="rodape" style="margin:-12px 0 12px;border-radius:0 0 22px 22px">' +
+        'Cada linha é a <b>média</b> dos dez que mais vendem, ao lado da média de todos os outros. ' +
+        'A última coluna diz o quanto os campeões estão acima ou abaixo. Diferenças pequenas, abaixo de 8%, aparecem em cinza porque não significam nada.</div>';
 
       var recado = [];
       if (fotoT && fotoR && fotoT > fotoR * 1.15) recado.push('os campeoes tem <b>' + num(fotoT, 1) + ' fotos</b> contra ' + num(fotoR, 1) + ' do resto');
@@ -1214,7 +1381,7 @@
       if (E.ordem === 'total') return (b.total || 0) - (a.total || 0);
       return (b.mes || 0) - (a.mes || 0);
     });
-    var h = '<div class="olho">' + I.length + ' PRODUTOS \u00b7 TOQUE NA COLUNA PARA ORDENAR</div>';
+    var h = '<div class="olho">' + I.length + ' PRODUTOS · TOQUE NA COLUNA PARA ORDENAR</div>';
     h += '<table><tr><th>PRODUTO</th><th class="num" data-ord="mes">MES</th>' +
       '<th class="num" data-ord="total">TOTAL</th><th class="num" data-ord="preco">PRECO</th>' +
       '<th class="num" data-ord="fat">FATURA</th><th class="num">30 DIAS</th></tr>';
@@ -1255,7 +1422,7 @@
     });
     var ord = Object.keys(L).map(function (k) { return L[k]; })
       .sort(function (a, b) { return b.fat - a.fat; });
-    var h = '<div class="olho">' + ord.length + ' VENDEDORES NESTE NICHO</div>';
+    var h = '<div class="olho">' + ord.length + ' VENDEDORES NESTA AMOSTRA</div>';
     h += '<table><tr><th>LOJA</th><th class="num">PRODUTOS</th><th class="num">VENDAS/MES</th>' +
       '<th class="num">FATURAMENTO</th><th class="num">PRECO MEDIO</th></tr>';
     ord.slice(0, 40).forEach(function (l) {
@@ -1274,7 +1441,7 @@
   }
 
   function viewConsultor() {
-    var h = olho('O QUE ESTES NUMEROS DIZEM',
+    var h = olho('O QUE ESTES NÚMEROS DIZEM',
       'A leitura le os numeros que ja estao na tela e diz o que fazer com eles. As contas continuam sendo do sistema \u2014 a IA nao calcula, porque conta errada ninguem confere.');
 
     if (E.consultando) {
@@ -1322,12 +1489,12 @@
 
     var h = '<div class="cards">' +
       card(meus.length, 'SEUS PRODUTOS AQUI') +
-      card(num(meuMes), 'SUAS VENDAS/MES') +
+      card(num(meuMes), 'SUAS VENDAS/MÊS') +
       card(reais(meuFat), 'SEU FATURAMENTO') +
-      card(num(R.faturamento ? (meuFat / R.faturamento) * 100 : 0, 1) + '%', 'DO NICHO') +
+      card(num(R.faturamento ? (meuFat / R.faturamento) * 100 : 0, 1) + '%', 'DA AMOSTRA') +
       '</div>';
 
-    h += '<div class="olho">ONDE CADA UM ESTA</div><table>' +
+    h += '<div class="olho">ONDE CADA UM ESTÁ</div><table>' +
       '<tr><th>SEU PRODUTO</th><th class="num">POSICAO</th><th class="num">VENDE</th><th class="num">O 1o VENDE</th><th class="num">PRECO</th></tr>';
     var lider = todos[0];
     meus.forEach(function (x) {
@@ -1366,7 +1533,7 @@
         'Abrir na Shopee \u2197</a>';
     }
     h += '<div class="cards">' +
-      card(num(x.mes), 'VENDAS NO MES') +
+      card(num(x.mes), 'VENDAS NO MÊS') +
       card(num(x.total), 'DESDE SEMPRE') +
       card(reais(x.preco), 'PRECO') +
       card(x.fatMes != null ? reais(x.fatMes) : '\u2014', 'FATURA POR MES') +
@@ -1398,7 +1565,7 @@
       var dias = Math.max(1, Math.round((Date.now() / 1000 - x.cadastro) / 86400));
       var porDia = x.total / dias;
       var agora = (x.mes || 0) / 30;
-      h += '<div class="olho">ESTA ACELERANDO OU CAINDO?</div>';
+      h += '<div class="olho">ESTÁ ACELERANDO OU CAINDO?</div>';
       h += '<div class="nota">Desde que o anuncio foi criado, vende <b>' + num(porDia, 1) + '</b> por dia na media. ' +
         'Agora vende <b>' + num(agora, 1) + '</b> por dia.<br>' +
         (agora > porDia * 1.3
@@ -1411,7 +1578,7 @@
     if (x.estrelas && x.estrelas.length >= 6) {
       var tot = x.estrelas.reduce(function (a, b) { return a + b; }, 0);
       var ruins = (x.estrelas[1] || 0) + (x.estrelas[2] || 0);
-      h += '<div class="olho">O QUE DIZEM</div>';
+      h += '<div class="olho">O QUE OS COMPRADORES DIZEM</div>';
       h += '<div class="barra">';
       for (var e = 5; e >= 1; e--) {
         var q = x.estrelas[e] || 0;
