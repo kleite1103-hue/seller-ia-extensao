@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.9.2';
+  var VERSAO = '1.9.3';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -1026,29 +1026,6 @@
         '<td class="n">' + num(R.faturamento ? (l.fat / R.faturamento) * 100 : 0, 1) + '%</td></tr>');
     });
     H.push('</table>');
-
-    // ---- em que preco o dinheiro esta ----
-    var comPr = E.itens.filter(function (x) { return x.preco && x.mes != null; });
-    if (comPr.length >= 8) {
-      var psR = comPr.map(function (x) { return x.preco; }).sort(function (a, b) { return a - b; });
-      var loR = psR[0], hiR = psR[psR.length - 1];
-      H.push('<h2>Em que preço o dinheiro está</h2>');
-      H.push('<table><tr><th>FAIXA</th><th style="text-align:right">PRODUTOS</th>' +
-        '<th style="text-align:right">VENDE/MÊS</th><th style="text-align:right">FATURA</th>' +
-        '<th style="text-align:right">FATIA</th></tr>');
-      for (var fj = 0; fj < 4; fj++) {
-        var deR = loR + ((hiR - loR) / 4) * fj;
-        var ateR = fj === 3 ? hiR + 0.01 : loR + ((hiR - loR) / 4) * (fj + 1);
-        var dtr = comPr.filter(function (x) { return x.preco >= deR && x.preco < ateR; });
-        var fatR = dtr.reduce(function (a, b2) { return a + (b2.fatMes || 0); }, 0);
-        H.push('<tr><td>' + reais(deR) + ' a ' + reais(ateR) + '</td>' +
-          '<td class="n">' + dtr.length + '</td>' +
-          '<td class="n">' + num(dtr.reduce(function (a, b2) { return a + (b2.mes || 0); }, 0)) + '</td>' +
-          '<td class="n">' + reais(fatR) + '</td>' +
-          '<td class="n">' + num(R.faturamento ? (fatR / R.faturamento) * 100 : 0, 0) + '%</td></tr>');
-      }
-      H.push('</table>');
-    }
 
     // ---- onde ha brecha ----
     var cdR = E.itens.filter(function (x) { return x.cadastro && x.mes != null; });
