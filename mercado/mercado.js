@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.10.0';
+  var VERSAO = '1.10.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -923,6 +923,12 @@
       'a{color:#EE4D2D;text-decoration:none}a:hover{text-decoration:underline}' +
       '.nota{background:#FFFDFA;border:1px solid #EFE8DC;border-radius:16px;padding:14px 18px;font-size:13.5px;color:#4A4238;line-height:1.65;margin-bottom:14px}' +
       '.leitura{background:#FFF4EF;border-left:3px solid #EE4D2D;border-radius:0 16px 16px 0;padding:16px 20px;font-size:14.5px;line-height:1.7;margin-bottom:14px}' +
+      '.leituraIA{background:#FFFDFA;border:1px solid #EFE8DC;border-radius:16px;padding:18px 22px;margin-bottom:14px}' +
+      '.leituraIA p{font-size:14.5px;line-height:1.65;margin:0 0 9px;color:#332D22}' +
+      '.leituraIA p:last-child{margin-bottom:0}' +
+      '.leituraIA h4{font:500 16px Archivo,Arial;letter-spacing:-.02em;color:#17150F;margin:18px 0 7px}' +
+      '.leituraIA h4:first-child{margin-top:0}' +
+      '.leituraIA li{font-size:14.5px;line-height:1.6;margin:0 0 5px 18px;color:#332D22}' +
       '.bom{color:#1F8A5F}.ruim{color:#D64545}.aten{color:#C98A1E}' +
       '.rod{margin-top:44px;padding-top:20px;border-top:1px solid #EAE2D6;font-size:12px;color:#9C9484;line-height:1.6}' +
       '.imprimir{position:fixed;top:20px;right:20px;background:#EE4D2D;color:#fff;border:none;font:500 14px Outfit,Arial;padding:12px 24px;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(238,77,45,.3)}' +
@@ -1146,10 +1152,19 @@
     // ---- a leitura da IA, se houver ----
     if (E.consulta) {
       H.push('<h2>A leitura</h2>');
-      H.push('<div class="nota">' + esc(E.consulta)
-        .replace(/^## (.+)$/gm, '<b style="display:block;margin:14px 0 6px;font-size:15px">$1</b>')
+      // paragrafo vira paragrafo de verdade, com espacamento controlado.
+      // Dois <br> davam quase uma linha em branco entre cada frase.
+      H.push('<div class="leituraIA">' + esc(E.consulta)
+        .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+        .replace(/^## (.+)$/gm, '<h4>$1</h4>')
         .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-        .replace(/\n\n/g, '<br><br>') + '</div>');
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .split(/\n{2,}/).map(function (p2) {
+          p2 = p2.trim();
+          if (!p2) return '';
+          if (/^<h4>|^<li>/.test(p2)) return p2.replace(/\n/g, '');
+          return '<p>' + p2.replace(/\n/g, ' ') + '</p>';
+        }).join('') + '</div>');
     }
 
     H.push('<div class="rod"><b>Seller.IA · Analista de Mercado</b><br>' +
@@ -1190,6 +1205,19 @@
   function reais(n) {
     if (n == null) return '\u2014';
     return 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  /* Para os numeros grandes da tela. "R$ 1.097.975,37" tem quinze
+     caracteres e estoura a caixa; "R$ 1,1 mi" diz a mesma coisa e cabe.
+     Os centavos so importam no preco de um produto, nao no faturamento
+     somado de cento e oitenta deles. */
+  function reaisCurto(n) {
+    if (n == null) return '\u2014';
+    var v = Number(n);
+    if (v >= 1000000) return 'R$ ' + (v / 1000000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' mi';
+    if (v >= 100000) return 'R$ ' + Math.round(v / 1000).toLocaleString('pt-BR') + ' mil';
+    if (v >= 10000) return 'R$ ' + (v / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' mil';
+    return reais(v);
   }
   function num(n, casas) {
     if (n == null) return '\u2014';
@@ -1301,7 +1329,9 @@
     '.ico{background:none;border:1px solid var(--bd3);color:var(--tx3);border-radius:11px;' +
       'width:32px;height:32px;display:grid;place-items:center;cursor:pointer;flex:none}' +
     '.ico:hover{border-color:#EE4D2D;color:#EE4D2D}' +
-    '.ico.ligado{background:#EE4D2D;border-color:#EE4D2D;color:#fff}' +
+    /* O botao pulsa sozinho. O aviso em texto empurrava o cabecalho para
+       baixo toda vez que ligava, e o proprio botao ja diz o que precisa. */
+    '.ico.ligado{background:#EE4D2D;border-color:#EE4D2D;color:#fff;animation:pulsa 1.6s infinite}' +
     '.ico.fechar{width:32px;height:32px}' +
 
     /* busca */
@@ -1355,7 +1385,9 @@
     '.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px}' +
     '.kpi{background:var(--surf);border:1px solid var(--bd2);border-radius:20px;padding:16px 18px}' +
     '.kpi .r{font:400 9px "Space Mono",monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px}' +
-    '.kpi .n{font:400 30px Outfit,Arial;letter-spacing:-.035em;color:var(--tx1);line-height:1}' +
+    '.kpi{min-width:0}' +
+    '.kpi .n{font:400 30px Outfit,Arial;letter-spacing:-.035em;color:var(--tx1);line-height:1;' +
+      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
     '.kpi .o{font-size:12px;color:var(--tx5);margin-top:5px}' +
     '.heroi{font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1}' +
 
@@ -1468,8 +1500,8 @@
          E.itens.length + ' PRODUTOS' +
          (quando ? ' \u00b7 ' + quando.toUpperCase() : '') +
          (E.minhaLoja ? ' <span class="p-sessao">LOGADA</span>' : '') +
-         (E.gravando ? ' <span class="rec"><i></i>GRAVANDO</span>' : ''))
-      : (E.gravando ? '<span class="rec"><i></i>GRAVANDO</span> NENHUM NICHO LIDO AINDA' : 'NENHUM NICHO LIDO AINDA');
+         '')
+      : 'NENHUM NICHO LIDO AINDA';
     $('ir').textContent = E.buscando ? 'Lendo...' : 'Analisar';
     $('ir').disabled = !!E.buscando;
 
@@ -1535,8 +1567,8 @@
       '<div style="display:flex;align-items:baseline;gap:26px;flex-wrap:wrap">' +
       '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.11em;color:var(--tx6);margin-bottom:9px">' +
       'ESTES ' + R.itens + ' PRODUTOS FATURAM, POR MÊS</div>' +
-      '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1">' +
-      reais(R.faturamento) + '</div></div>' +
+      '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1;white-space:nowrap" ' +
+      'title="' + reais(R.faturamento) + '">' + reaisCurto(R.faturamento) + '</div></div>' +
       '<div style="border-left:1px solid var(--bd5);padding-left:24px">' +
       '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.11em;color:var(--tx6);margin-bottom:9px">UNIDADES VENDIDAS</div>' +
       '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:#EE4D2D;line-height:1">' + num(R.vendas) + '</div></div>' +
@@ -1714,8 +1746,8 @@
   }
   function card(n, r) { return '<div class="kpi"><div class="r">' + r + '</div><div class="n">' + n + '</div></div>'; }
   function celula(n, r) {
-    return '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:6px">' + r + '</div>' +
-      '<div style="font:400 21px Outfit,Arial;letter-spacing:-.025em;color:var(--tx1)">' + n + '</div></div>';
+    return '<div style="min-width:0"><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:6px;white-space:nowrap">' + r + '</div>' +
+      '<div style="font:400 21px Outfit,Arial;letter-spacing:-.025em;color:var(--tx1);white-space:nowrap">' + n + '</div></div>';
   }
 
   function viewProdutos() {
@@ -1874,9 +1906,9 @@
     if (!x) return '<div class="vazio">Produto nao encontrado.</div>';
     var t = tendencia(x.id);
     var h = '<button class="aba" id="voltar">\u2190 voltar</button>';
-    h += '<div class="olho">' + esc(x.lojaNome || '') + '</div>';
+    h += '<div class="olho">' + sigLoja(x.lojaNome || '') + '</div>';
     h += '<div style="font:600 20px Archivo,Arial;letter-spacing:-.02em;margin-bottom:8px">' + sigTitulo(x.nome, 90) + '</div>';
-    if (x.link) {
+    if (x.link && !E.gravando) {
       h += '<a href="' + x.link + '" target="_blank" rel="noopener" ' +
         'style="display:inline-block;color:#EE4D2D;text-decoration:none;font-size:14px;margin-bottom:14px">' +
         'Abrir na Shopee \u2197</a>';
