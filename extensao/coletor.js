@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.13.0';
+  var VERSAO = '1.14.0';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1438,6 +1438,9 @@
   });
   var CONTAGEM_BUSCA = { ok: 0, falhas: 0 };
   function buscar(url, metodo, corpo) {
+    // Uma guarda so, aqui, cobre as 24 chamadas da coleta: pedido o parar,
+    // a proxima ja nao sai e o laco se desfaz sozinho.
+    if (pedidoParar) return Promise.resolve({ ok: false, erro: 'cancelado' });
     return new Promise(function (resolveOriginal) {
       function resolve(r) {
         // coleta que termina dizendo "pronto" com metade das rotas quebradas
@@ -1461,7 +1464,20 @@
   // Virou lenta demais para o uso do dia a dia — e quem espera 3 minutos
   // prefere olhar o painel. Agora o padrao e RAPIDA (o essencial, ~40s) e o
   // que e pesado vira PROFUNDA, disparada so quando a pessoa pede.
+  /* Bandeira de cancelamento. A coleta olha entre uma chamada e outra: nao
+     da para abortar uma requisicao em voo, mas da para nao fazer a proxima
+     — e com dezenas delas, isso para em segundos. */
+  var pedidoParar = false;
+  function pararColeta() {
+    if (estado.coletaProgresso === null) return;
+    pedidoParar = true;
+    estado.coletaProgresso = 'Parando...';
+    estado.sujo = true;
+    render();
+  }
+
   function coletaCompleta(aoProgresso, periodoForcado, modo) {
+    pedidoParar = false;
     var PROFUNDA = modo === 'profunda';
     // Marcar 'iniciando' sem garantir a liberacao deixava coletaProgresso
     // travado para sempre quando a coleta falhava antes do fim — e a trava
@@ -2813,7 +2829,7 @@
   });
 
   ligar('sia-recoletar', 'click', function () {
-    if (estado.coletaProgresso !== null) return;
+    if (estado.coletaProgresso !== null) { pararColeta(); return; }
     coletaJaTentada = true;
     coletaCompleta(function () { render(); });
     render();
@@ -9669,17 +9685,11 @@
       if (r && r.valor) aplicarTema(true);
     });
   } catch (e) { /* noop */ }
-  try {
-    chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'autoColeta' }, function (r) {
-      void chrome.runtime.lastError;
-      if (r && r.valor) {
-        estado.autoColeta = true; estado.sujo = true;
-        // a loja pode ja ter sido identificada antes desta preferencia chegar
-        agendarAutoColeta();
-        setTimeout(agendarAutoColeta, 4000);
-      }
-    });
-  } catch (e) { /* noop */ }
+  /* A AUTO-COLETA SAIU. Ela rodava sozinha ao abrir a conta, mesmo com a
+     gaveta fechada, e enquanto rodava travava tudo: nao dava para pedir
+     outra, nem parar, nem trabalhar. Coleta e uma acao pesada e deve ser
+     uma decisao, nao um efeito colateral de abrir a pagina. Quem quiser
+     coletar aperta o botao. */
 
   setInterval(function () {
     // Nao re-renderizar enquanto a pessoa digita: o render recria o innerHTML

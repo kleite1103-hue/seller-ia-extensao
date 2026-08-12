@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.10.1';
+  var VERSAO = '1.11.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -1459,6 +1459,9 @@
     '      </div>' +
     '      <button class="go" id="ir">Analisar</button>' +
     '      <input type="file" id="foto" accept="image/*" style="display:none">' +
+    '      <button class="ico" id="zerar" title="Limpar e comecar uma analise nova">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="15" height="15" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg></button>' +
     '      <button class="ico" id="gravar" title="Modo gravacao: esconde o nome das lojas">' +
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="15" height="15">' +
     '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/></svg></button>' +
@@ -2038,6 +2041,17 @@
   raiz.addEventListener('click', function (ev) {
     var alvo = ev.target.closest ? ev.target.closest('button') : ev.target;
     if (!alvo) return;
+    if (alvo.id === 'zerar') {
+      if (E.itens.length && !confirm('Limpar esta análise e começar do zero?')) return;
+      E.termo = ''; E.itens = []; E.erro = null; E.detalhe = null; E.aba = 'nicho';
+      E.consulta = null; E.consultaErro = null; E.fotoDescricao = null;
+      E.variacoes = []; E.paginasLidas = 0; E.quando = null; E.calc = null;
+      var campo0 = $('termo');
+      if (campo0) { campo0.value = ''; campo0.focus(); }
+      guardar('ultima_analise', '');
+      desenhar();
+      return;
+    }
     if (alvo.id === 'gravar') {
       E.gravando = !E.gravando;
       $('gravar').classList.toggle('ligado', E.gravando);

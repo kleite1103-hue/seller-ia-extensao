@@ -1475,6 +1475,7 @@
   });
   var CONTAGEM_BUSCA = { ok: 0, falhas: 0 };
   function buscar(url, metodo, corpo) {
+    if (pedidoParar) return Promise.resolve({ ok: false, erro: 'cancelado' });
     return new Promise(function (resolveOriginal) {
       function resolve(r) {
         // coleta que termina dizendo "pronto" com metade das rotas quebradas
@@ -1658,7 +1659,17 @@
     return 0;
   }
 
+  var pedidoParar = false;
+  function pararColeta() {
+    if (estado.coletaProgresso === null) return;
+    pedidoParar = true;
+    estado.coletaProgresso = 'Parando...';
+    estado.sujo = true;
+    render();
+  }
+
   function coletaCompleta(aoProgresso, periodoForcado, modo) {
+    pedidoParar = false;
     var PROFUNDA = modo === 'profunda';
     // Marcar 'iniciando' sem garantir a liberacao deixava coletaProgresso
     // travado para sempre quando a coleta falhava antes do fim — e a trava
@@ -1843,6 +1854,15 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           }
         }
 
+        if (pedidoParar) {
+          estado.lidoEm = Date.now();
+          if (estado.loja) guardarConta(estado.loja.shop_id);
+          resolver({ ok: true, parada: true, chamadas: totalChamadas,
+            campanhas: Object.keys(estado.campanhas).length,
+            produtos: Object.keys(estado.produtos).length,
+            erro: 'Leitura interrompida. O que ja tinha sido lido foi guardado.' });
+          return;
+        }
         prog('Fechando a leitura...');
         acessoRegistrar('coleta', { retrato: retratoDaColeta(ini, fim, modo) });
         estado.lidoEm = Date.now();
@@ -2709,7 +2729,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
   });
 
   ligar('sia-recoletar', 'click', function () {
-    if (estado.coletaProgresso !== null) return;
+    if (estado.coletaProgresso !== null) { pararColeta(); return; }
     acessoRegistrar('coleta');
     coletaJaTentada = true;
     coletaCompleta(function (r) { guardarLimite(r); render(); });
@@ -9504,6 +9524,15 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
 
     // Quando foi lido: com a regra do dia, a pessoa precisa saber que o
     // numero na tela e de hoje de manha e nao de agora.
+    var bt = $('sia-recoletar');
+    if (bt) {
+      var coletando = estado.coletaProgresso !== null;
+      bt.textContent = coletando ? 'Parar a leitura' : 'Recoletar conta + Analisar';
+      bt.style.background = coletando ? 'transparent' : '';
+      bt.style.color = coletando ? 'var(--mk)' : '';
+      bt.style.border = coletando ? '1px solid var(--mk)' : '';
+    }
+
     var nota = $('sia-rodape-nota');
     if (nota) {
       var q = lidoHa();
@@ -10032,17 +10061,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       if (r && r.valor) aplicarTema(true);
     });
   } catch (e) { /* noop */ }
-  try {
-    chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'autoColeta' }, function (r) {
-      void chrome.runtime.lastError;
-      if (r && r.valor) {
-        estado.autoColeta = true; estado.sujo = true;
-        // a loja pode ja ter sido identificada antes desta preferencia chegar
-        agendarAutoColeta();
-        setTimeout(agendarAutoColeta, 4000);
-      }
-    });
-  } catch (e) { /* noop */ }
+  /* A AUTO-COLETA SAIU: ela rodava sozinha ao abrir a conta, mesmo com a
+     gaveta fechada, e travava tudo enquanto rodava. Coleta e decisao, nao
+     efeito colateral de abrir a pagina. */
 
   setInterval(function () {
     // Nao re-renderizar enquanto a pessoa digita: o render recria o innerHTML
