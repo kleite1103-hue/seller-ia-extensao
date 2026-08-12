@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.9.3';
+  var VERSAO = '1.10.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -24,7 +24,8 @@
     aba: 'nicho', ordem: 'mes', progresso: null,
     paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
-    calc: null, consulta: null, consultando: false, consultaErro: null
+    calc: null, consulta: null, consultando: false, consultaErro: null,
+    gravando: false
   };
 
   /* ============ CHAMADAS ============ */
@@ -886,7 +887,13 @@
     function lin(a, b2) { return '<tr><td>' + a + '</td><td class="n">' + b2 + '</td></tr>'; }
     function linkP(x, corta) {
       var nome = esc(String(x.nome).slice(0, corta || 70));
-      return x.link ? '<a href="' + x.link + '" target="_blank">' + nome + '</a>' : nome;
+      return (x.link && !E.gravando) ? '<a href="' + x.link + '" target="_blank">' + nome + '</a>' : nome;
+    }
+    /* No relatorio o blur nao serve: em PDF ele imprime borrado e em HTML
+       basta inspecionar. Em modo gravacao a loja simplesmente nao vai. */
+    function lojaRel(nome, link) {
+      if (E.gravando) return '<span style="color:#9C9484">loja oculta</span>';
+      return link ? '<a href="' + link + '" target="_blank">' + esc(nome || 'ver loja') + '</a>' : esc(nome || '');
     }
 
     var H = [];
@@ -971,8 +978,7 @@
       '<th style="text-align:right">PREÇO</th><th style="text-align:right">FATURA</th></tr>');
     top.forEach(function (x, i2) {
       H.push('<tr><td class="n">' + (i2 + 1) + '</td>' +
-        '<td>' + linkP(x, 62) + '<small>' +
-        (x.linkLoja ? '<a href="' + x.linkLoja + '" target="_blank">' + esc(x.lojaNome || 'ver loja') + '</a>' : esc(x.lojaNome || '')) +
+        '<td>' + linkP(x, 62) + '<small>' + lojaRel(x.lojaNome, x.linkLoja) +
         (x.local ? ' · ' + esc(x.local) : '') + (x.anuncio ? ' · ANÚNCIO' : '') + '</small></td>' +
         '<td class="n">' + num(x.mes) + '</td><td class="n">' + reais(x.preco) + '</td>' +
         '<td class="n">' + (x.fatMes != null ? reais(x.fatMes) : '—') + '</td></tr>');
@@ -1019,7 +1025,7 @@
       '<th style="text-align:right">VENDE/MÊS</th><th style="text-align:right">FATURAMENTO</th>' +
       '<th style="text-align:right">FATIA</th></tr>');
     ordL.slice(0, 12).forEach(function (l) {
-      H.push('<tr><td>' + (l.link ? '<a href="' + l.link + '" target="_blank">' + esc(l.nome || ('loja ' + l.id)) + '</a>' : esc(l.nome || ('loja ' + l.id))) +
+      H.push('<tr><td>' + lojaRel(l.nome || ('loja ' + l.id), l.link) +
         '<small>' + (l.local || '') + (l.id === E.minhaLoja ? ' · VOCÊ' : '') + '</small></td>' +
         '<td class="n">' + l.itens + '</td><td class="n">' + num(l.mes) + '</td>' +
         '<td class="n">' + reais(l.fat) + '</td>' +
@@ -1055,7 +1061,7 @@
         H.push('<table><tr><th>PRODUTO</th><th style="text-align:right">NOTA</th>' +
           '<th style="text-align:right">VENDE/MÊS</th><th style="text-align:right">PREÇO</th></tr>');
         brR.slice(0, 6).forEach(function (x) {
-          H.push('<tr><td>' + linkP(x, 50) + '<small>' + esc(x.lojaNome || '') + '</small></td>' +
+          H.push('<tr><td>' + linkP(x, 50) + '<small>' + lojaRel(x.lojaNome, x.linkLoja) + '</small></td>' +
             '<td class="n ' + (x.nota < 4.3 ? 'ruim' : 'aten') + '">' + num(x.nota, 2) + '</td>' +
             '<td class="n">' + num(x.mes) + '</td><td class="n">' + reais(x.preco) + '</td></tr>');
         });
@@ -1149,7 +1155,8 @@
     H.push('<div class="rod"><b>Seller.IA · Analista de Mercado</b><br>' +
       'Volume de venda e preço vêm da Shopee. O faturamento é a multiplicação dos dois. ' +
       'A leitura cobre ' + E.itens.length + ' produtos da busca por &ldquo;' + esc(E.termo) + '&rdquo;, não o nicho inteiro.<br>' +
-      'Para salvar em PDF, use o botão no topo ou Ctrl+P.</div>');
+      'Para salvar em PDF, use o botão no topo ou Ctrl+P.' +
+      (E.gravando ? '<br><br><b>Gerado em modo gravação:</b> os nomes das lojas foram omitidos.' : '') + '</div>');
     H.push('</div></body></html>');
 
     try {
@@ -1195,6 +1202,27 @@
     var h = '<div class="olho">' + esc(titulo) + '</div>';
     if (ajuda) h += '<div style="font-size:14px;color:var(--tx2);line-height:1.65;margin:-4px 0 13px">' + ajuda + '</div>';
     return h;
+  }
+
+  /* Esconde a loja por inteiro. E o dado sensivel: mostrar que alguem
+     fatura meio milhao com um anuncio, com nome e tudo, expoe o vendedor. */
+  function sigLoja(nome) {
+    if (!E.gravando) return esc(nome || '');
+    return '<span class="sig">' + esc(nome || 'loja') + '</span>';
+  }
+
+  /* Do titulo fica um pedaco legivel. Quem assiste entende o produto, mas
+     nao consegue procurar o anuncio pelo nome completo. */
+  function sigTitulo(nome, corte) {
+    var n = String(nome || '').slice(0, corte || 60);
+    if (!E.gravando) return esc(n);
+    // corta no espaco, e nao no meio da palavra: "Kit 48 Carrinhos De"
+    // fica natural, "Kit 48 Carrinhos De M" parece defeito
+    var alvo = Math.max(10, Math.round(n.length * 0.42));
+    var espaco = n.indexOf(' ', alvo);
+    var visivel = espaco > 0 && espaco < n.length - 4 ? espaco : alvo;
+    return esc(n.slice(0, visivel)) +
+      '<span class="sig-part">' + esc(n.slice(visivel)) + '</span>';
   }
 
   function idade(ts) {
@@ -1273,6 +1301,7 @@
     '.ico{background:none;border:1px solid var(--bd3);color:var(--tx3);border-radius:11px;' +
       'width:32px;height:32px;display:grid;place-items:center;cursor:pointer;flex:none}' +
     '.ico:hover{border-color:#EE4D2D;color:#EE4D2D}' +
+    '.ico.ligado{background:#EE4D2D;border-color:#EE4D2D;color:#fff}' +
     '.ico.fechar{width:32px;height:32px}' +
 
     /* busca */
@@ -1346,6 +1375,16 @@
     '.rodape{font-size:12.5px;color:var(--tx4);padding:12px 18px;background:var(--fill2);line-height:1.55}' +
 
     /* pilulas e barras */
+    /* MODO GRAVACAO. Blur em vez de pontinhos: parece intencional, e nao
+       parece erro de carregamento. O nome da loja some inteiro; do titulo
+       fica um pedaco legivel, o suficiente para a pessoa do video entender
+       do que se trata sem conseguir achar o anuncio. */
+    '.sig{filter:blur(5px);user-select:none;pointer-events:none}' +
+    '.sig-part{filter:blur(4.5px);user-select:none}' +
+    '.rec{display:inline-flex;align-items:center;gap:6px;background:#EE4D2D;color:#fff;' +
+      'font:400 8.5px "Space Mono",monospace;letter-spacing:.1em;padding:3px 9px;border-radius:999px}' +
+    '.rec i{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulsa 1.4s infinite}' +
+    '@keyframes pulsa{0%,100%{opacity:1}50%{opacity:.25}}' +
     '.pill{display:inline-block;font:400 8.5px "Space Mono",monospace;letter-spacing:.06em;' +
       'padding:3px 8px;border-radius:999px;vertical-align:middle}' +
     '.p-ads{background:var(--tintO);color:#EE4D2D}' +
@@ -1388,6 +1427,9 @@
     '      </div>' +
     '      <button class="go" id="ir">Analisar</button>' +
     '      <input type="file" id="foto" accept="image/*" style="display:none">' +
+    '      <button class="ico" id="gravar" title="Modo gravacao: esconde o nome das lojas">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="15" height="15">' +
+    '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/></svg></button>' +
     '      <button class="ico" id="tema" title="Trocar o tema">' + ICO_LUA + '</button>' +
     '      <button class="ico fechar" id="fechar" title="Fechar">\u2715</button>' +
     '    </div>' +
@@ -1425,8 +1467,9 @@
          (E.fotoDescricao ? '\u25c9 ' : '') + '\u201c' + esc(E.termo) + '\u201d</span> \u00b7 ' +
          E.itens.length + ' PRODUTOS' +
          (quando ? ' \u00b7 ' + quando.toUpperCase() : '') +
-         (E.minhaLoja ? ' <span class="p-sessao">LOGADA</span>' : ''))
-      : 'NENHUM NICHO LIDO AINDA';
+         (E.minhaLoja ? ' <span class="p-sessao">LOGADA</span>' : '') +
+         (E.gravando ? ' <span class="rec"><i></i>GRAVANDO</span>' : ''))
+      : (E.gravando ? '<span class="rec"><i></i>GRAVANDO</span> NENHUM NICHO LIDO AINDA' : 'NENHUM NICHO LIDO AINDA');
     $('ir').textContent = E.buscando ? 'Lendo...' : 'Analisar';
     $('ir').disabled = !!E.buscando;
 
@@ -1649,9 +1692,9 @@
         h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">NOTA</th>' +
           '<th class="num">VENDE/MÊS</th><th class="num">PREÇO</th></tr>';
         brechas.slice(0, 8).forEach(function (x) {
-          h += '<tr><td><b>' + esc(x.nome.slice(0, 44)) + '</b>' +
-            (x.link ? ' <a href="' + x.link + '" target="_blank" rel="noopener" style="font-size:12px">\u2197</a>' : '') +
-            '<span class="sub2">' + esc(x.lojaNome || '') + '</span></td>' +
+          h += '<tr><td><b>' + sigTitulo(x.nome, 44) + '</b>' +
+            (x.link && !E.gravando ? ' <a href="' + x.link + '" target="_blank" rel="noopener" style="font-size:12px">\u2197</a>' : '') +
+            '<span class="sub2">' + sigLoja(x.lojaNome) + '</span></td>' +
             '<td class="num" style="color:' + (x.nota < 4.3 ? '#D64545' : '#C98A1E') + '">' + num(x.nota, 2) + '</td>' +
             '<td class="num">' + num(x.mes) + '</td>' +
             '<td class="num">' + reais(x.preco) + '</td></tr>';
@@ -1690,13 +1733,15 @@
       var t = tendencia(x.id);
       var meu = E.minhaLoja && x.loja === E.minhaLoja;
       h += '<tr class="' + (meu ? 'eu' : '') + '"><td style="cursor:pointer">' +
-        '<b data-item="' + x.id + '">' + esc(x.nome.slice(0, 52)) + '</b>' +
+        '<b data-item="' + x.id + '">' + sigTitulo(x.nome, 52) + '</b>' +
         (x.link ? ' <a href="' + x.link + '" target="_blank" rel="noopener" title="abrir na Shopee" ' +
           'style="color:#EE4D2D;text-decoration:none;font-size:12px">\u2197</a>' : '') +
         (x.anuncio ? ' <span class="pill p-ads">ads</span>' : '') +
         (meu ? ' <span class="pill p-eu">seu</span>' : '') +
         '<br><span style="color:var(--tx3);font-size:12px">' +
-        (x.linkLoja ? '<a href="' + x.linkLoja + '" target="_blank" rel="noopener">' + esc(x.lojaNome || 'ver loja') + '</a>' : esc(x.lojaNome || '')) +
+        (E.gravando
+          ? sigLoja(x.lojaNome)
+          : (x.linkLoja ? '<a href="' + x.linkLoja + '" target="_blank" rel="noopener">' + esc(x.lojaNome || 'ver loja') + '</a>' : esc(x.lojaNome || ''))) +
         (x.local ? ' \u00b7 ' + esc(x.local) : '') + '</span></td>' +
         '<td class="num">' + num(x.mes) + '</td>' +
         '<td class="num">' + num(x.total) + '</td>' +
@@ -1730,8 +1775,8 @@
     ord.slice(0, 40).forEach(function (l) {
       var meu = E.minhaLoja && l.id === E.minhaLoja;
       var med = l.precos.length ? l.precos.reduce(function (a, b) { return a + b; }, 0) / l.precos.length : null;
-      h += '<tr class="' + (meu ? 'eu' : '') + '"><td><b>' + esc(l.nome || ('loja ' + l.id)) + '</b>' +
-        (l.link ? ' <a href="' + l.link + '" target="_blank" rel="noopener" title="abrir a loja na Shopee" ' +
+      h += '<tr class="' + (meu ? 'eu' : '') + '"><td><b>' + sigLoja(l.nome || ('loja ' + l.id)) + '</b>' +
+        (l.link && !E.gravando ? ' <a href="' + l.link + '" target="_blank" rel="noopener" title="abrir a loja na Shopee" ' +
           'style="font-size:12px">\u2197</a>' : '') +
         (l.oficial ? ' <span class="pill p-of">oficial</span>' : '') +
         (meu ? ' <span class="pill p-eu">voce</span>' : '') +
@@ -1803,7 +1848,7 @@
     var lider = todos[0];
     meus.forEach(function (x) {
       var pos = todos.indexOf(x) + 1;
-      h += '<tr><td><b>' + esc(x.nome.slice(0, 46)) + '</b></td>' +
+      h += '<tr><td><b>' + sigTitulo(x.nome, 46) + '</b></td>' +
         '<td class="num">' + pos + '\u00ba de ' + todos.length + '</td>' +
         '<td class="num">' + num(x.mes) + '</td>' +
         '<td class="num">' + num(lider.mes) + '</td>' +
@@ -1830,7 +1875,7 @@
     var t = tendencia(x.id);
     var h = '<button class="aba" id="voltar">\u2190 voltar</button>';
     h += '<div class="olho">' + esc(x.lojaNome || '') + '</div>';
-    h += '<div style="font:600 20px Archivo,Arial;letter-spacing:-.02em;margin-bottom:8px">' + esc(x.nome) + '</div>';
+    h += '<div style="font:600 20px Archivo,Arial;letter-spacing:-.02em;margin-bottom:8px">' + sigTitulo(x.nome, 90) + '</div>';
     if (x.link) {
       h += '<a href="' + x.link + '" target="_blank" rel="noopener" ' +
         'style="display:inline-block;color:#EE4D2D;text-decoration:none;font-size:14px;margin-bottom:14px">' +
@@ -1961,6 +2006,13 @@
   raiz.addEventListener('click', function (ev) {
     var alvo = ev.target.closest ? ev.target.closest('button') : ev.target;
     if (!alvo) return;
+    if (alvo.id === 'gravar') {
+      E.gravando = !E.gravando;
+      $('gravar').classList.toggle('ligado', E.gravando);
+      guardar('gravando', E.gravando ? '1' : '');
+      desenhar();
+      return;
+    }
     if (alvo.id === 'ampliar') { E.ampliar = !E.ampliar; desenhar(); return; }
     if (alvo.id === 'por-foto') { $('foto').click(); return; }
   });
@@ -1980,6 +2032,9 @@
     });
   } catch (e) { }
 
+  ler('gravando').then(function (v) {
+    if (v) { E.gravando = true; $('gravar').classList.add('ligado'); desenhar(); }
+  });
   ler('tema').then(function (v) {
     if (v === 'escuro') { $('tudo').classList.add('escuro'); $('tema').innerHTML = ICO_SOL; }
   });
