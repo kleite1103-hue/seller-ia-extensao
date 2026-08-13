@@ -1815,6 +1815,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         // Pede UM passo por vez. Sem a lista completa em lugar nenhum, nem
         // na memoria da extensao: cada passo chega, e executado e some.
         for (var ip = 0; ip < 60; ip++) {
+          // O laco da SaaS pede os passos ao servidor e nao passa por
+          // buscar(), entao a guarda de parada precisa estar aqui tambem.
+          if (pedidoParar) break;
           var passo;
           try {
             passo = await pedirPasso(modo, ip, vals);
@@ -2349,6 +2352,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           } catch (e) { mostrarExpl('Digite <b>chrome://extensions</b> numa aba nova.'); }
           return;
         }
+        if (voltaA.id === 'sia-termos') { mostrarTermos(); return; }
         if (voltaA.id === 'sia-cta-radar' || voltaA.id === 'sia-cfg-radar') {
           try { window.open('https://selleriaclub.com/radar360', '_blank', 'noopener'); } catch (e) { /* noop */ }
           return;
@@ -2732,7 +2736,24 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     if (estado.coletaProgresso !== null) { pararColeta(); return; }
     acessoRegistrar('coleta');
     coletaJaTentada = true;
-    coletaCompleta(function (r) { guardarLimite(r); render(); });
+    /* O .then aqui e o que faltava. Sem ele, a coleta terminava certo — o
+       console mostrava "fim da receita" e o resumo — mas nada redesenhava a
+       tela, entao ela ficava em "Fechando a leitura" para sempre e travava
+       tudo que depende de coletaProgresso ser nulo. O callback de progresso
+       nao serve para isso: ele para de ser chamado justamente no fim. */
+    coletaCompleta(function (r) { guardarLimite(r); render(); })
+      .then(function (res) {
+        estado.coletaProgresso = null;
+        estado.sujo = true;
+        if (res && res.erro) estado.avisoColeta = res.erro;
+        render();
+      })
+      .catch(function (e) {
+        estado.coletaProgresso = null;
+        estado.avisoColeta = 'A leitura falhou: ' + String(e && e.message || e);
+        estado.sujo = true;
+        render();
+      });
     render();
   });
   ligar('sia-fechar', 'click', function () {
@@ -3457,11 +3478,8 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     }
     if (estado.coletaProgresso !== null) {
       h += '<div class="nota" style="color:var(--mk)">Lendo: ' + esc(String(estado.coletaProgresso)) + '</div>';
-    } else {
-      h += '<div class="nota" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' +
-        '<button id="sia-profunda" style="background:var(--b0);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Leitura profunda</button>' +
-        '<span>Acrescenta a serie hora a hora e as palavras por produto. Leva alguns minutos.</span></div>';
     }
+    /* O botao de leitura profunda saiu: a coleta hoje ja e sempre profunda. */
     return h;
   }
   function renderSeletorPeriodo() {
@@ -3474,11 +3492,8 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     h += '</div>';
     if (estado.coletaProgresso !== null) {
       h += '<div class="nota" style="color:var(--mk)">Lendo: ' + esc(String(estado.coletaProgresso)) + '</div>';
-    } else {
-      h += '<div class="nota" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">' +
-        '<button id="sia-profunda" style="background:var(--b0);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Leitura profunda</button>' +
-        '<span>A leitura normal cobre conta, produtos e campanhas. A profunda acrescenta a serie hora a hora e as palavras-chave, e leva alguns minutos.</span></div>';
     }
+    /* O botao de leitura profunda saiu: a coleta hoje ja e sempre profunda. */
     return h;
   }
   function ligarSeletorPeriodo() {
@@ -6302,6 +6317,24 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       render();
     }
   }
+  /* O texto completo do consentimento vive aqui, a um clique. Continua
+     dito por inteiro — so nao ocupa a tela de entrada. */
+  function mostrarTermos() {
+    mostrarExpl(
+      '<b style="color:var(--t0)">O que a Seller.IA guarda</b><br><br>' +
+      'As leituras da sua conta: metricas de campanha, de produto e de faturamento, ' +
+      'e os relatorios que voce gerar. E o que permite comparar um mes com o outro e ' +
+      'mostrar a evolucao da conta ao longo do tempo.<br><br>' +
+      '<b style="color:var(--t0)">De quem sao os dados</b><br><br>' +
+      'Seus. Ficam sob a guarda da Efeito Vendas e podem ser apagados a qualquer momento, ' +
+      'e para isso basta pedir ao suporte.<br><br>' +
+      '<b style="color:var(--t0)">O que NAO e coletado</b><br><br>' +
+      'Nenhum dado pessoal de comprador: nem nome, nem endereco, nem telefone, nem email. ' +
+      'A Seller.IA le o desempenho da loja, nao a lista de clientes.<br><br>' +
+      '<b style="color:var(--t0)">Acesso</b><br><br>' +
+      'Vale para uma maquina por vez. Se entrar em outra, esta e encerrada.');
+  }
+
   function acessoEntrar() {
     var campo = $('sia-acesso-email');
     var email = (campo && campo.value || '').trim().toLowerCase();
@@ -6430,14 +6463,13 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     h += '<div style="font-size:13px;color:var(--t3);line-height:1.55;margin-top:14px;text-align:center">' +
       'Seu acesso vale para uma maquina por vez. Se entrar em outra, esta e encerrada.</div>';
 
-    // CONSENTIMENTO. Pedido uma vez, com o que sera guardado dito de forma
-    // clara: esconder isso em letra miuda seria contra a propria lei.
-    h += '<div style="border-top:1px solid var(--li);margin-top:16px;padding-top:14px">' +
-      '<label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:12.5px;color:var(--t2);line-height:1.55">' +
-      '<input type="checkbox" id="sia-aceite" ' + (A.aceite ? 'checked' : '') + ' style="margin-top:2px;width:16px;height:16px;flex:none;accent-color:var(--mk)">' +
-      '<span>Concordo que a Seller.IA guarde as leituras da minha conta \u2014 metricas de campanha, produto e faturamento \u2014 e os relatorios gerados, para montar o meu historico e permitir comparar periodos. ' +
-      'Os dados sao meus, ficam sob a guarda da Efeito Vendas e podem ser apagados a qualquer momento pelo suporte. ' +
-      '<b style="color:var(--t1)">Nenhum dado pessoal de comprador e coletado.</b></span></label></div>';
+    /* CONSENTIMENTO enxuto. O texto longo ocupava meia tela na primeira
+       coisa que a pessoa ve; o essencial cabe em uma linha, e quem quiser
+       o detalhe abre os termos. */
+    h += '<div style="border-top:1px solid var(--li);margin-top:14px;padding-top:12px">' +
+      '<label style="display:flex;gap:9px;align-items:flex-start;cursor:pointer;font-size:12.5px;color:var(--t2);line-height:1.5">' +
+      '<input type="checkbox" id="sia-aceite" ' + (A.aceite ? 'checked' : '') + ' style="margin-top:2px;width:16px;height:16px;accent-color:var(--mk);flex:none">' +
+      '<span>Concordo com os <span id="sia-termos" style="color:var(--mk);cursor:pointer;text-decoration:underline">termos de uso</span>.</span></label></div>';
     h += '</div>';
 
     h += '<div style="text-align:center;margin-top:20px;font-size:13.5px;color:var(--t3);line-height:1.6">' +
