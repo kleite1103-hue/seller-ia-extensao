@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.14.0';
+  var VERSAO = '1.14.1';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -8516,6 +8516,18 @@
       return h + '<div class="nota">Preencha o custo e a margem que voce quer, e toque em <b>Calcular o preco</b>.</div>';
     }
     var emb = numeroPuro(C.embalagem) || 0, imp = numeroPuro(C.imposto) || 0;
+
+    /* A TAXA DO ANTECIPA. Ela era usada em tres pontos da conta e nunca foi
+       declarada: o render inteiro morria com "taxaAnt is not defined" e a
+       aba de precificacao nao respondia a clique nenhum. O clique sempre
+       chegou — quebrava era o desenho depois dele. */
+    var taxaAnt = 0;
+    if (C.antecipa === 'sim') {
+      var tipoSel = C.tipoVendedor || 'demais';
+      for (var ti = 0; ti < TIPOS.length; ti++) {
+        if (TIPOS[ti].id === tipoSel) { taxaAnt = TIPOS[ti].taxa; break; }
+      }
+    }
 
     // resolve o preco: preco = custo + emb + comissao(preco) + imposto(preco) + margem(preco)
     // a comissao muda de faixa conforme o preco, entao testa faixa a faixa
