@@ -14,14 +14,16 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.12.4';
+  var VERSAO = '1.13.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
   var E = {
     termo: '', buscando: false, erro: null,
     itens: [], categorias: {}, historico: null,
-    aba: 'nicho', ordem: 'mes', progresso: null,
+    // Abre em "Por link": e o unico lugar que funciona sem analise previa,
+    // e tambem o mais rapido de usar — cola e ve.
+    aba: 'link', ordem: 'mes', progresso: null,
     paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
@@ -179,13 +181,36 @@
 
   function idsDoLink(link) {
     var s = String(link || '').trim();
-    // .../product/SHOPID/ITEMID  ou  ...-i.SHOPID.ITEMID
+
+    // PRODUTO: .../product/SHOPID/ITEMID  ou  ...-i.SHOPID.ITEMID
     var m = s.match(/\/product\/(\d+)\/(\d+)/) || s.match(/-i\.(\d+)\.(\d+)/);
     if (m) return { loja: m[1], item: m[2] };
-    // .../shop/SHOPID  ou  shopee.com.br/NOMEDALOJA
+
+    // LOJA por id: .../shop/SHOPID
     var l = s.match(/\/shop\/(\d+)/);
     if (l) return { loja: l[1], item: null };
+
+    /* LOJA POR NOME. E o formato que a Shopee realmente usa quando voce
+       copia o link de uma loja: shopee.com.br/nomedaloja. Nao ha id nele,
+       entao a extensao pergunta a Shopee qual e o id daquele nome. */
+    var n = s.replace(/^https?:\/\//, '').replace(/^(www\.)?shopee\.com\.br\/?/, '');
+    n = n.split(/[?#]/)[0].replace(/\/$/, '');
+    // um segmento so, sem numeros de produto, sem palavra reservada
+    if (n && n.indexOf('/') < 0 && !/^\d+$/.test(n) &&
+        ['search', 'daily_discover', 'mall', 'cart', 'buyer', 'user'].indexOf(n.toLowerCase()) < 0) {
+      return { loja: null, item: null, nomeLoja: n };
+    }
     return null;
+  }
+
+  /* O link por nome nao traz o id. Esta rota devolve o id a partir do nome
+     da loja, que e como a Shopee monta a propria pagina. */
+  async function idDaLojaPeloNome(nome) {
+    var r = await api('/api/v4/shop/get_shop_base?username=' + encodeURIComponent(nome));
+    try {
+      var d = (r.dados && (r.dados.data || r.dados)) || {};
+      return d.shopid || d.shop_id || null;
+    } catch (e) { return null; }
   }
 
   async function consultarLink(link) {
@@ -198,8 +223,22 @@
     E.progresso = ids.item ? 'Procurando este produto...' : 'Lendo a loja...';
     desenhar();
 
-    if (ids.item) await consultarProduto(ids);
-    else await consultarLoja(ids.loja);
+    if (ids.item) {
+      await consultarProduto(ids);
+    } else {
+      var shopid = ids.loja;
+      if (!shopid && ids.nomeLoja) {
+        E.progresso = 'Achando a loja "' + ids.nomeLoja + '"...';
+        desenhar();
+        shopid = await idDaLojaPeloNome(ids.nomeLoja);
+        if (!shopid) {
+          E.erro = 'Nao achei a loja "' + ids.nomeLoja + '". Confira o link, ou use o que tem /shop/ com o numero.';
+          E.buscando = false; E.progresso = null; desenhar();
+          return;
+        }
+      }
+      await consultarLoja(shopid);
+    }
 
     E.buscando = false; E.progresso = null;
     desenhar();
@@ -422,6 +461,7 @@
     } catch (e) { }
 
     E.itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
+    if (E.aba === 'link') E.aba = 'nicho';   // terminou a analise: mostra ela
     await nomearLojas();
 
     // DIAGNOSTICO DO VOLUME: qual campo cada item trouxe. Sem isso nao da
@@ -1558,6 +1598,8 @@
     '.aba svg{width:15px;height:15px;flex:none}' +
     '.aba:hover{color:var(--tx2)}' +
     '.aba.on{color:#EE4D2D;border-bottom-color:#EE4D2D}' +
+    '.aba.off{opacity:.38;cursor:default}' +
+    '.aba.off:hover{color:var(--tx5)}' +
 
     '.corpo{flex:1;overflow-y:auto;padding:16px 22px 26px}' +
     '.corpo::-webkit-scrollbar{width:8px}' +
@@ -1719,16 +1761,22 @@
       (E.variacoes && E.variacoes.length
         ? '<span style="font:400 9.5px \'Space Mono\',monospace;color:var(--tx6)">+' + E.variacoes.length + ' VARIACOES</span>' : '');
 
-    $('abas').innerHTML = E.itens.length
-      ? ABAS.map(function (a) {
-          return '<button class="aba' + (E.aba === a.id ? ' on' : '') + '" data-aba="' + a.id + '">' +
-            svgAba(a.d) + a.rot + '</button>';
-        }).join('')
-      : '';
+    /* A CONSULTA POR LINK NAO DEPENDE DE ANALISE. Esconder toda a barra ate
+       existir uma obrigava a pessoa a buscar um termo qualquer so para
+       chegar nela. Agora a barra aparece sempre; as abas que precisam de
+       analise ficam apagadas ate haver uma. */
+    $('abas').innerHTML = ABAS.map(function (a) {
+      var precisa = a.id !== 'link';
+      var apagada = precisa && !E.itens.length;
+      return '<button class="aba' + (E.aba === a.id ? ' on' : '') + (apagada ? ' off' : '') + '" ' +
+        'data-aba="' + a.id + '"' + (apagada ? ' title="Analise um nicho para liberar"' : '') + '>' +
+        svgAba(a.d) + a.rot + '</button>';
+    }).join('');
 
     var c = $('corpo');
     if (E.buscando) { c.innerHTML = '<div class="vazio">' + esc(E.progresso || 'Lendo...') + '</div>'; return; }
     if (E.erro) { c.innerHTML = '<div class="vazio">' + esc(E.erro) + '</div>'; return; }
+    if (!E.itens.length && E.aba === 'link') { c.innerHTML = viewLink(); ligarTabela(); ligarCalculo(); return; }
     if (!E.itens.length) {
       // No painel do vendedor a busca da vitrine e bloqueada pelo navegador
       // (dominios diferentes). Dizer isso antes evita a pessoa tentar e
@@ -2321,7 +2369,10 @@
     var br = $('baixar-relatorio');
     if (br) br.addEventListener('click', gerarRelatorio);
     raiz.querySelectorAll('.aba[data-aba]').forEach(function (b) {
-      b.addEventListener('click', function () { E.aba = this.getAttribute('data-aba'); E.detalhe = null; desenhar(); });
+      b.addEventListener('click', function () {
+        if (this.classList.contains('off')) return;
+        E.aba = this.getAttribute('data-aba'); E.detalhe = null; desenhar();
+      });
     });
   }
 
