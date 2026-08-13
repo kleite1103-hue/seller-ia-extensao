@@ -221,9 +221,13 @@ function montarReceita(modo: string, ctx: any) {
       corpo: { campaign_type: "shop", suggest_log_data: { page: "suggest_creation" } },
       fase: "Lendo as palavras sugeridas", opcional: true,
     });
+    /* AVALIACOES. Davam 404 nas doze chamadas: o parametro e "itemid" e nao
+       "item_id", e a rota exige tambem o "shopid" — conferido na captura do
+       radar. Doze chamadas que sempre falhavam custavam quase um minuto sem
+       devolver nada. Baixado para 6 produtos, que ja cobre os que importam. */
     p.push({
-      id: "avaliacoes", porProduto: true, limite: 12,
-      url: "/api/v2/item/get_ratings?{spc}&item_id={produto}&limit=6&offset=0&filter=0&flag=1&type=0",
+      id: "avaliacoes", porProduto: true, limite: 6,
+      url: "/api/v2/item/get_ratings?{spc}&itemid={produto}&shopid={loja}&limit=6&offset=0&filter=0&flag=1&type=0&exclude_filter=1&filter_size=0&fold_filter=0&request_source=2",
       metodo: "GET", fase: "Lendo as avaliacoes", opcional: true, pausa: 200,
     });
   }

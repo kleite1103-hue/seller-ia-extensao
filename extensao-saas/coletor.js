@@ -1571,6 +1571,7 @@
      se dispara e se entrega o resultado. Quando o passo se repete, cada
      repeticao e pedida separadamente, com o alvo da vez. */
   async function executarPasso(r, modo, indice, vals, lojaCiclo) {
+    if (pedidoParar) return 0;
     var feitas = 0;
     var pausaMs = r.pausa || 250;
 
@@ -1604,6 +1605,7 @@
       // {offset} voltavam sem preencher e a Shopee recusava a chamada.
       // Era por isso que campanhas e produtos vinham vazios.
       for (var pg = 1; pg <= (rep.ate || 10); pg++) {
+        if (pedidoParar) break;
         var rp = await pedirPasso(modo, indice, Object.assign({}, vals, {
           pagina: pg, offset: (pg - 1) * (rep.tamanho || 20)
         }));
@@ -1621,6 +1623,7 @@
     if (rep.tipo === 'campanha' || rep.tipo === 'produto') {
       var alvos = alvosDoPasso(rep);
       for (var a = 0; a < alvos.length; a++) {
+        if (pedidoParar) break;
         var ra = await pedirPasso(modo, indice, Object.assign({}, vals, {
           campanha: parseInt(alvos[a], 10), produto: alvos[a]
         }));
@@ -1711,12 +1714,20 @@
         try { render(); } catch (e) { }
         resolverOriginal(r);
       }
+      /* A trava agora PARA os passos, e nao so devolve a Promise. Antes ela
+         disparava no passo 28 e os passos 29, 30 e 31 continuavam rodando
+         por baixo, cada um chamando a Shopee depois de a leitura ja ter
+         sido dada por encerrada.
+
+         E o tempo subiu: a receita faz 108 chamadas, e as avaliacoes sozinhas
+         sao doze delas com pausa entre cada. Dois minutos nunca dava. */
       travaSeguranca = setTimeout(function () {
         try { console.warn('[Seller.IA] trava de seguranca disparou'); } catch (e) { }
+        pedidoParar = true;
         try { render(); } catch (e) { }
-        resolver({ ok: false, erro: 'A leitura passou de 4 minutos e foi encerrada. O que ja tinha sido lido foi mantido.',
+        resolver({ ok: false, erro: 'A leitura passou do tempo e foi encerrada. O que ja tinha sido lido foi mantido.',
           chamadas: 0, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
-      }, (PROFUNDA ? 5 : 2) * 60 * 1000);
+      }, 8 * 60 * 1000);
       (async function () {
         function prog(t) {
           estado.coletaProgresso = t; estado.sujo = true;
@@ -1818,7 +1829,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         var vals = {
           spc: spcQ,
           ini: ini, fim: fim, fimAds: fimAds,
-          iniAnt: iniAnterior, fimAnt: fimAnterior
+          iniAnt: iniAnterior, fimAnt: fimAnterior,
+          // a rota de avaliacoes exige o shopid junto do itemid
+          loja: estado.loja ? estado.loja.shop_id : ''
         };
 
         // Pede UM passo por vez. Sem a lista completa em lugar nenhum, nem
@@ -2746,6 +2759,12 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
 
   ligar('sia-recoletar', 'click', function () {
     if (estado.coletaProgresso !== null) { pararColeta(); return; }
+    // Sem token o servidor recusa o passo 0 e a leitura morre de cara. Pior:
+    // a pessoa clica de novo e as duas coletas rodam sobrepostas.
+    if (!estado.acessoToken) {
+      mostrarExpl('<b>Ainda estou entrando na sua conta.</b> Aguarde alguns segundos e toque de novo.');
+      return;
+    }
     acessoRegistrar('coleta');
     coletaJaTentada = true;
     /* O .then aqui e o que faltava. Sem ele, a coleta terminava certo — o
