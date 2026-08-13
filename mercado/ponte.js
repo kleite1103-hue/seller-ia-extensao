@@ -29,10 +29,18 @@
       }
     }
 
-    // URL absoluta: caminho relativo depende da pagina atual, e a pessoa
-    // pode estar na vitrine ou no painel do vendedor, que sao dominios
-    // diferentes. A busca e sempre na vitrine.
+    /* A BUSCA E SEMPRE NA VITRINE, e a ponte pode estar rodando no painel
+       do vendedor. Sao dominios diferentes: chamar shopee.com.br a partir
+       do seller.shopee.com.br e bloqueado por CORS pelo navegador.
+
+       Quando isso acontece, o pedido volta com um aviso para o outro lado
+       repassar ao service worker, que nao tem essa restricao. */
     var alvo = /^https?:/.test(p.url) ? p.url : ('https://shopee.com.br' + p.url);
+    var souVitrine = location.hostname === 'shopee.com.br' || location.hostname === 'www.shopee.com.br';
+    if (!souVitrine && alvo.indexOf('https://shopee.com.br') === 0) {
+      responder({ ok: false, erro: 'outro-dominio' });
+      return;
+    }
 
     // fetch da propria pagina: leva os cookies e a assinatura dela
     fetch(alvo, {

@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.12.0';
+  var VERSAO = '1.12.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -43,10 +43,33 @@
     if (f) { delete pendentes[r.id]; f(r); }
   });
 
+  /* Pelo service worker. So e usado quando a ponte nao pode chamar por
+     causa do dominio — do painel do vendedor para a vitrine. */
+  function apiPeloWorker(url, metodo, corpo) {
+    return new Promise(function (ok) {
+      try {
+        chrome.runtime.sendMessage(
+          { tipo: 'mercado:buscar', url: url, metodo: metodo || 'GET', corpo: corpo || null },
+          function (r) {
+            if (chrome.runtime.lastError) { ok({ ok: false, erro: 'ponte' }); return; }
+            ok(r || { ok: false });
+          }
+        );
+      } catch (e) { ok({ ok: false, erro: 'ponte' }); }
+    });
+  }
+
   function api(url, metodo, corpo) {
     return new Promise(function (ok) {
       var id = 'm' + (++seq) + '_' + Date.now();
-      pendentes[id] = ok;
+      pendentes[id] = function (r) {
+        // a ponte nao pode chamar outro dominio: o worker assume
+        if (r && r.erro === 'outro-dominio') {
+          apiPeloWorker(url, metodo, corpo).then(ok);
+          return;
+        }
+        ok(r);
+      };
       try {
         window.dispatchEvent(new CustomEvent('SIA_MK_PEDE', {
           detail: JSON.stringify({ id: id, url: url, metodo: metodo || 'GET', corpo: corpo || null })
@@ -341,6 +364,11 @@
       if (r.erro === 'ponte') {
         E.erro = 'A extensao foi atualizada com esta pagina aberta. ' +
           'Recarregue a Shopee com F5 e tente de novo.';
+        break;
+      }
+      if (r.dados && r.dados.error) {
+        E.erro = 'A Shopee recusou a busca a partir desta pagina. ' +
+          'Abra a vitrine em shopee.com.br e use o Radar de la \u2014 e onde a busca funciona.';
         break;
       }
       if (!r.ok || !r.dados) {
@@ -1662,7 +1690,15 @@
     if (E.buscando) { c.innerHTML = '<div class="vazio">' + esc(E.progresso || 'Lendo...') + '</div>'; return; }
     if (E.erro) { c.innerHTML = '<div class="vazio">' + esc(E.erro) + '</div>'; return; }
     if (!E.itens.length) {
-      c.innerHTML = '<div class="vazio">Escreva um nicho e toque em <b>Analisar</b>.<br><br>' +
+      // No painel do vendedor a busca da vitrine e bloqueada pelo navegador
+      // (dominios diferentes). Dizer isso antes evita a pessoa tentar e
+      // levar um erro sem explicacao.
+      var noPainel = location.hostname === 'seller.shopee.com.br';
+      c.innerHTML = (noPainel
+        ? '<div class="aviso" style="border-color:#EE4D2D;color:var(--tx2)">Você está no <b>painel do vendedor</b>. ' +
+          'A leitura de nicho acontece na vitrine, então se a busca falhar aqui, abra <b>shopee.com.br</b> e use o Radar de lá.</div>'
+        : '') +
+        '<div class="vazio">Escreva um nicho e toque em <b>Analisar</b>.<br><br>' +
         'A leitura cobre ate ' + (MAX_PAGINAS * 60) + ' produtos e mostra quem vende, quanto vende,<br>' +
         'a que preco, e quanto do topo e anuncio.</div>';
       return;
