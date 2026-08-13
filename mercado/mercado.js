@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.12.2';
+  var VERSAO = '1.12.3';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -423,6 +423,29 @@
 
     E.itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
     await nomearLojas();
+
+    // DIAGNOSTICO DO VOLUME: qual campo cada item trouxe. Sem isso nao da
+    // para saber se o numero da tela e mensal ou historico.
+    try {
+      var a1 = todos[0] || {};
+      var b1 = a1.item_basic || {};
+      var d1 = a1.item_data || {};
+      var s1 = d1.item_card_display_sold_count || b1.item_card_display_sold_count || {};
+      console.log('[Mercado] CAMPOS DE VENDA no primeiro item:',
+        'monthly_sold_count=', s1.monthly_sold_count,
+        '| historical_sold_count=', s1.historical_sold_count,
+        '| item_basic.sold=', b1.sold,
+        '| item_basic.historical_sold=', b1.historical_sold);
+      var comMonthly = todos.filter(function (x) {
+        var dd = x.item_data || x.item_basic || {};
+        var ss = dd.item_card_display_sold_count || {};
+        return ss.monthly_sold_count != null;
+      }).length;
+      var comSold = todos.filter(function (x) {
+        return (x.item_basic || {}).sold != null;
+      }).length;
+      console.log('[Mercado] de', todos.length, 'itens:', comMonthly, 'com monthly_sold_count,', comSold, 'com item_basic.sold');
+    } catch (e) { }
 
     try {
       console.log('[Mercado] traduzidos:', E.itens.length,
