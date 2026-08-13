@@ -2060,7 +2060,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     '<div class="menu-flut" id="sia-menu">' +
     '  <button data-menu="atualizar"><span>\u21bb</span><span>Buscar atualizacao</span></button>' +
     '  <button data-menu="suporte"><span>\u2709</span><span>Falar com o suporte</span></button>' +
-    '  <button data-menu="clipseller"><span>\u25b6</span><span>Abrir o ClipSeller</span></button>' +
+    '  <button data-menu="radar"><span>\u25ce</span><span>Radar 360 \u00b7 analise de mercado</span></button>' +
     '  <div class="sep"></div>' +
     '  <button data-menu="assinatura"><span>\u2605</span><span>Minha assinatura</span></button>' +
     '  <div class="rod" id="sia-menu-versao"></div>' +
@@ -2349,8 +2349,8 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           } catch (e) { mostrarExpl('Digite <b>chrome://extensions</b> numa aba nova.'); }
           return;
         }
-        if (voltaA.id === 'sia-cfg-clip') {
-          try { window.open('https://clipseller.com.br', '_blank', 'noopener'); } catch (e) { /* noop */ }
+        if (voltaA.id === 'sia-cta-radar' || voltaA.id === 'sia-cfg-radar') {
+          try { window.open('https://selleriaclub.com/radar360', '_blank', 'noopener'); } catch (e) { /* noop */ }
           return;
         }
         if (voltaA.id === 'sia-sup-novo') {
@@ -2723,8 +2723,8 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       $('sia-painel').classList.add('aberto');
       estado.telaServico = 'assinatura';
       render();
-    } else if (acao === 'clipseller') {
-      try { window.open('https://clipseller.com.br', '_blank', 'noopener'); } catch (e) { /* noop */ }
+    } else if (acao === 'radar') {
+      try { window.open('https://selleriaclub.com/radar360', '_blank', 'noopener'); } catch (e) { /* noop */ }
     }
   });
 
@@ -3496,15 +3496,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     }
   }
   function corpoEl() { return $('sia-corpo'); }
-  function ligarProfunda() {
-    var b = $('sia-profunda');
-    if (!b) return;
-    b.addEventListener('click', function () {
-      if (estado.coletaProgresso !== null) return;
-      coletaCompleta(function () { render(); }, null, 'profunda');
-      render();
-    });
-  }
+  /* ligarProfunda saiu junto com o botao: a coleta hoje e sempre profunda. */
 
   /* ============ DE ONDE VEM CADA VENDA ============
      Separa o que a loja CONQUISTA (busca) do que o algoritmo EMPRESTA
@@ -4443,6 +4435,21 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     return h;
   }
 
+  /* O convite para o Radar 360 fica no fim do Espiao: quem chegou ate aqui
+     ja esta olhando concorrente, e e exatamente quem se beneficia de uma
+     analise de nicho inteira. */
+  function ctaRadar() {
+    return '<div style="background:var(--b0);border:1px solid var(--li);border-left:3px solid var(--mk);' +
+      'border-radius:0 var(--r-card,22px) var(--r-card,22px) 0;padding:18px 20px;margin-top:22px">' +
+      '<div style="font-family:Space Mono,monospace;font-size:9.5px;letter-spacing:.12em;color:var(--mk);margin-bottom:8px">RADAR 360</div>' +
+      '<div style="font-size:14.5px;color:var(--t1);line-height:1.6;margin-bottom:13px">' +
+      'Aqui voce compara a sua conta com quem vende o mesmo. Para ler o <b>nicho inteiro</b> \u2014 ' +
+      'quanto ele fatura, quem domina, se aceita gente nova, e por quanto voce precisaria comprar para competir \u2014 ' +
+      'o <b>Radar 360</b> e a nossa analise de mercado completa.</div>' +
+      '<button id="sia-cta-radar" style="background:var(--mk);border:none;color:#fff;font-family:inherit;' +
+      'font-size:13.5px;padding:11px 20px;border-radius:12px;cursor:pointer">Conhecer o Radar 360</button></div>';
+  }
+
   function renderEspiao() {
     if (!estado.espiao) estado.espiao = { termo: '', res: null, radar: null };
     var e = estado.espiao;
@@ -4665,6 +4672,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         h += '<div class="nota" style="color:var(--am);margin-top:12px">Nenhum produto seu apareceu nesta busca. Quando o titulo nao carrega o termo que o comprador digita, voce nem entra na disputa — nem paga, nem organica.</div>';
       }
     }
+    h += ctaRadar();
     return h;
   }
 
@@ -6505,9 +6513,11 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         '<div class="nota">Gerencia varias lojas? Fale com a Efeito Vendas sobre o plano de agencia.</div>');
     }
 
-    h += bloco2('CLIPSELLER', 'Seus videos, no mesmo lugar',
-      '<div style="font-size:14px;color:var(--t1);line-height:1.6;margin-bottom:12px">Assinantes da Seller.IA tem creditos no ClipSeller para gerar video de produto.</div>' +
-      '<button id="sia-cfg-clip" style="width:100%;background:var(--b2);border:1px solid var(--li2);color:var(--t1);font-family:inherit;font-size:14px;padding:12px;border-radius:var(--r-btn,14px);cursor:pointer">Abrir o ClipSeller</button>');
+    h += bloco2('RADAR 360', 'Analise de mercado',
+      '<div style="font-size:14px;color:var(--t1);line-height:1.6;margin-bottom:12px">' +
+      'Le um nicho da Shopee por dentro: quem vende, quanto vende, a que preco, ' +
+      'e por quanto voce precisaria comprar para competir. E uma extensao a parte.</div>' +
+      '<button id="sia-cfg-radar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-size:14px;padding:12px;border-radius:12px;cursor:pointer">Conhecer o Radar 360</button>');
     return h;
   }
 
@@ -9578,7 +9588,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSubAbas('conta360') + renderLimiteLojas() + renderAvisoPeriodo() +
         renderFunilLoja() + leituraDaConta() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
       ligarBotaoColeta();
-      ligarProfunda();
+  
       return;
     }
 
