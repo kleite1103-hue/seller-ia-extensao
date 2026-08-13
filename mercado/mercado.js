@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.11.0';
+  var VERSAO = '1.12.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -25,7 +25,7 @@
     paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
-    gravando: false
+    gravando: false, consultaLink: null, linkDigitado: ''
   };
 
   /* ============ CHAMADAS ============ */
@@ -141,6 +141,124 @@
       E.buscando = false; E.erro = 'Nao consegui ler o arquivo.'; desenhar();
     };
     leitor.readAsDataURL(arquivo);
+  }
+
+
+  /* ============ CONSULTA POR LINK ============
+     Cola o link de um produto e ve quanto ele vende; cola o link de uma
+     loja e ve o faturamento dela.
+
+     COMO FUNCIONA, e por que nao e direto: a pagina do produto NAO devolve
+     venda — o campo sold vem nulo em todas as capturas. Quem devolve e a
+     BUSCA. Entao para o produto a extensao busca pelo titulo dele e acha o
+     item pelo id; para a loja, usa a busca interna da loja, que devolve os
+     itens com o mesmo formato da busca geral. */
+
+  function idsDoLink(link) {
+    var s = String(link || '').trim();
+    // .../product/SHOPID/ITEMID  ou  ...-i.SHOPID.ITEMID
+    var m = s.match(/\/product\/(\d+)\/(\d+)/) || s.match(/-i\.(\d+)\.(\d+)/);
+    if (m) return { loja: m[1], item: m[2] };
+    // .../shop/SHOPID  ou  shopee.com.br/NOMEDALOJA
+    var l = s.match(/\/shop\/(\d+)/);
+    if (l) return { loja: l[1], item: null };
+    return null;
+  }
+
+  async function consultarLink(link) {
+    var ids = idsDoLink(link);
+    if (!ids) {
+      E.erro = 'Nao reconheci este link. Cole o endereco de um produto ou de uma loja da Shopee.';
+      desenhar(); return;
+    }
+    E.buscando = true; E.erro = null; E.consultaLink = null;
+    E.progresso = ids.item ? 'Procurando este produto...' : 'Lendo a loja...';
+    desenhar();
+
+    if (ids.item) await consultarProduto(ids);
+    else await consultarLoja(ids.loja);
+
+    E.buscando = false; E.progresso = null;
+    desenhar();
+  }
+
+  /* PRODUTO. A pagina dele nao traz venda, entao: pega o nome pela pagina,
+     busca esse nome, e acha o item pelo id na resposta da busca. */
+  async function consultarProduto(ids) {
+    var r = await api('/api/v4/pdp/get_pc?item_id=' + ids.item + '&shop_id=' + ids.loja);
+    var nome = null, loja = null;
+    try {
+      var d = (r.dados && (r.dados.data || r.dados)) || {};
+      nome = (d.item && d.item.title) || (d.item && d.item.name) || null;
+      loja = (d.shop_detailed && (d.shop_detailed.name || d.shop_detailed.username)) || null;
+    } catch (e) { }
+    if (!nome) {
+      E.erro = 'Nao consegui abrir este produto. Confira se o link esta certo e se voce esta logada na Shopee.';
+      return;
+    }
+
+    E.progresso = 'Procurando "' + nome.slice(0, 34) + '"...';
+    desenhar();
+
+    // busca pelo titulo e acha o item pelo id
+    var achou = null;
+    for (var pg = 0; pg < 3 && !achou; pg++) {
+      var url = '/api/v4/search/search_items?by=relevancy&keyword=' +
+        encodeURIComponent(nome.slice(0, 60)) + '&limit=60&newest=' + (pg * 60) +
+        '&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
+        '&view_session_id=' + sessaoDaBusca(nome);
+      var rb = await api(url);
+      if (!rb.ok || !rb.dados) break;
+      var its = (rb.dados.items || (rb.dados.data && rb.dados.data.items) || []);
+      for (var i = 0; i < its.length; i++) {
+        if (String(its[i].itemid) === String(ids.item)) { achou = traduzirItem(its[i]); break; }
+      }
+      if (its.length < 60) break;
+      await espera(PAUSA);
+    }
+
+    if (!achou) {
+      E.consultaLink = {
+        tipo: 'produto', nome: nome, loja: loja, semDado: true,
+        link: 'https://shopee.com.br/product/' + ids.loja + '/' + ids.item
+      };
+      return;
+    }
+    if (!achou.lojaNome && loja) achou.lojaNome = loja;
+    E.consultaLink = { tipo: 'produto', item: achou };
+  }
+
+  /* LOJA. A busca interna da loja devolve os itens no mesmo formato da
+     busca geral, com o volume de venda junto. */
+  async function consultarLoja(shopid) {
+    var todos = [];
+    for (var pg = 0; pg < 4; pg++) {
+      E.progresso = 'Lendo os produtos da loja... (' + (pg * 30) + ')';
+      desenhar();
+      var url = '/api/v4/shop/search_items?shopid=' + shopid +
+        '&limit=30&offset=' + (pg * 30) + '&order=desc&sort_by=pop' +
+        '&filter_sold_out=1&use_case=4&item_card_use_scene=search_items_popular';
+      var r = await api(url);
+      if (!r.ok || !r.dados) break;
+      var its = (r.dados.items || (r.dados.data && r.dados.data.items) || []);
+      if (!its.length) break;
+      todos = todos.concat(its);
+      if (its.length < 30) break;
+      await espera(PAUSA);
+    }
+    if (!todos.length) {
+      E.erro = 'Nao consegui ler os produtos desta loja. Confira o link e se voce esta logada.';
+      return;
+    }
+    var itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
+    var comVenda = itens.filter(function (x) { return x.mes != null; });
+    E.consultaLink = {
+      tipo: 'loja', shopid: shopid,
+      nome: (itens[0] && itens[0].lojaNome) || ('loja ' + shopid),
+      itens: itens, comVenda: comVenda.length,
+      vendas: comVenda.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
+      fat: comVenda.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0)
+    };
   }
 
   /* ============ LEITURA DO NICHO ============ */
@@ -1299,13 +1417,19 @@
     '*{box-sizing:border-box;font-family:Outfit,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif}' +
 
     /* a aba lateral */
-    '.btn{position:fixed;top:50%;transform:translateY(-50%);right:0;width:44px;height:60px;' +
-      'border-radius:16px 0 0 16px;background:#2C2A26;color:#FBF8F3;border:none;cursor:pointer;' +
+    /* AS DUAS ABAS NA LATERAL, SEM SOBREPOR. A Seller.IA fica acima do meio
+       e o Radar logo abaixo, com 4px entre elas. Cor diferente para dar para
+       distinguir de relance: a Seller.IA escura, o Radar no laranja. */
+    '.btn{position:fixed;top:calc(50% + 34px);right:0;width:44px;height:60px;' +
+      'border-radius:16px 0 0 16px;background:#EE4D2D;color:#fff;border:none;cursor:pointer;' +
       'font:500 21px Archivo,Arial;letter-spacing:-.035em;box-shadow:-4px 4px 18px rgba(0,0,0,.2);' +
       'display:grid;place-items:center;z-index:2147483000;transition:width .15s,background .15s}' +
     '.btn span{display:block;width:28px;height:28px;line-height:0}' +
     '.btn span svg{width:100%;height:100%;display:block;border-radius:8px}' +
-    '.btn:hover{width:52px}' +
+    '.btn:hover{width:52px;background:#d94326}' +
+    '.btn b{position:absolute;left:-1px;top:50%;transform:translateY(-50%) rotate(180deg);' +
+      'writing-mode:vertical-rl;font:400 7.5px "Space Mono",monospace;letter-spacing:.14em;' +
+      'color:rgba(255,255,255,.75);pointer-events:none}' +
 
     /* o painel flutuante */
     /* Colado no topo e no fim: 24px de folga em cima e embaixo era quase
@@ -1445,7 +1569,7 @@
     'a{color:#EE4D2D;text-decoration:none}' +
     '</style>' +
 
-    '<button class="btn" id="abrir" title="Analista de Mercado"><span>' + LOGO + '</span></button>' +
+    '<button class="btn" id="abrir" title="Radar 360 · analise de mercado"><span>' + LOGO + '</span><b>RADAR</b></button>' +
     '<div id="tudo"><div class="painel" id="painel">' +
     /* TUDO EM DUAS LINHAS. A marca dividia a linha sozinha, a busca outra,
        as opcoes outra e o contexto mais uma: quatro linhas de cabecalho
@@ -1476,6 +1600,7 @@
     '</div></div>';
 
   var ABAS = [
+    { id: 'link', rot: 'Por link', d: 'M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.5 1.5M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.5-1.5' },
     { id: 'nicho', rot: 'O nicho', d: 'M3.5 20.5V13M9 20.5V7M14.5 20.5v-5M20 20.5V3.5' },
     { id: 'produtos', rot: 'Os produtos', d: 'M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9' },
     { id: 'lojas', rot: 'As lojas', d: 'M4 9.5h16M4 9.5 6 4h12l2 5.5M5.5 9.5v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-10' },
@@ -1543,7 +1668,8 @@
       return;
     }
     if (E.detalhe) { c.innerHTML = viewDetalhe(); ligarTabela(); return; }
-    c.innerHTML = E.aba === 'nicho' ? viewNicho()
+    c.innerHTML = E.aba === 'link' ? viewLink()
+      : E.aba === 'nicho' ? viewNicho()
       : E.aba === 'produtos' ? viewProdutos()
       : E.aba === 'lojas' ? viewLojas()
       : E.aba === 'calculo' ? renderCalculo()
@@ -1824,6 +1950,90 @@
     return h + '</table>';
   }
 
+  function viewLink() {
+    var h = olho('CONSULTAR PELO LINK',
+      'Cole o endereço de um <b>produto</b> para ver quanto ele vende, ou de uma <b>loja</b> para ver o faturamento dela inteira. Os dois no mesmo campo.');
+    h += '<div style="display:flex;gap:9px;margin-bottom:14px">' +
+      '<input id="campo-link" class="n" placeholder="https://shopee.com.br/..." ' +
+      'style="flex:1;font-family:Outfit,Arial;font-size:14px" value="' + esc(E.linkDigitado || '') + '">' +
+      '<button class="go" id="ir-link"' + (E.buscando ? ' disabled' : '') + '>' +
+      (E.buscando ? 'Lendo...' : 'Consultar') + '</button></div>';
+
+    if (E.buscando) return h + '<div class="vazio">' + esc(E.progresso || 'Lendo...') + '</div>';
+    if (E.erro) h += '<div class="nota" style="color:#D64545">' + esc(E.erro) + '</div>';
+
+    var C = E.consultaLink;
+    if (!C) {
+      return h + '<div class="nota">Funciona com os dois formatos de link da Shopee, o que tem <b>/product/</b> e o que termina em <b>-i.numero.numero</b>. Para loja, use o link que tem <b>/shop/</b>.</div>';
+    }
+
+    if (C.tipo === 'produto') {
+      if (C.semDado) {
+        h += '<div class="nota"><b>' + esc(C.nome) + '</b><br><br>' +
+          'Achei o produto, mas ele não apareceu nas três primeiras páginas da busca pelo próprio título, ' +
+          'e é só na busca que a Shopee entrega o volume de venda. Isso costuma significar que ele está mal posicionado para o próprio nome.' +
+          (C.link ? '<br><br><a href="' + C.link + '" target="_blank" rel="noopener">Abrir na Shopee ↗</a>' : '') + '</div>';
+        return h;
+      }
+      var x = C.item;
+      h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:20px 22px;margin-bottom:12px">' +
+        '<div style="font-size:15px;font-weight:600;color:var(--tx1);margin-bottom:4px">' + sigTitulo(x.nome, 70) + '</div>' +
+        '<div style="font:400 10px \'Space Mono\',monospace;color:var(--tx6);margin-bottom:16px">' + sigLoja(x.lojaNome) +
+        (x.local ? ' · ' + esc(x.local) : '') + '</div>' +
+        '<div style="display:flex;align-items:baseline;gap:22px;flex-wrap:wrap">' +
+        '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">VENDE POR MÊS</div>' +
+        '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1">' + num(x.mes) + '</div></div>' +
+        '<div style="border-left:1px solid var(--bd5);padding-left:22px">' +
+        '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">FATURA POR MÊS</div>' +
+        '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:#EE4D2D;line-height:1" title="' +
+        (x.fatMes != null ? reais(x.fatMes) : '') + '">' + (x.fatMes != null ? reaisCurto(x.fatMes) : '—') + '</div></div></div>' +
+        '<div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--bd5)">' +
+        celula(reais(x.preco), 'PREÇO') +
+        celula(num(x.total), 'DESDE QUE ENTROU') +
+        celula(x.nota != null ? num(x.nota, 2) : '—', 'NOTA') +
+        celula(x.cadastro ? idade(x.cadastro) : '—', 'NO AR HÁ') +
+        '</div></div>';
+      if (x.link && !E.gravando) h += '<div class="nota"><a href="' + x.link + '" target="_blank" rel="noopener">Abrir na Shopee ↗</a></div>';
+      return h;
+    }
+
+    // ---- LOJA ----
+    var ord = C.itens.filter(function (y) { return y.mes != null; })
+      .sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
+    h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:20px 22px;margin-bottom:12px">' +
+      '<div style="font-size:15px;font-weight:600;color:var(--tx1);margin-bottom:14px">' + sigLoja(C.nome) + '</div>' +
+      '<div style="display:flex;align-items:baseline;gap:22px;flex-wrap:wrap">' +
+      '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">FATURA POR MÊS</div>' +
+      '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1" title="' + reais(C.fat) + '">' +
+      reaisCurto(C.fat) + '</div></div>' +
+      '<div style="border-left:1px solid var(--bd5);padding-left:22px">' +
+      '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">UNIDADES VENDIDAS</div>' +
+      '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:#EE4D2D;line-height:1">' + num(C.vendas) + '</div></div></div>' +
+      '<div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--bd5)">' +
+      celula(C.itens.length, 'PRODUTOS LIDOS') +
+      celula(C.comVenda, 'COM VENDA NO MÊS') +
+      celula(C.vendas ? reais(C.fat / C.vendas) : '—', 'TICKET MÉDIO') +
+      '</div></div>';
+
+    h += '<div class="aviso">Foram lidos os <b>' + C.itens.length + '</b> produtos mais vendidos da loja. ' +
+      'Se ela tiver mais que isso, o faturamento real é maior.</div>';
+
+    if (ord.length) {
+      h += olho('O QUE ELA MAIS VENDE');
+      h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">VENDE/MÊS</th>' +
+        '<th class="num">PREÇO</th><th class="num">FATURA</th></tr>';
+      ord.slice(0, 15).forEach(function (y) {
+        h += '<tr><td><b>' + sigTitulo(y.nome, 46) + '</b>' +
+          (y.link && !E.gravando ? ' <a href="' + y.link + '" target="_blank" rel="noopener" style="font-size:12px">↗</a>' : '') + '</td>' +
+          '<td class="num">' + num(y.mes) + '</td>' +
+          '<td class="num">' + reais(y.preco) + '</td>' +
+          '<td class="num">' + (y.fatMes != null ? reaisCurto(y.fatMes) : '—') + '</td></tr>';
+      });
+      h += '</table></div>';
+    }
+    return h;
+  }
+
   function viewConsultor() {
     var h = olho('O QUE ESTES NÚMEROS DIZEM',
       'A leitura le os numeros que ja estao na tela e diz o que fazer com eles. As contas continuam sendo do sistema \u2014 a IA nao calcula, porque conta errada ninguem confere.');
@@ -2015,6 +2225,15 @@
     });
     var v = $('voltar');
     if (v) v.addEventListener('click', function () { E.detalhe = null; desenhar(); });
+    var bl = $('ir-link');
+    if (bl) bl.addEventListener('click', function () {
+      var v = $('campo-link');
+      if (v && v.value.trim() && !E.buscando) { E.linkDigitado = v.value.trim(); consultarLink(v.value.trim()); }
+    });
+    var cl = $('campo-link');
+    if (cl) cl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && this.value.trim() && !E.buscando) { E.linkDigitado = this.value.trim(); consultarLink(this.value.trim()); }
+    });
     var pl = $('pedir-leitura');
     if (pl) pl.addEventListener('click', consultar);
     var br = $('baixar-relatorio');

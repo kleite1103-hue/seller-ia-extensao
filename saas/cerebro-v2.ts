@@ -760,8 +760,15 @@ function julgarCampanhasNovo(K: any, snap: any, saida: Veredito[]) {
           passos.push("Confira frete e prazo — e onde a desistencia acontece");
           passos.push("Teste um cupom pequeno em vez de baixar o preco");
         } else {
-          passos.push("Abra a pagina no celular e compare com quem aparece na mesma busca");
-          passos.push("Verifique variacao sem estoque e avaliacoes sem resposta");
+          /* "Abra no celular e compare" so vale quando nao ha nada melhor a
+             dizer. Quando o Espiao ja leu os concorrentes, mandar a pessoa
+             fazer na mao o que o sistema fez e devolver trabalho. */
+          if (compet !== null && compet < 40) {
+            passos.push("O preco esta acima da categoria: compare com os primeiros da mesma busca antes de mexer em qualquer outra coisa");
+          } else {
+            passos.push("Verifique variacao sem estoque e avaliacoes sem resposta");
+            passos.push("Se a ficha estiver completa, o problema e o publico que o anuncio traz, nao a pagina");
+          }
         }
         passos.push("Enquanto a pagina nao fechar venda, mais trafego so aumenta a perda");
 

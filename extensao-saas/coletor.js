@@ -81,6 +81,7 @@
       email: '', erro: null, entrando: false, aviso: null
     },
     acessoToken: null,
+    filtros: {},
     kw: {},                  // pesquisa de palavras
     kwHistorico: null,       // serie de volume que a gente monta
     limiteLojas: null,       // mensagem quando a loja nao cabe no plano
@@ -1968,9 +1969,18 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     '.painel,.painel *{color:inherit}' +
     'select,input,textarea,button{color:var(--t0);background-color:var(--b2)}' +
     'option{background:var(--b2);color:var(--t0)}' +
-    '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;z-index:2147483010;border-radius:17px;cursor:pointer;box-shadow:0 8px 24px var(--sh),0 2px 6px var(--shb);transition:transform .15s;background:none;border:none;padding:0;overflow:hidden}' +
+        /* A ABA VAI PARA A LATERAL, acima do meio. No canto de baixo ela cobria
+       o chat da Shopee, e quando o Radar 360 esta instalado as duas
+       brigavam pelo mesmo lugar. Agora a Seller.IA fica logo acima do meio
+       e o Radar logo abaixo, sem se tocarem. */
+    '.botao{position:fixed;top:calc(50% - 34px);right:0;width:44px;height:60px;z-index:2147483010;' +
+      'border-radius:16px 0 0 16px;cursor:pointer;box-shadow:-4px 4px 18px var(--sh);' +
+      'transition:width .15s;background:var(--t0);border:none;padding:0;overflow:hidden;' +
+      'display:grid;place-items:center}' +
+    '.botao span{display:block;width:28px;height:28px;line-height:0}' +
+    '.botao span svg{width:100%;height:100%;display:block;border-radius:8px}' +
     '.botao svg{display:block;width:100%;height:100%}' +
-    '.botao:hover{transform:scale(1.08)}' +
+    '.botao:hover{width:52px}' +
     '.menu-flut{position:fixed;bottom:84px;right:22px;z-index:2147483009;background:var(--b0);border:1px solid var(--li);border-radius:18px;box-shadow:0 14px 40px var(--sh),0 3px 10px var(--shb);padding:7px;min-width:212px;opacity:0;transform:translateY(8px) scale(.96);pointer-events:none;transition:opacity .16s,transform .16s}' +
     '.menu-flut.on{opacity:1;transform:none;pointer-events:auto}' +
     '.menu-flut button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--t1);font-family:Outfit,Arial;font-size:13.5px;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}' +
@@ -2278,6 +2288,27 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
   ligar('sia-abrir', 'dblclick', function (ev) {
     ev.preventDefault(); estado.modoTecnico = !estado.modoTecnico; render();
   });
+  /* O filtro le do DOM ao digitar e redesenha com espera, devolvendo o
+     cursor ao campo — sem isso o texto some a cada tecla. */
+  (function ligarFiltros() {
+    var alvo = $('sia-corpo');
+    if (!alvo) return;
+    var tmr = null;
+    alvo.addEventListener('input', function (ev) {
+      var el = ev.target;
+      if (!el || !el.getAttribute || !el.getAttribute('data-filtro')) return;
+      var id = el.getAttribute('data-filtro');
+      estado.filtros = estado.filtros || {};
+      estado.filtros[id] = el.value;
+      if (tmr) clearTimeout(tmr);
+      tmr = setTimeout(function () {
+        render();
+        var volta = corpoEl() && corpoEl().querySelector('[data-filtro="' + id + '"]');
+        if (volta) { volta.focus(); try { volta.setSelectionRange(volta.value.length, volta.value.length); } catch (e) { } }
+      }, 380);
+    });
+  })();
+
   ligar('sia-corpo', 'click', function (ev) {
     // PRIMEIRA PASSAGEM: acoes internas do card (expandir, excluir, calcular).
     // Sem isto o div do card, que e pai, capturava o clique e abria a tela do
@@ -2373,6 +2404,12 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
             mostrarExpl('<b>Endereco copiado.</b> Abra uma aba nova, cole na barra de endereco e siga os passos acima. O Chrome nao deixa a extensao abrir essa pagina sozinha, por seguranca.');
           } catch (e) { mostrarExpl('Digite <b>chrome://extensions</b> numa aba nova.'); }
           return;
+        }
+        var _lf = voltaA.getAttribute && voltaA.getAttribute('data-limpa-filtro');
+        if (_lf) {
+          estado.filtros = estado.filtros || {};
+          estado.filtros[_lf] = '';
+          estado.sujo = true; render(); return;
         }
         if (voltaA.id === 'sia-termos') { mostrarTermos(); return; }
         if (voltaA.id === 'sia-cta-radar' || voltaA.id === 'sia-cfg-radar') {
@@ -3406,6 +3443,33 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     var n = typeof v === 'number' ? v : parseFloat(String(v == null ? '' : v).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.'));
     return isFinite(n) ? n : null;
   }
+  /* CAMPO DE BUSCA DE PRODUTO. Numa conta com centenas de itens, rolar a
+     lista para achar um produto e inviavel. O campo filtra na hora, sem
+     recarregar nada. */
+  function campoFiltro(id, quantos, oque) {
+    var v = (estado.filtros && estado.filtros[id]) || '';
+    var dica = 'filtrar por nome ou ID ' + (oque || 'do produto') + '...';
+    return '<div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">' +
+      '<input data-filtro="' + id + '" value="' + esc(v) + '" placeholder="' + dica + '" ' +
+      'style="flex:1;background:var(--b2);border:1px solid var(--li);border-radius:12px;padding:10px 13px;' +
+      'font-family:inherit;font-size:13.5px;color:var(--t0);outline:none">' +
+      (v ? '<button data-limpa-filtro="' + id + '" style="background:none;border:1px solid var(--li);color:var(--t2);' +
+        'font-family:inherit;font-size:12px;padding:8px 12px;border-radius:10px;cursor:pointer">limpar</button>' : '') +
+      (quantos != null ? '<span style="font-family:Space Mono,monospace;font-size:10px;color:var(--t2);white-space:nowrap">' +
+        quantos + ' item(ns)</span>' : '') + '</div>';
+  }
+
+  function passaFiltro(id, nome, produtoId) {
+    var q = ((estado.filtros && estado.filtros[id]) || '').trim().toLowerCase();
+    if (!q) return true;
+    var alvo = (String(nome || '') + ' ' + String(produtoId || '')).toLowerCase();
+    // toda palavra digitada precisa aparecer: "kit carrinho" acha
+    // "Kit 48 Carrinhos" mesmo com palavras no meio
+    var partes = q.split(/\s+/);
+    for (var i = 0; i < partes.length; i++) if (alvo.indexOf(partes[i]) < 0) return false;
+    return true;
+  }
+
   function renderFunilLoja() {
     var uv = valCampo('uv');
     var atc = valCampo('atc');
@@ -3432,6 +3496,30 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     for (i = 0; i < quedas.length; i++) if (quedas[i].pct != null && (!pior || quedas[i].pct > pior.pct)) pior = quedas[i];
 
     var h = olho('O CAMINHO ATE A VENDA', '<b>O funil da loja inteira.</b> Cada degrau mostra quantas pessoas passaram para a etapa seguinte. A queda entre dois degraus e onde voce perde gente. O degrau com a maior queda e onde vale colocar esforco primeiro — melhorar um degrau que ja esta bom rende pouco.');
+    /* AS TAXAS QUE IMPORTAM, acima do funil. A queda entre degraus ja
+       aparecia, mas o CTR, a taxa de carrinho e a de conversao sao os tres
+       numeros que a pessoa compara com a propria experiencia — e estavam
+       so implicitos nas setas. */
+    var ctrF = (impr && buscas) ? (buscas / impr) * 100 : null;
+    var atcF = (uv && atc) ? (atc / uv) * 100 : null;
+    var convF = (uv && ped) ? (ped / uv) * 100 : null;
+    var fechaF = (atc && ped) ? (ped / atc) * 100 : null;
+    if (ctrF !== null || atcF !== null || convF !== null) {
+      h += '<div style="display:flex;gap:26px;flex-wrap:wrap;background:var(--b0);border:1px solid var(--li);' +
+        'border-radius:18px;padding:15px 18px;margin-bottom:11px">';
+      function taxaF(v, rot, ajuda) {
+        if (v === null) return '';
+        return '<div><div style="font-family:Space Mono,monospace;font-size:9px;letter-spacing:.08em;color:var(--t2);margin-bottom:5px">' + rot + '</div>' +
+          '<div style="font-family:Archivo,Outfit,Arial;font-weight:600;font-size:24px;letter-spacing:-.03em;color:var(--t0)">' + fmt(v, 2) + '%</div>' +
+          '<div style="font-size:11.5px;color:var(--t2);margin-top:3px">' + ajuda + '</div></div>';
+      }
+      h += taxaF(ctrF, 'CTR NA BUSCA', 'de cada 100 que veem, clicam');
+      h += taxaF(atcF, 'TAXA DE CARRINHO', 'de cada 100 visitas, guardam');
+      h += taxaF(fechaF, 'FECHAMENTO', 'de cada 100 carrinhos, pagam');
+      h += taxaF(convF, 'CONVERSAO', 'de cada 100 visitas, compram');
+      h += '</div>';
+    }
+
     h += '<div style="background:var(--b0);border:1px solid var(--li);border-radius:18px;padding:14px 10px;display:flex;align-items:flex-end;gap:3px;margin-bottom:11px">';
     for (i = 0; i < etapas.length; i++) {
       if (i > 0) {
@@ -3726,8 +3814,13 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
     var H = D && D.horas;
     if (!H || !Object.keys(H).length) {
+      /* Antes esta mensagem pedia "leitura profunda", mas a coleta hoje ja
+         e sempre profunda: pedir de novo o que ja foi feito so confunde. O
+         motivo real e outro — a serie por hora vem de uma rota que a receita
+         nao busca, entao o dado nunca chega. */
       return olho('O DIA HORA A HORA') +
-        '<div class="nota" style="color:var(--am)">Esta leitura precisa da <b>leitura profunda</b>, que busca a serie hora a hora das campanhas. Rode na Conta 360.</div>';
+        '<div class="nota">A Shopee entrega a evolucao por <b>dia</b>, e nao por hora, nas rotas que a Seller.IA le hoje. ' +
+        'Enquanto isso nao mudar, esta leitura fica indisponivel.</div>';
     }
 
     var FAIXAS = [
@@ -6148,10 +6241,33 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
 
     // numeros do canal
     h += olho('O CANAL NO PERIODO', 'Comissao e o custo real do canal: e o que voce paga ao criador por venda gerada. ROI de afiliados costuma ser muito maior que ROAS de anuncio porque a comissao e uma fracao do pedido, e nao um lance disputado.');
+    /* COR NOS NUMEROS. O GMV do canal e dinheiro que entrou, entao verde.
+       O ROI abaixo de 10x acende vermelho: no afiliado a comissao e uma
+       fracao do pedido, e nao um lance disputado, entao ROI baixo aqui
+       significa que a comissao esta comendo a margem — e sem o custo do
+       produto cadastrado nao da para saber se ainda sobra lucro. */
+    var roiAf = afRoi != null ? numeroPuro(afRoi) : null;
+    var corRoi = roiAf == null ? 'var(--t0)' : (roiAf >= 10 ? 'var(--vd)' : 'var(--rd)');
+    var pagoPorVenda = (comTotal != null && pedAf) ? numeroPuro(comTotal) / pedAf : null;
+    var ticketAf = (afGmv != null && pedAf) ? numeroPuro(afGmv) / pedAf : null;
+
     h += '<div class="tres">' +
-      '<div><div class="v">' + (afGmv != null ? reais(numeroPuro(afGmv)) : '\u2014') + '</div><div class="l">GMV DO CANAL</div></div>' +
-      '<div><div class="v">' + (pedAf != null ? fmt(pedAf, 0) : '\u2014') + '</div><div class="l">PEDIDOS</div></div>' +
-      '<div><div class="v">' + (afRoi != null ? fmt(numeroPuro(afRoi), 1) + 'x' : '\u2014') + '</div><div class="l">ROI</div></div></div>';
+      '<div><div class="v" style="color:var(--vd)">' + (afGmv != null ? reais(numeroPuro(afGmv)) : '\u2014') + '</div><div class="l">GMV DO CANAL</div>' +
+      (ticketAf != null ? '<div class="s">ticket ' + reais(ticketAf) + '</div>' : '') + '</div>' +
+      '<div><div class="v">' + (pedAf != null ? fmt(pedAf, 0) : '\u2014') + '</div><div class="l">PEDIDOS</div>' +
+      (pagoPorVenda != null ? '<div class="s">' + reais(pagoPorVenda) + ' pagos por venda</div>' : '') + '</div>' +
+      '<div><div class="v" style="color:' + corRoi + '">' + (roiAf != null ? fmt(roiAf, 1) + 'x' : '\u2014') + '</div><div class="l">ROI</div>' +
+      (roiAf != null && roiAf < 10 ? '<div class="s" style="color:var(--rd)">abaixo de 10x</div>' : '') + '</div></div>';
+
+    if (roiAf != null && roiAf < 10) {
+      h += '<div class="nota" style="border-left:3px solid var(--rd)">' +
+        '<b style="color:var(--t0)">ROI de ' + fmt(roiAf, 1) + 'x no afiliado pede conta na mao.</b><br>' +
+        'Aqui a comissao e uma fracao fixa do pedido, e nao um lance disputado, entao o ROI costuma ser bem mais alto que no anuncio. ' +
+        'Abaixo de 10x a comissao ja pesa o suficiente para comer a margem' +
+        (pagoPorVenda != null ? ', e voce esta pagando <b>' + reais(pagoPorVenda) + '</b> por venda' : '') +
+        '. Sem o custo do produto cadastrado, nao da para dizer se ainda sobra lucro.<br><br>' +
+        'Calcule a margem destes produtos antes de aumentar a comissao.</div>';
+    }
     if (comTotal != null || afItens != null) {
       h += '<div class="nota">' +
         (comTotal != null ? 'Comissao paga: <b>' + reais(comTotal) + '</b>' : '') +
@@ -6751,14 +6867,18 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
   }
 
   function renderFiltroCampanhas() {
+    // Busca por nome antes dos botoes de estado: com dezenas de campanhas,
+    // achar uma pelo nome e mais rapido que filtrar por ativa/pausada.
+    var quantas = Object.keys(estado.campanhas || {}).length;
+    var busca = quantas > 8 ? campoFiltro('camp', quantas, 'da campanha') : '';
     var ativas = 0, pausadas = 0;
     for (var k in estado.campanhas) {
       var e2 = String((estado.campanhas[k] && (estado.campanhas[k].estado || estado.campanhas[k].state)) || '').toLowerCase();
       if (e2 === 'paused' || e2 === 'ended' || e2 === 'closed') pausadas++; else ativas++;
     }
-    if (!pausadas) return '';
+    if (!pausadas) return busca;
     var vendo = estado.verPausadas ? 'pausadas' : 'ativas';
-    return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 10px">' +
+    return busca + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 10px">' +
       '<button data-camp-filtro="ativas" style="background:' + (vendo === 'ativas' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (vendo === 'ativas' ? 'var(--mk)' : 'var(--li)') + ';color:' + (vendo === 'ativas' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Ativas (' + ativas + ')</button>' +
       '<button data-camp-filtro="pausadas" style="background:' + (vendo === 'pausadas' ? 'var(--mk)' : 'var(--b2)') + ';border:1px solid ' + (vendo === 'pausadas' ? 'var(--mk)' : 'var(--li)') + ';color:' + (vendo === 'pausadas' ? '#fff' : 'var(--t1)') + ';font-family:inherit;font-size:12.5px;padding:8px 14px;border-radius:var(--r-btn,14px);cursor:pointer">Pausadas (' + pausadas + ')</button>' +
       '<span class="nota" style="margin:0;align-self:center">' +
@@ -9370,13 +9490,25 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       '</div>';
   }
   function renderPerformanceIA() {
-    var ids = Object.keys(estado.produtos).filter(function (id) {
+    var idsTodos = Object.keys(estado.produtos).filter(function (id) {
       var mm = estado.produtos[id].metricas || {};
       return mm.visitantes !== undefined || mm.vendas_pagas !== undefined;
+    });
+    // Numa conta com centenas de produtos, rolar a lista para achar um item
+    // e inviavel. O filtro corta por nome ou por ID.
+    var ids = idsTodos.filter(function (id) {
+      return passaFiltro('prod', (estado.produtos[id] || {}).nome, id);
     });
     if (!ids.length) {
       return '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
     }
+    var cabecalhoFiltro = idsTodos.length > 8
+      ? campoFiltro('prod', ids.length === idsTodos.length ? idsTodos.length : ids.length + ' de ' + idsTodos.length)
+      : '';
+    if (!ids.length) {
+      return cabecalhoFiltro + '<div class="vazio">Nenhum produto com esse nome ou ID.</div>';
+    }
+
     var lidos = [];
     var doCerebro = vereditosDe('produto');
     if (doCerebro.length) {
@@ -9485,7 +9617,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       }
     }
     h += '<div class="nota">A leitura usa o funil que a Shopee entrega por produto. Produtos com menos de 100 visitantes ficam de fora do julgamento de proposito — abaixo disso, taxa e ruido.</div>';
-    return h;
+    return cabecalhoFiltro + h;
   }
 
   function render() {

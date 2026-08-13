@@ -2086,9 +2086,18 @@
     '.painel,.painel *{color:inherit}' +
     'select,input,textarea,button{color:var(--t0);background-color:var(--b2)}' +
     'option{background:var(--b2);color:var(--t0)}' +
-    '.botao{position:fixed;bottom:22px;right:22px;width:52px;height:52px;z-index:2147483010;border-radius:17px;cursor:pointer;box-shadow:0 8px 24px var(--sh),0 2px 6px var(--shb);transition:transform .15s;background:none;border:none;padding:0;overflow:hidden}' +
+        /* A ABA VAI PARA A LATERAL, acima do meio. No canto de baixo ela cobria
+       o chat da Shopee, e quando o Radar 360 esta instalado as duas
+       brigavam pelo mesmo lugar. Agora a Seller.IA fica logo acima do meio
+       e o Radar logo abaixo, sem se tocarem. */
+    '.botao{position:fixed;top:calc(50% - 34px);right:0;width:44px;height:60px;z-index:2147483010;' +
+      'border-radius:16px 0 0 16px;cursor:pointer;box-shadow:-4px 4px 18px var(--sh);' +
+      'transition:width .15s;background:var(--t0);border:none;padding:0;overflow:hidden;' +
+      'display:grid;place-items:center}' +
+    '.botao span{display:block;width:28px;height:28px;line-height:0}' +
+    '.botao span svg{width:100%;height:100%;display:block;border-radius:8px}' +
     '.botao svg{display:block;width:100%;height:100%}' +
-    '.botao:hover{transform:scale(1.08)}' +
+    '.botao:hover{width:52px}' +
     '.menu-flut{position:fixed;bottom:84px;right:22px;z-index:2147483009;background:var(--b0);border:1px solid var(--li);border-radius:18px;box-shadow:0 14px 40px var(--sh),0 3px 10px var(--shb);padding:7px;min-width:212px;opacity:0;transform:translateY(8px) scale(.96);pointer-events:none;transition:opacity .16s,transform .16s}' +
     '.menu-flut.on{opacity:1;transform:none;pointer-events:auto}' +
     '.menu-flut button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--t1);font-family:Outfit,Arial;font-size:13.5px;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}' +
