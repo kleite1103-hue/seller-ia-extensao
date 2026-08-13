@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.12.1';
+  var VERSAO = '1.12.2';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -448,6 +448,16 @@
 
     E.buscando = false; E.progresso = null;
     if (!E.itens.length && !E.erro) E.erro = 'A Shopee nao devolveu resultados para este termo.';
+    // Sem volume mensal nao ha analise possivel: melhor dizer isso do que
+    // mostrar uma tela de zeros que parece um nicho morto.
+    if (E.itens.length && !E.erro) {
+      var comMes = E.itens.filter(function (x) { return x.mes != null; }).length;
+      if (!comMes) {
+        E.erro = 'A Shopee devolveu ' + E.itens.length + ' produtos, mas sem o volume de vendas do mes. ' +
+          'Isso acontece quando a sessao nao esta ativa na vitrine: abra shopee.com.br, confirme que esta logada, e tente de novo.';
+        E.itens = [];
+      }
+    }
     try { console.log('[Mercado] fim:', E.itens.length, 'produtos | erro:', E.erro || 'nenhum'); } catch (e) { }
     desenhar();
   }
@@ -468,10 +478,16 @@
 
     var preco = pr.price != null ? pr.price / 100000
       : (b.price != null ? b.price / 100000 : null);
-    var mes = sc.monthly_sold_count != null ? sc.monthly_sold_count
-      : (b.sold != null ? b.sold : null);
+    /* O CAMPO "sold" DO item_basic E O TOTAL HISTORICO, nao o do mes.
+       Eu o usava como reserva do monthly_sold_count, e quando a resposta
+       vinha nessa forma o faturamento inflava dez a cem vezes — foi o que
+       fez o mesmo termo dar dez milhoes num dia e cento e vinte mil no
+       outro. So o monthly_sold_count e mensal; sem ele, nao ha numero do
+       mes, e dizer que ha seria inventar. */
+    var mes = sc.monthly_sold_count != null ? sc.monthly_sold_count : null;
     var total = sc.historical_sold_count != null ? sc.historical_sold_count
-      : (b.historical_sold != null ? b.historical_sold : null);
+      : (b.historical_sold != null ? b.historical_sold
+        : (b.sold != null ? b.sold : null));
 
     return {
       id: it.itemid || b.itemid || d.itemid,
