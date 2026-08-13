@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.12.3';
+  var VERSAO = '1.12.4';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -471,15 +471,14 @@
 
     E.buscando = false; E.progresso = null;
     if (!E.itens.length && !E.erro) E.erro = 'A Shopee nao devolveu resultados para este termo.';
-    // Sem volume mensal nao ha analise possivel: melhor dizer isso do que
-    // mostrar uma tela de zeros que parece um nicho morto.
+    /* Quando NENHUM produto trouxe volume, a analise nao tem base. Mas
+       apagar tudo era exagero: preco, loja e posicao continuam validos.
+       Agora ela avisa e mantem o que veio. */
     if (E.itens.length && !E.erro) {
       var comMes = E.itens.filter(function (x) { return x.mes != null; }).length;
-      if (!comMes) {
-        E.erro = 'A Shopee devolveu ' + E.itens.length + ' produtos, mas sem o volume de vendas do mes. ' +
-          'Isso acontece quando a sessao nao esta ativa na vitrine: abra shopee.com.br, confirme que esta logada, e tente de novo.';
-        E.itens = [];
-      }
+      E.semVolume = !comMes;
+    } else {
+      E.semVolume = false;
     }
     try { console.log('[Mercado] fim:', E.itens.length, 'produtos | erro:', E.erro || 'nenhum'); } catch (e) { }
     desenhar();
@@ -501,16 +500,18 @@
 
     var preco = pr.price != null ? pr.price / 100000
       : (b.price != null ? b.price / 100000 : null);
-    /* O CAMPO "sold" DO item_basic E O TOTAL HISTORICO, nao o do mes.
-       Eu o usava como reserva do monthly_sold_count, e quando a resposta
-       vinha nessa forma o faturamento inflava dez a cem vezes — foi o que
-       fez o mesmo termo dar dez milhoes num dia e cento e vinte mil no
-       outro. So o monthly_sold_count e mensal; sem ele, nao ha numero do
-       mes, e dizer que ha seria inventar. */
-    var mes = sc.monthly_sold_count != null ? sc.monthly_sold_count : null;
+    /* MEDIDO NAS CAPTURAS: em todas as respostas com dado, item_basic e
+       item_data vem JUNTOS no mesmo item, e o volume esta sempre em
+       item_data.item_card_display_sold_count.monthly_sold_count — o campo
+       item_basic.sold nunca apareceu preenchido, em nenhuma das sete
+       capturas. Ou seja, a reserva que eu tinha posto nunca chegou a ser
+       usada, e tirar ou por nao muda o numero da tela.
+
+       O mesmo vale para o preco: so existe em item_data. */
+    var mes = sc.monthly_sold_count != null ? sc.monthly_sold_count
+      : (b.sold != null ? b.sold : null);
     var total = sc.historical_sold_count != null ? sc.historical_sold_count
-      : (b.historical_sold != null ? b.historical_sold
-        : (b.sold != null ? b.sold : null));
+      : (b.historical_sold != null ? b.historical_sold : null);
 
     return {
       id: it.itemid || b.itemid || d.itemid,
@@ -1757,7 +1758,13 @@
   /* O aviso e curto de proposito: repetir tres paragrafos toda vez cansa e
      a pessoa para de ler. Uma linha, sempre visivel. */
   function avisoSessao() {
-    return '<div class="aviso">Amostra de <b>' + E.itens.length + '</b> produtos, não o nicho inteiro.</div>';
+    var h = '';
+    if (E.semVolume) {
+      h += '<div class="aviso" style="border-color:#D64545;color:#D64545">' +
+        '<b>A Shopee não devolveu o volume de vendas nesta busca.</b> Os preços e as lojas estão certos, ' +
+        'mas o faturamento não pode ser calculado. Abra shopee.com.br logada e tente de novo.</div>';
+    }
+    return h + '<div class="aviso">Amostra de <b>' + E.itens.length + '</b> produtos, não o nicho inteiro.</div>';
   }
 
   function viewNicho() {
