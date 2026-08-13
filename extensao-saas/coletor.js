@@ -1696,15 +1696,24 @@
       // Uma coleta que nunca resolve trava tudo que depende dela — foi o que
       // aconteceu com o relatorio, que ficou esperando para sempre a leitura
       // do mes anterior. Aqui ela SEMPRE termina: no maximo em 4 minutos.
+      /* O resolver agora redesenha por conta propria. Antes ele so limpava o
+         estado e devolvia a Promise: se quem chamou nao tivesse .then — e
+         havia dez chamadas assim — a tela ficava presa em "Fechando" para
+         sempre, mesmo com a coleta terminada. Redesenhar aqui cobre todas
+         de uma vez, inclusive as que eu ainda nao vi. */
       function resolver(r) {
         if (jaResolveu) return;
         jaResolveu = true;
         clearTimeout(travaSeguranca);
         estado.coletaProgresso = null;
         estado.sujo = true;
+        try { console.log('[Seller.IA] leitura encerrada:', r && r.ok ? 'ok' : (r && r.erro) || '?'); } catch (e) { }
+        try { render(); } catch (e) { }
         resolverOriginal(r);
       }
       travaSeguranca = setTimeout(function () {
+        try { console.warn('[Seller.IA] trava de seguranca disparou'); } catch (e) { }
+        try { render(); } catch (e) { }
         resolver({ ok: false, erro: 'A leitura passou de 4 minutos e foi encerrada. O que ja tinha sido lido foi mantido.',
           chamadas: 0, campanhas: Object.keys(estado.campanhas).length, produtos: Object.keys(estado.produtos).length });
       }, (PROFUNDA ? 5 : 2) * 60 * 1000);
@@ -2422,7 +2431,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           var em2 = $('sia-ass-email');
           var email2 = (em2 && em2.value || '').trim();
           if (!email2 || email2.indexOf('@') < 0) { mostrarExpl('Digite o email usado na compra.'); return; }
-          mostrarExpl('<b>Em breve.</b> A validacao de assinatura esta sendo construida \u2014 por enquanto o acesso segue liberado.');
+          mostrarExpl('Nao encontramos assinatura para este email. Confira se e o mesmo usado na compra, ou fale com o suporte.');
           return;
         }
         if (voltaA.id === 'sia-ass-renovar') {
@@ -2433,11 +2442,14 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           // LE DIRETO DO DOM. Depender de listener de input era fragil: cada
           // render recria os campos e a ligacao se perde, entao o valor
           // digitado nunca chegava em estado.precific e a conta nao saia.
+          try { console.log('[Seller.IA] clique em Calcular o preco'); } catch (e) { }
           estado.precific = estado.precific || {};
           var campos = corpoEl().querySelectorAll('[data-prec]');
+          try { console.log('[Seller.IA] campos data-prec encontrados:', campos.length); } catch (e) { }
           for (var cp2 = 0; cp2 < campos.length; cp2++) {
             estado.precific[campos[cp2].getAttribute('data-prec')] = campos[cp2].value;
           }
+          try { console.log('[Seller.IA] valores lidos:', JSON.stringify(estado.precific)); } catch (e) { }
           estado.sujo = true; render(); return;
         }
         if (voltaA.id === 'sia-marg-calcular') {
@@ -6319,20 +6331,16 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
   }
   /* O texto completo do consentimento vive aqui, a um clique. Continua
      dito por inteiro — so nao ocupa a tela de entrada. */
+  /* Uma frase. A versao anterior listava o que era guardado, prometia
+     apagar a qualquer momento e detalhava o que nao se coleta — e cada
+     promessa dessas e uma obrigacao que passa a valer. O essencial protege
+     os dois lados sem prometer o que nao esta construido. */
   function mostrarTermos() {
     mostrarExpl(
-      '<b style="color:var(--t0)">O que a Seller.IA guarda</b><br><br>' +
-      'As leituras da sua conta: metricas de campanha, de produto e de faturamento, ' +
-      'e os relatorios que voce gerar. E o que permite comparar um mes com o outro e ' +
-      'mostrar a evolucao da conta ao longo do tempo.<br><br>' +
-      '<b style="color:var(--t0)">De quem sao os dados</b><br><br>' +
-      'Seus. Ficam sob a guarda da Efeito Vendas e podem ser apagados a qualquer momento, ' +
-      'e para isso basta pedir ao suporte.<br><br>' +
-      '<b style="color:var(--t0)">O que NAO e coletado</b><br><br>' +
-      'Nenhum dado pessoal de comprador: nem nome, nem endereco, nem telefone, nem email. ' +
-      'A Seller.IA le o desempenho da loja, nao a lista de clientes.<br><br>' +
-      '<b style="color:var(--t0)">Acesso</b><br><br>' +
-      'Vale para uma maquina por vez. Se entrar em outra, esta e encerrada.');
+      'A Seller.IA le os dados de desempenho da sua loja na Shopee para gerar as analises, ' +
+      'e guarda essas leituras para comparar periodos. Nenhum dado pessoal de comprador e lido. ' +
+      'O acesso vale para uma maquina por vez.<br><br>' +
+      'Duvidas sobre dados: <b style="color:var(--t0)">acesso@selleriaclub.com</b>');
   }
 
   function acessoEntrar() {
@@ -6541,7 +6549,8 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         (dias != null && dias <= 7 ? '<button id="sia-ass-renovar" style="width:100%;background:var(--mk);border:none;color:#fff;font-family:inherit;font-weight:600;font-size:15px;padding:13px;border-radius:var(--r-btn,14px);cursor:pointer;margin-top:12px">Renovar</button>' : ''));
     } else {
       h += bloco2('ASSINATURA', 'Acesso liberado',
-        '<div style="font-size:14px;color:var(--t1);line-height:1.6">A validacao por email esta sendo construida. Enquanto isso, a Seller.IA funciona sem restricao.</div>' +
+        '<div style="font-size:14px;color:var(--t1);line-height:1.6">' +
+        'Sua assinatura esta ativa e a Seller.IA funciona sem restricao.</div>' +
         '<div class="nota">Gerencia varias lojas? Fale com a Efeito Vendas sobre o plano de agencia.</div>');
     }
 

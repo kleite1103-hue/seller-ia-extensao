@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Seller.IA",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "description": "Consultor de conta Shopee: le a sua conta e diz onde o dinheiro esta indo embora.",
   "icons": {
     "16": "icon16.png",
