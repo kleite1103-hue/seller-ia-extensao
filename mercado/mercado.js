@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.13.0';
+  var VERSAO = '1.13.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -27,7 +27,7 @@
     paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
-    gravando: false, consultaLink: null, linkDigitado: ''
+    gravando: false, consultaLink: null, linkDigitado: '', nomeLojaAchada: null
   };
 
   /* ============ CHAMADAS ============ */
@@ -203,13 +203,23 @@
     return null;
   }
 
-  /* O link por nome nao traz o id. Esta rota devolve o id a partir do nome
-     da loja, que e como a Shopee monta a propria pagina. */
+  /* O link por nome nao traz o id. Esta e a rota que a propria vitrine usa
+     ao abrir a pagina de uma loja: POST com o username no corpo. A que eu
+     tinha escrito antes, get_shop_base por GET, nao existe — o corpo abaixo
+     foi copiado da captura do radar, sem inventar campo. */
   async function idDaLojaPeloNome(nome) {
-    var r = await api('/api/v4/shop/get_shop_base?username=' + encodeURIComponent(nome));
+    var r = await api('/api/v4/shop/get_shop_base_v2', 'POST', JSON.stringify({
+      entry_point: 'ShopByPDP',
+      request_source: 'pc_shop_home_page',
+      livestream_params: {},
+      user_address: {},
+      username: nome
+    }));
     try {
       var d = (r.dados && (r.dados.data || r.dados)) || {};
-      return d.shopid || d.shop_id || null;
+      var id = d.shopid || d.shop_id || null;
+      if (id) E.nomeLojaAchada = d.name || (d.account && d.account.username) || nome;
+      return id;
     } catch (e) { return null; }
   }
 
@@ -232,7 +242,9 @@
         desenhar();
         shopid = await idDaLojaPeloNome(ids.nomeLoja);
         if (!shopid) {
-          E.erro = 'Nao achei a loja "' + ids.nomeLoja + '". Confira o link, ou use o que tem /shop/ com o numero.';
+          E.erro = 'Nao consegui abrir a loja "' + ids.nomeLoja + '". ' +
+            'Isso costuma acontecer quando a consulta parte do painel do vendedor: ' +
+            'abra shopee.com.br e use o Radar de la.';
           E.buscando = false; E.progresso = null; desenhar();
           return;
         }
@@ -316,7 +328,7 @@
     var comVenda = itens.filter(function (x) { return x.mes != null; });
     E.consultaLink = {
       tipo: 'loja', shopid: shopid,
-      nome: (itens[0] && itens[0].lojaNome) || ('loja ' + shopid),
+      nome: E.nomeLojaAchada || (itens[0] && itens[0].lojaNome) || ('loja ' + shopid),
       itens: itens, comVenda: comVenda.length,
       vendas: comVenda.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
       fat: comVenda.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0)
