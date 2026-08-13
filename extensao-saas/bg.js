@@ -15,6 +15,20 @@ function gravar(obj) { return new Promise(function (r) { chrome.storage.local.se
 
 async function analisar(payload) {
   try {
+    /* O TOKEN DA SESSAO VAI JUNTO. Sem ele, o cerebro respondia a qualquer
+       um que tivesse a chave anon — e a chave anon esta neste arquivo, que
+       vai dentro do ZIP que todo assinante baixa. Bastava abrir o pacote
+       para chamar o cerebro de fora, sem assinatura. */
+    if (!payload || typeof payload !== 'object') payload = {};
+    if (!payload.token) {
+      try {
+        // a portaria guarda como sia_pref_acesso_token
+        var g = await new Promise(function (ok) {
+          chrome.storage.local.get(['sia_pref_acesso_token'], function (r2) { ok(r2 || {}); });
+        });
+        if (g.sia_pref_acesso_token) payload.token = g.sia_pref_acesso_token;
+      } catch (e) { /* noop */ }
+    }
     var r = await fetch(SIA_CEREBRO_URL, {
       method: 'POST',
       headers: {
