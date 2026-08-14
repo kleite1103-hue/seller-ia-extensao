@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.15.0';
+  var VERSAO = '1.15.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -1745,7 +1745,7 @@
     'a{color:#EE4D2D;text-decoration:none}' +
     '</style>' +
 
-    '<button class="btn" id="abrir" title="Radar 360 · analise de mercado"><span>' + LOGO + '</span><b>RADAR</b></button>' +
+    '<button class="btn" id="abrir" title="Radar 360 · analise de mercado"><span>' + LOGO + '</span></button>' +
     '<div id="tudo"><div class="painel" id="painel">' +
     /* TUDO EM DUAS LINHAS. A marca dividia a linha sozinha, a busca outra,
        as opcoes outra e o contexto mais uma: quatro linhas de cabecalho
