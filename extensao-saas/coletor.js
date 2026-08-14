@@ -6694,7 +6694,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         estado.rel = estado.rel || {};
         estado.rel.interrompido = a;
         estado.sujo = true;
-        render();
+        /* NAO chama render aqui. No boot ele rodava antes de a portaria
+           liberar e desenhava a tela cedo demais, deixando a extensao presa
+           na tela de email. O proximo desenho natural mostra o aviso. */
       });
     } catch (e) { /* noop */ }
   }
@@ -6727,7 +6729,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         acessoChamar({ acao: 'validar', token: tok }).then(function (r3) {
           estado.acesso.verificando = false;
           if (r3 && r3.ok) {
-            estado.acesso.liberado = true;
+            estado.acesso.liberado = true; try { restaurarAndamento(); } catch (e) { }
             estado.acesso.usuario = r3.usuario;
             estado.assinatura = {
               plano: r3.usuario.plano || 'Seller.IA', email: r3.usuario.email,
@@ -6792,7 +6794,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         estado.acesso.entrando = false;
         if (r && r.ok) {
           acessoSalvarToken(r.token, email);
-          estado.acesso.liberado = true;
+          estado.acesso.liberado = true; try { restaurarAndamento(); } catch (e) { }
           estado.acesso.usuario = r.usuario;
           estado.acesso.aviso = r.aviso || null;
           estado.assinatura = {
@@ -10882,7 +10884,6 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     if (r && r.valor) { estado.anonKey = r.valor; }
   });
   if (SIA_EXIGIR_ACESSO) acessoValidar();
-  restaurarAndamento();
   // traz o historico de volume que ja foi guardado
   try {
     chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'kw_historico' }, function (rh) {
