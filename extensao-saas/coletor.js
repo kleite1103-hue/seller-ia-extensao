@@ -3726,6 +3726,20 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       });
     }
   }
+  /* seguro() PRECISA VIVER NO ESCOPO PRINCIPAL. Ela estava declarada dentro
+     do bloco da aba de Ads, entao so existia la — e quando eu passei a usar
+     na tela inicial, ela estourava com "seguro is not defined" e a tela
+     nao desenhava. Era esse o motivo de a inicial nao abrir enquanto as
+     outras abriam. */
+  function seguro(fn, nome) {
+    try { return fn(); }
+    catch (e) {
+      try { console.error('[Seller.IA] BLOCO QUE FALHOU: ' + nome, e && e.stack ? e.stack : e); } catch (e2) { }
+      return '<div class="nota" style="color:var(--rd)">O bloco <b>' + esc(nome) +
+        '</b> falhou: ' + esc(String(e && e.message || e)) + '</div>';
+    }
+  }
+
   function corpoEl() { return $('sia-corpo'); }
   /* ligarProfunda saiu junto com o botao: a coleta hoje e sempre profunda. */
 
@@ -10626,13 +10640,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
 
       // Cada bloco isolado: antes, um erro em qualquer um deles derrubava a
       // aba inteira e ela nao abria — que foi o que aconteceu.
-      function seguro(fn, nome) {
-        try { return fn(); }
-        catch (e) {
-          try { console.error('[Seller.IA] ' + nome + ':', e); } catch (e2) { }
-          return '<div class="nota" style="color:var(--rd)">O bloco <b>' + esc(nome) + '</b> falhou: ' + esc(String(e && e.message || e)) + '</div>';
-        }
-      }
+  
       /* O bloco do dia hora a hora saiu: a serie por hora vem de uma rota
          que a receita nao busca, entao ele so mostrava um aviso dizendo que
          nao funciona. Um bloco que so serve para dizer que nao serve e
