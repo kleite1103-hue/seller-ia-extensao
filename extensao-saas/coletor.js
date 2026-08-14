@@ -3987,6 +3987,70 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     return h;
   }
 
+  /* ESTOQUE ZERADO NO QUE MAIS VENDE. Vai na tela inicial, e nao no Ads,
+     por dois motivos: o Ads pausa sozinho quando o produto esgota, entao
+     la o alerta chegaria tarde; e o estrago maior nem e no anuncio, e no
+     ORGANICO — produto esgotado some da busca, perde a posicao que levou
+     meses para construir, e quando volta ao estoque comeca de baixo.
+
+     Aparece no topo porque e urgencia do dia: quem abre a extensao precisa
+     ver isso antes de qualquer analise. */
+  function alertaEstoqueCritico() {
+    var lista = [];
+    for (var id in estado.produtos) {
+      var p = estado.produtos[id] || {};
+      var m = p.metricas || {};
+      var venda = numero(m.vendas_pagas) || 0;
+      if (venda <= 0) continue;   // so o que vende importa aqui
+
+      var vs = p.variacoes;
+      var zerado = false, quanto = null, quais = [];
+
+      if (vs && vs.length) {
+        var zz = vs.filter(function (x) { return x.estoque === 0; });
+        if (zz.length === vs.length) {
+          zerado = true; quanto = 100;
+          quais = ['todas as ' + vs.length + ' variacoes'];
+        } else if (zz.length) {
+          quanto = zz.reduce(function (a, b) { return a + (b.fatia || 0); }, 0);
+          if (quanto >= 30) {   // so entra aqui o que pesa de verdade
+            zerado = true;
+            quais = zz.map(function (x) { return x.nome; }).slice(0, 3);
+          }
+        }
+      }
+      if (!zerado) continue;
+      lista.push({ id: id, nome: p.nome || id, venda: venda, quanto: quanto, quais: quais });
+    }
+    if (!lista.length) return '';
+    lista.sort(function (a, b) { return b.venda - a.venda; });
+
+    var somaParada = 0;
+    for (var s2 = 0; s2 < lista.length; s2++) somaParada += lista[s2].venda;
+
+    var h = '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b0));' +
+      'border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:var(--r-card,22px);' +
+      'padding:17px 19px;margin-bottom:14px">' +
+      '<div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">' +
+      '<i style="width:9px;height:9px;border-radius:50%;background:var(--rd);display:block;animation:siaPulse 1.2s infinite"></i>' +
+      '<b style="color:var(--t0);font-size:15.5px">' +
+      (lista.length === 1 ? 'Um produto que vende esta sem estoque' : lista.length + ' produtos que vendem estao sem estoque') +
+      '</b></div>' +
+      '<div style="font-size:13.5px;color:var(--t1);line-height:1.55;margin-bottom:12px">' +
+      'Juntos, faturaram <b>' + reais(somaParada) + '</b> no periodo. Produto esgotado perde posicao na busca, ' +
+      'e quando volta ao estoque recomeca de baixo \u2014 o prejuizo nao e so a venda de hoje.</div>';
+
+    h += '<table style="margin:0"><tr><th>PRODUTO</th><th>O QUE ACABOU</th><th class="num">FATUROU</th></tr>';
+    lista.slice(0, 6).forEach(function (x) {
+      h += '<tr><td class="nome sigilo">' + esc(String(x.nome).slice(0, 40)) + '</td>' +
+        '<td class="nome" style="color:var(--rd)">' + esc(x.quais.join(', ')) +
+        (x.quanto != null && x.quanto < 100 ? ' <span style="color:var(--t2);font-size:11px">(' + fLe(x.quanto, 0) + '% das vendas)</span>' : '') +
+        '</td><td class="num">' + reais(x.venda) + '</td></tr>';
+    });
+    h += '</table></div>';
+    return h;
+  }
+
   function renderConta360() {
     var D = null;
     try { if (window.SIA_Diamantes) D = window.SIA_Diamantes.resumo(); } catch (e) { }
@@ -4028,6 +4092,8 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     }
 
     var h = '<div style="padding:2px">';
+    // urgencia primeiro: estoque zerado no que vende vem antes de tudo
+    h += seguro(alertaEstoqueCritico, 'Estoque critico');
     // ---- COLETA AUTOMATICA (coletor em lote) ----
     h += '<div id="sia-lote-box" style="background:var(--b0);border:1px solid var(--li);border-radius:10px;padding:12px;margin-bottom:12px">';
     h += '<div style="display:flex;align-items:center;gap:8px">';
@@ -5813,6 +5879,33 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       metasDeRoas: resumoMetas,
       // campanhas anunciando produto com nota abaixo de 4,5
       anunciosComNotaBaixa: alertasNota.slice(0, 10),
+      /* produto que VENDE e esta sem estoque: alem da venda perdida hoje,
+         ele sai da busca e perde a posicao que levou meses para construir */
+      estoqueCritico: (function () {
+        var out = [];
+        for (var ide in estado.produtos) {
+          var pe = estado.produtos[ide] || {};
+          var me = pe.metricas || {};
+          var ve = numero(me.vendas_pagas) || 0;
+          if (ve <= 0) continue;
+          var vse = pe.variacoes;
+          if (!vse || !vse.length) continue;
+          var ze = vse.filter(function (x) { return x.estoque === 0; });
+          if (!ze.length) continue;
+          var pes = ze.length === vse.length ? 100
+            : ze.reduce(function (a, b) { return a + (b.fatia || 0); }, 0);
+          if (pes < 30) continue;
+          out.push({
+            produto: String(pe.nome || ide).slice(0, 60),
+            faturouNoPeriodo: Math.round(ve),
+            esgotadas: ze.map(function (x) { return x.nome; }).slice(0, 4),
+            deQuantas: vse.length,
+            pctDasVendas: Math.round(pes)
+          });
+        }
+        out.sort(function (a, b) { return b.faturouNoPeriodo - a.faturouNoPeriodo; });
+        return out.slice(0, 8);
+      })(),
       // e as campanhas anunciando produto com variacao esgotada
       variacoesEsgotadas: (function () {
         var out = [];
@@ -8444,6 +8537,33 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         return out.slice(0, 6);
       })(),
 
+      /* produto que VENDE e esta sem estoque: alem da venda perdida hoje,
+         ele sai da busca e perde a posicao que levou meses para construir */
+      estoqueCritico: (function () {
+        var out = [];
+        for (var ide in estado.produtos) {
+          var pe = estado.produtos[ide] || {};
+          var me = pe.metricas || {};
+          var ve = numero(me.vendas_pagas) || 0;
+          if (ve <= 0) continue;
+          var vse = pe.variacoes;
+          if (!vse || !vse.length) continue;
+          var ze = vse.filter(function (x) { return x.estoque === 0; });
+          if (!ze.length) continue;
+          var pes = ze.length === vse.length ? 100
+            : ze.reduce(function (a, b) { return a + (b.fatia || 0); }, 0);
+          if (pes < 30) continue;
+          out.push({
+            produto: String(pe.nome || ide).slice(0, 60),
+            faturouNoPeriodo: Math.round(ve),
+            esgotadas: ze.map(function (x) { return x.nome; }).slice(0, 4),
+            deQuantas: vse.length,
+            pctDasVendas: Math.round(pes)
+          });
+        }
+        out.sort(function (a, b) { return b.faturouNoPeriodo - a.faturouNoPeriodo; });
+        return out.slice(0, 8);
+      })(),
       /* variacao esgotada em produto anunciado: vazamento silencioso */
       variacoesEsgotadas: (function () {
         var out = [];
@@ -8496,7 +8616,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           '(4) produtos que cresceram em trafego ou conversao, e os que cairam; ' +
           '(5) avaliacoes e penalidade, se houver algo abaixo de 4,5 ou ponto na conta; ' +
           '(6) afiliados e cupons, se estiverem em uso; ' +
-          '(7) variacao esgotada em produto anunciado, se houver: diga qual acabou e quanto ela pesava nas vendas, ' +
+          '(7) produto que vende e esta sem estoque, se houver: este vem PRIMEIRO de tudo, ' +
+          'porque alem da venda perdida hoje ele sai da busca e perde a posicao que levou meses para construir; ' +
+          '(8) variacao esgotada em produto anunciado, se houver: diga qual acabou e quanto ela pesava nas vendas, ' +
           'porque o anuncio segue pagando o clique de quem chega e nao encontra o que quer. ' +
           'Termine com TRES ACOES para esta semana, cada uma comecando com o verbo e o numero que a justifica, ' +
           'em ordem de dinheiro em jogo. ' +
