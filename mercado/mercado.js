@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.17.0';
+  var VERSAO = '1.18.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -233,7 +233,23 @@
      ao abrir a pagina de uma loja: POST com o username no corpo. A que eu
      tinha escrito antes, get_shop_base por GET, nao existe — o corpo abaixo
      foi copiado da captura do radar, sem inventar campo. */
+  /* O CAMINHO CURTO, e o que a Karina descreveu: ela navega ate um produto,
+     copia o link dele e ve o faturamento; depois clica no nome da loja e
+     copia o link dela. O link do PRODUTO ja traz o shopid — entao quando
+     ela consulta um produto, guardamos a loja dele, e se o proximo link for
+     dessa mesma loja pelo nome, nem precisamos perguntar o id a Shopee. */
+  var LOJAS_CONHECIDAS = {};
+  function lembrarLoja(nome, id) {
+    if (nome && id) LOJAS_CONHECIDAS[String(nome).toLowerCase()] = String(id);
+  }
+
   async function idDaLojaPeloNome(nome) {
+    var guardado = LOJAS_CONHECIDAS[String(nome).toLowerCase()];
+    if (guardado) {
+      try { console.log('[Radar 360] loja ja conhecida:', nome, '->', guardado); } catch (e) { }
+      E.nomeLojaAchada = nome;
+      return guardado;
+    }
     /* DOIS CAMINHOS. O POST e o que a vitrine usa ao abrir a pagina da loja,
        mas ele nem sempre responde quando a chamada parte de outra pagina.
        O GET do shop_seo aceita o mesmo username e devolve o id — serve de
@@ -248,6 +264,11 @@
     for (var i = 0; i < tentativas.length; i++) {
       var tv = tentativas[i];
       var r = await api(tv.url, tv.metodo, tv.corpo || null);
+      try {
+        console.log('[Radar 360] ' + tv.url.split('?')[0] + ' -> ok=' + (r && r.ok) +
+          ' status=' + (r && r.status) + ' erro=' + (r && r.erro || '-') +
+          ' chaves=' + (r && r.dados ? Object.keys(r.dados).slice(0, 6).join(',') : 'sem dados'));
+      } catch (eL) { }
       try {
         var d = (r && r.dados && (r.dados.data || r.dados)) || {};
         var id = d.shopid || d.shop_id || (d.shop && d.shop.shopid) || null;
@@ -384,7 +405,18 @@
       }
     }
 
+    /* Guarda a loja deste produto sob todos os nomes que ela tem: o de
+       exibicao e o username da URL. O link que a pessoa copia depois pode
+       vir com qualquer um dos dois. */
+    if (base.lojaNome) lembrarLoja(base.lojaNome, ids.loja);
+    try {
+      var _sd = sd || {};
+      if (_sd.username) lembrarLoja(_sd.username, ids.loja);
+      if (_sd.name) lembrarLoja(_sd.name, ids.loja);
+      if (_sd.account && _sd.account.username) lembrarLoja(_sd.account.username, ids.loja);
+    } catch (e) { }
     E.consultaLink = { tipo: 'produto', item: base, semVolume: base.mes == null };
+    E.ultimaLoja = { id: ids.loja, nome: base.lojaNome || loja || null };
   }
 
   /* LOJA. A busca interna da loja devolve os itens no mesmo formato da
@@ -2132,6 +2164,10 @@
     return h;
   }
   function card(n, r) { return '<div class="kpi"><div class="r">' + r + '</div><div class="n">' + n + '</div></div>'; }
+  function cardT(n, r, dica) {
+    return '<div class="kpi"' + (dica ? ' title="' + esc(dica) + '"' : '') + '>' +
+      '<div class="r">' + r + '</div><div class="n">' + n + '</div></div>';
+  }
   function celula(n, r) {
     return '<div style="min-width:0"><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:6px;white-space:nowrap">' + r + '</div>' +
       '<div style="font:400 21px Outfit,Arial;letter-spacing:-.025em;color:var(--tx1);white-space:nowrap">' + n + '</div></div>';
@@ -2423,11 +2459,15 @@
         'style="display:inline-block;color:#EE4D2D;text-decoration:none;font-size:14px;margin-bottom:14px">' +
         'Abrir na Shopee \u2197</a>';
     }
+    /* O faturamento aqui usava o valor por extenso e estourava a caixa em
+       qualquer produto que passasse de cem mil. Abreviado cabe, e o exato
+       fica no titulo ao passar o mouse. */
     h += '<div class="cards">' +
       card(num(x.mes), 'VENDAS NO MÊS') +
       card(num(x.total), 'DESDE SEMPRE') +
-      card(reais(x.preco), 'PRECO') +
-      card(x.fatMes != null ? reais(x.fatMes) : '\u2014', 'FATURA POR MES') +
+      card(reais(x.preco), 'PREÇO') +
+      cardT(x.fatMes != null ? reaisCurto(x.fatMes) : '\u2014', 'FATURA POR MÊS',
+        x.fatMes != null ? reais(x.fatMes) : '') +
       '</div>';
 
     var linhas = [];
