@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Seller.IA · Radar 360",
-  "version": "1.13.1",
-  "description": "Le um nicho da Shopee por dentro: quem vende, quanto vende, a que preco, e onde da para entrar.",
+  "name": "Radar 360 · por Seller.IA",
+  "version": "1.14.0",
+  "description": "Le um nicho da Shopee por dentro: quem vende, quanto vende, a que preco, e por quanto voce precisaria comprar para competir.",
   "permissions": [
     "storage"
   ],
@@ -45,7 +45,7 @@
     "128": "icon128.png"
   },
   "action": {
-    "default_title": "Analista de Mercado",
+    "default_title": "Radar 360",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",

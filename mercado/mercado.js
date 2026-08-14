@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.13.1';
+  var VERSAO = '1.14.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -1518,12 +1518,24 @@
       '--shadow:0 40px 90px rgba(0,0,0,.5), 0 6px 18px rgba(0,0,0,.28);'
   };
 
-  /* A logo oficial da Seller.IA, a mesma do painel principal. O "S." em
-     texto ficava desalinhado e com peso errado em cada fonte carregada. */
+  /* A MARCA DO RADAR 360. O zero de "Radar360" e o radar: um anel com o
+     blip laranja sobre o traco, a 45 graus no quadrante superior direito.
+     O ponto e o mesmo elemento do "S." da Seller.IA — la e pontuacao, aqui
+     e deteccao, e e o que amarra a familia sem precisar de selo.
+     Medidas da especificacao aprovada (opcao 3a). */
   var LOGO = '<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">' +
-    '<rect x="0" y="0" width="128" height="128" rx="30" fill="#1C1A17"/>' +
-    '<text x="46" y="88" font-family="Archivo,Outfit,Arial" font-size="74" font-weight="500" fill="#FBF8F3" text-anchor="middle" letter-spacing="-2">S</text>' +
-    '<circle cx="88" cy="80" r="8" fill="#EE4D2D"/></svg>';
+    '<rect x="0" y="0" width="128" height="128" rx="30" fill="#1A1815"/>' +
+    '<circle cx="64" cy="66" r="27" fill="none" stroke="#FBF8F3" stroke-width="11"/>' +
+    '<circle cx="83.5" cy="46.5" r="12.6" fill="#1A1815"/>' +
+    '<circle cx="83.5" cy="46.5" r="9.4" fill="#EE4D2D"/></svg>';
+
+  /* O zero desenhado, para o wordmark do cabecalho. E uma ELIPSE, nao um
+     circulo: circulo perfeito vira alvo, e o zero precisa continuar lendo
+     como letra da palavra. */
+  var ZERO = '<svg viewBox="0 0 31 54" style="height:1em;width:auto;vertical-align:-.12em" xmlns="http://www.w3.org/2000/svg">' +
+    '<ellipse cx="15.5" cy="35" rx="11" ry="16.25" fill="none" stroke="currentColor" stroke-width="5.5"/>' +
+    '<circle cx="23.3" cy="23.5" r="6.8" fill="var(--card)"/>' +
+    '<circle cx="23.3" cy="23.5" r="4.6" fill="#EE4D2D"/></svg>';
 
   var ICO_LUA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var ICO_SOL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-linecap="round"/></svg>';
@@ -1541,15 +1553,13 @@
        e o Radar logo abaixo, com 4px entre elas. Cor diferente para dar para
        distinguir de relance: a Seller.IA escura, o Radar no laranja. */
     '.btn{position:fixed;top:calc(50% + 34px);right:0;width:44px;height:60px;' +
-      'border-radius:16px 0 0 16px;background:#EE4D2D;color:#fff;border:none;cursor:pointer;' +
+      'border-radius:16px 0 0 16px;background:#1A1815;color:#fff;border:none;cursor:pointer;' +
       'font:500 21px Archivo,Arial;letter-spacing:-.035em;box-shadow:-4px 4px 18px rgba(0,0,0,.2);' +
       'display:grid;place-items:center;z-index:2147483000;transition:width .15s,background .15s}' +
     '.btn span{display:block;width:28px;height:28px;line-height:0}' +
     '.btn span svg{width:100%;height:100%;display:block;border-radius:8px}' +
-    '.btn:hover{width:52px;background:#d94326}' +
-    '.btn b{position:absolute;left:-1px;top:50%;transform:translateY(-50%) rotate(180deg);' +
-      'writing-mode:vertical-rl;font:400 7.5px "Space Mono",monospace;letter-spacing:.14em;' +
-      'color:rgba(255,255,255,.75);pointer-events:none}' +
+    '.btn:hover{width:52px;background:#2A2622}' +
+
 
     /* o painel flutuante */
     /* Colado no topo e no fim: 24px de folga em cima e embaixo era quase
@@ -1564,11 +1574,10 @@
     '.cab{padding:14px 22px 0}' +
     '.cab .l1{display:flex;align-items:center;gap:11px}' +
     '.cab .l2{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 0 11px}' +
-    '.marca{font:500 19px Archivo,Arial;letter-spacing:-.03em;color:var(--tx1);line-height:1.05;flex:none}' +
-    '.marca em{font-style:normal;color:#EE4D2D}' +
-    '.marca span{display:block;font:400 8px "Space Mono",monospace;letter-spacing:.15em;color:var(--tx6);margin-top:2px}' +
+    '.marca{font:500 20px Archivo,Arial;letter-spacing:-.045em;color:var(--tx1);line-height:1;flex:none}' +
+    '.marca span{display:block;font:400 8.5px "Space Mono",monospace;letter-spacing:.13em;color:var(--tx6);margin-top:3px}' +
 
-    '.logo{width:36px;height:36px;flex:none;line-height:0}' +
+    '.logo{width:34px;height:34px;flex:none;line-height:0}' +
     '.logo svg{width:100%;height:100%;display:block;border-radius:11px}' +
     '.ico{background:none;border:1px solid var(--bd3);color:var(--tx3);border-radius:11px;' +
       'width:32px;height:32px;display:grid;place-items:center;cursor:pointer;flex:none}' +
@@ -1699,7 +1708,7 @@
     '  <div class="cab">' +
     '    <div class="l1">' +
     '      <div class="logo">' + LOGO + '</div>' +
-    '      <div class="marca">Seller<em>.</em>ia<span>RADAR 360</span></div>' +
+    '      <div class="marca">Radar36' + ZERO + '<span>POR SELLER.IA</span></div>' +
     '      <div class="campo">' + ICO_LUPA +
     '        <input id="termo" placeholder="digite um nicho: copo descartavel, luminaria 3d...">' +
     '      </div>' +
@@ -2485,5 +2494,5 @@
   })();
 
   desenhar();
-  console.log('[Seller.IA Mercado] v' + VERSAO + ' pronto.');
+  console.log('[Radar 360] v' + VERSAO + ' pronto.');
 })();
