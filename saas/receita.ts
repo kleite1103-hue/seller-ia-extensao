@@ -225,6 +225,19 @@ function montarReceita(modo: string, ctx: any) {
        "item_id", e a rota exige tambem o "shopid" — conferido na captura do
        radar. Doze chamadas que sempre falhavam custavam quase um minuto sem
        devolver nada. Baixado para 6 produtos, que ja cobre os que importam. */
+    /* ESTOQUE POR VARIACAO. Variacao esgotada num produto que esta no Ads e
+       um vazamento silencioso: o anuncio continua pagando o clique, o
+       comprador chega, escolhe a cor que quer, ela nao tem, e ele sai. A
+       conversao cai, o AdRank cai junto, e o gasto continua. Esta rota traz
+       sellable_stock e sold_count por variacao — da para dizer qual cor
+       acabou e quanto ela representava das vendas. */
+    p.push({
+      id: "variacoes",
+      url: "/api/v3/opt/mpsku/list/v2/get_product_list?{spc}&page_number={pagina}&page_size=50&list_type=all&need_ads=true",
+      metodo: "GET", fase: "Lendo o estoque das variacoes", opcional: true,
+      repete: { tipo: "pagina", ate: 4, tamanho: 50 }, pausa: 150,
+    });
+
     p.push({
       id: "avaliacoes", porProduto: true, limite: 6,
       url: "/api/v2/item/get_ratings?{spc}&itemid={produto}&shopid={loja}&limit=6&offset=0&filter=0&flag=1&type=0&exclude_filter=1&filter_size=0&fold_filter=0&request_source=2",

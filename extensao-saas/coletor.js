@@ -413,6 +413,54 @@
      resposta chegava e era descartada. Sem isso nao dava para cruzar nota
      com desempenho de anuncio, que e onde mora o diagnostico mais util —
      nota baixa derruba a conversao do anuncio, e mais lance nao resolve. */
+  /* ESTOQUE POR VARIACAO. Guarda quais variacoes existem, quanto cada uma
+     tem em estoque e quanto cada uma vendeu. E o que permite dizer "a cor
+     que responde por 60% das vendas esta zerada" em vez de so "acabou o
+     estoque". */
+  function parseVariacoes(url, dados) {
+    if (url.indexOf('/opt/mpsku/list/v2/get_product_list') < 0) return false;
+    var d = (dados && (dados.data || dados)) || {};
+    var lista = d.products || [];
+    if (!lista.length) return false;
+
+    for (var i = 0; i < lista.length; i++) {
+      var pr = lista[i] || {};
+      var id = pr.id || pr.item_id;
+      if (!id) continue;
+      var ml = pr.model_list || [];
+      if (!ml.length) continue;
+
+      var vars = [], somaVendas = 0;
+      for (var j = 0; j < ml.length; j++) {
+        var m = ml[j] || {};
+        var sd = m.stock_detail || {};
+        var st = m.statistics || {};
+        var estoque = numero(sd.total_available_stock);
+        if (estoque === null) {
+          var av = sd.advanced_stock || {};
+          estoque = numero(av.sellable_stock);
+        }
+        var vendeu = numero(st.sold_count) || 0;
+        somaVendas += vendeu;
+        vars.push({
+          nome: String(m.name || '').slice(0, 40),
+          estoque: estoque === null ? null : estoque,
+          vendeu: vendeu
+        });
+      }
+      // a fatia de venda de cada variacao, para saber o peso de quem acabou
+      for (var k = 0; k < vars.length; k++) {
+        vars[k].fatia = somaVendas ? (vars[k].vendeu / somaVendas) * 100 : null;
+      }
+      var ent = entidadeProduto(String(id));
+      ent.variacoes = vars;
+      ent.vendasVariacoes = somaVendas;
+      if (pr.name && !ent.nome) ent.nome = pr.name;
+    }
+    estado.sujo = true;
+    return true;
+  }
+
   function parseAvaliacoes(url, dados) {
     if (url.indexOf('/item/get_ratings') < 0) return false;
     var m = url.match(/itemid=(\d+)/) || url.match(/item_id=(\d+)/);
@@ -728,6 +776,7 @@
     else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
     // as avaliacoes chegavam e ninguem lia
     else if (parseAvaliacoes(pacote.url, pacote.dados)) { /* guardado */ }
+    else if (parseVariacoes(pacote.url, pacote.dados)) { /* guardado */ }
     else if (tag === 'outra') {
       // So a rota shop_info do SELLER CENTRE identifica a conta. A vitrine
       // publica (shopee.com.br) tambem tem shop_info, com o shopid do
@@ -6995,6 +7044,73 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
   /* O ALERTA DE NOTA na tela de Ads. A pessoa nao deveria precisar gerar
      relatorio para descobrir que esta pagando para levar trafego a uma
      pagina com nota ruim. */
+  /* VARIACAO ESGOTADA EM PRODUTO ANUNCIADO. Ideia da Karina, e o raciocinio
+     esta certo: o anuncio continua pagando o clique, o comprador escolhe a
+     variacao que quer, ela nao tem, e ele sai. A conversao cai, e como o
+     AdRank depende de conversao, a posicao cai junto — o mesmo dinheiro
+     compra menos. Pior: nada nisso aparece como erro, so como queda.
+
+     O peso importa: se a cor esgotada respondia por 2% das vendas, e
+     detalhe; se respondia por 60%, e o produto inteiro parando. */
+  function alertaVariacaoNoAds() {
+    var lista = [];
+    for (var k in estado.campanhas) {
+      var c = estado.campanhas[k] || {};
+      var e2 = String(c.estado || c.state || '').toLowerCase();
+      if (e2 === 'paused' || e2 === 'ended' || e2 === 'closed') continue;
+      var pid = c.produtoId;
+      if (!pid) continue;
+      var pr = estado.produtos[String(pid)] || {};
+      var vs = pr.variacoes;
+      if (!vs || vs.length < 2) continue;   // sem variacao nao ha o que alertar
+
+      var zeradas = [], fatiaParada = 0;
+      for (var i = 0; i < vs.length; i++) {
+        if (vs[i].estoque === 0) {
+          zeradas.push(vs[i]);
+          fatiaParada += vs[i].fatia || 0;
+        }
+      }
+      if (!zeradas.length) continue;
+      // todas zeradas e outro problema (produto fora do ar), nao este
+      if (zeradas.length === vs.length) continue;
+
+      var m = c.metricas || {};
+      lista.push({
+        campanha: c.nome || k, produto: pr.nome || pid,
+        zeradas: zeradas, total: vs.length,
+        fatia: fatiaParada, gasto: m.gasto || 0
+      });
+    }
+    if (!lista.length) return '';
+    lista.sort(function (a, b) { return (b.fatia || 0) - (a.fatia || 0); });
+
+    var graves = lista.filter(function (x) { return x.fatia >= 25; });
+    var h = olho('VARIACAO ESGOTADA COM ANUNCIO RODANDO');
+    h += '<div class="nota" style="border-left:3px solid ' + (graves.length ? 'var(--rd)' : 'var(--am)') + '">' +
+      '<b style="color:var(--t0)">' + lista.length + ' campanha(s) ativa(s) anunciam produto com variacao esgotada.</b><br>' +
+      'O anuncio continua pagando o clique, mas quem chega procurando a variacao que acabou sai sem comprar. ' +
+      'A conversao cai, e como a posicao no leilao depende dela, o mesmo dinheiro passa a comprar menos espaco.' +
+      (graves.length
+        ? '<br><br><b style="color:var(--rd)">' + graves.length + ' desses casos e grave:</b> a variacao parada respondia por mais de um quarto das vendas do produto.'
+        : '') + '</div>';
+
+    h += '<table><tr><th>PRODUTO</th><th>O QUE ACABOU</th><th class="num">DAS VENDAS</th><th class="num">GASTO</th></tr>';
+    lista.slice(0, 8).forEach(function (x) {
+      var nomes = x.zeradas.map(function (z) { return z.nome; }).slice(0, 3).join(', ');
+      if (x.zeradas.length > 3) nomes += ' +' + (x.zeradas.length - 3);
+      var cor = x.fatia >= 25 ? 'var(--rd)' : x.fatia >= 10 ? 'var(--am)' : 'var(--t2)';
+      h += '<tr><td class="nome sigilo">' + esc(String(x.produto).slice(0, 34)) + '</td>' +
+        '<td class="nome">' + esc(nomes) + ' <span style="color:var(--t2);font-size:11px">de ' + x.total + '</span></td>' +
+        '<td class="num" style="color:' + cor + '">' + (x.fatia ? fLe(x.fatia, 0) + '%' : '\u2014') + '</td>' +
+        '<td class="num">' + reais(x.gasto) + '</td></tr>';
+    });
+    h += '</table>';
+    h += '<div class="nota" style="font-size:12.5px;color:var(--t2)">A coluna <b>das vendas</b> mostra quanto a variacao esgotada representava do que o produto vendeu. ' +
+      'Acima de 25% o anuncio esta comprando visita para um produto que, na pratica, o comprador nao consegue comprar.</div>';
+    return h;
+  }
+
   function alertaNotaNoAds() {
     var lista = [];
     for (var k in estado.campanhas) {
@@ -8304,6 +8420,32 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         return out.slice(0, 6);
       })(),
 
+      /* variacao esgotada em produto anunciado: vazamento silencioso */
+      variacoesEsgotadas: (function () {
+        var out = [];
+        for (var kv in estado.campanhas) {
+          var cv = estado.campanhas[kv] || {};
+          var ev = String(cv.estado || cv.state || '').toLowerCase();
+          if (ev === 'paused' || ev === 'ended' || ev === 'closed') continue;
+          if (!cv.produtoId) continue;
+          var pv = estado.produtos[String(cv.produtoId)] || {};
+          var vv = pv.variacoes;
+          if (!vv || vv.length < 2) continue;
+          var zz = vv.filter(function (x) { return x.estoque === 0; });
+          if (!zz.length || zz.length === vv.length) continue;
+          var ft = zz.reduce(function (a, b) { return a + (b.fatia || 0); }, 0);
+          out.push({
+            produto: String(pv.nome || cv.produtoId).slice(0, 60),
+            campanha: String(cv.nome || kv).slice(0, 60),
+            esgotadas: zz.map(function (x) { return x.nome; }).slice(0, 4),
+            de: vv.length,
+            pctDasVendas: Math.round(ft),
+            gastoNoPeriodo: (cv.metricas || {}).gasto || null
+          });
+        }
+        out.sort(function (a, b) { return b.pctDasVendas - a.pctDasVendas; });
+        return out.slice(0, 8);
+      })(),
       // ferramentas de marketing em uso
       marketing: (function () {
         var M = null;
@@ -8329,7 +8471,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           '(3) Shopee Ads: investido, retorno, a melhor e a pior campanha pelo nome; ' +
           '(4) produtos que cresceram em trafego ou conversao, e os que cairam; ' +
           '(5) avaliacoes e penalidade, se houver algo abaixo de 4,5 ou ponto na conta; ' +
-          '(6) afiliados e cupons, se estiverem em uso. ' +
+          '(6) afiliados e cupons, se estiverem em uso; ' +
+          '(7) variacao esgotada em produto anunciado, se houver: diga qual acabou e quanto ela pesava nas vendas, ' +
+          'porque o anuncio segue pagando o clique de quem chega e nao encontra o que quer. ' +
           'Termine com TRES ACOES para esta semana, cada uma comecando com o verbo e o numero que a justifica, ' +
           'em ordem de dinheiro em jogo. ' +
           'Nada de paragrafo longo nem introducao: quem le abre no celular entre uma tarefa e outra. ' +
@@ -10321,6 +10465,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
          nao funciona. Um bloco que so serve para dizer que nao serve e
          ruido — melhor nao ter. */
       h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') +
+        seguro(alertaVariacaoNoAds, 'Variacao esgotada com anuncio') +
         seguro(alertaNotaNoAds, 'Anuncio com nota baixa') +
         seguro(renderPercentis, 'Percentis da categoria') +
         seguro(renderCompetitividade, 'Onde a conta perde a disputa') +
