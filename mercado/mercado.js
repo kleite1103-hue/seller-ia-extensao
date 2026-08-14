@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.15.1';
+  var VERSAO = '1.16.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -186,9 +186,15 @@
     var m = s.match(/\/product\/(\d+)\/(\d+)/) || s.match(/-i\.(\d+)\.(\d+)/);
     if (m) return { loja: m[1], item: m[2] };
 
-    // LOJA por id: .../shop/SHOPID
+    /* LOJA por id: .../shop/SHOPID. O id de loja tem ate 10 digitos; o de
+       produto tem 11 ou mais. Um link /shop/ com numero de produto dentro
+       existe e a Shopee responde qualquer coisa a ele — foi o que fez a
+       consulta trazer dado sem sentido. Melhor recusar e dizer o porque. */
     var l = s.match(/\/shop\/(\d+)/);
-    if (l) return { loja: l[1], item: null };
+    if (l) {
+      if (l[1].length > 10) return { erro: 'id_de_produto', valor: l[1] };
+      return { loja: l[1], item: null };
+    }
 
     /* LOJA POR NOME. E o formato que a Shopee realmente usa quando voce
        copia o link de uma loja: shopee.com.br/nomedaloja. Nao ha id nele,
@@ -225,6 +231,11 @@
 
   async function consultarLink(link) {
     var ids = idsDoLink(link);
+    if (ids && ids.erro === 'id_de_produto') {
+      E.erro = 'Este link diz /shop/ mas o numero (' + ids.valor + ') e de produto, nao de loja. ' +
+        'Abra a loja na Shopee e copie o endereco da barra, que vem no formato shopee.com.br/nomedaloja.';
+      desenhar(); return;
+    }
     if (!ids) {
       E.erro = 'Nao reconheci este link. Cole o endereco de um produto ou de uma loja da Shopee.';
       desenhar(); return;
@@ -233,27 +244,35 @@
     E.progresso = ids.item ? 'Procurando este produto...' : 'Lendo a loja...';
     desenhar();
 
-    if (ids.item) {
-      await consultarProduto(ids);
-    } else {
-      var shopid = ids.loja;
-      if (!shopid && ids.nomeLoja) {
-        E.progresso = 'Achando a loja "' + ids.nomeLoja + '"...';
-        desenhar();
-        shopid = await idDaLojaPeloNome(ids.nomeLoja);
+    /* TUDO DENTRO DO try/finally. Antes, qualquer erro no meio deixava
+       E.buscando preso em true, e a partir dali o botao nunca mais
+       respondia — a tela parecia travada. O finally garante que a bandeira
+       cai, deu certo ou nao. */
+    try {
+      if (ids.item) {
+        await consultarProduto(ids);
+      } else {
+        var shopid = ids.loja;
+        if (!shopid && ids.nomeLoja) {
+          E.progresso = 'Achando a loja "' + ids.nomeLoja + '"...';
+          desenhar();
+          shopid = await idDaLojaPeloNome(ids.nomeLoja);
+        }
         if (!shopid) {
-          E.erro = 'Nao consegui abrir a loja "' + ids.nomeLoja + '". ' +
-            'Isso costuma acontecer quando a consulta parte do painel do vendedor: ' +
-            'abra shopee.com.br e use o Radar de la.';
-          E.buscando = false; E.progresso = null; desenhar();
-          return;
+          E.erro = 'Nao consegui identificar esta loja. ' +
+            'Se voce esta no painel do vendedor, abra shopee.com.br e use o Radar de la.';
+        } else {
+          await consultarLoja(shopid);
         }
       }
-      await consultarLoja(shopid);
+    } catch (e) {
+      E.erro = 'Nao consegui completar a consulta: ' + String(e && e.message || e);
+      try { console.error('[Radar 360] consulta por link:', e); } catch (e2) { }
+    } finally {
+      E.buscando = false;
+      E.progresso = null;
+      desenhar();
     }
-
-    E.buscando = false; E.progresso = null;
-    desenhar();
   }
 
   /* PRODUTO. A pagina dele nao traz venda, entao: pega o nome pela pagina,

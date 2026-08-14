@@ -2061,7 +2061,7 @@
   var raiz = host.attachShadow({ mode: 'closed' });
 
   var LOGO = '<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">' +
-    '<rect x="0" y="0" width="128" height="128" rx="30" fill="#1C1A17"/>' +
+    '<rect x="0" y="0" width="128" height="128" rx="30" fill="#1A1815"/>' +
     '<text x="46" y="88" font-family="Archivo,Outfit,Arial" font-size="74" font-weight="500" fill="#FBF8F3" text-anchor="middle" letter-spacing="-2">S</text>' +
     '<circle cx="88" cy="80" r="8" fill="#EE4D2D"/></svg>';
 
@@ -2807,9 +2807,13 @@
     }
     m.classList.toggle('on', !!v);
   }
-  ligar('sia-abrir', 'mouseenter', function () {
+  /* O menu abria so de passar o mouse, e pulava na tela toda vez que a
+     pessoa levava o cursor perto da aba. Agora e no clique direito, que e
+     onde se espera menu. */
+  ligar('sia-abrir', 'contextmenu', function (ev) {
+    ev.preventDefault();
     if (menuTimer) clearTimeout(menuTimer);
-    if (!$('sia-painel').classList.contains('aberto')) mostrarMenu(true);
+    mostrarMenu(!$('sia-menu').classList.contains('on'));
   });
   ligar('sia-abrir', 'mouseleave', function () {
     menuTimer = setTimeout(function () { mostrarMenu(false); }, 420);

@@ -409,6 +409,39 @@
     return ent;
   }
 
+  /* AVALIACOES DO PRODUTO. A receita ja coletava e nada processava: a
+     resposta chegava e era descartada. Sem isso nao dava para cruzar nota
+     com desempenho de anuncio, que e onde mora o diagnostico mais util —
+     nota baixa derruba a conversao do anuncio, e mais lance nao resolve. */
+  function parseAvaliacoes(url, dados) {
+    if (url.indexOf('/item/get_ratings') < 0) return false;
+    var m = url.match(/itemid=(\d+)/) || url.match(/item_id=(\d+)/);
+    if (!m) return false;
+    var d = (dados && (dados.data || dados)) || {};
+    var p = entidadeProduto(m[1]);
+
+    // a distribuicao vem em item_rating_summary.rating_count: 5 posicoes,
+    // da estrela 1 a 5, e o total na posicao 0 em algumas respostas
+    var res = d.item_rating_summary || d.rating_summary || {};
+    var nota = numero(res.rating_star !== undefined ? res.rating_star : d.rating_star);
+    if (nota !== null) p.nota = nota;
+    var dist = res.rating_count || d.rating_count;
+    if (Array.isArray(dist) && dist.length >= 5) {
+      var soma = 0, ruins = 0;
+      // quando vem com 6 posicoes, a primeira e o total
+      var base = dist.length === 6 ? dist.slice(1) : dist;
+      for (var i = 0; i < base.length; i++) {
+        soma += numero(base[i]) || 0;
+        if (i < 2) ruins += numero(base[i]) || 0;   // 1 e 2 estrelas
+      }
+      p.avaliacoesTotal = soma || null;
+      p.avaliacoesRuins = ruins || null;
+      p.pctRuins = soma ? (ruins / soma) * 100 : null;
+    }
+    estado.sujo = true;
+    return true;
+  }
+
   /* Parser exato das rotas do Shopee Ads (calibrado com payload real 24/07). */
   function parsePas(url, corpo, dados) {
     var body = null;
@@ -442,6 +475,21 @@
           if (e.mpd.item_list.length === 1) ent.produtoId = String(e.mpd.item_list[0]);
         }
         if (mpa && mpa.bidding_strategy) ent.estrategia = mpa.bidding_strategy;
+
+        /* A META DE ROAS EXISTE e eu nao lia. Vem em roi_two_target, em
+           micro (1310000 = 13,1x), dentro de manual_product_ads ou da
+           propria entrada. Sem isso o campo chegava vazio no relatorio e a
+           IA concluia que NENHUMA campanha tinha meta configurada — o que
+           e falso e foi para o texto final como se fosse fato. */
+        var alvoMeta = null;
+        if (mpa && mpa.roi_two_target != null) alvoMeta = mpa.roi_two_target;
+        else if (e.roi_two_target != null) alvoMeta = e.roi_two_target;
+        else if (e.campaign && e.campaign.roi_two_target != null) alvoMeta = e.campaign.roi_two_target;
+        if (alvoMeta != null) {
+          var mm = numero(alvoMeta);
+          // zero significa "sem meta", nao meta de zero
+          ent.metaRoas = (mm && mm > 0) ? mm / 100000 : null;
+        }
         if (e.report) {
           var m = extrairMetricas(e.report, true);
           for (var k in m) ent.metricas[k] = m[k];
@@ -678,6 +726,8 @@
     }
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); /* sem garimpo: micro proprio, tratado na v0.6 */ }
     else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
+    // as avaliacoes chegavam e ninguem lia
+    else if (parseAvaliacoes(pacote.url, pacote.dados)) { /* guardado */ }
     else if (tag === 'outra') {
       // So a rota shop_info do SELLER CENTRE identifica a conta. A vitrine
       // publica (shopee.com.br) tambem tem shop_info, com o shopid do
@@ -1514,6 +1564,39 @@
      aba de rede do navegador: bastava abrir para ler as 28 rotas de uma vez.
      Agora cada passo e pedido separado, ja montado pelo servidor, e a
      extensao nunca ve o formato — so a URL final daquela chamada. */
+  /* CACHE DO PASSO. Cada repeticao pedia o passo ao servidor de novo, o que
+     dobrava as requisicoes: vinte palavras viravam vinte idas ao Supabase
+     mais vinte a Shopee. Como o unico que muda entre repeticoes e o valor
+     do alvo, da para pedir uma vez e trocar so o marcador. Isso corta
+     metade das requisicoes da coleta. */
+  var CACHE_PASSO = {};
+  function pedirPassoCache(modo, indice, vals, chave) {
+    var k = modo + ':' + indice;
+    if (CACHE_PASSO[k]) {
+      // reaproveita o molde e troca so os marcadores desta repeticao
+      var molde = CACHE_PASSO[k];
+      var url = String(molde.chamada.url);
+      var corpo = molde.chamada.corpo ? JSON.stringify(molde.chamada.corpo) : null;
+      for (var m in vals) {
+        var re = new RegExp('\\{' + m + '\\}', 'g');
+        url = url.replace(re, String(vals[m]));
+        if (corpo) corpo = corpo.replace(re, String(vals[m]));
+      }
+      // so serve se nao sobrou marcador nenhum
+      if (url.indexOf('{') < 0 && (!corpo || corpo.indexOf('{"') === 0 || corpo.indexOf('{' + '{') < 0)) {
+        return Promise.resolve({
+          ok: true, fase: molde.fase, repete: molde.repete, opcional: molde.opcional,
+          carimbaPeriodo: molde.carimbaPeriodo, pausa: molde.pausa,
+          chamada: { url: url, metodo: molde.chamada.metodo, corpo: corpo ? JSON.parse(corpo) : null }
+        });
+      }
+    }
+    return pedirPasso(modo, indice, vals).then(function (r) {
+      if (r && r.chamada && !CACHE_PASSO[k]) CACHE_PASSO[k] = r;
+      return r;
+    });
+  }
+
   function pedirPasso(modo, indice, vals) {
     return fetch(SIA_URL_RECEITA, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1574,7 +1657,10 @@
   async function executarPasso(r, modo, indice, vals, lojaCiclo) {
     if (pedidoParar) return 0;
     var feitas = 0;
-    var pausaMs = r.pausa || 250;
+    /* 250ms entre cada chamada somava mais de doze segundos parados numa
+       leitura de cem chamadas. 120ms continua sendo ritmo humano e corta
+       metade dessa espera. */
+    var pausaMs = r.pausa || 120;
 
     function entregar(url, corpo, dados) {
       processarPacote({
@@ -1607,7 +1693,7 @@
       // Era por isso que campanhas e produtos vinham vazios.
       for (var pg = 1; pg <= (rep.ate || 10); pg++) {
         if (pedidoParar) break;
-        var rp = await pedirPasso(modo, indice, Object.assign({}, vals, {
+        var rp = await pedirPassoCache(modo, indice, Object.assign({}, vals, {
           pagina: pg, offset: (pg - 1) * (rep.tamanho || 20)
         }));
         var rr = await buscar(rp.chamada.url, rp.chamada.metodo, rp.chamada.corpo);
@@ -1625,7 +1711,7 @@
       var alvos = alvosDoPasso(rep);
       for (var a = 0; a < alvos.length; a++) {
         if (pedidoParar) break;
-        var ra = await pedirPasso(modo, indice, Object.assign({}, vals, {
+        var ra = await pedirPassoCache(modo, indice, Object.assign({}, vals, {
           campanha: parseInt(alvos[a], 10), produto: alvos[a]
         }));
         var r2 = await buscar(ra.chamada.url, ra.chamada.metodo, ra.chamada.corpo);
@@ -1674,6 +1760,7 @@
 
   function coletaCompleta(aoProgresso, periodoForcado, modo) {
     pedidoParar = false;
+    CACHE_PASSO = {};   // molde novo a cada leitura
     var PROFUNDA = modo === 'profunda';
     // Marcar 'iniciando' sem garantir a liberacao deixava coletaProgresso
     // travado para sempre quando a coleta falhava antes do fim — e a trava
@@ -1944,7 +2031,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
   var raiz = host.attachShadow({ mode: 'closed' });
 
   var LOGO = '<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">' +
-    '<rect x="0" y="0" width="128" height="128" rx="30" fill="#1C1A17"/>' +
+    '<rect x="0" y="0" width="128" height="128" rx="30" fill="#1A1815"/>' +
     '<text x="46" y="88" font-family="Archivo,Outfit,Arial" font-size="74" font-weight="500" fill="#FBF8F3" text-anchor="middle" letter-spacing="-2">S</text>' +
     '<circle cx="88" cy="80" r="8" fill="#EE4D2D"/></svg>';
 
@@ -2764,9 +2851,13 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     }
     m.classList.toggle('on', !!v);
   }
-  ligar('sia-abrir', 'mouseenter', function () {
+  /* O menu abria so de passar o mouse, e pulava na tela toda vez que a
+     pessoa levava o cursor perto da aba. Agora e no clique direito, que e
+     onde se espera menu. */
+  ligar('sia-abrir', 'contextmenu', function (ev) {
+    ev.preventDefault();
     if (menuTimer) clearTimeout(menuTimer);
-    if (!$('sia-painel').classList.contains('aberto')) mostrarMenu(true);
+    mostrarMenu(!$('sia-menu').classList.contains('on'));
   });
   ligar('sia-abrir', 'mouseleave', function () {
     menuTimer = setTimeout(function () { mostrarMenu(false); }, 420);
@@ -4628,7 +4719,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         '<button id="sia-esp-ir" style="background:var(--mk);border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 20px;border-radius:var(--r-btn,14px);cursor:pointer">' + (e.buscando ? 'Espiando...' : 'Espiar') + '</button></div>';
     }
 
-    h += '<div class="nota" style="margin-top:0">A busca abre a vitrine numa aba em segundo plano e le a resposta que a propria Shopee entrega — nao fabricamos chamada, so escutamos. Cada termo leva alguns segundos. O faturamento e estimado: a propria Shopee mostra quantas unidades cada produto vendeu nos ultimos 30 dias. Multiplicamos pelo preco exibido. E regua de vitrine, nao o extrato do concorrente.</div>';
+    h += '<div class="nota" style="font-size:12.5px;color:var(--t2)">O volume vem da propria Shopee: ela mostra quantas unidades cada produto vendeu nos ultimos 30 dias. O faturamento e esse numero vezes o preco exibido.</div>'
 
     // ORDEM CORRETA: buscando e erro vem ANTES do Radar e cortam o render.
     // Estavam num ponto do arquivo que nunca era alcancado, entao clicar numa
@@ -5657,6 +5748,52 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       });
     }
     camps.sort(function (a, b) { return (b.gasto || 0) - (a.gasto || 0); });
+
+    /* NOTA BAIXA DERRUBA O ANUNCIO. Cruzar avaliacao com campanha e o
+       diagnostico que faltava: um produto com 4,3 converte menos, e mais
+       lance nao resolve isso — o comprador chega na pagina, ve a nota e
+       desiste. Vai no payload para o relatorio poder citar. */
+    var alertasNota = [];
+    for (var an = 0; an < camps.length; an++) {
+      var pid = camps[an].produtoId;
+      if (!pid) continue;
+      var pr = estado.produtos[String(pid)] || {};
+      if (pr.nota == null || pr.nota >= 4.5) continue;
+      alertasNota.push({
+        campanha: camps[an].nome,
+        produtoId: String(pid),
+        produto: String(pr.nome || '').slice(0, 60),
+        nota: Math.round(pr.nota * 100) / 100,
+        avaliacoesRuins: pr.avaliacoesRuins || null,
+        pctRuins: pr.pctRuins != null ? Math.round(pr.pctRuins) : null,
+        gastoNoPeriodo: camps[an].gasto,
+        roas: camps[an].roas
+      });
+    }
+    alertasNota.sort(function (a, b) { return (b.gastoNoPeriodo || 0) - (a.gastoNoPeriodo || 0); });
+
+    /* CONTAGEM EXPLICITA DE METAS. O relatorio afirmou que nenhuma campanha
+       tinha meta configurada quando quase todas tinham — a IA concluiu isso
+       de um campo que chegava vazio. Mandar a contagem pronta tira a
+       conclusao da mao dela: o numero vai calculado, nao inferido. */
+    var comMeta = 0, semMeta = 0, metasLista = [];
+    for (var mi = 0; mi < camps.length; mi++) {
+      if (camps[mi].metaAtual != null && camps[mi].metaAtual > 0) {
+        comMeta++;
+        metasLista.push(camps[mi].metaAtual);
+      } else semMeta++;
+    }
+    metasLista.sort(function (a, b) { return a - b; });
+    var resumoMetas = {
+      campanhasComMeta: comMeta,
+      campanhasSemMeta: semMeta,
+      metaMenor: metasLista.length ? metasLista[0] : null,
+      metaMaior: metasLista.length ? metasLista[metasLista.length - 1] : null,
+      metaDoMeio: metasLista.length ? metasLista[Math.floor(metasLista.length / 2)] : null,
+      // quando nao lemos meta de NENHUMA, e mais provavel falha de leitura
+      // que ausencia real: o texto precisa dizer isso em vez de afirmar
+      leituraConfiavel: !(camps.length >= 5 && comMeta === 0)
+    };
     var formatos = [];
     for (k in fmtCont) { var f = fmtCont[k]; formatos.push({ rotulo: f.rotulo, qtd: f.qtd, gasto: f.gasto, roas: f.gasto ? f.gmvS / f.gasto : null }); }
 
@@ -5672,6 +5809,10 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         cancelamentos: val(G.cancelados), visualizacoes: val(G.pv),
         carrinho: val(G.carrinho) != null ? val(G.carrinho) : val(G.atc)
       },
+      // a contagem de metas vai ao lado do bloco de ads, ja pronta
+      metasDeRoas: resumoMetas,
+      // campanhas anunciando produto com nota abaixo de 4,5
+      anunciosComNotaBaixa: alertasNota.slice(0, 10),
       ads: {
         investimento: somaGasto || null, impressoes: somaImpr || null, cliques: somaCliq || null,
         ctr: somaImpr ? (somaCliq / somaImpr) * 100 : null,
@@ -6421,6 +6562,13 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     estado.acessoToken = tok;
   }
   function acessoValidar() {
+    // traz o aceite guardado antes de desenhar a portaria
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'aceite' }, function (r) {
+        void chrome.runtime.lastError;
+        if (r && r.valor) { estado.acesso.aceite = true; estado.sujo = true; render(); }
+      });
+    } catch (e) { /* noop */ }
     try {
       chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'acesso_token' }, function (r) {
         void chrome.runtime.lastError;
@@ -6494,6 +6642,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       render(); return;
     }
     estado.acesso.aceite = true;
+    // O aceite vivia so na memoria: fechar o navegador apagava, e a pessoa
+    // tinha que marcar de novo toda vez. Quem aceitou uma vez, aceitou.
+    try { chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'aceite', valor: 'v1' }, function () { void chrome.runtime.lastError; }); } catch (e) { }
     estado.acesso.entrando = true;
     estado.acesso.erro = null;
     estado.acesso.email = email;
@@ -6867,6 +7018,44 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         '<td>' + txtCob + '</td></tr>';
     }
     return h + '</table>';
+  }
+
+  /* O ALERTA DE NOTA na tela de Ads. A pessoa nao deveria precisar gerar
+     relatorio para descobrir que esta pagando para levar trafego a uma
+     pagina com nota ruim. */
+  function alertaNotaNoAds() {
+    var lista = [];
+    for (var k in estado.campanhas) {
+      var c = estado.campanhas[k] || {};
+      var e2 = String(c.estado || c.state || '').toLowerCase();
+      if (e2 === 'paused' || e2 === 'ended' || e2 === 'closed') continue;
+      var pid = c.produtoId;
+      if (!pid) continue;
+      var p = estado.produtos[String(pid)] || {};
+      if (p.nota == null || p.nota >= 4.5) continue;
+      var m = c.metricas || {};
+      lista.push({ nome: c.nome || k, nota: p.nota, produto: p.nome || pid,
+        gasto: m.gasto || 0, pctRuins: p.pctRuins });
+    }
+    if (!lista.length) return '';
+    lista.sort(function (a, b) { return (b.gasto || 0) - (a.gasto || 0); });
+    var total = lista.reduce(function (a, b) { return a + (b.gasto || 0); }, 0);
+
+    var h = olho('ANUNCIO COM NOTA BAIXA');
+    h += '<div class="nota" style="border-left:3px solid var(--rd)">' +
+      '<b style="color:var(--t0)">' + lista.length + ' campanha(s) ativa(s) levam trafego para produto com nota abaixo de 4,5.</b><br>' +
+      (total ? 'Somam ' + reais(total) + ' no periodo. ' : '') +
+      'Nota baixa derruba a conversao da pagina: o comprador clica, ve a nota e desiste. ' +
+      'Subir lance nao resolve isso, so aumenta o custo do mesmo problema.</div>';
+    h += '<table><tr><th>CAMPANHA</th><th>PRODUTO</th><th class="num">NOTA</th><th class="num">GASTO</th></tr>';
+    lista.slice(0, 8).forEach(function (x) {
+      h += '<tr><td class="nome sigilo">' + esc(String(x.nome).slice(0, 34)) + '</td>' +
+        '<td class="nome sigilo">' + esc(String(x.produto).slice(0, 30)) + '</td>' +
+        '<td class="num" style="color:' + (x.nota < 4.2 ? 'var(--rd)' : 'var(--am)') + '">' + fmt(x.nota, 2) + '</td>' +
+        '<td class="num">' + reais(x.gasto) + '</td></tr>';
+    });
+    h += '</table>';
+    return h;
   }
 
   function renderFiltroCampanhas() {
@@ -8093,13 +8282,40 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     estado.semanal.pct = 20;
     render();
 
+    /* O PANORAMA ESTAVA RASO porque mandava so o bloco do periodo. Agora vai
+       o mesmo material do relatorio completo — campanhas, produtos, funil,
+       afiliados, metas de ROAS e os alertas de nota — mais o periodo
+       anterior para dar comparacao. O que muda entre os dois nao e o dado,
+       e o tamanho do texto: o semanal e panorama, nao dissertacao. */
     var bloco = blocoPeriodo('ultimos 7 dias');
+    var anterior = null;
+    try { anterior = blocoPeriodo('7 dias anteriores'); } catch (e) { /* opcional */ }
+
+    var vd = [];
+    try {
+      var todos = (estado.diagnostico && estado.diagnostico.vereditos) || [];
+      vd = todos.slice(0, 12).map(function (v) {
+        return { escopo: v.escopo, nivel: v.nivel, titulo: v.titulo, dinheiro: v.dinheiro };
+      });
+    } catch (e) { }
+
     var payload = {
       loja: estado.loja ? estado.loja.shop_id : null,
       loja_nome: estado.loja ? estado.loja.nome : null,
       margemMediaPct: margemMediaCofre(),
       semanal: true,
-      atual: bloco
+      atual: bloco,
+      anterior: anterior,
+      vereditos: vd,
+      // panorama: texto curto, decisao clara, sem dissertacao
+      formato: {
+        estilo: 'panorama',
+        limitePalavras: 450,
+        instrucao: 'Panorama dos ultimos 7 dias. Comece pelo numero que mais mudou. ' +
+          'Cubra faturamento, anuncios, produtos e afiliados, cada um em poucas linhas com o numero na frente. ' +
+          'Termine com as tres coisas para fazer nesta semana, em ordem de dinheiro em jogo. ' +
+          'Nada de paragrafo longo: quem le abre no celular entre uma tarefa e outra.'
+      }
     };
 
     estado.semanal.etapa = 'O consultor esta analisando a semana';
@@ -9995,9 +10211,13 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           return '<div class="nota" style="color:var(--rd)">O bloco <b>' + esc(nome) + '</b> falhou: ' + esc(String(e && e.message || e)) + '</div>';
         }
       }
+      /* O bloco do dia hora a hora saiu: a serie por hora vem de uma rota
+         que a receita nao busca, entao ele so mostrava um aviso dizendo que
+         nao funciona. Um bloco que so serve para dizer que nao serve e
+         ruido — melhor nao ter. */
       h2 = capa('ONDE O DINHEIRO ESTA INDO', 'SHOPEE', 'ADS', '03') +
+        seguro(alertaNotaNoAds, 'Anuncio com nota baixa') +
         seguro(renderPercentis, 'Percentis da categoria') +
-        seguro(renderHoras, 'O dia hora a hora') +
         seguro(renderCompetitividade, 'Onde a conta perde a disputa') +
         seguro(renderPausadasQueRendiam, 'Pausadas que rendiam') +
         seguro(renderFiltroCampanhas, 'Filtro de campanhas') +
