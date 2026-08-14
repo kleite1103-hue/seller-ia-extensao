@@ -5813,6 +5813,30 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       metasDeRoas: resumoMetas,
       // campanhas anunciando produto com nota abaixo de 4,5
       anunciosComNotaBaixa: alertasNota.slice(0, 10),
+      // e as campanhas anunciando produto com variacao esgotada
+      variacoesEsgotadas: (function () {
+        var out = [];
+        for (var kv in estado.campanhas) {
+          var cv = estado.campanhas[kv] || {};
+          var ev = String(cv.estado || cv.state || '').toLowerCase();
+          if (ev === 'paused' || ev === 'ended' || ev === 'closed') continue;
+          if (!cv.produtoId) continue;
+          var pv = estado.produtos[String(cv.produtoId)] || {};
+          var vv = pv.variacoes;
+          if (!vv || vv.length < 2) continue;
+          var zz = vv.filter(function (x) { return x.estoque === 0; });
+          if (!zz.length || zz.length === vv.length) continue;
+          out.push({
+            produto: String(pv.nome || cv.produtoId).slice(0, 60),
+            esgotadas: zz.map(function (x) { return x.nome; }).slice(0, 4),
+            de: vv.length,
+            pctDasVendas: Math.round(zz.reduce(function (a, b) { return a + (b.fatia || 0); }, 0)),
+            gastoNoPeriodo: (cv.metricas || {}).gasto || null
+          });
+        }
+        out.sort(function (a, b) { return b.pctDasVendas - a.pctDasVendas; });
+        return out.slice(0, 8);
+      })(),
       ads: {
         investimento: somaGasto || null, impressoes: somaImpr || null, cliques: somaCliq || null,
         ctr: somaImpr ? (somaCliq / somaImpr) * 100 : null,
