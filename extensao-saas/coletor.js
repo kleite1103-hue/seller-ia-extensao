@@ -2851,7 +2851,10 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         }
         if (el.getAttribute('data-voltar')) { abaAtiva = (estado.cardVoltaPara && TELAS_VALIDAS.indexOf(estado.cardVoltaPara) >= 0) ? estado.cardVoltaPara : 'performance'; render(); return; }
         var d = el.getAttribute('data-card');
-        if (d) { var p = d.split(':'); estado.cardVoltaPara = abaAtiva; abrirCard(p[0], p.slice(1).join(':')); return; }
+        if (d) {
+          try { console.log('[Seller.IA] clique no card:', d); } catch (eL) { }
+          var p = d.split(':'); estado.cardVoltaPara = abaAtiva; abrirCard(p[0], p.slice(1).join(':')); return;
+        }
       }
       el = el.parentNode;
     }
@@ -10435,7 +10438,16 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     }
 
     if (abaAtiva === 'card') {
-      corpo.innerHTML = renderCard6();
+      try { console.log('[Seller.IA] desenhando o card', JSON.stringify(estado.card)); } catch (e) { }
+      try {
+        corpo.innerHTML = renderCard6();
+      } catch (eCard) {
+        try { console.error('[Seller.IA] renderCard6 falhou:', eCard); } catch (e2) { }
+        corpo.innerHTML = '<div class="nota" style="color:var(--rd)">Nao consegui abrir este produto: ' +
+          esc(String(eCard && eCard.message || eCard)) + '<br><br>' +
+          '<button data-voltar="1" style="background:var(--b2);border:1px solid var(--li);color:var(--t1);' +
+          'font-family:inherit;font-size:13px;padding:9px 15px;border-radius:11px;cursor:pointer">Voltar</button></div>';
+      }
       return;
     }
 
