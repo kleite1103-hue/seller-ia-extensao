@@ -10408,9 +10408,22 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       return;
     }
     if (abaAtiva === 'conta360') {
-      corpo.innerHTML = capa('COMO A LOJA ESTA', 'CONTA', '360', '01') + renderSubAbas('conta360') + renderLimiteLojas() + renderAvisoPeriodo() +
-        renderFunilLoja() + leituraDaConta() + renderOrigem() + renderPerdaPosPedido() + renderConta360();
-      ligarBotaoColeta();
+      /* CADA BLOCO PROTEGIDO. Esta era a unica aba que montava a tela
+         chamando sete funcoes cruas, sem seguro(): bastava uma delas falhar
+         para a tela INTEIRA nao desenhar, enquanto as outras abas mostravam
+         normalmente. Era exatamente o sintoma — as demais abrem, a inicial
+         nao. Agora um bloco que quebra vira um aviso e o resto aparece. */
+      corpo.innerHTML =
+        seguro(function () { return capa('COMO A LOJA ESTA', 'CONTA', '360', '01'); }, 'Capa') +
+        seguro(function () { return renderSubAbas('conta360'); }, 'Sub-abas') +
+        seguro(renderLimiteLojas, 'Limite de lojas') +
+        seguro(renderAvisoPeriodo, 'Aviso de periodo') +
+        seguro(renderFunilLoja, 'Funil da loja') +
+        seguro(leituraDaConta, 'Leitura da conta') +
+        seguro(renderOrigem, 'De onde vem a venda') +
+        seguro(renderPerdaPosPedido, 'Perda pos-pedido') +
+        seguro(renderConta360, 'Conta 360');
+      try { ligarBotaoColeta(); } catch (eB) { }
   
       return;
     }
