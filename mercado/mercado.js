@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.14.0';
+  var VERSAO = '1.15.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -259,47 +259,79 @@
   /* PRODUTO. A pagina dele nao traz venda, entao: pega o nome pela pagina,
      busca esse nome, e acha o item pelo id na resposta da busca. */
   async function consultarProduto(ids) {
+    /* LE A PAGINA PRIMEIRO. Ela traz preco, nota, avaliacoes, curtidas e a
+       data de cadastro — tudo menos o volume de venda, que vem nulo ali.
+       Antes eu dependia da busca para tudo, entao quando o anuncio nao
+       aparecia nas tres primeiras paginas a tela nao mostrava nada. Agora
+       a pagina sustenta a leitura e a busca so acrescenta o volume. */
     var r = await api('/api/v4/pdp/get_pc?item_id=' + ids.item + '&shop_id=' + ids.loja);
-    var nome = null, loja = null;
+    var it = null, sd = null;
     try {
       var d = (r.dados && (r.dados.data || r.dados)) || {};
-      nome = (d.item && d.item.title) || (d.item && d.item.name) || null;
-      loja = (d.shop_detailed && (d.shop_detailed.name || d.shop_detailed.username)) || null;
+      it = d.item || null;
+      sd = d.shop_detailed || null;
     } catch (e) { }
-    if (!nome) {
-      E.erro = 'Nao consegui abrir este produto. Confira se o link esta certo e se voce esta logada na Shopee.';
+    if (!it) {
+      E.erro = 'Nao consegui abrir este produto. Confira o link e se voce esta logada na Shopee.';
       return;
     }
 
-    E.progresso = 'Procurando "' + nome.slice(0, 34) + '"...';
-    desenhar();
+    var rt = it.item_rating || {};
+    var base = {
+      id: ids.item, loja: ids.loja,
+      nome: it.title || it.name || '',
+      lojaNome: (sd && (sd.name || sd.username)) || '',
+      preco: it.price != null ? it.price / 100000 : null,
+      precoAntes: it.price_before_discount != null ? it.price_before_discount / 100000 : null,
+      nota: rt.rating_star != null ? rt.rating_star : null,
+      estrelas: rt.rating_count || null,
+      avaliacoes: it.cmt_count != null ? it.cmt_count : null,
+      curtidas: it.liked_count != null ? it.liked_count : null,
+      cadastro: it.ctime || null,
+      fotos: (it.images && it.images.length) || null,
+      estoque: it.stock != null ? it.stock : null,
+      local: it.shop_location || (sd && sd.shop_location) || '',
+      mes: null, total: null, fatMes: null,
+      link: 'https://shopee.com.br/product/' + ids.loja + '/' + ids.item,
+      linkLoja: 'https://shopee.com.br/shop/' + ids.loja,
+      // da loja, que a pagina entrega junto
+      lojaSeguidores: sd && sd.follower_count != null ? sd.follower_count : null,
+      lojaProdutos: sd && sd.item_count != null ? sd.item_count : null,
+      lojaNota: sd && sd.rating_star != null ? sd.rating_star : null,
+      lojaDesde: sd && sd.ctime ? sd.ctime : null,
+      lojaResposta: sd && sd.response_rate != null ? sd.response_rate : null
+    };
 
-    // busca pelo titulo e acha o item pelo id
-    var achou = null;
-    for (var pg = 0; pg < 3 && !achou; pg++) {
-      var url = '/api/v4/search/search_items?by=relevancy&keyword=' +
-        encodeURIComponent(nome.slice(0, 60)) + '&limit=60&newest=' + (pg * 60) +
-        '&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
-        '&view_session_id=' + sessaoDaBusca(nome);
-      var rb = await api(url);
-      if (!rb.ok || !rb.dados) break;
-      var its = (rb.dados.items || (rb.dados.data && rb.dados.data.items) || []);
-      for (var i = 0; i < its.length; i++) {
-        if (String(its[i].itemid) === String(ids.item)) { achou = traduzirItem(its[i]); break; }
+    /* O VOLUME so existe na busca. Procura pelo titulo; se nao achar, a
+       tela mostra o resto e diz que o volume nao veio — em vez de nao
+       mostrar nada, como antes. */
+    if (base.nome) {
+      E.progresso = 'Procurando o volume de vendas...';
+      desenhar();
+      var achou = null;
+      for (var pg = 0; pg < 3 && !achou; pg++) {
+        var url = '/api/v4/search/search_items?by=relevancy&keyword=' +
+          encodeURIComponent(base.nome.slice(0, 60)) + '&limit=60&newest=' + (pg * 60) +
+          '&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
+          '&view_session_id=' + sessaoDaBusca(base.nome);
+        var rb = await api(url);
+        if (!rb.ok || !rb.dados) break;
+        var its = (rb.dados.items || (rb.dados.data && rb.dados.data.items) || []);
+        for (var q = 0; q < its.length; q++) {
+          if (String(its[q].itemid) === String(ids.item)) { achou = traduzirItem(its[q]); break; }
+        }
+        if (its.length < 60) break;
+        await espera(PAUSA);
       }
-      if (its.length < 60) break;
-      await espera(PAUSA);
+      if (achou) {
+        base.mes = achou.mes;
+        base.total = achou.total;
+        base.fatMes = achou.fatMes;
+        if (!base.lojaNome && achou.lojaNome) base.lojaNome = achou.lojaNome;
+      }
     }
 
-    if (!achou) {
-      E.consultaLink = {
-        tipo: 'produto', nome: nome, loja: loja, semDado: true,
-        link: 'https://shopee.com.br/product/' + ids.loja + '/' + ids.item
-      };
-      return;
-    }
-    if (!achou.lojaNome && loja) achou.lojaNome = loja;
-    E.consultaLink = { tipo: 'produto', item: achou };
+    E.consultaLink = { tipo: 'produto', item: base, semVolume: base.mes == null };
   }
 
   /* LOJA. A busca interna da loja devolve os itens no mesmo formato da
@@ -314,14 +346,22 @@
         '&filter_sold_out=1&use_case=4&item_card_use_scene=search_items_popular';
       var r = await api(url);
       if (!r.ok || !r.dados) break;
-      var its = (r.dados.items || (r.dados.data && r.dados.data.items) || []);
+      /* A BUSCA DA LOJA NAO DEVOLVE "items". Os produtos vem em
+         centralize_item_card.item_cards — conferido na captura do radar.
+         Eu procurava "items" como na busca geral, achava vazio, e a
+         consulta de loja terminava sem nada toda vez. */
+      var dd = r.dados;
+      var its = (dd.centralize_item_card && dd.centralize_item_card.item_cards) ||
+        dd.items || (dd.data && (dd.data.items ||
+          (dd.data.centralize_item_card && dd.data.centralize_item_card.item_cards))) || [];
       if (!its.length) break;
       todos = todos.concat(its);
       if (its.length < 30) break;
       await espera(PAUSA);
     }
     if (!todos.length) {
-      E.erro = 'Nao consegui ler os produtos desta loja. Confira o link e se voce esta logada.';
+      E.erro = 'Esta loja nao devolveu produtos. Se voce esta no painel do vendedor, ' +
+        'abra shopee.com.br e use o Radar de la.';
       return;
     }
     var itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
@@ -539,10 +579,13 @@
   /* Traduz o item da busca para o que a analise usa. Cada campo aqui
      existe na resposta — nada e calculado por fora. */
   function traduzirItem(it) {
-    // A vitrine ja devolveu duas formas: item_data com o asset ao lado, e
-    // item_basic com tudo dentro. Aceita as duas em vez de assumir uma.
+    /* TRES FORMAS ate agora: item_data com o asset ao lado (busca geral),
+       item_basic com tudo dentro, e o item_card da busca DA LOJA, que traz
+       os campos direto na raiz. Aceitar as tres evita o que ja aconteceu
+       duas vezes: a tela vazia porque o dado estava um nivel acima ou
+       abaixo do que eu procurava. */
     var b = it.item_basic || {};
-    var d = it.item_data || b;
+    var d = it.item_data || (it.item_card_display_price ? it : b);
     var a = it.item_card_displayed_asset || b;
     var sc = d.item_card_display_sold_count || {};
     var pr = d.item_card_display_price || {};
@@ -1555,7 +1598,9 @@
     '.btn{position:fixed;top:calc(50% + 34px);right:0;width:44px;height:60px;' +
       'border-radius:16px 0 0 16px;background:#1A1815;color:#fff;border:none;cursor:pointer;' +
       'font:500 21px Archivo,Arial;letter-spacing:-.035em;box-shadow:-4px 4px 18px rgba(0,0,0,.2);' +
-      'display:grid;place-items:center;z-index:2147483000;transition:width .15s,background .15s}' +
+      /* Acima da gaveta da Seller.IA, que vai ate 2147483200: sem isso a
+         aba do Radar ficava por baixo e nao dava para clicar. */
+      'display:grid;place-items:center;z-index:2147483300;transition:width .15s,background .15s}' +
     '.btn span{display:block;width:28px;height:28px;line-height:0}' +
     '.btn span svg{width:100%;height:100%;display:block;border-radius:8px}' +
     '.btn:hover{width:52px;background:#2A2622}' +
@@ -1566,7 +1611,7 @@
        uma linha de conteudo perdida de cada lado. */
     '.painel{position:fixed;top:12px;right:12px;bottom:12px;width:48vw;min-width:660px;max-width:860px;' +
       'background:var(--card);color:var(--tx1);border-radius:30px;display:flex;flex-direction:column;' +
-      'overflow:hidden;box-shadow:var(--shadow);z-index:2147483000;' +
+      'overflow:hidden;box-shadow:var(--shadow);z-index:2147483290;' +
       'opacity:0;pointer-events:none;transform:translateX(24px) scale(.99);transition:opacity .2s,transform .2s}' +
     '.painel.on{opacity:1;pointer-events:auto;transform:none}' +
 
@@ -2119,32 +2164,61 @@
     }
 
     if (C.tipo === 'produto') {
-      if (C.semDado) {
-        h += '<div class="nota"><b>' + esc(C.nome) + '</b><br><br>' +
-          'Achei o produto, mas ele não apareceu nas três primeiras páginas da busca pelo próprio título, ' +
-          'e é só na busca que a Shopee entrega o volume de venda. Isso costuma significar que ele está mal posicionado para o próprio nome.' +
-          (C.link ? '<br><br><a href="' + C.link + '" target="_blank" rel="noopener">Abrir na Shopee ↗</a>' : '') + '</div>';
-        return h;
-      }
       var x = C.item;
       h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:20px 22px;margin-bottom:12px">' +
         '<div style="font-size:15px;font-weight:600;color:var(--tx1);margin-bottom:4px">' + sigTitulo(x.nome, 70) + '</div>' +
         '<div style="font:400 10px \'Space Mono\',monospace;color:var(--tx6);margin-bottom:16px">' + sigLoja(x.lojaNome) +
-        (x.local ? ' · ' + esc(x.local) : '') + '</div>' +
-        '<div style="display:flex;align-items:baseline;gap:22px;flex-wrap:wrap">' +
-        '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">VENDE POR MÊS</div>' +
-        '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1">' + num(x.mes) + '</div></div>' +
-        '<div style="border-left:1px solid var(--bd5);padding-left:22px">' +
-        '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">FATURA POR MÊS</div>' +
-        '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:#EE4D2D;line-height:1" title="' +
-        (x.fatMes != null ? reais(x.fatMes) : '') + '">' + (x.fatMes != null ? reaisCurto(x.fatMes) : '—') + '</div></div></div>' +
-        '<div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--bd5)">' +
-        celula(reais(x.preco), 'PREÇO') +
-        celula(num(x.total), 'DESDE QUE ENTROU') +
-        celula(x.nota != null ? num(x.nota, 2) : '—', 'NOTA') +
-        celula(x.cadastro ? idade(x.cadastro) : '—', 'NO AR HÁ') +
+        (x.local ? ' \u00b7 ' + esc(x.local) : '') + '</div>';
+
+      if (x.mes != null) {
+        h += '<div style="display:flex;align-items:baseline;gap:22px;flex-wrap:wrap">' +
+          '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">VENDE POR MÊS</div>' +
+          '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1">' + num(x.mes) + '</div></div>' +
+          '<div style="border-left:1px solid var(--bd5);padding-left:22px">' +
+          '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">FATURA POR MÊS</div>' +
+          '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:#EE4D2D;line-height:1" title="' +
+          (x.fatMes != null ? reais(x.fatMes) : '') + '">' + (x.fatMes != null ? reaisCurto(x.fatMes) : '\u2014') + '</div></div></div>';
+      } else {
+        h += '<div style="display:flex;align-items:baseline;gap:22px;flex-wrap:wrap">' +
+          '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">PREÇO</div>' +
+          '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1">' + reais(x.preco) + '</div></div></div>';
+      }
+
+      h += '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--bd5)">' +
+        (x.mes != null ? celula(reais(x.preco), 'PREÇO') : '') +
+        (x.total != null ? celula(num(x.total), 'VENDEU DESDE QUE ENTROU') : '') +
+        (x.nota != null ? celula(num(x.nota, 2) + ' de 5', 'NOTA') : '') +
+        (x.avaliacoes != null ? celula(num(x.avaliacoes), 'AVALIAÇÕES') : '') +
+        (x.curtidas != null ? celula(num(x.curtidas), 'CURTIDAS') : '') +
+        (x.fotos != null ? celula(x.fotos + ' fotos', 'NO ANÚNCIO') : '') +
+        (x.estoque != null ? celula(num(x.estoque), 'EM ESTOQUE') : '') +
+        (x.cadastro ? celula(idade(x.cadastro), 'NO AR HÁ') : '') +
         '</div></div>';
-      if (x.link && !E.gravando) h += '<div class="nota"><a href="' + x.link + '" target="_blank" rel="noopener">Abrir na Shopee ↗</a></div>';
+
+      if (C.semVolume) {
+        h += '<div class="aviso" style="border-color:#C98A1E;color:var(--tx2)">' +
+          '<b>O volume de vendas não apareceu.</b> Ele só existe na busca, e este anúncio não saiu nas três primeiras páginas ' +
+          'pelo próprio título. Isso já diz algo: ele está mal posicionado para o nome que tem. O resto dos dados vem da página do produto e está completo.</div>';
+      }
+
+      // o que a pagina entrega sobre a loja
+      if (x.lojaSeguidores != null || x.lojaProdutos != null || x.lojaNota != null) {
+        h += olho('A LOJA QUE VENDE ISTO');
+        h += '<div style="display:flex;gap:24px;flex-wrap:wrap;background:var(--surf);border:1px solid var(--bd2);' +
+          'border-radius:22px;padding:16px 20px;margin-bottom:12px">' +
+          (x.lojaSeguidores != null ? celula(num(x.lojaSeguidores), 'SEGUIDORES') : '') +
+          (x.lojaProdutos != null ? celula(num(x.lojaProdutos), 'PRODUTOS') : '') +
+          (x.lojaNota != null ? celula(num(x.lojaNota, 2) + ' de 5', 'NOTA DA LOJA') : '') +
+          (x.lojaDesde ? celula(idade(x.lojaDesde), 'ABERTA HÁ') : '') +
+          (x.lojaResposta != null ? celula(num(x.lojaResposta, 0) + '%', 'RESPONDE') : '') +
+          '</div>';
+        if (x.linkLoja && !E.gravando) {
+          h += '<div class="nota"><a href="' + x.linkLoja + '" target="_blank" rel="noopener">Ver a loja inteira \u2197</a> \u00b7 ' +
+            'cole o link dela aqui em cima para ver o faturamento completo.</div>';
+        }
+      }
+
+      if (x.link && !E.gravando) h += '<div class="nota"><a href="' + x.link + '" target="_blank" rel="noopener">Abrir o anúncio na Shopee \u2197</a></div>';
       return h;
     }
 

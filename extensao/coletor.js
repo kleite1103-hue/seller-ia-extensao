@@ -2090,7 +2090,10 @@
        o chat da Shopee, e quando o Radar 360 esta instalado as duas
        brigavam pelo mesmo lugar. Agora a Seller.IA fica logo acima do meio
        e o Radar logo abaixo, sem se tocarem. */
-    '.botao{position:fixed;top:calc(50% - 34px);right:0;width:44px;height:60px;z-index:2147483010;' +
+    /* A aba precisa ficar acima da propria gaveta (2147483200) e da gaveta
+       do Radar 360 (2147483290), senao ela some quando qualquer uma das
+       duas esta aberta. */
+    '.botao{position:fixed;top:calc(50% - 34px);right:0;width:44px;height:60px;z-index:2147483310;' +
       'border-radius:16px 0 0 16px;cursor:pointer;box-shadow:-4px 4px 18px var(--sh);' +
       'transition:width .15s;background:var(--t0);border:none;padding:0;overflow:hidden;' +
       'display:grid;place-items:center}' +
