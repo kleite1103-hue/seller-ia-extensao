@@ -14,20 +14,18 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.18.0';
+  var VERSAO = '1.19.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
   var E = {
     termo: '', buscando: false, erro: null,
     itens: [], categorias: {}, historico: null,
-    // Abre em "Por link": e o unico lugar que funciona sem analise previa,
-    // e tambem o mais rapido de usar — cola e ve.
-    aba: 'link', ordem: 'mes', progresso: null,
+    aba: 'nicho', ordem: 'mes', progresso: null,
     paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
-    gravando: false, consultaLink: null, linkDigitado: '', nomeLojaAchada: null
+    gravando: false
   };
 
   /* ============ CHAMADAS ============ */
@@ -199,266 +197,25 @@
      item pelo id; para a loja, usa a busca interna da loja, que devolve os
      itens com o mesmo formato da busca geral. */
 
-  function idsDoLink(link) {
-    var s = String(link || '').trim();
 
-    // PRODUTO: .../product/SHOPID/ITEMID  ou  ...-i.SHOPID.ITEMID
-    var m = s.match(/\/product\/(\d+)\/(\d+)/) || s.match(/-i\.(\d+)\.(\d+)/);
-    if (m) return { loja: m[1], item: m[2] };
-
-    /* LOJA por id: .../shop/SHOPID. O id de loja tem ate 10 digitos; o de
-       produto tem 11 ou mais. Um link /shop/ com numero de produto dentro
-       existe e a Shopee responde qualquer coisa a ele — foi o que fez a
-       consulta trazer dado sem sentido. Melhor recusar e dizer o porque. */
-    var l = s.match(/\/shop\/(\d+)/);
-    if (l) {
-      if (l[1].length > 10) return { erro: 'id_de_produto', valor: l[1] };
-      return { loja: l[1], item: null };
-    }
-
-    /* LOJA POR NOME. E o formato que a Shopee realmente usa quando voce
-       copia o link de uma loja: shopee.com.br/nomedaloja. Nao ha id nele,
-       entao a extensao pergunta a Shopee qual e o id daquele nome. */
-    var n = s.replace(/^https?:\/\//, '').replace(/^(www\.)?shopee\.com\.br\/?/, '');
-    n = n.split(/[?#]/)[0].replace(/\/$/, '');
-    // um segmento so, sem numeros de produto, sem palavra reservada
-    if (n && n.indexOf('/') < 0 && !/^\d+$/.test(n) &&
-        ['search', 'daily_discover', 'mall', 'cart', 'buyer', 'user'].indexOf(n.toLowerCase()) < 0) {
-      return { loja: null, item: null, nomeLoja: n };
-    }
-    return null;
-  }
 
   /* O link por nome nao traz o id. Esta e a rota que a propria vitrine usa
      ao abrir a pagina de uma loja: POST com o username no corpo. A que eu
      tinha escrito antes, get_shop_base por GET, nao existe — o corpo abaixo
      foi copiado da captura do radar, sem inventar campo. */
-  /* O CAMINHO CURTO, e o que a Karina descreveu: ela navega ate um produto,
-     copia o link dele e ve o faturamento; depois clica no nome da loja e
-     copia o link dela. O link do PRODUTO ja traz o shopid — entao quando
-     ela consulta um produto, guardamos a loja dele, e se o proximo link for
-     dessa mesma loja pelo nome, nem precisamos perguntar o id a Shopee. */
-  var LOJAS_CONHECIDAS = {};
-  function lembrarLoja(nome, id) {
-    if (nome && id) LOJAS_CONHECIDAS[String(nome).toLowerCase()] = String(id);
-  }
 
-  async function idDaLojaPeloNome(nome) {
-    var guardado = LOJAS_CONHECIDAS[String(nome).toLowerCase()];
-    if (guardado) {
-      try { console.log('[Radar 360] loja ja conhecida:', nome, '->', guardado); } catch (e) { }
-      E.nomeLojaAchada = nome;
-      return guardado;
-    }
-    /* DOIS CAMINHOS. O POST e o que a vitrine usa ao abrir a pagina da loja,
-       mas ele nem sempre responde quando a chamada parte de outra pagina.
-       O GET do shop_seo aceita o mesmo username e devolve o id — serve de
-       reserva. Tentar os dois evita a consulta falhar por causa da rota. */
-    var tentativas = [
-      { url: '/api/v4/shop/get_shop_base_v2', metodo: 'POST', corpo: JSON.stringify({
-          entry_point: 'ShopByPDP', request_source: 'pc_shop_home_page',
-          livestream_params: {}, user_address: {}, username: nome }) },
-      { url: '/api/v4/shop/get_shop_base?username=' + encodeURIComponent(nome), metodo: 'GET' },
-      { url: '/api/v4/shop/get_shop_seo?username=' + encodeURIComponent(nome), metodo: 'GET' }
-    ];
-    for (var i = 0; i < tentativas.length; i++) {
-      var tv = tentativas[i];
-      var r = await api(tv.url, tv.metodo, tv.corpo || null);
-      try {
-        console.log('[Radar 360] ' + tv.url.split('?')[0] + ' -> ok=' + (r && r.ok) +
-          ' status=' + (r && r.status) + ' erro=' + (r && r.erro || '-') +
-          ' chaves=' + (r && r.dados ? Object.keys(r.dados).slice(0, 6).join(',') : 'sem dados'));
-      } catch (eL) { }
-      try {
-        var d = (r && r.dados && (r.dados.data || r.dados)) || {};
-        var id = d.shopid || d.shop_id || (d.shop && d.shop.shopid) || null;
-        if (id) {
-          E.nomeLojaAchada = d.name || (d.account && d.account.username) ||
-            (d.shop && d.shop.name) || nome;
-          try { console.log('[Radar 360] loja achada por', tv.url.split('?')[0], '->', id); } catch (e) { }
-          return id;
-        }
-      } catch (e) { /* tenta a proxima */ }
-    }
-    try { console.warn('[Radar 360] nenhuma rota devolveu o id de', nome); } catch (e) { }
-    return null;
-  }
 
-  async function consultarLink(link) {
-    var ids = idsDoLink(link);
-    if (ids && ids.erro === 'id_de_produto') {
-      E.erro = 'Este link diz /shop/ mas o numero (' + ids.valor + ') e de produto, nao de loja. ' +
-        'Abra a loja na Shopee e copie o endereco da barra, que vem no formato shopee.com.br/nomedaloja.';
-      desenhar(); return;
-    }
-    if (!ids) {
-      E.erro = 'Nao reconheci este link. Cole o endereco de um produto ou de uma loja da Shopee.';
-      desenhar(); return;
-    }
-    marcarOcupado(true); E.erro = null; E.consultaLink = null;
-    E.progresso = ids.item ? 'Procurando este produto...' : 'Lendo a loja...';
-    desenhar();
 
-    /* TUDO DENTRO DO try/finally. Antes, qualquer erro no meio deixava
-       E.buscando preso em true, e a partir dali o botao nunca mais
-       respondia — a tela parecia travada. O finally garante que a bandeira
-       cai, deu certo ou nao. */
-    try {
-      if (ids.item) {
-        await consultarProduto(ids);
-      } else {
-        var shopid = ids.loja;
-        if (!shopid && ids.nomeLoja) {
-          E.progresso = 'Achando a loja "' + ids.nomeLoja + '"...';
-          desenhar();
-          shopid = await idDaLojaPeloNome(ids.nomeLoja);
-        }
-        if (!shopid) {
-          E.erro = 'Nao consegui identificar esta loja. ' +
-            'Se voce esta no painel do vendedor, abra shopee.com.br e use o Radar de la.';
-        } else {
-          await consultarLoja(shopid);
-        }
-      }
-    } catch (e) {
-      E.erro = 'Nao consegui completar a consulta: ' + String(e && e.message || e);
-      try { console.error('[Radar 360] consulta por link:', e); } catch (e2) { }
-    } finally {
-      marcarOcupado(false);
-      E.progresso = null;
-      desenhar();
-    }
-  }
+
+
 
   /* PRODUTO. A pagina dele nao traz venda, entao: pega o nome pela pagina,
      busca esse nome, e acha o item pelo id na resposta da busca. */
-  async function consultarProduto(ids) {
-    /* LE A PAGINA PRIMEIRO. Ela traz preco, nota, avaliacoes, curtidas e a
-       data de cadastro — tudo menos o volume de venda, que vem nulo ali.
-       Antes eu dependia da busca para tudo, entao quando o anuncio nao
-       aparecia nas tres primeiras paginas a tela nao mostrava nada. Agora
-       a pagina sustenta a leitura e a busca so acrescenta o volume. */
-    var r = await api('/api/v4/pdp/get_pc?item_id=' + ids.item + '&shop_id=' + ids.loja);
-    var it = null, sd = null;
-    try {
-      var d = (r.dados && (r.dados.data || r.dados)) || {};
-      it = d.item || null;
-      sd = d.shop_detailed || null;
-    } catch (e) { }
-    if (!it) {
-      E.erro = 'Nao consegui abrir este produto. Confira o link e se voce esta logada na Shopee.';
-      return;
-    }
 
-    var rt = it.item_rating || {};
-    var base = {
-      id: ids.item, loja: ids.loja,
-      nome: it.title || it.name || '',
-      lojaNome: (sd && (sd.name || sd.username)) || '',
-      preco: it.price != null ? it.price / 100000 : null,
-      precoAntes: it.price_before_discount != null ? it.price_before_discount / 100000 : null,
-      nota: rt.rating_star != null ? rt.rating_star : null,
-      estrelas: rt.rating_count || null,
-      avaliacoes: it.cmt_count != null ? it.cmt_count : null,
-      curtidas: it.liked_count != null ? it.liked_count : null,
-      cadastro: it.ctime || null,
-      fotos: (it.images && it.images.length) || null,
-      estoque: it.stock != null ? it.stock : null,
-      local: it.shop_location || (sd && sd.shop_location) || '',
-      mes: null, total: null, fatMes: null,
-      link: 'https://shopee.com.br/product/' + ids.loja + '/' + ids.item,
-      linkLoja: 'https://shopee.com.br/shop/' + ids.loja,
-      // da loja, que a pagina entrega junto
-      lojaSeguidores: sd && sd.follower_count != null ? sd.follower_count : null,
-      lojaProdutos: sd && sd.item_count != null ? sd.item_count : null,
-      lojaNota: sd && sd.rating_star != null ? sd.rating_star : null,
-      lojaDesde: sd && sd.ctime ? sd.ctime : null,
-      lojaResposta: sd && sd.response_rate != null ? sd.response_rate : null
-    };
-
-    /* O VOLUME so existe na busca. Procura pelo titulo; se nao achar, a
-       tela mostra o resto e diz que o volume nao veio — em vez de nao
-       mostrar nada, como antes. */
-    if (base.nome) {
-      E.progresso = 'Procurando o volume de vendas...';
-      desenhar();
-      var achou = null;
-      for (var pg = 0; pg < 3 && !achou; pg++) {
-        var url = '/api/v4/search/search_items?by=relevancy&keyword=' +
-          encodeURIComponent(base.nome.slice(0, 60)) + '&limit=60&newest=' + (pg * 60) +
-          '&order=desc&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
-          '&view_session_id=' + sessaoDaBusca(base.nome);
-        var rb = await api(url);
-        if (!rb.ok || !rb.dados) break;
-        var its = (rb.dados.items || (rb.dados.data && rb.dados.data.items) || []);
-        for (var q = 0; q < its.length; q++) {
-          if (String(its[q].itemid) === String(ids.item)) { achou = traduzirItem(its[q]); break; }
-        }
-        if (its.length < 60) break;
-        await espera(PAUSA);
-      }
-      if (achou) {
-        base.mes = achou.mes;
-        base.total = achou.total;
-        base.fatMes = achou.fatMes;
-        if (!base.lojaNome && achou.lojaNome) base.lojaNome = achou.lojaNome;
-      }
-    }
-
-    /* Guarda a loja deste produto sob todos os nomes que ela tem: o de
-       exibicao e o username da URL. O link que a pessoa copia depois pode
-       vir com qualquer um dos dois. */
-    if (base.lojaNome) lembrarLoja(base.lojaNome, ids.loja);
-    try {
-      var _sd = sd || {};
-      if (_sd.username) lembrarLoja(_sd.username, ids.loja);
-      if (_sd.name) lembrarLoja(_sd.name, ids.loja);
-      if (_sd.account && _sd.account.username) lembrarLoja(_sd.account.username, ids.loja);
-    } catch (e) { }
-    E.consultaLink = { tipo: 'produto', item: base, semVolume: base.mes == null };
-    E.ultimaLoja = { id: ids.loja, nome: base.lojaNome || loja || null };
-  }
 
   /* LOJA. A busca interna da loja devolve os itens no mesmo formato da
      busca geral, com o volume de venda junto. */
-  async function consultarLoja(shopid) {
-    var todos = [];
-    for (var pg = 0; pg < 4; pg++) {
-      E.progresso = 'Lendo os produtos da loja... (' + (pg * 30) + ')';
-      desenhar();
-      var url = '/api/v4/shop/search_items?shopid=' + shopid +
-        '&limit=30&offset=' + (pg * 30) + '&order=desc&sort_by=pop' +
-        '&filter_sold_out=1&use_case=4&item_card_use_scene=search_items_popular';
-      var r = await api(url);
-      if (!r.ok || !r.dados) break;
-      /* A BUSCA DA LOJA NAO DEVOLVE "items". Os produtos vem em
-         centralize_item_card.item_cards — conferido na captura do radar.
-         Eu procurava "items" como na busca geral, achava vazio, e a
-         consulta de loja terminava sem nada toda vez. */
-      var dd = r.dados;
-      var its = (dd.centralize_item_card && dd.centralize_item_card.item_cards) ||
-        dd.items || (dd.data && (dd.data.items ||
-          (dd.data.centralize_item_card && dd.data.centralize_item_card.item_cards))) || [];
-      if (!its.length) break;
-      todos = todos.concat(its);
-      if (its.length < 30) break;
-      await espera(PAUSA);
-    }
-    if (!todos.length) {
-      E.erro = 'Esta loja nao devolveu produtos. Se voce esta no painel do vendedor, ' +
-        'abra shopee.com.br e use o Radar de la.';
-      return;
-    }
-    var itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
-    var comVenda = itens.filter(function (x) { return x.mes != null; });
-    E.consultaLink = {
-      tipo: 'loja', shopid: shopid,
-      nome: E.nomeLojaAchada || (itens[0] && itens[0].lojaNome) || ('loja ' + shopid),
-      itens: itens, comVenda: comVenda.length,
-      vendas: comVenda.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
-      fat: comVenda.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0)
-    };
-  }
+
 
   /* ============ LEITURA DO NICHO ============ */
   /* As variacoes que a propria Shopee sugere para o termo. Buscar so a
@@ -607,7 +364,6 @@
     } catch (e) { }
 
     E.itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
-    if (E.aba === 'link') E.aba = 'nicho';   // terminou a analise: mostra ela
     await nomearLojas();
 
     // DIAGNOSTICO DO VOLUME: qual campo cada item trouxe. Sem isso nao da
@@ -1870,7 +1626,6 @@
     '</div></div>';
 
   var ABAS = [
-    { id: 'link', rot: 'Por link', d: 'M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.5 1.5M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.5-1.5' },
     { id: 'nicho', rot: 'O nicho', d: 'M3.5 20.5V13M9 20.5V7M14.5 20.5v-5M20 20.5V3.5' },
     { id: 'produtos', rot: 'Os produtos', d: 'M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9' },
     { id: 'lojas', rot: 'As lojas', d: 'M4 9.5h16M4 9.5 6 4h12l2 5.5M5.5 9.5v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-10' },
@@ -1921,22 +1676,16 @@
       (E.variacoes && E.variacoes.length
         ? '<span style="font:400 9.5px \'Space Mono\',monospace;color:var(--tx6)">+' + E.variacoes.length + ' VARIACOES</span>' : '');
 
-    /* A CONSULTA POR LINK NAO DEPENDE DE ANALISE. Esconder toda a barra ate
-       existir uma obrigava a pessoa a buscar um termo qualquer so para
-       chegar nela. Agora a barra aparece sempre; as abas que precisam de
-       analise ficam apagadas ate haver uma. */
-    $('abas').innerHTML = ABAS.map(function (a) {
-      var precisa = a.id !== 'link';
-      var apagada = precisa && !E.itens.length;
-      return '<button class="aba' + (E.aba === a.id ? ' on' : '') + (apagada ? ' off' : '') + '" ' +
-        'data-aba="' + a.id + '"' + (apagada ? ' title="Analise um nicho para liberar"' : '') + '>' +
-        svgAba(a.d) + a.rot + '</button>';
-    }).join('');
+    $('abas').innerHTML = E.itens.length
+      ? ABAS.map(function (a) {
+          return '<button class="aba' + (E.aba === a.id ? ' on' : '') + '" data-aba="' + a.id + '">' +
+            svgAba(a.d) + a.rot + '</button>';
+        }).join('')
+      : '';
 
     var c = $('corpo');
     if (E.buscando) { c.innerHTML = '<div class="vazio">' + esc(E.progresso || 'Lendo...') + '</div>'; return; }
     if (E.erro) { c.innerHTML = '<div class="vazio">' + esc(E.erro) + '</div>'; return; }
-    if (!E.itens.length && E.aba === 'link') { c.innerHTML = viewLink(); ligarTabela(); ligarCalculo(); return; }
     if (!E.itens.length) {
       // No painel do vendedor a busca da vitrine e bloqueada pelo navegador
       // (dominios diferentes). Dizer isso antes evita a pessoa tentar e
@@ -1952,8 +1701,7 @@
       return;
     }
     if (E.detalhe) { c.innerHTML = viewDetalhe(); ligarTabela(); return; }
-    c.innerHTML = E.aba === 'link' ? viewLink()
-      : E.aba === 'nicho' ? viewNicho()
+    c.innerHTML = E.aba === 'nicho' ? viewNicho()
       : E.aba === 'produtos' ? viewProdutos()
       : E.aba === 'lojas' ? viewLojas()
       : E.aba === 'calculo' ? renderCalculo()
@@ -2244,128 +1992,7 @@
     return h + '</table>';
   }
 
-  function viewLink() {
-    var h = olho('CONSULTAR PELO LINK',
-      'Cole o endereço de um <b>produto</b> para ver quanto ele vende, ou de uma <b>loja</b> para ver o faturamento dela inteira. Os dois no mesmo campo.');
-    h += '<div style="display:flex;gap:9px;margin-bottom:14px">' +
-      '<input id="campo-link" class="n" placeholder="https://shopee.com.br/..." ' +
-      'style="flex:1;font-family:Outfit,Arial;font-size:14px" value="' + esc(E.linkDigitado || '') + '">' +
-      '<button class="go" id="ir-link"' + (E.buscando ? ' disabled' : '') + '>' +
-      (E.buscando ? 'Lendo...' : 'Consultar') + '</button></div>';
 
-    if (E.buscando) return h + '<div class="vazio">' + esc(E.progresso || 'Lendo...') + '</div>';
-    if (E.erro) h += '<div class="nota" style="color:#D64545">' + esc(E.erro) + '</div>';
-
-    var C = E.consultaLink;
-    if (!C) {
-      return h + '<div class="nota">Funciona com os dois formatos de link da Shopee, o que tem <b>/product/</b> e o que termina em <b>-i.numero.numero</b>. Para loja, use o link que tem <b>/shop/</b>.</div>';
-    }
-
-    if (C.tipo === 'produto') {
-      var x = C.item;
-      h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:20px 22px;margin-bottom:12px">' +
-        '<div style="font-size:15px;font-weight:600;color:var(--tx1);margin-bottom:4px">' + sigTitulo(x.nome, 70) + '</div>' +
-        '<div style="font:400 10px \'Space Mono\',monospace;color:var(--tx6);margin-bottom:16px">' + sigLoja(x.lojaNome) +
-        (x.local ? ' \u00b7 ' + esc(x.local) : '') + '</div>';
-
-      if (x.mes != null) {
-        h += '<div style="display:flex;align-items:baseline;gap:22px;flex-wrap:wrap">' +
-          '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">VENDE POR MÊS</div>' +
-          '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1">' + num(x.mes) + '</div></div>' +
-          '<div style="border-left:1px solid var(--bd5);padding-left:22px">' +
-          '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">FATURA POR MÊS</div>' +
-          '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:#EE4D2D;line-height:1" title="' +
-          (x.fatMes != null ? reais(x.fatMes) : '') + '">' + (x.fatMes != null ? reaisCurto(x.fatMes) : '\u2014') + '</div></div></div>';
-      } else {
-        h += '<div style="display:flex;align-items:baseline;gap:22px;flex-wrap:wrap">' +
-          '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">PREÇO</div>' +
-          '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1">' + reais(x.preco) + '</div></div></div>';
-      }
-
-      h += '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--bd5)">' +
-        (x.mes != null ? celula(reais(x.preco), 'PREÇO') : '') +
-        (x.total != null ? celula(num(x.total), 'VENDEU DESDE QUE ENTROU') : '') +
-        (x.nota != null ? celula(num(x.nota, 2) + ' de 5', 'NOTA') : '') +
-        (x.avaliacoes != null ? celula(num(x.avaliacoes), 'AVALIAÇÕES') : '') +
-        (x.curtidas != null ? celula(num(x.curtidas), 'CURTIDAS') : '') +
-        (x.fotos != null ? celula(x.fotos + ' fotos', 'NO ANÚNCIO') : '') +
-        (x.estoque != null ? celula(num(x.estoque), 'EM ESTOQUE') : '') +
-        (x.cadastro ? celula(idade(x.cadastro), 'NO AR HÁ') : '') +
-        '</div></div>';
-
-      if (C.semVolume) {
-        h += '<div class="aviso" style="border-color:#C98A1E;color:var(--tx2)">' +
-          '<b>O volume de vendas não apareceu.</b> Ele só existe na busca, e este anúncio não saiu nas três primeiras páginas ' +
-          'pelo próprio título. Isso já diz algo: ele está mal posicionado para o nome que tem. O resto dos dados vem da página do produto e está completo.</div>';
-      }
-
-      /* O BLOCO DA LOJA APARECE SEMPRE. Antes ele dependia de a pagina ter
-         trazido seguidores, produtos ou nota — e quando nao trazia, sumia
-         junto o botao de ver a loja, que e como a pessoa pega o link para
-         a consulta seguinte. O link nao depende desses campos. */
-      {
-        h += olho('A LOJA QUE VENDE ISTO');
-        h += '<div style="display:flex;gap:24px;flex-wrap:wrap;background:var(--surf);border:1px solid var(--bd2);' +
-          'border-radius:22px;padding:16px 20px;margin-bottom:12px">' +
-          (x.lojaSeguidores != null ? celula(num(x.lojaSeguidores), 'SEGUIDORES') : '') +
-          (x.lojaProdutos != null ? celula(num(x.lojaProdutos), 'PRODUTOS') : '') +
-          (x.lojaNota != null ? celula(num(x.lojaNota, 2) + ' de 5', 'NOTA DA LOJA') : '') +
-          (x.lojaDesde ? celula(idade(x.lojaDesde), 'ABERTA HÁ') : '') +
-          (x.lojaResposta != null ? celula(num(x.lojaResposta, 0) + '%', 'RESPONDE') : '') +
-          '</div>';
-        if (x.lojaSeguidores == null && x.lojaProdutos == null && x.lojaNota == null) {
-          h += '<div class="nota" style="font-size:13px;color:var(--tx4)">A pagina nao trouxe os numeros desta loja desta vez. ' +
-            'Abra a loja pelo link abaixo e cole o endereco dela aqui em cima para a leitura completa.</div>';
-        }
-        if (x.linkLoja) {
-          h += '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px">' +
-            (E.gravando ? '' : '<a href="' + x.linkLoja + '" target="_blank" rel="noopener" ' +
-              'style="background:var(--fill);border:1px solid var(--bd3);color:var(--tx2);font-size:13px;' +
-              'padding:9px 15px;border-radius:12px;text-decoration:none">Abrir a loja na Shopee \u2197</a>') +
-            '<button class="sec" id="ver-loja" data-loja="' + x.loja + '">Ver o faturamento desta loja</button></div>';
-        }
-      }
-
-      if (x.link && !E.gravando) h += '<div class="nota"><a href="' + x.link + '" target="_blank" rel="noopener">Abrir o anúncio na Shopee \u2197</a></div>';
-      return h;
-    }
-
-    // ---- LOJA ----
-    var ord = C.itens.filter(function (y) { return y.mes != null; })
-      .sort(function (a, b) { return (b.mes || 0) - (a.mes || 0); });
-    h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:20px 22px;margin-bottom:12px">' +
-      '<div style="font-size:15px;font-weight:600;color:var(--tx1);margin-bottom:14px">' + sigLoja(C.nome) + '</div>' +
-      '<div style="display:flex;align-items:baseline;gap:22px;flex-wrap:wrap">' +
-      '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">FATURA POR MÊS</div>' +
-      '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1" title="' + reais(C.fat) + '">' +
-      reaisCurto(C.fat) + '</div></div>' +
-      '<div style="border-left:1px solid var(--bd5);padding-left:22px">' +
-      '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">UNIDADES VENDIDAS</div>' +
-      '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:#EE4D2D;line-height:1">' + num(C.vendas) + '</div></div></div>' +
-      '<div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--bd5)">' +
-      celula(C.itens.length, 'PRODUTOS LIDOS') +
-      celula(C.comVenda, 'COM VENDA NO MÊS') +
-      celula(C.vendas ? reais(C.fat / C.vendas) : '—', 'TICKET MÉDIO') +
-      '</div></div>';
-
-    h += '<div class="aviso">Foram lidos os <b>' + C.itens.length + '</b> produtos mais vendidos da loja. ' +
-      'Se ela tiver mais que isso, o faturamento real é maior.</div>';
-
-    if (ord.length) {
-      h += olho('O QUE ELA MAIS VENDE');
-      h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">VENDE/MÊS</th>' +
-        '<th class="num">PREÇO</th><th class="num">FATURA</th></tr>';
-      ord.slice(0, 15).forEach(function (y) {
-        h += '<tr><td><b>' + sigTitulo(y.nome, 46) + '</b>' +
-          (y.link && !E.gravando ? ' <a href="' + y.link + '" target="_blank" rel="noopener" style="font-size:12px">↗</a>' : '') + '</td>' +
-          '<td class="num">' + num(y.mes) + '</td>' +
-          '<td class="num">' + reais(y.preco) + '</td>' +
-          '<td class="num">' + (y.fatMes != null ? reaisCurto(y.fatMes) : '—') + '</td></tr>';
-      });
-      h += '</table></div>';
-    }
-    return h;
-  }
 
   function viewConsultor() {
     var h = olho('O QUE ESTES NÚMEROS DIZEM',
@@ -2562,24 +2189,6 @@
     });
     var v = $('voltar');
     if (v) v.addEventListener('click', function () { E.detalhe = null; desenhar(); });
-    var vl = $('ver-loja');
-    if (vl) vl.addEventListener('click', function () {
-      var id = this.getAttribute('data-loja');
-      if (!id || E.buscando) return;
-      E.linkDigitado = 'https://shopee.com.br/shop/' + id;
-      var cp = $('campo-link');
-      if (cp) cp.value = E.linkDigitado;
-      consultarLink(E.linkDigitado);
-    });
-    var bl = $('ir-link');
-    if (bl) bl.addEventListener('click', function () {
-      var v = $('campo-link');
-      if (v && v.value.trim() && !E.buscando) { E.linkDigitado = v.value.trim(); consultarLink(v.value.trim()); }
-    });
-    var cl = $('campo-link');
-    if (cl) cl.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && this.value.trim() && !E.buscando) { E.linkDigitado = this.value.trim(); consultarLink(this.value.trim()); }
-    });
     var pl = $('pedir-leitura');
     if (pl) pl.addEventListener('click', consultar);
     var br = $('baixar-relatorio');
