@@ -2071,13 +2071,6 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     '.botao span svg{width:100%;height:100%;display:block;border-radius:8px}' +
     '.botao svg{display:block;width:100%;height:100%}' +
     '.botao:hover{width:52px}' +
-    '.menu-flut{position:fixed;bottom:84px;right:22px;z-index:2147483009;background:var(--b0);border:1px solid var(--li);border-radius:18px;box-shadow:0 14px 40px var(--sh),0 3px 10px var(--shb);padding:7px;min-width:212px;opacity:0;transform:translateY(8px) scale(.96);pointer-events:none;transition:opacity .16s,transform .16s}' +
-    '.menu-flut.on{opacity:1;transform:none;pointer-events:auto}' +
-    '.menu-flut button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--t1);font-family:Outfit,Arial;font-size:13.5px;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}' +
-    '.menu-flut button:hover{background:var(--b2);color:var(--t0)}' +
-    '.menu-flut button b{color:var(--mk);font-weight:600}' +
-    '.menu-flut .sep{height:1px;background:var(--li);margin:5px 8px}' +
-    '.menu-flut .rod{font-family:Space Mono,monospace;font-size:9.5px;color:var(--t3);padding:7px 12px 4px;letter-spacing:.05em}' +
 
     /* O seletor irmao nao servia: o botao vem ANTES do painel no HTML e o til
        so alcanca irmaos posteriores. Classe direta resolve, e precisa vir
@@ -2182,14 +2175,6 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     '.tag-ads{color:var(--mk)}.tag-conta{color:var(--px)}.tag-cadastro{color:var(--vd)}.tag-marketing{color:var(--am)}.tag-outra{color:var(--t2)}.tag-afiliados{color:#e91e8c}.tag-performance{color:#3ab7f5}' +
     '</style>' +
     '<button class="botao" id="sia-abrir" title="Seller.IA">' + LOGO + '</button>' +
-    '<div class="menu-flut" id="sia-menu">' +
-    '  <button data-menu="atualizar"><span>\u21bb</span><span>Buscar atualizacao</span></button>' +
-    '  <button data-menu="suporte"><span>\u2709</span><span>Falar com o suporte</span></button>' +
-    '  <button data-menu="radar"><span>\u25ce</span><span>Radar 360 \u00b7 analise de mercado</span></button>' +
-    '  <div class="sep"></div>' +
-    '  <button data-menu="assinatura"><span>\u2605</span><span>Minha assinatura</span></button>' +
-    '  <div class="rod" id="sia-menu-versao"></div>' +
-    '</div>' +
     '<div class="painel" id="sia-painel">' +
     '  <div class="cab">' +
     '    <span class="marca-ic">S<em>.</em></span>' +
@@ -2500,6 +2485,15 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           estado.filtros = estado.filtros || {};
           estado.filtros[_lf] = '';
           estado.sujo = true; render(); return;
+        }
+        if (voltaA.id === 'sia-rel-descartar') {
+          estado.rel.interrompido = null; salvarAndamento(); estado.sujo = true; render(); return;
+        }
+        if (voltaA.id === 'sia-rel-retomar') {
+          if (estado.rel.interrompido && estado.rel.interrompido.mes) estado.rel.mes = estado.rel.interrompido.mes;
+          estado.rel.interrompido = null;
+          try { gerarRelatorio(); } catch (e) { estado.rel.erro = String(e && e.message || e); render(); }
+          return;
         }
         if (voltaA.id === 'sia-termos') { mostrarTermos(); return; }
         if (voltaA.id === 'sia-cta-radar' || voltaA.id === 'sia-cfg-radar') {
@@ -2840,53 +2834,10 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       ? '<b>Copiado.</b> Cole na conversa com a Seller.IA \u2014 sao os cinco primeiros itens exatamente como a Shopee devolveu.'
       : '<b>Nao consegui copiar.</b> Abra o console com F12 e procure por [Seller.IA].');
   });
-  /* ===== MENU DO BOTAO FLUTUANTE ===== */
-  var menuTimer = null;
-  function mostrarMenu(v) {
-    var m = $('sia-menu');
-    if (!m) return;
-    if (v) {
-      var vs = $('sia-menu-versao');
-      if (vs) vs.textContent = 'Seller.IA v' + VERSAO;
-    }
-    m.classList.toggle('on', !!v);
-  }
-  /* O menu abria so de passar o mouse, e pulava na tela toda vez que a
-     pessoa levava o cursor perto da aba. Agora e no clique direito, que e
-     onde se espera menu. */
-  ligar('sia-abrir', 'contextmenu', function (ev) {
-    ev.preventDefault();
-    if (menuTimer) clearTimeout(menuTimer);
-    mostrarMenu(!$('sia-menu').classList.contains('on'));
-  });
-  ligar('sia-abrir', 'mouseleave', function () {
-    menuTimer = setTimeout(function () { mostrarMenu(false); }, 420);
-  });
-  ligar('sia-menu', 'mouseenter', function () { if (menuTimer) clearTimeout(menuTimer); });
-  ligar('sia-menu', 'mouseleave', function () { menuTimer = setTimeout(function () { mostrarMenu(false); }, 260); });
-  ligar('sia-menu', 'click', function (ev) {
-    var el = ev.target;
-    while (el && el !== this && !(el.getAttribute && el.getAttribute('data-menu'))) el = el.parentNode;
-    var acao = el && el.getAttribute && el.getAttribute('data-menu');
-    if (!acao) return;
-    mostrarMenu(false);
-    if (acao === 'atualizar') {
-      $('sia-painel').classList.add('aberto');
-      abaAtiva = 'conta360';
-      estado.telaServico = 'atualizar';
-      render();
-    } else if (acao === 'suporte') {
-      $('sia-painel').classList.add('aberto');
-      estado.telaServico = 'suporte';
-      render();
-    } else if (acao === 'assinatura') {
-      $('sia-painel').classList.add('aberto');
-      estado.telaServico = 'assinatura';
-      render();
-    } else if (acao === 'radar') {
-      try { window.open('https://selleriaclub.com/radar360', '_blank', 'noopener'); } catch (e) { /* noop */ }
-    }
-  });
+  /* O MENU FLUTUANTE SAIU. Ele abria ao passar o mouse, pulava na tela toda
+     vez que o cursor chegava perto da aba, e o que ele oferecia ja esta
+     dentro da gaveta, em Ajustes. Menos coisa aparecendo sem ser chamada. */
+
 
   ligar('sia-recoletar', 'click', function () {
     if (estado.coletaProgresso !== null) { pararColeta(); return; }
@@ -4736,7 +4687,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       return h + '<div style="background:color-mix(in srgb,var(--rd) var(--tin,9%),var(--b2));border:1px solid var(--rd);border-left:3px solid var(--rd);border-radius:18px;padding:16px;margin-top:12px">' +
         '<div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:6px">Nao consegui espiar "' + esc(e.termo || '') + '"</div>' +
         '<div style="font-size:14px;color:var(--t1);line-height:1.55">' + esc(e.erro) + '</div>' +
-        '<div style="font-size:13px;color:var(--t2);line-height:1.5;margin-top:9px">Confira se voce esta logada em <b>shopee.com.br</b>, nao so no Central do Vendedor, e recarregue esta pagina.</div>' +
+        ''
         '<button data-voltar-radar="1" style="margin-top:12px;background:var(--b0);border:1px solid var(--li2);color:var(--t0);font-family:inherit;font-size:13px;padding:9px 15px;border-radius:var(--r-btn,14px);cursor:pointer">Voltar ao Radar</button></div>';
     }
 
@@ -6561,6 +6512,27 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     try { chrome.runtime.sendMessage({ tipo: 'sia:pref-salvar', chave: 'acesso_email', valor: quando || '' }, function () { void chrome.runtime.lastError; }); } catch (e) { }
     estado.acessoToken = tok;
   }
+  /* Ao abrir, verifica se ficou uma geracao pela metade. Se ficou, a tela
+     diz de que mes era, ha quanto tempo, e oferece retomar — em vez de
+     deixar a pessoa sem saber se terminou. */
+  function restaurarAndamento() {
+    try {
+      chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'rel_andamento' }, function (r) {
+        void chrome.runtime.lastError;
+        if (!r || !r.valor) return;
+        var a = null;
+        try { a = JSON.parse(r.valor); } catch (e) { return; }
+        if (!a || !a.em) return;
+        // mais de duas horas: e resto de sessao antiga, nao vale retomar
+        if (Date.now() - a.em > 2 * 3600 * 1000) { estado.rel.interrompido = null; salvarAndamento(); return; }
+        estado.rel = estado.rel || {};
+        estado.rel.interrompido = a;
+        estado.sujo = true;
+        render();
+      });
+    } catch (e) { /* noop */ }
+  }
+
   function acessoValidar() {
     // traz o aceite guardado antes de desenhar a portaria
     try {
@@ -8307,14 +8279,61 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       atual: bloco,
       anterior: anterior,
       vereditos: vd,
-      // panorama: texto curto, decisao clara, sem dissertacao
+      // saude da conta: penalidade e nota entram no panorama
+      saude: (function () {
+        var c = (estado.conta && estado.conta.campos) || {};
+        return {
+          pontosPenalidade: val(c.pontosPenalidade),
+          notaLoja: val(c.nota),
+          cancelamentos: val(c.cancelados)
+        };
+      })(),
+
+      // produtos com nota baixa recebendo anuncio
+      anunciosComNotaBaixa: (function () {
+        var out = [];
+        for (var k in estado.campanhas) {
+          var cc = estado.campanhas[k] || {};
+          var e3 = String(cc.estado || cc.state || '').toLowerCase();
+          if (e3 === 'paused' || e3 === 'ended' || e3 === 'closed') continue;
+          var pp = cc.produtoId ? (estado.produtos[String(cc.produtoId)] || {}) : {};
+          if (pp.nota == null || pp.nota >= 4.5) continue;
+          out.push({ campanha: cc.nome, produto: pp.nome, nota: pp.nota,
+            gasto: (cc.metricas || {}).gasto });
+        }
+        return out.slice(0, 6);
+      })(),
+
+      // ferramentas de marketing em uso
+      marketing: (function () {
+        var M = null;
+        try { M = window.SIA_Diamantes ? window.SIA_Diamantes.estado().marketing : null; } catch (e) { }
+        if (!M) return null;
+        return {
+          cupons: M.cupons ? M.cupons.length : null,
+          descontos: M.descontos ? M.descontos.length : null,
+          relampago: M.relampago ? M.relampago.length : null
+        };
+      })(),
+
+      /* PANORAMA COMPLETO, texto curto. A instrucao lista o que precisa ser
+         coberto para o cliente ver a conta inteira num relance — antes o
+         semanal so falava de faturamento e ficava raso. */
       formato: {
         estilo: 'panorama',
-        limitePalavras: 450,
-        instrucao: 'Panorama dos ultimos 7 dias. Comece pelo numero que mais mudou. ' +
-          'Cubra faturamento, anuncios, produtos e afiliados, cada um em poucas linhas com o numero na frente. ' +
-          'Termine com as tres coisas para fazer nesta semana, em ordem de dinheiro em jogo. ' +
-          'Nada de paragrafo longo: quem le abre no celular entre uma tarefa e outra.'
+        limitePalavras: 600,
+        instrucao: 'Panorama dos ultimos 7 dias para mandar ao cliente. ' +
+          'Cubra, cada um em duas ou tres linhas com o numero na frente: ' +
+          '(1) faturamento e pedidos, com a variacao contra a semana anterior; ' +
+          '(2) o funil, dizendo em que degrau se perde mais gente; ' +
+          '(3) Shopee Ads: investido, retorno, a melhor e a pior campanha pelo nome; ' +
+          '(4) produtos que cresceram em trafego ou conversao, e os que cairam; ' +
+          '(5) avaliacoes e penalidade, se houver algo abaixo de 4,5 ou ponto na conta; ' +
+          '(6) afiliados e cupons, se estiverem em uso. ' +
+          'Termine com TRES ACOES para esta semana, cada uma comecando com o verbo e o numero que a justifica, ' +
+          'em ordem de dinheiro em jogo. ' +
+          'Nada de paragrafo longo nem introducao: quem le abre no celular entre uma tarefa e outra. ' +
+          'Se um dado nao veio, pule a secao em silencio em vez de dizer que nao tem.'
       }
     };
 
@@ -8371,6 +8390,48 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
   }
 
   function renderRelatorio() {
+    // ficou uma geracao pela metade quando a pagina foi atualizada
+    if (estado.rel && estado.rel.interrompido && !estado.rel.gerando) {
+      var iv = estado.rel.interrompido;
+      var min = Math.round((Date.now() - iv.em) / 60000);
+      var _av = '<div class="nota" style="border-left:3px solid var(--am)">' +
+        '<b style="color:var(--t0)">Uma geracao ficou pela metade.</b><br>' +
+        'Era do periodo <b>' + esc(String(iv.mes || '')) + '</b>, parou em "' + esc(String(iv.etapa || '')) + '"' +
+        (min < 60 ? ' ha ' + min + ' minuto(s)' : ' ha ' + Math.round(min / 60) + ' hora(s)') + '. ' +
+        'Atualizar a pagina interrompe a leitura: ela roda dentro desta aba.<br><br>' +
+        '<button id="sia-rel-retomar" style="background:var(--mk);border:none;color:#fff;font-family:inherit;' +
+        'font-size:13.5px;padding:10px 18px;border-radius:12px;cursor:pointer">Gerar de novo</button> ' +
+        '<button id="sia-rel-descartar" style="background:none;border:1px solid var(--li2);color:var(--t2);' +
+        'font-family:inherit;font-size:13.5px;padding:10px 16px;border-radius:12px;cursor:pointer;margin-left:6px">Descartar</button></div>';
+      return _av + renderRelatorioCorpo();
+    }
+    return renderRelatorioCorpo();
+  }
+
+  /* O PAINEL DE ANDAMENTO. A geracao leva mais de dez minutos e a tela nao
+     mostrava nada do que estava acontecendo — parecia travada. Agora ela
+     diz a etapa, ha quanto tempo comecou, e tem uma barra que se move
+     sozinha para deixar claro que o processo esta vivo. */
+  function painelAndamento() {
+    if (!estado.rel || !estado.rel.gerando) return '';
+    var seg = estado.rel.iniciadoEm ? Math.round((Date.now() - estado.rel.iniciadoEm) / 1000) : 0;
+    var tempo = seg < 60 ? seg + 's' : Math.floor(seg / 60) + 'min ' + (seg % 60) + 's';
+    var pct = Math.max(4, Math.min(96, estado.rel.pct || 8));
+    return '<div style="background:var(--b0);border:1px solid var(--li);border-left:3px solid var(--mk);' +
+      'border-radius:0 var(--r-card,22px) var(--r-card,22px) 0;padding:18px 20px;margin-bottom:14px">' +
+      '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">' +
+      '<i style="width:9px;height:9px;border-radius:50%;background:var(--mk);display:block;animation:siaPulse 1.2s infinite"></i>' +
+      '<b style="color:var(--t0);font-size:15px">' + esc(String(estado.rel.etapa || 'Preparando...')) + '</b></div>' +
+      '<div style="height:7px;background:var(--b2);border-radius:99px;overflow:hidden;margin-bottom:9px">' +
+      '<div style="height:100%;width:' + pct + '%;background:var(--mk);transition:width .6s"></div></div>' +
+      '<div style="font-family:Space Mono,monospace;font-size:10.5px;color:var(--t2);letter-spacing:.05em">' +
+      'RODANDO HA ' + tempo.toUpperCase() + ' \u00b7 LEVA DE 10 A 15 MINUTOS \u00b7 NAO ATUALIZE A PAGINA</div>' +
+      '<div style="font-size:12.5px;color:var(--t2);margin-top:9px;line-height:1.5">' +
+      'A leitura roda dentro desta aba. Atualizar interrompe, e voce precisa comecar de novo. ' +
+      'Da para trocar de aba do navegador sem problema.</div></div>';
+  }
+
+  function renderRelatorioCorpo() {
     var R = estado.rel;
     var h = capa('DIAGNOSTICO COMPLETO', 'O', 'RELATORIO', '06') + renderSubAbas('relatorio');
 
@@ -8437,6 +8498,21 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     s = s.replace(/\n{2,}/g, '<div style="height:5px"></div>');
     return s;
   }
+  /* O andamento vive no disco enquanto a geracao roda. So tres campos: em
+     que etapa esta, quando comecou e de que mes. Ao terminar, some. */
+  var RELOGIO_REL = null;
+  function salvarAndamento() {
+    try {
+      chrome.runtime.sendMessage({
+        tipo: 'sia:pref-salvar', chave: 'rel_andamento',
+        valor: estado.rel.gerando ? JSON.stringify({
+          etapa: estado.rel.etapa, pct: estado.rel.pct,
+          em: estado.rel.iniciadoEm, mes: estado.rel.mesGerando
+        }) : ''
+      }, function () { void chrome.runtime.lastError; });
+    } catch (e) { /* noop */ }
+  }
+
   function gerarRelatorio() {
     // Se ja esta gerando, o clique vira CANCELAR. Antes o botao ficava
     // disabled — e botao disabled nao propaga clique no shadow DOM, entao
@@ -8479,7 +8555,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         estado.rel.erro = 'Ainda nao identifiquei a loja. Navegue uma vez pelo painel da Shopee e tente de novo.'; render(); return;
       }
       estado.rel.gerando = true; estado.rel.erro = null;
-      estado.rel.etapa = 'Preparando...'; render();
+      estado.rel.etapa = 'Preparando...'; salvarAndamento(); render();
 
       // Coleta os DOIS meses sozinha, um de cada vez. Antes o seletor so
       // rotulava o relatorio e os numeros vinham do recorte aberto no painel
@@ -8497,12 +8573,21 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         try { if (window.SIA_Diamantes && window.SIA_Diamantes.zerar) window.SIA_Diamantes.zerar('troca de periodo do relatorio'); } catch (e) { /* noop */ }
       }
 
-      estado.rel.etapa = 'Lendo ' + faixaDoMes(sel).rotulo; estado.rel.pct = 8; render();
+      /* GUARDA O ANDAMENTO. Uma geracao leva mais de dez minutos, e se a
+       pessoa atualiza a pagina no meio, o estado morre junto com a aba e
+       nao ha como saber se terminou. Gravando a cada etapa, ao reabrir a
+       extensao ela diz onde parou — e se o relatorio ja tinha ficado
+       pronto, ele volta inteiro. */
+    estado.rel.etapa = 'Lendo ' + faixaDoMes(sel).rotulo; estado.rel.pct = 8;
+    estado.rel.iniciadoEm = Date.now();
+    estado.rel.mesGerando = sel;
+    salvarAndamento();
+    render();
       zerar();
       // usa a Promise da coleta em vez de vigiar coletaProgresso: vigiar uma
       // variavel cria janela de corrida, que foi o que zerou o mes anterior.
       var prA = coletaCompleta(function (p) {
-        if (p) { estado.rel.etapa = 'Lendo o mes atual \u00b7 ' + p; render(); }
+        if (p) { estado.rel.etapa = 'Lendo o mes atual \u00b7 ' + p; salvarAndamento(); render(); }
       }, epochDoMes(sel));
       if (prA && prA.then) {
         prA.then(function () { if (esperaA) clearInterval(esperaA); concluirA(); });
@@ -8549,7 +8634,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         var esperaB = null;
         setTimeout(function () {
           var pr = coletaCompleta(function (p) {
-            if (p) { estado.rel.etapa = 'Lendo o mes anterior \u00b7 ' + p; render(); }
+            if (p) { estado.rel.etapa = 'Lendo o mes anterior \u00b7 ' + p; salvarAndamento(); render(); }
           }, (function () {
           var fb = epochDoMes(mesAnterior(sel));
           // mesmo numero de dias, contados do inicio do mes anterior
@@ -8590,7 +8675,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
             return;
           }
 
-          estado.rel.etapa = 'O consultor esta escrevendo...'; render();
+          estado.rel.etapa = 'O consultor esta escrevendo...'; salvarAndamento(); render();
           var payload = {
             equalizado: estado.rel.equalizado || null,
             loja: estado.loja ? estado.loja.shop_id : 'desconhecida',
@@ -9692,9 +9777,21 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
 
   function cartaoProduto(c) {
     var co = CORES_SEM[c.nivel] || CORES_SEM.cinza;
+    /* A NOTA NO CARTAO. Ela ja era coletada e so aparecia na tela de Ads.
+       Aqui ela fica junto do funil, que e onde a pessoa vem procurar por
+       que a conversao esta baixa — e nota ruim e uma das causas. */
+    var _p = estado.produtos[String(c.id)] || {};
+    var selo = '';
+    if (_p.nota != null) {
+      var _cor = _p.nota >= 4.7 ? 'var(--vd)' : _p.nota >= 4.5 ? 'var(--am)' : 'var(--rd)';
+      selo = '<span style="font-family:Space Mono,monospace;font-size:10px;color:' + _cor + ';' +
+        'border:1px solid ' + _cor + ';border-radius:99px;padding:2px 8px;white-space:nowrap">' +
+        fLe(_p.nota, 2) + (_p.avaliacoesTotal ? ' \u00b7 ' + fLe(_p.avaliacoesTotal, 0) + ' aval' : '') + '</span>';
+    }
     return '<div data-card="produto:' + esc(c.id) + '" style="cursor:pointer;background:' + co.bg + ';border:1px solid ' + co.bd + ';border-left:3px solid ' + co.dot + ';border-radius:var(--r-card,22px);padding:15px 16px;margin-bottom:9px">' +
       '<div style="display:flex;align-items:baseline;gap:9px;margin-bottom:6px">' +
       '<span style="flex:1;font-size:17.5px;font-weight:600;color:var(--t0);line-height:1.25;letter-spacing:-.015em">' + esc(c.titulo) + '</span>' +
+      selo +
       (c.venda ? '<span style="font-family:Space Mono,monospace;font-size:12px;color:var(--t2);flex:none">' + reais(c.venda) + '</span>' : '') +
       '</div>' +
       nomeComId(c.nome, c.id, 70) +
@@ -9721,6 +9818,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     if (!ids.length) {
       return '<div class="vazio">Abra <b>Central de Dados → Performance de Produto</b> e navegue pela lista (role/pagine — a coleta pega o que a tela mostrar).</div>';
     }
+    /* A NOTA ENTRA NA LISTA DE PRODUTOS. Ela ja era coletada e so aparecia
+       no Ads; aqui ela fica ao lado do funil, que e onde a pessoa procura
+       o motivo de a conversao estar baixa. */
     var cabecalhoFiltro = idsTodos.length > 8
       ? campoFiltro('prod', ids.length === idsTodos.length ? idsTodos.length : ids.length + ' de ' + idsTodos.length)
       : '';
@@ -9932,8 +10032,13 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     if (abaAtiva === 'relatorio') {
       // estado orfao de uma tentativa anterior travava o botao para sempre
       if (estado.rel.gerando && !estado.rel.etapa) estado.rel.gerando = false;
-      corpo.innerHTML = renderRelatorio();
+      corpo.innerHTML = painelAndamento() + renderRelatorio();
       ligarRelatorio();
+      // o relogio anda enquanto gera, para o tempo nao ficar congelado
+      if (estado.rel.gerando) {
+        if (RELOGIO_REL) clearTimeout(RELOGIO_REL);
+        RELOGIO_REL = setTimeout(function () { if (estado.rel.gerando) render(); }, 5000);
+      }
       return;
     }
     // PORTARIA: so entra em cena quando SIA_EXIGIR_ACESSO estiver ligado.
@@ -10486,6 +10591,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     if (r && r.valor) { estado.anonKey = r.valor; }
   });
   if (SIA_EXIGIR_ACESSO) acessoValidar();
+  restaurarAndamento();
   // traz o historico de volume que ja foi guardado
   try {
     chrome.runtime.sendMessage({ tipo: 'sia:pref-carregar', chave: 'kw_historico' }, function (rh) {

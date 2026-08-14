@@ -2101,13 +2101,6 @@
     '.botao span svg{width:100%;height:100%;display:block;border-radius:8px}' +
     '.botao svg{display:block;width:100%;height:100%}' +
     '.botao:hover{width:52px}' +
-    '.menu-flut{position:fixed;bottom:84px;right:22px;z-index:2147483009;background:var(--b0);border:1px solid var(--li);border-radius:18px;box-shadow:0 14px 40px var(--sh),0 3px 10px var(--shb);padding:7px;min-width:212px;opacity:0;transform:translateY(8px) scale(.96);pointer-events:none;transition:opacity .16s,transform .16s}' +
-    '.menu-flut.on{opacity:1;transform:none;pointer-events:auto}' +
-    '.menu-flut button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--t1);font-family:Outfit,Arial;font-size:13.5px;text-align:left;padding:10px 12px;border-radius:12px;cursor:pointer}' +
-    '.menu-flut button:hover{background:var(--b2);color:var(--t0)}' +
-    '.menu-flut button b{color:var(--mk);font-weight:600}' +
-    '.menu-flut .sep{height:1px;background:var(--li);margin:5px 8px}' +
-    '.menu-flut .rod{font-family:Space Mono,monospace;font-size:9.5px;color:var(--t3);padding:7px 12px 4px;letter-spacing:.05em}' +
 
     /* O seletor irmao nao servia: o botao vem ANTES do painel no HTML e o til
        so alcanca irmaos posteriores. Classe direta resolve, e precisa vir
@@ -2212,14 +2205,6 @@
     '.tag-ads{color:var(--mk)}.tag-conta{color:var(--px)}.tag-cadastro{color:var(--vd)}.tag-marketing{color:var(--am)}.tag-outra{color:var(--t2)}.tag-afiliados{color:#e91e8c}.tag-performance{color:#3ab7f5}' +
     '</style>' +
     '<button class="botao" id="sia-abrir" title="Seller.IA">' + LOGO + '</button>' +
-    '<div class="menu-flut" id="sia-menu">' +
-    '  <button data-menu="atualizar"><span>\u21bb</span><span>Buscar atualizacao</span></button>' +
-    '  <button data-menu="suporte"><span>\u2709</span><span>Falar com o suporte</span></button>' +
-    '  <button data-menu="clipseller"><span>\u25b6</span><span>Abrir o ClipSeller</span></button>' +
-    '  <div class="sep"></div>' +
-    '  <button data-menu="assinatura"><span>\u2605</span><span>Minha assinatura</span></button>' +
-    '  <div class="rod" id="sia-menu-versao"></div>' +
-    '</div>' +
     '<div class="painel" id="sia-painel">' +
     '  <div class="cab">' +
     '    <span class="marca-ic">S<em>.</em></span>' +
@@ -2796,53 +2781,10 @@
       ? '<b>Copiado.</b> Cole na conversa com a Seller.IA \u2014 sao os cinco primeiros itens exatamente como a Shopee devolveu.'
       : '<b>Nao consegui copiar.</b> Abra o console com F12 e procure por [Seller.IA].');
   });
-  /* ===== MENU DO BOTAO FLUTUANTE ===== */
-  var menuTimer = null;
-  function mostrarMenu(v) {
-    var m = $('sia-menu');
-    if (!m) return;
-    if (v) {
-      var vs = $('sia-menu-versao');
-      if (vs) vs.textContent = 'Seller.IA v' + VERSAO;
-    }
-    m.classList.toggle('on', !!v);
-  }
-  /* O menu abria so de passar o mouse, e pulava na tela toda vez que a
-     pessoa levava o cursor perto da aba. Agora e no clique direito, que e
-     onde se espera menu. */
-  ligar('sia-abrir', 'contextmenu', function (ev) {
-    ev.preventDefault();
-    if (menuTimer) clearTimeout(menuTimer);
-    mostrarMenu(!$('sia-menu').classList.contains('on'));
-  });
-  ligar('sia-abrir', 'mouseleave', function () {
-    menuTimer = setTimeout(function () { mostrarMenu(false); }, 420);
-  });
-  ligar('sia-menu', 'mouseenter', function () { if (menuTimer) clearTimeout(menuTimer); });
-  ligar('sia-menu', 'mouseleave', function () { menuTimer = setTimeout(function () { mostrarMenu(false); }, 260); });
-  ligar('sia-menu', 'click', function (ev) {
-    var el = ev.target;
-    while (el && el !== this && !(el.getAttribute && el.getAttribute('data-menu'))) el = el.parentNode;
-    var acao = el && el.getAttribute && el.getAttribute('data-menu');
-    if (!acao) return;
-    mostrarMenu(false);
-    if (acao === 'atualizar') {
-      $('sia-painel').classList.add('aberto');
-      abaAtiva = 'conta360';
-      estado.telaServico = 'atualizar';
-      render();
-    } else if (acao === 'suporte') {
-      $('sia-painel').classList.add('aberto');
-      estado.telaServico = 'suporte';
-      render();
-    } else if (acao === 'assinatura') {
-      $('sia-painel').classList.add('aberto');
-      estado.telaServico = 'assinatura';
-      render();
-    } else if (acao === 'clipseller') {
-      try { window.open('https://clipseller.com.br', '_blank', 'noopener'); } catch (e) { /* noop */ }
-    }
-  });
+  /* O MENU FLUTUANTE SAIU. Ele abria ao passar o mouse, pulava na tela toda
+     vez que o cursor chegava perto da aba, e o que ele oferecia ja esta
+     dentro da gaveta, em Ajustes. Menos coisa aparecendo sem ser chamada. */
+
 
   ligar('sia-recoletar', 'click', function () {
     if (estado.coletaProgresso !== null) { pararColeta(); return; }

@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.16.0';
+  var VERSAO = '1.17.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -104,6 +104,26 @@
   }
   function espera(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+  /* REDE DE SEGURANCA. Se por qualquer motivo a bandeira de ocupado ficar
+     presa, a extensao inteira para de responder e a pessoa nao tem saida
+     alem de recarregar a pagina. Este relogio derruba a bandeira sozinho
+     depois de dois minutos, que e mais que qualquer leitura leva. */
+  var travaOcupado = null;
+  function marcarOcupado(sim) {
+    E.buscando = !!sim;
+    if (travaOcupado) { clearTimeout(travaOcupado); travaOcupado = null; }
+    if (sim) {
+      travaOcupado = setTimeout(function () {
+        if (!E.buscando) return;
+        E.buscando = false;
+        E.progresso = null;
+        if (!E.erro) E.erro = 'A consulta passou de dois minutos e foi encerrada. Tente de novo.';
+        try { console.warn('[Radar 360] rede de seguranca liberou a tela'); } catch (e) { }
+        desenhar();
+      }, 120000);
+    }
+  }
+
   /* A vitrine manda um identificador de sessao de visualizacao em toda
      busca. Um por analise basta. */
   /* A sessao e derivada do TERMO, nao sorteada. A Shopee personaliza o
@@ -131,7 +151,7 @@
       E.erro = 'A foto tem mais de 5 MB. Use uma menor.';
       desenhar(); return;
     }
-    E.buscando = true;
+    marcarOcupado(true);
     E.progresso = 'Olhando a foto...';
     E.erro = null;
     desenhar();
@@ -214,19 +234,33 @@
      tinha escrito antes, get_shop_base por GET, nao existe — o corpo abaixo
      foi copiado da captura do radar, sem inventar campo. */
   async function idDaLojaPeloNome(nome) {
-    var r = await api('/api/v4/shop/get_shop_base_v2', 'POST', JSON.stringify({
-      entry_point: 'ShopByPDP',
-      request_source: 'pc_shop_home_page',
-      livestream_params: {},
-      user_address: {},
-      username: nome
-    }));
-    try {
-      var d = (r.dados && (r.dados.data || r.dados)) || {};
-      var id = d.shopid || d.shop_id || null;
-      if (id) E.nomeLojaAchada = d.name || (d.account && d.account.username) || nome;
-      return id;
-    } catch (e) { return null; }
+    /* DOIS CAMINHOS. O POST e o que a vitrine usa ao abrir a pagina da loja,
+       mas ele nem sempre responde quando a chamada parte de outra pagina.
+       O GET do shop_seo aceita o mesmo username e devolve o id — serve de
+       reserva. Tentar os dois evita a consulta falhar por causa da rota. */
+    var tentativas = [
+      { url: '/api/v4/shop/get_shop_base_v2', metodo: 'POST', corpo: JSON.stringify({
+          entry_point: 'ShopByPDP', request_source: 'pc_shop_home_page',
+          livestream_params: {}, user_address: {}, username: nome }) },
+      { url: '/api/v4/shop/get_shop_base?username=' + encodeURIComponent(nome), metodo: 'GET' },
+      { url: '/api/v4/shop/get_shop_seo?username=' + encodeURIComponent(nome), metodo: 'GET' }
+    ];
+    for (var i = 0; i < tentativas.length; i++) {
+      var tv = tentativas[i];
+      var r = await api(tv.url, tv.metodo, tv.corpo || null);
+      try {
+        var d = (r && r.dados && (r.dados.data || r.dados)) || {};
+        var id = d.shopid || d.shop_id || (d.shop && d.shop.shopid) || null;
+        if (id) {
+          E.nomeLojaAchada = d.name || (d.account && d.account.username) ||
+            (d.shop && d.shop.name) || nome;
+          try { console.log('[Radar 360] loja achada por', tv.url.split('?')[0], '->', id); } catch (e) { }
+          return id;
+        }
+      } catch (e) { /* tenta a proxima */ }
+    }
+    try { console.warn('[Radar 360] nenhuma rota devolveu o id de', nome); } catch (e) { }
+    return null;
   }
 
   async function consultarLink(link) {
@@ -240,7 +274,7 @@
       E.erro = 'Nao reconheci este link. Cole o endereco de um produto ou de uma loja da Shopee.';
       desenhar(); return;
     }
-    E.buscando = true; E.erro = null; E.consultaLink = null;
+    marcarOcupado(true); E.erro = null; E.consultaLink = null;
     E.progresso = ids.item ? 'Procurando este produto...' : 'Lendo a loja...';
     desenhar();
 
@@ -269,7 +303,7 @@
       E.erro = 'Nao consegui completar a consulta: ' + String(e && e.message || e);
       try { console.error('[Radar 360] consulta por link:', e); } catch (e2) { }
     } finally {
-      E.buscando = false;
+      marcarOcupado(false);
       E.progresso = null;
       desenhar();
     }
@@ -419,10 +453,11 @@
 
   async function analisar(termo) {
     try { console.log('[Mercado] analisando:', termo); } catch (e) { }
-    E.termo = termo; E.buscando = true; E.erro = null; E.itens = []; E.detalhe = null;
+    E.termo = termo; marcarOcupado(true); E.erro = null; E.itens = []; E.detalhe = null;
     E.variacoes = [];
     desenhar();
 
+    try {
     var termos = [termo];
     if (E.ampliar) {
       E.progresso = 'Vendo como as pessoas procuram isto...';
@@ -443,6 +478,14 @@
     E.progresso = 'Organizando...';
     desenhar();
     await fecharAnalise(todos);
+    } catch (e) {
+      E.erro = 'A leitura falhou: ' + String(e && e.message || e);
+      try { console.error('[Radar 360] analisar:', e); } catch (e2) { }
+    } finally {
+      marcarOcupado(false);
+      E.progresso = null;
+      desenhar();
+    }
   }
 
   /* Le um termo inteiro, pagina por pagina, ignorando o que ja veio de
@@ -2220,8 +2263,11 @@
           'pelo próprio título. Isso já diz algo: ele está mal posicionado para o nome que tem. O resto dos dados vem da página do produto e está completo.</div>';
       }
 
-      // o que a pagina entrega sobre a loja
-      if (x.lojaSeguidores != null || x.lojaProdutos != null || x.lojaNota != null) {
+      /* O BLOCO DA LOJA APARECE SEMPRE. Antes ele dependia de a pagina ter
+         trazido seguidores, produtos ou nota — e quando nao trazia, sumia
+         junto o botao de ver a loja, que e como a pessoa pega o link para
+         a consulta seguinte. O link nao depende desses campos. */
+      {
         h += olho('A LOJA QUE VENDE ISTO');
         h += '<div style="display:flex;gap:24px;flex-wrap:wrap;background:var(--surf);border:1px solid var(--bd2);' +
           'border-radius:22px;padding:16px 20px;margin-bottom:12px">' +
@@ -2231,9 +2277,16 @@
           (x.lojaDesde ? celula(idade(x.lojaDesde), 'ABERTA HÁ') : '') +
           (x.lojaResposta != null ? celula(num(x.lojaResposta, 0) + '%', 'RESPONDE') : '') +
           '</div>';
-        if (x.linkLoja && !E.gravando) {
-          h += '<div class="nota"><a href="' + x.linkLoja + '" target="_blank" rel="noopener">Ver a loja inteira \u2197</a> \u00b7 ' +
-            'cole o link dela aqui em cima para ver o faturamento completo.</div>';
+        if (x.lojaSeguidores == null && x.lojaProdutos == null && x.lojaNota == null) {
+          h += '<div class="nota" style="font-size:13px;color:var(--tx4)">A pagina nao trouxe os numeros desta loja desta vez. ' +
+            'Abra a loja pelo link abaixo e cole o endereco dela aqui em cima para a leitura completa.</div>';
+        }
+        if (x.linkLoja) {
+          h += '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px">' +
+            (E.gravando ? '' : '<a href="' + x.linkLoja + '" target="_blank" rel="noopener" ' +
+              'style="background:var(--fill);border:1px solid var(--bd3);color:var(--tx2);font-size:13px;' +
+              'padding:9px 15px;border-radius:12px;text-decoration:none">Abrir a loja na Shopee \u2197</a>') +
+            '<button class="sec" id="ver-loja" data-loja="' + x.loja + '">Ver o faturamento desta loja</button></div>';
         }
       }
 
@@ -2469,6 +2522,15 @@
     });
     var v = $('voltar');
     if (v) v.addEventListener('click', function () { E.detalhe = null; desenhar(); });
+    var vl = $('ver-loja');
+    if (vl) vl.addEventListener('click', function () {
+      var id = this.getAttribute('data-loja');
+      if (!id || E.buscando) return;
+      E.linkDigitado = 'https://shopee.com.br/shop/' + id;
+      var cp = $('campo-link');
+      if (cp) cp.value = E.linkDigitado;
+      consultarLink(E.linkDigitado);
+    });
     var bl = $('ir-link');
     if (bl) bl.addEventListener('click', function () {
       var v = $('campo-link');

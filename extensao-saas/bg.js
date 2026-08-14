@@ -83,9 +83,15 @@ async function buscaPublica(kw) {
     var t = setTimeout(function () {
       if (SIA_PEND[chave]) {
         delete SIA_PEND[chave];
-        res({ ok: false, erro: 'A vitrine nao devolveu "' + kw + '" em 40s. Confira se voce esta logada em shopee.com.br.' });
+        /* 40s era curto para vitrine lenta, e a mensagem repetia o conselho
+           que ja aparece embaixo. 75s cobre o caso normal, e o texto agora
+           diz a causa mais provavel de verdade: a vitrine so responde com
+           sessao ativa, e estar logada no Central do Vendedor nao basta. */
+        res({ ok: false, erro: 'A vitrine da Shopee nao respondeu a tempo. ' +
+          'Ela so entrega esses dados com a sessao ativa em shopee.com.br \u2014 ' +
+          'estar logada apenas no Central do Vendedor nao vale. Abra a vitrine numa aba, confirme que aparece o seu nome, e tente de novo.' });
       }
-    }, 40000);
+    }, 75000);
     SIA_PEND[chave] = { res: res, t: t };
   });
 
