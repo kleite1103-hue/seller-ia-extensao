@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.19.0';
+  var VERSAO = '1.20.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -25,8 +25,139 @@
     paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
-    gravando: false
+    gravando: false,
+    // a portaria
+    acesso: { checando: true, liberado: false, entrando: false, token: null,
+      usuario: null, erro: null, motivo: null, venceEm: null, offline: false, emailDigitado: '' }
   };
+
+
+  // atalho: a portaria mexe muito neste ramo do estado
+  var A = null;   // preenchido logo apos E existir
+
+  /* ============ PORTARIA ============
+     Tudo fechado: sem assinatura do Radar 360, a gaveta nao abre. A base de
+     usuarios e a mesma da Seller.IA, mas a assinatura e separada — quem
+     assina so a Seller.IA ve uma mensagem dizendo isso, em vez de "email
+     nao encontrado", que seria falso e confundiria. */
+
+  var URL_ACESSO = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/radar-acesso';
+
+  function digitalDoNavegador() {
+    try {
+      var p = [navigator.userAgent, navigator.language, screen.width + 'x' + screen.height,
+        new Date().getTimezoneOffset()].join('|');
+      var h = 0;
+      for (var i = 0; i < p.length; i++) { h = ((h << 5) - h) + p.charCodeAt(i); h = h & h; }
+      return 'r' + Math.abs(h).toString(36);
+    } catch (e) { return 'r0'; }
+  }
+
+  function chamarAcesso(corpo) {
+    return fetch(URL_ACESSO, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
+    }).then(function (r) { return r.json(); });
+  }
+
+  function salvarToken(tok) {
+    A.token = tok;
+    guardar('radar_token', tok || '');
+  }
+
+  function validarAcesso() {
+    ler('radar_token').then(function (tok) {
+      if (!tok) { A.checando = false; desenhar(); return; }
+      A.token = tok;
+      chamarAcesso({ acao: 'validar', token: tok }).then(function (r) {
+        A.checando = false;
+        if (r && r.ok) {
+          A.liberado = true;
+          A.usuario = r.usuario || null;
+          A.venceEm = r.vence_em || null;
+        } else {
+          A.liberado = false;
+          A.erro = (r && r.erro) || null;
+          if (r && r.recomecar) salvarToken('');
+        }
+        desenhar();
+      }).catch(function () {
+        // sem internet nao e motivo para trancar quem ja entrou
+        A.checando = false;
+        A.liberado = !!tok;
+        A.offline = true;
+        desenhar();
+      });
+    });
+  }
+
+  function entrar() {
+    var campo = $('ac-email');
+    var email = (campo && campo.value || '').trim().toLowerCase();
+    if (!email || email.indexOf('@') < 0) {
+      A.erro = 'Digite o email da sua assinatura.'; desenhar(); return;
+    }
+    A.entrando = true; A.erro = null; desenhar();
+    chamarAcesso({ acao: 'entrar', email: email, dispositivo: digitalDoNavegador() })
+      .then(function (r) {
+        A.entrando = false;
+        if (r && r.ok) {
+          salvarToken(r.token);
+          A.liberado = true;
+          A.usuario = r.usuario || null;
+          A.venceEm = r.vence_em || null;
+          A.erro = null;
+        } else {
+          A.erro = (r && r.erro) || 'Nao consegui validar este email.';
+          A.motivo = (r && r.motivo) || null;
+        }
+        desenhar();
+      })
+      .catch(function (e) {
+        A.entrando = false;
+        A.erro = 'Nao consegui falar com o servidor. Verifique a conexao e tente de novo.';
+        desenhar();
+      });
+  }
+
+  function sair() {
+    chamarAcesso({ acao: 'sair', token: A.token }).catch(function () { });
+    salvarToken('');
+    A.liberado = false; A.usuario = null; A.erro = null;
+    desenhar();
+  }
+
+  function viewPortaria() {
+    if (A.checando) {
+      return '<div class="vazio">Verificando o seu acesso...</div>';
+    }
+    var h = '<div style="max-width:420px;margin:8px auto">';
+    h += '<div style="font:500 21px Archivo,Arial;letter-spacing:-.03em;color:var(--tx1);margin-bottom:6px">' +
+      'Entre com o email da sua assinatura</div>';
+    h += '<div style="font-size:14px;color:var(--tx3);line-height:1.6;margin-bottom:18px">' +
+      'O Radar 360 e uma assinatura separada da Seller.IA. Se voce assina as duas, o email e o mesmo.</div>';
+    h += '<div style="display:flex;gap:9px;margin-bottom:12px">' +
+      '<input id="ac-email" class="n" placeholder="seu@email.com" ' +
+      'style="flex:1;font-family:Outfit,Arial;font-size:14.5px" value="' + esc(A.emailDigitado || '') + '">' +
+      '<button class="go" id="ac-entrar"' + (A.entrando ? ' disabled' : '') + '>' +
+      (A.entrando ? 'Entrando...' : 'Entrar') + '</button></div>';
+
+    if (A.erro) {
+      var soSeller = A.motivo === 'sem assinatura deste produto';
+      h += '<div class="aviso" style="border-color:' + (soSeller ? '#C98A1E' : '#D64545') +
+        ';color:var(--tx2)">' + esc(A.erro);
+      if (soSeller) {
+        h += '<br><br><a href="https://selleriaclub.com/radar360" target="_blank" rel="noopener">' +
+          'Conhecer o Radar 360 \u2197</a>';
+      }
+      h += '</div>';
+    }
+
+    h += '<div class="aviso" style="font-size:12px">Seu acesso vale para uma maquina por vez. ' +
+      'Se entrar em outra, esta e encerrada.</div>';
+    h += '</div>';
+    return h;
+  }
 
   /* ============ CHAMADAS ============ */
   /* A CHAMADA PRECISA SAIR DA PROPRIA PAGINA.
@@ -160,7 +291,7 @@
       var tipo = arquivo.type || 'image/jpeg';
       fetch(URL_FOTO, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imagem: base64, tipo: tipo })
+        body: JSON.stringify({ imagem: base64, tipo: tipo, token: A.token })
       }).then(function (r) { return r.json(); }).then(function (j) {
         E.buscando = false;
         E.progresso = null;
@@ -743,7 +874,7 @@
     try {
       var r = await fetch(URL_CONSULTOR, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dossie: d })
+        body: JSON.stringify({ dossie: d, token: A.token })
       });
       var j = await r.json();
       E.consulta = (j && j.texto) || null;
@@ -1609,6 +1740,9 @@
     '      </div>' +
     '      <button class="go" id="ir">Analisar</button>' +
     '      <input type="file" id="foto" accept="image/*" style="display:none">' +
+    '      <button class="ico" id="sair" title="Sair desta maquina">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="15" height="15" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M15 4.5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h11"/></svg></button>' +
     '      <button class="ico" id="zerar" title="Limpar e comecar uma analise nova">' +
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="15" height="15" ' +
     'stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg></button>' +
@@ -1684,6 +1818,19 @@
       : '';
 
     var c = $('corpo');
+
+    /* TUDO FECHADO. Sem assinatura do Radar, nem a busca aparece: e a
+       decisao de produto, e mistura-la com a tela de analise so geraria
+       expectativa que nao se cumpre. */
+    if (!A.liberado) {
+      $('abas').innerHTML = '';
+      $('ctx').innerHTML = '';
+      $('opcoes').innerHTML = '';
+      c.innerHTML = viewPortaria();
+      ligarPortaria();
+      return;
+    }
+
     if (E.buscando) { c.innerHTML = '<div class="vazio">' + esc(E.progresso || 'Lendo...') + '</div>'; return; }
     if (E.erro) { c.innerHTML = '<div class="vazio">' + esc(E.erro) + '</div>'; return; }
     if (!E.itens.length) {
@@ -2180,6 +2327,17 @@
     }
   }
 
+  function ligarPortaria() {
+    var b = $('ac-entrar');
+    if (b) b.addEventListener('click', entrar);
+    var campo = $('ac-email');
+    if (campo) {
+      campo.addEventListener('input', function () { A.emailDigitado = this.value; });
+      campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
+      if (!A.entrando) { try { campo.focus(); } catch (e) { } }
+    }
+  }
+
   function ligarTabela() {
     raiz.querySelectorAll('[data-ord]').forEach(function (t) {
       t.addEventListener('click', function () { E.ordem = this.getAttribute('data-ord'); desenhar(); });
@@ -2218,6 +2376,11 @@
   raiz.addEventListener('click', function (ev) {
     var alvo = ev.target.closest ? ev.target.closest('button') : ev.target;
     if (!alvo) return;
+    if (alvo.id === 'sair') {
+      if (!confirm('Sair da sua conta nesta maquina?')) return;
+      sair();
+      return;
+    }
     if (alvo.id === 'zerar') {
       if (E.itens.length && !confirm('Limpar esta análise e começar do zero?')) return;
       E.termo = ''; E.itens = []; E.erro = null; E.detalhe = null; E.aba = 'nicho';
@@ -2258,6 +2421,10 @@
   ler('gravando').then(function (v) {
     if (v) { E.gravando = true; $('gravar').classList.add('ligado'); desenhar(); }
   });
+  // a portaria: A aponta para o ramo do estado, e a validacao comeca ja
+  A = E.acesso;
+  validarAcesso();
+
   ler('tema').then(function (v) {
     if (v === 'escuro') { $('tudo').classList.add('escuro'); $('tema').innerHTML = ICO_SOL; }
   });

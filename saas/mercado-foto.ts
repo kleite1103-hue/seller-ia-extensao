@@ -10,6 +10,8 @@
 // Secret necessaria: ANTHROPIC_API_KEY
 // ============================================================
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -51,6 +53,26 @@ Deno.serve(async (req) => {
 
     let body: any;
     try { body = await req.json(); } catch { return json({ ok: false, erro: "json invalido" }, 400); }
+
+    /* SO COM ASSINATURA DO RADAR. Estas funcoes gastam cota da Anthropic a
+       cada chamada: sem porteiro, quem tivesse a chave anon do pacote
+       poderia rodar em volume e a conta viria para nos. */
+    const _url = Deno.env.get("SUPABASE_URL");
+    const _key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!_url || !_key) return json({ ok: false, erro: "faltam secrets" }, 500);
+    const _db = createClient(_url, _key);
+
+    const _tok = String(body.token || "");
+    if (!_tok) return json({ ok: false, erro: "sem token" }, 401);
+
+    const { data: _s } = await _db.from("sia_sessoes")
+      .select("usuario_id, encerrada_em, expira_em")
+      .eq("token", _tok).eq("produto_id", "radar360").maybeSingle();
+
+    if (!_s || _s.encerrada_em ||
+        (_s.expira_em && new Date(_s.expira_em) < new Date())) {
+      return json({ ok: false, erro: "sessao invalida" }, 401);
+    }
     if (!body.imagem) return json({ ok: false, erro: "sem imagem" }, 400);
 
     const tipo = String(body.tipo || "image/jpeg");

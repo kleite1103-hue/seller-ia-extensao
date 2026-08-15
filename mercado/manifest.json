@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Radar 360 · por Seller.IA",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "description": "Le um nicho da Shopee por dentro: quem vende, quanto vende, a que preco, e por quanto voce precisaria comprar para competir.",
   "permissions": [
     "storage"
