@@ -210,7 +210,7 @@ function montarReceita(modo: string, ctx: any) {
   // ---------- 7. PROFUNDA ----------
   if (PROFUNDA) {
     p.push({
-      id: "palavras", porCampanha: true, limite: 10, so: "ativa_com_gasto",
+      id: "palavras", porCampanha: true, limite: 20, so: "ativa_com_gasto",
       url: "/api/pas/v1/shop/manual/list_keyword_with_recommended_price/?{spc}",
       metodo: "POST", corpo: { campaign_id: "{campanha}" },
       fase: "Lendo as palavras por campanha", pausa: 200,
