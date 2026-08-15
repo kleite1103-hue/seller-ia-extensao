@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.20.0';
+  var VERSAO = '1.20.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -132,10 +132,10 @@
       return '<div class="vazio">Verificando o seu acesso...</div>';
     }
     var h = '<div style="max-width:420px;margin:8px auto">';
-    h += '<div style="font:500 21px Archivo,Arial;letter-spacing:-.03em;color:var(--tx1);margin-bottom:6px">' +
-      'Entre com o email da sua assinatura</div>';
+    h += '<div style="font:500 22px Archivo,Arial;letter-spacing:-.035em;color:var(--tx1);margin-bottom:7px">' +
+      'Vamos ler um nicho por dentro</div>';
     h += '<div style="font-size:14px;color:var(--tx3);line-height:1.6;margin-bottom:18px">' +
-      'O Radar 360 e uma assinatura separada da Seller.IA. Se voce assina as duas, o email e o mesmo.</div>';
+      'Entre com o email da sua assinatura do Radar 360. Se voce ja usa a Seller.IA, e o mesmo email.</div>';
     h += '<div style="display:flex;gap:9px;margin-bottom:12px">' +
       '<input id="ac-email" class="n" placeholder="seu@email.com" ' +
       'style="flex:1;font-family:Outfit,Arial;font-size:14.5px" value="' + esc(A.emailDigitado || '') + '">' +
@@ -143,14 +143,26 @@
       (A.entrando ? 'Entrando...' : 'Entrar') + '</button></div>';
 
     if (A.erro) {
+      /* Quem ja e cliente da Seller.IA nao ve tela de erro: ve convite. A
+         borda vermelha e o tom de recusa iam para quem so precisa de um
+         clique para virar assinante dos dois. */
       var soSeller = A.motivo === 'sem assinatura deste produto';
-      h += '<div class="aviso" style="border-color:' + (soSeller ? '#C98A1E' : '#D64545') +
-        ';color:var(--tx2)">' + esc(A.erro);
-      if (soSeller) {
-        h += '<br><br><a href="https://selleriaclub.com/radar360" target="_blank" rel="noopener">' +
-          'Conhecer o Radar 360 \u2197</a>';
+      var vencida = A.motivo === 'assinatura vencida' || A.motivo === 'assinatura cancelada';
+      var convite = soSeller || vencida;
+
+      if (convite) {
+        h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-left:3px solid #EE4D2D;' +
+          'border-radius:0 20px 20px 0;padding:18px 20px;margin-bottom:12px">' +
+          '<div style="font-size:14.5px;color:var(--tx1);line-height:1.65;margin-bottom:14px">' + esc(A.erro) + '</div>' +
+          '<a href="https://selleriaclub.com/radar360" target="_blank" rel="noopener" ' +
+          'style="display:inline-block;background:#EE4D2D;color:#fff;font-size:14px;font-weight:500;' +
+          'padding:11px 22px;border-radius:13px;text-decoration:none">' +
+          (soSeller ? 'Ativar o Radar 360' : 'Renovar agora') + '</a>' +
+          '<div style="font-size:12.5px;color:var(--tx4);margin-top:12px;line-height:1.5">' +
+          'Depois de ativar, volte aqui e entre com este mesmo email.</div></div>';
+      } else {
+        h += '<div class="aviso" style="border-color:#D64545;color:var(--tx2)">' + esc(A.erro) + '</div>';
       }
-      h += '</div>';
     }
 
     h += '<div class="aviso" style="font-size:12px">Seu acesso vale para uma maquina por vez. ' +

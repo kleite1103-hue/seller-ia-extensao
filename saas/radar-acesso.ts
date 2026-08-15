@@ -72,13 +72,17 @@ Deno.serve(async (req) => {
         const motivo = p?.motivo || "sem assinatura";
         return json({
           ok: false,
+          /* O TEXTO IMPORTA AQUI. Quem chega nesta tela ja e cliente da
+             Seller.IA: tratar como recusa e desperdicar a melhor hora de
+             vender. Ela veio ate aqui, instalou, digitou o email — ja
+             quer usar. */
           erro: motivo === "sem assinatura deste produto"
-            ? "Este email tem acesso a Seller.IA, mas ainda nao ao Radar 360. Sao assinaturas separadas."
+            ? "Voce ja e da casa! O Radar 360 e a nossa analise de mercado e tem assinatura propria, separada da Seller.IA. Ative com o mesmo email e comece a usar agora."
             : motivo === "assinatura vencida"
-              ? "Sua assinatura do Radar 360 venceu. Renove para voltar a usar."
+              ? "Sua assinatura do Radar 360 venceu. Renove com este mesmo email e tudo volta de onde parou."
               : motivo === "assinatura cancelada"
-                ? "Sua assinatura do Radar 360 foi cancelada."
-                : "Conta sem acesso ao Radar 360.",
+                ? "Sua assinatura do Radar 360 esta cancelada. Da para reativar com este mesmo email."
+                : "Este email ainda nao tem acesso ao Radar 360.",
           motivo,
         }, 403);
       }
