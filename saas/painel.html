@@ -559,63 +559,94 @@ function abrirAreaUsuario(){
 }
 
 function viewUsuario(){
-  var dias = EU.expira_em ? Math.floor((new Date(EU.expira_em) - new Date())/86400000) : null;
+  /* A AREA DO USUARIO MOSTRA SO O QUE ELE ASSINA. Antes ela entregava a
+     Seller.IA para todo mundo que entrasse; agora ela pergunta ao servidor
+     quais produtos a pessoa tem e desenha um cartao por produto ativo. Quem
+     assina os dois ve os dois; quem assina um ve um, e o outro aparece como
+     convite em vez de sumir — quem ja e cliente e quem mais tem chance de
+     virar cliente do segundo. */
+  var PRODUTOS = {
+    seller_ia: {
+      nome: 'Seller.IA',
+      frase: 'A analise da sua conta dentro da Central do Vendedor.',
+      arquivo: 'seller-ia.zip',
+      pasta: 'seller-ia',
+      onde: 'Central do Vendedor da Shopee',
+      compra: 'https://selleriaclub.com/assinar'
+    },
+    radar360: {
+      nome: 'Radar 360',
+      frase: 'A leitura de mercado: quem vende, quanto vende, e por quanto comprar.',
+      arquivo: 'radar-360.zip',
+      pasta: 'radar-360',
+      onde: 'vitrine da Shopee',
+      compra: 'https://selleriaclub.com/radar360'
+    }
+  };
+
+  var meus = (EU.produtos && EU.produtos.length) ? EU.produtos : ['seller_ia'];
+  function tem(id){ return meus.indexOf(id) >= 0; }
+
   var h = '';
 
-  // ---- baixar ----
-  h += '<div class="painel" style="text-align:center;padding:34px 26px">' +
-    '<h2 style="font-size:24px;margin-bottom:8px">Sua Seller.IA esta pronta</h2>' +
-    '<div class="sub" style="font-size:15px;max-width:440px;margin:0 auto 22px">' +
-    'Baixe o arquivo, siga os quatro passos abaixo e a extensao aparece dentro da Central do Vendedor da Shopee.</div>' +
-    '<a href="'+URL_EXTENSAO+'" download style="display:inline-block;background:var(--mk);color:#fff;text-decoration:none;font-weight:600;font-size:16px;padding:15px 38px;border-radius:14px">Baixar a extensao</a>' +
-    '<div style="font-size:13px;color:var(--t3);margin-top:12px">arquivo ZIP &middot; funciona no Chrome, Edge e Opera</div></div>';
+  // ---- um cartao por produto ativo ----
+  Object.keys(PRODUTOS).forEach(function(id){
+    var P = PRODUTOS[id];
+    if (!tem(id)) return;
+    h += '<div class="painel" style="text-align:center;padding:32px 26px">' +
+      '<h2 style="font-size:23px;margin-bottom:8px">' + P.nome + '</h2>' +
+      '<div class="sub" style="font-size:15px;max-width:440px;margin:0 auto 20px">' + P.frase + '</div>' +
+      '<a href="' + P.arquivo + '?v=' + Date.now() + '" download ' +
+      'style="display:inline-block;background:var(--mk);color:#fff;text-decoration:none;font-size:16px;' +
+      'font-weight:600;padding:15px 40px;border-radius:16px">Baixar o ' + P.nome + '</a>' +
+      '<div style="font-size:13px;color:var(--t3);margin-top:12px">arquivo ZIP &middot; Chrome, Edge e Opera</div>' +
+      '</div>';
+  });
 
-  // ---- passo a passo ----
+  // ---- o que ele ainda nao tem, como convite ----
+  Object.keys(PRODUTOS).forEach(function(id){
+    var P = PRODUTOS[id];
+    if (tem(id)) return;
+    h += '<div class="painel" style="border-left:3px solid var(--mk)">' +
+      '<h2 style="font-size:19px;margin-bottom:6px">' + P.nome + '</h2>' +
+      '<div style="font-size:14.5px;color:var(--t1);line-height:1.6;margin-bottom:14px">' + P.frase +
+      ' E uma assinatura separada, com o mesmo email que voce ja usa aqui.</div>' +
+      '<a href="' + P.compra + '" target="_blank" rel="noopener" ' +
+      'style="display:inline-block;background:var(--mk);color:#fff;text-decoration:none;font-size:14.5px;' +
+      'font-weight:500;padding:11px 22px;border-radius:13px">Conhecer o ' + P.nome + '</a></div>';
+  });
+
+  // ---- instalacao, uma vez so, servindo aos dois ----
+  var primeiro = PRODUTOS[meus[0]] || PRODUTOS.seller_ia;
   h += '<div class="painel"><h2>Como instalar</h2>' +
-    '<div class="sub">Leva dois minutos. E so na primeira vez.</div>';
-
+    '<div class="sub">Leva dois minutos, e e so na primeira vez. Vale para os dois arquivos.</div>';
   var passos = [
     { t:'Descompacte o arquivo',
-      d:'Ache o ZIP que voce acabou de baixar, clique com o botao direito e escolha <b>Extrair tudo</b>. Vai virar uma pasta chamada <b>seller-ia</b>.<br><br><span style="color:var(--am)">Guarde essa pasta num lugar fixo, como Documentos. Se voce apaga-la depois, a extensao para de funcionar.</span>' },
+      d:'Ache o ZIP que voce baixou, clique com o botao direito e escolha <b>Extrair tudo</b>. Vai virar uma pasta.' },
     { t:'Abra a pagina de extensoes',
-      d:'No Chrome, digite <b>chrome://extensions</b> na barra de endereco e aperte Enter.<br><br><button class="sec" onclick="copiarEndereco()">Copiar o endereco</button>' },
+      d:'No Chrome, digite <b>chrome://extensions</b> na barra de endereco e aperte Enter.' },
     { t:'Ligue o Modo do desenvolvedor',
-      d:'No canto superior direito dessa pagina tem uma chavinha escrita <b>Modo do desenvolvedor</b>. Ligue.<br><br>Ela precisa ficar ligada para a extensao continuar funcionando.' },
+      d:'No canto superior direito dessa pagina tem uma chavinha escrita <b>Modo do desenvolvedor</b>. Ligue.' },
     { t:'Carregue a pasta',
-      d:'Clique em <b>Carregar sem compactacao</b>, no canto superior esquerdo, e escolha a pasta <b>seller-ia</b> que voce extraiu no passo 1.<br><br>Pronto. Abra a Central do Vendedor da Shopee e o icone da Seller.IA aparece no canto da tela.' }
+      d:'Clique em <b>Carregar sem compactacao</b>, no canto superior esquerdo, e escolha a pasta que voce extraiu.' }
   ];
   passos.forEach(function(p, i){
     h += '<div style="display:flex;gap:16px;padding:16px 0;border-bottom:'+(i<3?'1px solid var(--b2)':'none')+'">' +
-      '<div style="flex:none;width:32px;height:32px;border-radius:50%;background:var(--mk);color:#fff;display:grid;place-items:center;font-weight:600;font-size:15px">'+(i+1)+'</div>' +
+      '<div style="flex:none;width:32px;height:32px;border-radius:50%;background:var(--mk);color:#fff;display:grid;place-items:center;font-weight:700">'+(i+1)+'</div>' +
       '<div><div style="font-size:16px;font-weight:600;color:var(--t0);margin-bottom:5px">'+p.t+'</div>' +
       '<div style="font-size:14.5px;color:var(--t1);line-height:1.6">'+p.d+'</div></div></div>';
   });
   h += '</div>';
 
-  // ---- entrar na extensao ----
+  // ---- o email ----
   h += '<div class="painel" style="background:rgba(230,62,27,.05);border-color:var(--mk)">' +
     '<h2>Ao abrir pela primeira vez</h2>' +
     '<div style="font-size:15px;color:var(--t1);line-height:1.6">' +
-    'A Seller.IA vai pedir o seu email. Use este:<br><br>' +
-    '<span style="display:inline-block;background:var(--b0);border:1px solid var(--li);border-radius:12px;padding:12px 18px;font-family:\'Space Mono\',monospace;font-size:15px;color:var(--t0)">'+esc(EU.email)+'</span>' +
-    '<br><br>Seu acesso vale para <b>uma maquina por vez</b>. Se entrar em outro computador, o primeiro e desconectado.</div></div>';
-
-  // ---- assinatura ----
-  h += '<div class="painel"><h2>Sua assinatura</h2><table>' +
-    '<tr><td style="color:var(--t3)">Plano</td><td><b>'+esc(EU.plano||'Seller.IA')+'</b></td></tr>' +
-    '<tr><td style="color:var(--t3)">Status</td><td><span class="pill p-'+esc(EU.status)+'">'+esc(EU.status)+'</span></td></tr>' +
-    '<tr><td style="color:var(--t3)">Relatorios por ciclo</td><td>'+
-    (EU.ilimitado ? '<b>ilimitados</b>' : '<b>'+EU.cota_mensal+'</b> mensal e <b>'+EU.cota_semanal+'</b> semanais') + '</td></tr>' +
-    (dias!=null ? '<tr><td style="color:var(--t3)">Renova em</td><td><b>'+dias+' dias</b></td></tr>' : '') +
-    '</table></div>';
-
-  // ---- ajuda ----
-  h += '<div class="painel"><h2>Se algo nao funcionar</h2><table>' +
-    '<tr><td><b>O icone nao aparece</b></td><td style="color:var(--t2)">Atualize a pagina da Shopee com F5. Se nao vier, confira se a extensao esta ligada em chrome://extensions.</td></tr>' +
-    '<tr><td><b>Diz que o email nao tem acesso</b></td><td style="color:var(--t2)">Confira se digitou exatamente o email acima, sem espaco no fim.</td></tr>' +
-    '<tr><td><b>Sumiu depois de reiniciar</b></td><td style="color:var(--t2)">A pasta foi movida ou apagada. Baixe de novo e repita os passos.</td></tr>' +
-    '<tr><td><b>Foi desconectado sozinho</b></td><td style="color:var(--t2)">Alguem entrou com o seu email em outra maquina. Entre de novo aqui.</td></tr>' +
-    '</table></div>';
+    'A extensao vai pedir o seu email. Use este:<br><br>' +
+    '<span style="display:inline-block;background:var(--b0);border:1px solid var(--li);border-radius:12px;padding:11px 18px;font-family:monospace;font-size:15px">' +
+    esc(EU.email) + '</span><br><br>' +
+    'O mesmo email vale para os dois produtos. Cada um valida a sua propria assinatura, ' +
+    'e o acesso funciona em uma maquina por vez.</div></div>';
 
   return h;
 }

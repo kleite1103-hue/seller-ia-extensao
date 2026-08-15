@@ -53,6 +53,27 @@ function nomeDispositivo(ua: string): string {
   return so ? `${nav} no ${so}` : nav;
 }
 
+/* Le a tabela de assinaturas e devolve os produtos ativos. Equipe entra em
+   tudo; assinante ve o que pagou e ainda esta no prazo. */
+async function produtosDe(db: any, usuarioId: string, papel: string): Promise<string[]> {
+  if (papel === "adm" || papel === "ceo" || papel === "consultor") {
+    return ["seller_ia", "radar360"];
+  }
+  try {
+    const { data } = await db.from("sia_assinaturas")
+      .select("produto_id, status, vence_em")
+      .eq("usuario_id", usuarioId);
+    const agora = new Date();
+    return (data || [])
+      .filter((a: any) => a.status !== "cancelado" &&
+        (!a.vence_em || new Date(a.vence_em) >= agora))
+      .map((a: any) => a.produto_id);
+  } catch (_e) {
+    // tabela ainda nao criada: nao trancar quem ja usava a Seller.IA
+    return ["seller_ia"];
+  }
+}
+
 Deno.serve(async (req) => {
   try {
     return await atender(req);
@@ -171,6 +192,10 @@ async function atender(req: Request): Promise<Response> {
         ilimitado: !!c?.ilimitado,
         plano_id: u.plano_id,
         admin: u.papel === "adm" || u.papel === "ceo",
+        /* QUAIS PRODUTOS ESTA PESSOA ASSINA. O painel usa isto para mostrar
+           so o que ela pode baixar: quem paga so o Radar nao ve o ZIP da
+           Seller.IA, e o que falta vira convite em vez de sumir. */
+        produtos: await produtosDe(db, u.id, u.papel),
       },
       aviso: derrubou ? `A sessao em ${derrubou} foi encerrada — cada acesso vale para uma maquina por vez.` : null,
     });
@@ -209,6 +234,10 @@ async function atender(req: Request): Promise<Response> {
         cota_mensal: c?.mensal ?? 1, cota_semanal: c?.semanal ?? 4,
         ilimitado: !!c?.ilimitado,
         admin: u.papel === "adm" || u.papel === "ceo",
+        /* QUAIS PRODUTOS ESTA PESSOA ASSINA. O painel usa isto para mostrar
+           so o que ela pode baixar: quem paga so o Radar nao ve o ZIP da
+           Seller.IA, e o que falta vira convite em vez de sumir. */
+        produtos: await produtosDe(db, u.id, u.papel),
       },
     });
   }
