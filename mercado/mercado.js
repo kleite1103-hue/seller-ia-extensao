@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.20.1';
+  var VERSAO = '1.21.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -359,6 +359,54 @@
   /* LOJA. A busca interna da loja devolve os itens no mesmo formato da
      busca geral, com o volume de venda junto. */
 
+
+  /* ============ SONDA DE CATEGORIA ============
+     A pergunta que precisa de resposta antes de construir qualquer coisa:
+     a busca da vitrine aceita filtrar por CATEGORIA em vez de palavra? Se
+     aceitar, da para varrer uma categoria inteira e o numero para de
+     oscilar, porque categoria e fixa e relevancia nao e.
+
+     Nao da para testar isso de fora: a Shopee exige uma assinatura que so
+     a propria pagina monta, e responde 403 a qualquer chamada externa. Por
+     isso a sonda roda aqui dentro, com a sessao da pessoa.
+
+     Chame no console: SIA_SONDA_CATEGORIA() */
+  window.SIA_SONDA_CATEGORIA = async function () {
+    var tentativas = [
+      { rot: 'match_id sem palavra', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_OTHERS&version=2&match_id=100636' },
+      { rot: 'catid sem palavra', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2&catid=100636' },
+      { rot: 'catid + PAGE_OTHERS', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_OTHERS&version=2&catid=100636' },
+      { rot: 'match_id + fe_categoryids', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_OTHERS&version=2&match_id=100636&fe_categoryids=100636' },
+      { rot: 'recommend_v2 por categoria', url: '/api/v4/recommend/recommend_v2?bundle=category_landing_page&cat_level=1&catid=100636&limit=10&offset=0' },
+      { rot: 'arvore de categorias', url: '/api/v4/pages/get_category_tree' }
+    ];
+
+    console.log('%c[Radar 360] sonda de categoria', 'font-weight:bold;color:#EE4D2D');
+    for (var i = 0; i < tentativas.length; i++) {
+      var tv = tentativas[i];
+      var r = await api(tv.url);
+      var d = (r && r.dados) || {};
+      var its = d.items || (d.data && d.data.items) ||
+        (d.data && d.data.sections && d.data.sections[0] && d.data.sections[0].data &&
+         d.data.sections[0].data.item) || [];
+      var comVenda = 0;
+      try {
+        for (var q = 0; q < its.length; q++) {
+          var x = traduzirItem(its[q]);
+          if (x.mes != null) comVenda++;
+        }
+      } catch (e) { }
+      console.log(
+        (its.length ? '  OK   ' : '  --   ') + tv.rot.padEnd(30),
+        '| erro=' + (d.error !== undefined ? d.error : '-'),
+        '| itens=' + its.length,
+        '| com venda=' + comVenda
+      );
+      await espera(400);
+    }
+    console.log('%c[Radar 360] fim da sonda', 'color:#EE4D2D');
+    console.log('Copie estas linhas e mande para o desenvolvimento.');
+  };
 
   /* ============ LEITURA DO NICHO ============ */
   /* As variacoes que a propria Shopee sugere para o termo. Buscar so a
