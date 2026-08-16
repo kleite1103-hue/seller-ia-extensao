@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.21.3';
+  var VERSAO = '1.21.4';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -391,74 +391,82 @@
 
      Chame no console: SIA_SONDA_CATEGORIA() */
   async function sondaCategoria() {
-    /* TERCEIRA RODADA. A primeira mostrou que categoria SOZINHA e recusada
-       (erro 36801302). A pergunta da Karina e outra e faz sentido: e com a
-       palavra JUNTO? A Shopee pode recusar o filtro isolado e aceitar como
-       refinamento de uma busca — que e como a propria vitrine funciona,
-       quando voce busca algo e clica numa categoria na lateral.
+    /* QUARTA RODADA. A terceira mostrou que catid FUNCIONA junto da palavra:
+       10% dos resultados mudaram, o que prova que a Shopee aplicou o filtro
+       em vez de ignorar. Mas 10% e pouco, e ha duas explicacoes opostas:
 
-       Se aceitar, resolve o problema que mais incomoda: "suporte controle"
-       para de trazer capa de controle e coisa de outra familia, porque a
-       categoria corta o que nao pertence. */
+       ou a categoria que usei ja era a certa daquele produto, e o filtro so
+       tirou os poucos intrusos — que seria o comportamento ideal;
+
+       ou o filtro e cosmetico e mexe pouco em qualquer caso.
+
+       Para separar as duas, testo a MESMA palavra contra uma categoria
+       obviamente errada. Se o resultado desabar, o filtro e real. Se mudar
+       10% de novo, ele nao serve para nada. */
     var TERMO = 'comedouro lento';
-    var CAT = 100636;   // uma categoria real, vinda das capturas
 
-    console.log('%c[Radar 360] sonda · rodada 3 · palavra + categoria', 'font-weight:bold;color:#EE4D2D');
-    console.log('  termo de teste: "' + TERMO + '"');
+    console.log('%c[Radar 360] sonda · rodada 4 · o filtro e real?', 'font-weight:bold;color:#EE4D2D');
+    console.log('  termo: "' + TERMO + '"');
 
-    var base = '/api/v4/search/search_items?by=relevancy&keyword=' +
-      encodeURIComponent(TERMO) + '&limit=30&newest=0&order=desc' +
-      '&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
-      '&view_session_id=' + sessaoDaBusca(TERMO);
+    function urlDe(cat) {
+      var u = '/api/v4/search/search_items?by=relevancy&keyword=' +
+        encodeURIComponent(TERMO) + '&limit=40&newest=0&order=desc' +
+        '&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
+        '&view_session_id=' + sessaoDaBusca(TERMO);
+      return cat ? u + '&catid=' + cat : u;
+    }
 
-    var testes = [
-      { rot: 'so a palavra (referencia)', url: base },
-      { rot: 'palavra + catid', url: base + '&catid=' + CAT },
-      { rot: 'palavra + match_id', url: base + '&match_id=' + CAT },
-      { rot: 'palavra + fe_categoryids', url: base + '&fe_categoryids=' + CAT },
-      { rot: 'palavra + facet catid', url: base + '&facet=' + encodeURIComponent('catid,' + CAT) },
-      { rot: 'palavra + filters catid', url: base + '&filters=' + encodeURIComponent(JSON.stringify({ catid: [CAT] })) }
-    ];
-
-    var refIds = null;
-    for (var i = 0; i < testes.length; i++) {
-      var tv = testes[i];
-      var r = await api(tv.url);
+    async function ler(cat) {
+      var r = await api(urlDe(cat));
       var dd = (r && r.dados) || {};
       var its = dd.items || (dd.data && dd.data.items) || [];
-      var comV = 0, ids = [];
+      var ids = [], nomes = [], cats = {};
       for (var q = 0; q < its.length; q++) {
         try {
           var x = traduzirItem(its[q]);
-          if (x.id) ids.push(String(x.id));
-          if (x.mes != null) comV++;
+          if (x.id) { ids.push(String(x.id)); nomes.push(x.nome); }
+          var c = its[q].item_data ? its[q].item_data.catid : (its[q].catid || (its[q].item_basic || {}).catid);
+          if (c) cats[c] = (cats[c] || 0) + 1;
         } catch (e) { }
       }
-      if (i === 0) refIds = ids;
-
-      // o filtro so vale se MUDAR o resultado: mesma lista significa
-      // que a Shopee aceitou o parametro e ignorou
-      var mudou = '-';
-      if (i > 0 && refIds && ids.length) {
-        var iguais = 0;
-        for (var z = 0; z < ids.length; z++) if (refIds.indexOf(ids[z]) >= 0) iguais++;
-        var pct = Math.round((iguais / ids.length) * 100);
-        mudou = pct === 100 ? 'IGUAL (ignorou)' : (100 - pct) + '% diferente';
-      }
-
-      console.log(
-        (its.length ? '  OK   ' : '  --   ') + tv.rot.padEnd(28),
-        '| erro=' + (dd.error !== undefined ? dd.error : '-'),
-        '| itens=' + its.length,
-        '| com venda=' + comV,
-        '| ' + mudou
-      );
-      await espera(500);
+      return { ids: ids, nomes: nomes, cats: cats, erro: dd.error };
     }
 
-    console.log('%c[Radar 360] fim da rodada 3', 'color:#EE4D2D');
-    console.log('O que importa: alguma linha com OK e "% diferente".');
-    console.log('IGUAL significa que a Shopee aceitou o parametro mas nao filtrou nada.');
+    // 1) sem filtro: de que categorias sao os resultados de verdade?
+    var base = await ler(null);
+    console.log('  sem filtro: ' + base.ids.length + ' itens');
+    var top = Object.keys(base.cats).sort(function (a, b) { return base.cats[b] - base.cats[a]; });
+    console.log('  categorias que aparecem:', top.slice(0, 5).map(function (c) {
+      return c + ' (' + base.cats[c] + ')';
+    }).join(', ') || 'a resposta nao traz catid');
+
+    await espera(600);
+
+    // 2) a categoria dominante dos proprios resultados
+    var certa = top[0];
+    if (certa) {
+      var comCerta = await ler(certa);
+      var iguais = comCerta.ids.filter(function (x) { return base.ids.indexOf(x) >= 0; }).length;
+      console.log('  com a categoria DOMINANTE (' + certa + '): ' + comCerta.ids.length + ' itens · ' +
+        (comCerta.ids.length ? Math.round((iguais / comCerta.ids.length) * 100) : 0) + '% eram os mesmos');
+      await espera(600);
+    }
+
+    // 3) uma categoria obviamente errada: roupa feminina
+    var erradas = [11059960, 100017, 11035567];
+    for (var e = 0; e < erradas.length; e++) {
+      var rr = await ler(erradas[e]);
+      var ig = rr.ids.filter(function (x) { return base.ids.indexOf(x) >= 0; }).length;
+      console.log('  com categoria ERRADA (' + erradas[e] + '): ' + rr.ids.length + ' itens · ' +
+        (rr.ids.length ? Math.round((ig / rr.ids.length) * 100) : 0) + '% eram os mesmos' +
+        (rr.erro !== undefined && rr.erro !== null && rr.erro !== 0 ? ' · erro=' + rr.erro : ''));
+      if (rr.nomes.length) console.log('      exemplo: ' + String(rr.nomes[0]).slice(0, 50));
+      await espera(600);
+    }
+
+    console.log('%c[Radar 360] fim da rodada 4', 'color:#EE4D2D');
+    console.log('Se a categoria ERRADA devolveu poucos itens ou itens diferentes,');
+    console.log('o filtro e real e da para construir a analise por categoria.');
   }
 
   /* ============ LEITURA DO NICHO ============ */
