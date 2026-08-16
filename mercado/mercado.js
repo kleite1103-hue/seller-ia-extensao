@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.21.1';
+  var VERSAO = '1.21.2';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -391,39 +391,59 @@
 
      Chame no console: SIA_SONDA_CATEGORIA() */
   async function sondaCategoria() {
-    var tentativas = [
-      { rot: 'match_id sem palavra', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_OTHERS&version=2&match_id=100636' },
-      { rot: 'catid sem palavra', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2&catid=100636' },
-      { rot: 'catid + PAGE_OTHERS', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_OTHERS&version=2&catid=100636' },
-      { rot: 'match_id + fe_categoryids', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_OTHERS&version=2&match_id=100636&fe_categoryids=100636' },
-      { rot: 'recommend_v2 por categoria', url: '/api/v4/recommend/recommend_v2?bundle=category_landing_page&cat_level=1&catid=100636&limit=10&offset=0' },
-      { rot: 'arvore de categorias', url: '/api/v4/pages/get_category_tree' }
-    ];
+    /* SEGUNDA RODADA. A primeira mostrou que a busca RECUSA filtro por
+       categoria (erro 36801302) e que a rota de recomendacao sumiu (404).
+       O unico caminho que respondeu foi a arvore de categorias.
 
-    console.log('%c[Radar 360] sonda de categoria', 'font-weight:bold;color:#EE4D2D');
-    for (var i = 0; i < tentativas.length; i++) {
-      var tv = tentativas[i];
-      var r = await api(tv.url);
-      var d = (r && r.dados) || {};
-      var its = d.items || (d.data && d.data.items) ||
-        (d.data && d.data.sections && d.data.sections[0] && d.data.sections[0].data &&
-         d.data.sections[0].data.item) || [];
-      var comVenda = 0;
-      try {
+       Entao a pergunta muda: a arvore da o NOME de cada categoria, e a
+       busca aceita palavra. Se buscar pelo nome da categoria trouxer os
+       produtos dela, da para varrer a arvore inteira — nao e filtro real,
+       e aproximacao, mas com uma vantagem: o conjunto de termos passa a
+       ser fixo e definido pela Shopee, em vez de escolhido a dedo. */
+    console.log('%c[Radar 360] sonda · rodada 2', 'font-weight:bold;color:#EE4D2D');
+
+    // 1) a arvore devolve o que?
+    var r = await api('/api/v4/pages/get_category_tree');
+    var d = (r && r.dados && (r.dados.data || r.dados)) || {};
+    var cats = d.category_list || d.categories || d.category_tree || [];
+    console.log('  arvore: ' + cats.length + ' categorias no topo');
+    if (cats.length) {
+      var c0 = cats[0] || {};
+      console.log('  campos de uma categoria:', Object.keys(c0).slice(0, 12).join(', '));
+      for (var i = 0; i < Math.min(5, cats.length); i++) {
+        var c = cats[i] || {};
+        var fi = c.children || c.sub_category || [];
+        console.log('    catid=' + c.catid + '  ' +
+          String(c.display_name || c.name || '?').slice(0, 30).padEnd(32) +
+          'filhos=' + fi.length);
+      }
+      // 2) buscar pelo NOME da categoria traz produtos com venda?
+      var nome = String(cats[0].display_name || cats[0].name || '');
+      if (nome) {
+        console.log('  testando busca pelo nome: "' + nome + '"');
+        var u = '/api/v4/search/search_items?by=relevancy&keyword=' +
+          encodeURIComponent(nome) + '&limit=20&newest=0&order=desc' +
+          '&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
+          '&view_session_id=' + sessaoDaBusca(nome);
+        var rb = await api(u);
+        var db2 = (rb && rb.dados) || {};
+        var its = db2.items || (db2.data && db2.data.items) || [];
+        var comV = 0, soma = 0;
         for (var q = 0; q < its.length; q++) {
-          var x = traduzirItem(its[q]);
-          if (x.mes != null) comVenda++;
+          try {
+            var x = traduzirItem(its[q]);
+            if (x.mes != null) { comV++; soma += (x.fatMes || 0); }
+          } catch (e) { }
         }
-      } catch (e) { }
-      console.log(
-        (its.length ? '  OK   ' : '  --   ') + tv.rot.padEnd(30),
-        '| erro=' + (d.error !== undefined ? d.error : '-'),
-        '| itens=' + its.length,
-        '| com venda=' + comVenda
-      );
-      await espera(400);
+        console.log('    itens=' + its.length + ' | com venda=' + comV +
+          ' | faturam ' + (soma ? 'R$ ' + Math.round(soma).toLocaleString('pt-BR') : '0'));
+      }
+    } else {
+      console.log('  a arvore veio vazia — os campos podem ter outro nome.');
+      console.log('  chaves da resposta:', Object.keys(d).slice(0, 10).join(', '));
     }
-    console.log('%c[Radar 360] fim da sonda', 'color:#EE4D2D');
+
+    console.log('%c[Radar 360] fim da rodada 2', 'color:#EE4D2D');
     console.log('Copie estas linhas e mande para o desenvolvimento.');
   }
 
