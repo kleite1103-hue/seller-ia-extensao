@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.21.2';
+  var VERSAO = '1.21.3';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -176,7 +176,7 @@
     h += '<div style="margin-top:26px;padding-top:18px;border-top:1px solid var(--bd5);text-align:center">' +
       '<button id="ac-sonda" style="background:none;border:1px solid var(--bd3);color:var(--tx5);' +
       'font-family:inherit;font-size:12px;padding:8px 16px;border-radius:11px;cursor:pointer">' +
-      (E.sondando ? 'Testando...' : 'Testar leitura por categoria') + '</button>' +
+      (E.sondando ? 'Testando...' : 'Testar filtro por categoria') + '</button>' +
       '<div style="font-size:11px;color:var(--tx6);margin-top:8px">' +
       'Abre o console (F12) e imprime o resultado.</div>';
     if (E.sondaFeita) {
@@ -391,60 +391,74 @@
 
      Chame no console: SIA_SONDA_CATEGORIA() */
   async function sondaCategoria() {
-    /* SEGUNDA RODADA. A primeira mostrou que a busca RECUSA filtro por
-       categoria (erro 36801302) e que a rota de recomendacao sumiu (404).
-       O unico caminho que respondeu foi a arvore de categorias.
+    /* TERCEIRA RODADA. A primeira mostrou que categoria SOZINHA e recusada
+       (erro 36801302). A pergunta da Karina e outra e faz sentido: e com a
+       palavra JUNTO? A Shopee pode recusar o filtro isolado e aceitar como
+       refinamento de uma busca — que e como a propria vitrine funciona,
+       quando voce busca algo e clica numa categoria na lateral.
 
-       Entao a pergunta muda: a arvore da o NOME de cada categoria, e a
-       busca aceita palavra. Se buscar pelo nome da categoria trouxer os
-       produtos dela, da para varrer a arvore inteira — nao e filtro real,
-       e aproximacao, mas com uma vantagem: o conjunto de termos passa a
-       ser fixo e definido pela Shopee, em vez de escolhido a dedo. */
-    console.log('%c[Radar 360] sonda · rodada 2', 'font-weight:bold;color:#EE4D2D');
+       Se aceitar, resolve o problema que mais incomoda: "suporte controle"
+       para de trazer capa de controle e coisa de outra familia, porque a
+       categoria corta o que nao pertence. */
+    var TERMO = 'comedouro lento';
+    var CAT = 100636;   // uma categoria real, vinda das capturas
 
-    // 1) a arvore devolve o que?
-    var r = await api('/api/v4/pages/get_category_tree');
-    var d = (r && r.dados && (r.dados.data || r.dados)) || {};
-    var cats = d.category_list || d.categories || d.category_tree || [];
-    console.log('  arvore: ' + cats.length + ' categorias no topo');
-    if (cats.length) {
-      var c0 = cats[0] || {};
-      console.log('  campos de uma categoria:', Object.keys(c0).slice(0, 12).join(', '));
-      for (var i = 0; i < Math.min(5, cats.length); i++) {
-        var c = cats[i] || {};
-        var fi = c.children || c.sub_category || [];
-        console.log('    catid=' + c.catid + '  ' +
-          String(c.display_name || c.name || '?').slice(0, 30).padEnd(32) +
-          'filhos=' + fi.length);
+    console.log('%c[Radar 360] sonda · rodada 3 · palavra + categoria', 'font-weight:bold;color:#EE4D2D');
+    console.log('  termo de teste: "' + TERMO + '"');
+
+    var base = '/api/v4/search/search_items?by=relevancy&keyword=' +
+      encodeURIComponent(TERMO) + '&limit=30&newest=0&order=desc' +
+      '&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
+      '&view_session_id=' + sessaoDaBusca(TERMO);
+
+    var testes = [
+      { rot: 'so a palavra (referencia)', url: base },
+      { rot: 'palavra + catid', url: base + '&catid=' + CAT },
+      { rot: 'palavra + match_id', url: base + '&match_id=' + CAT },
+      { rot: 'palavra + fe_categoryids', url: base + '&fe_categoryids=' + CAT },
+      { rot: 'palavra + facet catid', url: base + '&facet=' + encodeURIComponent('catid,' + CAT) },
+      { rot: 'palavra + filters catid', url: base + '&filters=' + encodeURIComponent(JSON.stringify({ catid: [CAT] })) }
+    ];
+
+    var refIds = null;
+    for (var i = 0; i < testes.length; i++) {
+      var tv = testes[i];
+      var r = await api(tv.url);
+      var dd = (r && r.dados) || {};
+      var its = dd.items || (dd.data && dd.data.items) || [];
+      var comV = 0, ids = [];
+      for (var q = 0; q < its.length; q++) {
+        try {
+          var x = traduzirItem(its[q]);
+          if (x.id) ids.push(String(x.id));
+          if (x.mes != null) comV++;
+        } catch (e) { }
       }
-      // 2) buscar pelo NOME da categoria traz produtos com venda?
-      var nome = String(cats[0].display_name || cats[0].name || '');
-      if (nome) {
-        console.log('  testando busca pelo nome: "' + nome + '"');
-        var u = '/api/v4/search/search_items?by=relevancy&keyword=' +
-          encodeURIComponent(nome) + '&limit=20&newest=0&order=desc' +
-          '&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
-          '&view_session_id=' + sessaoDaBusca(nome);
-        var rb = await api(u);
-        var db2 = (rb && rb.dados) || {};
-        var its = db2.items || (db2.data && db2.data.items) || [];
-        var comV = 0, soma = 0;
-        for (var q = 0; q < its.length; q++) {
-          try {
-            var x = traduzirItem(its[q]);
-            if (x.mes != null) { comV++; soma += (x.fatMes || 0); }
-          } catch (e) { }
-        }
-        console.log('    itens=' + its.length + ' | com venda=' + comV +
-          ' | faturam ' + (soma ? 'R$ ' + Math.round(soma).toLocaleString('pt-BR') : '0'));
+      if (i === 0) refIds = ids;
+
+      // o filtro so vale se MUDAR o resultado: mesma lista significa
+      // que a Shopee aceitou o parametro e ignorou
+      var mudou = '-';
+      if (i > 0 && refIds && ids.length) {
+        var iguais = 0;
+        for (var z = 0; z < ids.length; z++) if (refIds.indexOf(ids[z]) >= 0) iguais++;
+        var pct = Math.round((iguais / ids.length) * 100);
+        mudou = pct === 100 ? 'IGUAL (ignorou)' : (100 - pct) + '% diferente';
       }
-    } else {
-      console.log('  a arvore veio vazia — os campos podem ter outro nome.');
-      console.log('  chaves da resposta:', Object.keys(d).slice(0, 10).join(', '));
+
+      console.log(
+        (its.length ? '  OK   ' : '  --   ') + tv.rot.padEnd(28),
+        '| erro=' + (dd.error !== undefined ? dd.error : '-'),
+        '| itens=' + its.length,
+        '| com venda=' + comV,
+        '| ' + mudou
+      );
+      await espera(500);
     }
 
-    console.log('%c[Radar 360] fim da rodada 2', 'color:#EE4D2D');
-    console.log('Copie estas linhas e mande para o desenvolvimento.');
+    console.log('%c[Radar 360] fim da rodada 3', 'color:#EE4D2D');
+    console.log('O que importa: alguma linha com OK e "% diferente".');
+    console.log('IGUAL significa que a Shopee aceitou o parametro mas nao filtrou nada.');
   }
 
   /* ============ LEITURA DO NICHO ============ */
