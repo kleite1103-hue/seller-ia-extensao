@@ -160,11 +160,18 @@ Deno.serve(async (req) => {
     // ---------- WEBHOOK DO CHECKOUT ----------
     // Chamado pela plataforma de pagamento. Cria o usuario se nao existir e
     // liga a assinatura do produto certo pelo codigo da oferta.
-    if (acao === "webhook") {
+    /* ---------- WEBHOOK DA HOTMART ----------
+       Aceita tanto o formato da Hotmart quanto uma chamada simples com
+       email e evento, para dar para liberar na mao quando precisar.
+
+       A Hotmart NAO manda {email, evento}: ela manda o comprador dentro de
+       data.buyer e o tipo em event, com nomes como PURCHASE_APPROVED. Ler
+       body.email direto funcionaria no meu teste e falharia em toda compra
+       real — foi assim que a Seller.IA ja aprendeu. */
+    if (acao === "webhook" || acao === "hotmart" || req.headers.get("x-hotmart-hottok")) {
       /* VALIDA A ORIGEM ANTES DE QUALQUER COISA. Sem isto, qualquer pessoa
          que soubesse o endereco liberava acesso para o email que quisesse —
          testei e um email inventado entrou no Radar sem compra nenhuma.
-         A Seller.IA ja usava o hottok; o Radar tinha ficado sem.
 
          Enquanto o segredo nao estiver configurado, o webhook fica FECHADO
          em vez de aberto: liberar por engano custa mais que recusar. */
@@ -177,39 +184,70 @@ Deno.serve(async (req) => {
         return json({ ok: false, erro: "origem nao reconhecida" }, 401);
       }
 
-      const email = String(body.email || "").trim().toLowerCase();
-      const oferta = String(body.codigo_oferta || "");
-      const evento = String(body.evento || "compra");   // compra | cancelamento
-      if (!email) return json({ ok: false, erro: "sem email" }, 400);
+      const d = body.data || body;
+      const comprador = d.buyer || d.subscriber || {};
+      const email = String(comprador.email || d.email || body.email || "").trim().toLowerCase();
+      const nome = comprador.name || d.name || null;
+      const evt = String(body.event || d.event || body.evento || "").toUpperCase();
 
+      // o codigo da oferta diz QUAL produto foi comprado
+      const oferta = String(
+        d.purchase?.offer?.code || d.offer?.code ||
+        body.codigo_oferta || body.oferta || ""
+      );
+
+      if (!email) return json({ ok: false, erro: "webhook sem email" }, 400);
+
+      const LIBERA = ["PURCHASE_APPROVED", "PURCHASE_COMPLETE",
+        "SUBSCRIPTION_REACTIVATION", "PURCHASE_PROTEST_REVERSED", "COMPRA"];
+      const SUSPENDE = ["PURCHASE_REFUNDED", "PURCHASE_CHARGEBACK",
+        "PURCHASE_CANCELED", "SUBSCRIPTION_CANCELLATION", "CANCELAMENTO"];
+
+      // evento que nao libera nem suspende (boleto impresso, compra atrasada)
+      if (evt && LIBERA.indexOf(evt) < 0 && SUSPENDE.indexOf(evt) < 0) {
+        return json({ ok: true, acao: "ignorado", evento: evt });
+      }
+
+      /* A OFERTA DECIDE O PRODUTO. Sem ela cadastrada, nao da para saber se
+         a compra foi do Radar ou da Seller.IA — e chutar liberaria o produto
+         errado, que e pior que nao liberar. */
       const { data: of } = await db.from("sia_ofertas")
-        .select("produto_id, plano_id, meses").eq("codigo", oferta).eq("ativo", true).maybeSingle();
+        .select("produto_id, meses").eq("codigo", oferta).eq("ativo", true).maybeSingle();
+
+      if (!of && oferta) {
+        return json({
+          ok: false,
+          erro: "oferta nao cadastrada: " + oferta,
+          dica: "cadastre em sia_ofertas dizendo a que produto ela corresponde",
+        }, 400);
+      }
       const produto = of?.produto_id || PRODUTO;
       const meses = of?.meses || 1;
 
       let { data: u } = await db.from("sia_usuarios").select("id").eq("email", email).maybeSingle();
       if (!u) {
         const { data: novo } = await db.from("sia_usuarios")
-          .insert({ email, papel: "usuario", status: "ativo" }).select("id").maybeSingle();
+          .insert({ email, nome, papel: "usuario", status: "ativo", origem: "hotmart" })
+          .select("id").maybeSingle();
         u = novo;
       }
       if (!u) return json({ ok: false, erro: "nao consegui criar o usuario" }, 500);
 
-      if (evento === "cancelamento") {
+      if (SUSPENDE.indexOf(evt) >= 0) {
         await db.from("sia_assinaturas")
           .update({ status: "cancelado", atualizado_em: new Date().toISOString() })
           .eq("usuario_id", u.id).eq("produto_id", produto);
-        return json({ ok: true, acao: "cancelado" });
+        return json({ ok: true, acao: "cancelado", produto, evento: evt });
       }
 
       const vence = new Date(Date.now() + meses * 30 * 24 * 3600 * 1000).toISOString();
       await db.from("sia_assinaturas").upsert({
         usuario_id: u.id, produto_id: produto, status: "ativo",
-        vence_em: vence, origem: "checkout", codigo_oferta: oferta,
+        vence_em: vence, origem: "hotmart", codigo_oferta: oferta || null,
         atualizado_em: new Date().toISOString(),
       }, { onConflict: "usuario_id,produto_id" });
 
-      return json({ ok: true, acao: "liberado", produto, vence_em: vence });
+      return json({ ok: true, acao: "liberado", produto, vence_em: vence, evento: evt });
     }
 
     return json({ ok: false, erro: "acao desconhecida", acoes: ["entrar", "validar", "sair", "webhook"] }, 400);
