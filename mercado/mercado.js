@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.21.0';
+  var VERSAO = '1.21.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -25,7 +25,7 @@
     paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
-    gravando: false,
+    gravando: false, sondando: false, sondaFeita: false,
     // a portaria
     acesso: { checando: true, liberado: false, entrando: false, token: null,
       usuario: null, erro: null, motivo: null, venceEm: null, offline: false, emailDigitado: '' }
@@ -167,6 +167,25 @@
 
     h += '<div class="aviso" style="font-size:12px">Seu acesso vale para uma maquina por vez. ' +
       'Se entrar em outra, esta e encerrada.</div>';
+
+    /* A SONDA FICA AQUI, antes do login. O mercado.js roda em mundo
+       isolado, entao chamar a funcao pelo console da pagina nao funciona —
+       o console nao enxerga o que vive nesse mundo. Botao resolve, e fica
+       acessivel mesmo para quem ainda nao tem assinatura, que e exatamente
+       o caso de quem precisa rodar o teste. */
+    h += '<div style="margin-top:26px;padding-top:18px;border-top:1px solid var(--bd5);text-align:center">' +
+      '<button id="ac-sonda" style="background:none;border:1px solid var(--bd3);color:var(--tx5);' +
+      'font-family:inherit;font-size:12px;padding:8px 16px;border-radius:11px;cursor:pointer">' +
+      (E.sondando ? 'Testando...' : 'Testar leitura por categoria') + '</button>' +
+      '<div style="font-size:11px;color:var(--tx6);margin-top:8px">' +
+      'Abre o console (F12) e imprime o resultado.</div>';
+    if (E.sondaFeita) {
+      h += '<div style="font-size:12px;color:var(--tx4);margin-top:10px;line-height:1.5">' +
+        'Pronto. Abra o console com <b>F12</b>, copie as linhas que comecam com ' +
+        '<b>[Radar 360]</b> e mande para o desenvolvimento.</div>';
+    }
+    h += '</div>';
+
     h += '</div>';
     return h;
   }
@@ -371,7 +390,7 @@
      isso a sonda roda aqui dentro, com a sessao da pessoa.
 
      Chame no console: SIA_SONDA_CATEGORIA() */
-  window.SIA_SONDA_CATEGORIA = async function () {
+  async function sondaCategoria() {
     var tentativas = [
       { rot: 'match_id sem palavra', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_OTHERS&version=2&match_id=100636' },
       { rot: 'catid sem palavra', url: '/api/v4/search/search_items?by=pop&limit=10&newest=0&order=desc&page_type=search&scenario=PAGE_CATEGORY&version=2&catid=100636' },
@@ -406,7 +425,7 @@
     }
     console.log('%c[Radar 360] fim da sonda', 'color:#EE4D2D');
     console.log('Copie estas linhas e mande para o desenvolvimento.');
-  };
+  }
 
   /* ============ LEITURA DO NICHO ============ */
   /* As variacoes que a propria Shopee sugere para o termo. Buscar so a
@@ -2388,6 +2407,16 @@
   }
 
   function ligarPortaria() {
+    var sd = $('ac-sonda');
+    if (sd) sd.addEventListener('click', function () {
+      if (E.sondando) return;
+      E.sondando = true; desenhar();
+      sondaCategoria().then(function () {
+        E.sondando = false; E.sondaFeita = true; desenhar();
+      }).catch(function () {
+        E.sondando = false; E.sondaFeita = true; desenhar();
+      });
+    });
     var b = $('ac-entrar');
     if (b) b.addEventListener('click', entrar);
     var campo = $('ac-email');
