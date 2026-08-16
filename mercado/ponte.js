@@ -10,6 +10,63 @@
 (function () {
   'use strict';
 
+  /* ============ ESCUTA O SHOPID ============
+     O problema de sempre foi traduzir o nome da loja em id: nenhuma rota
+     da Shopee faz isso de forma confiavel, e eu tentei tres.
+
+     Mas quando a pessoa ABRE a pagina da loja, a propria Shopee faz varias
+     chamadas com o shopid dentro — get_shop_seo, is_show, get_categories,
+     search_items. Nao precisamos perguntar o id a ninguem: basta escutar o
+     que a pagina ja pede.
+
+     Isto e o mesmo principio da Seller.IA: nao fabricamos chamada, so
+     ouvimos a conversa que ja acontece. */
+  var SIA_LOJA_VISTA = null;
+
+  function anotarLoja(url) {
+    try {
+      var s = String(url || '');
+      if (s.indexOf('shopee.com.br') < 0 && s.charAt(0) !== '/') return;
+      var m = s.match(/[?&]shopid=(\d{6,12})/) || s.match(/[?&]shop_id=(\d{6,12})/);
+      if (!m) return;
+      var id = m[1];
+      // ids de 11+ digitos sao de produto, nao de loja
+      if (id.length > 10) return;
+      if (SIA_LOJA_VISTA === id) return;
+      SIA_LOJA_VISTA = id;
+      window.dispatchEvent(new CustomEvent('SIA_MK_LOJA', {
+        detail: JSON.stringify({ shopid: id, url: location.href })
+      }));
+    } catch (e) { /* noop */ }
+  }
+
+  // fetch
+  try {
+    var _fetch = window.fetch;
+    window.fetch = function (entrada, opcoes) {
+      try { anotarLoja(typeof entrada === 'string' ? entrada : (entrada && entrada.url)); } catch (e) { }
+      return _fetch.apply(this, arguments);
+    };
+  } catch (e) { /* noop */ }
+
+  // XHR: a Shopee usa os dois
+  try {
+    var _open = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (metodo, url) {
+      try { anotarLoja(url); } catch (e) { }
+      return _open.apply(this, arguments);
+    };
+  } catch (e) { /* noop */ }
+
+  // quando o painel pergunta "que loja e esta?"
+  window.addEventListener('SIA_MK_QUAL_LOJA', function () {
+    window.dispatchEvent(new CustomEvent('SIA_MK_LOJA', {
+      detail: JSON.stringify({ shopid: SIA_LOJA_VISTA, url: location.href })
+    }));
+  });
+
+
+
   window.addEventListener('SIA_MK_PEDE', function (ev) {
     var p;
     try { p = JSON.parse(ev.detail); } catch (e) { return; }
