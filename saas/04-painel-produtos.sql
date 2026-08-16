@@ -16,7 +16,6 @@
 drop view if exists sia_painel_usuarios;
 
 create view sia_painel_usuarios as
-create view sia_painel_usuarios as
 select
   u.id, u.email, u.nome, u.papel, pa.rotulo as papel_rotulo,
   u.status, u.origem, u.plano, u.plano_id, pl.nome as plano_nome,
