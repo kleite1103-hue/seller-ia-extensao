@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.21.4';
+  var VERSAO = '1.22.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -25,7 +25,7 @@
     paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
-    gravando: false, sondando: false, sondaFeita: false,
+    gravando: false,
     // a portaria
     acesso: { checando: true, liberado: false, entrando: false, token: null,
       usuario: null, erro: null, motivo: null, venceEm: null, offline: false, emailDigitado: '' }
@@ -167,24 +167,6 @@
 
     h += '<div class="aviso" style="font-size:12px">Seu acesso vale para uma maquina por vez. ' +
       'Se entrar em outra, esta e encerrada.</div>';
-
-    /* A SONDA FICA AQUI, antes do login. O mercado.js roda em mundo
-       isolado, entao chamar a funcao pelo console da pagina nao funciona —
-       o console nao enxerga o que vive nesse mundo. Botao resolve, e fica
-       acessivel mesmo para quem ainda nao tem assinatura, que e exatamente
-       o caso de quem precisa rodar o teste. */
-    h += '<div style="margin-top:26px;padding-top:18px;border-top:1px solid var(--bd5);text-align:center">' +
-      '<button id="ac-sonda" style="background:none;border:1px solid var(--bd3);color:var(--tx5);' +
-      'font-family:inherit;font-size:12px;padding:8px 16px;border-radius:11px;cursor:pointer">' +
-      (E.sondando ? 'Testando...' : 'Testar filtro por categoria') + '</button>' +
-      '<div style="font-size:11px;color:var(--tx6);margin-top:8px">' +
-      'Abre o console (F12) e imprime o resultado.</div>';
-    if (E.sondaFeita) {
-      h += '<div style="font-size:12px;color:var(--tx4);margin-top:10px;line-height:1.5">' +
-        'Pronto. Abra o console com <b>F12</b>, copie as linhas que comecam com ' +
-        '<b>[Radar 360]</b> e mande para o desenvolvimento.</div>';
-    }
-    h += '</div>';
 
     h += '</div>';
     return h;
@@ -379,95 +361,7 @@
      busca geral, com o volume de venda junto. */
 
 
-  /* ============ SONDA DE CATEGORIA ============
-     A pergunta que precisa de resposta antes de construir qualquer coisa:
-     a busca da vitrine aceita filtrar por CATEGORIA em vez de palavra? Se
-     aceitar, da para varrer uma categoria inteira e o numero para de
-     oscilar, porque categoria e fixa e relevancia nao e.
 
-     Nao da para testar isso de fora: a Shopee exige uma assinatura que so
-     a propria pagina monta, e responde 403 a qualquer chamada externa. Por
-     isso a sonda roda aqui dentro, com a sessao da pessoa.
-
-     Chame no console: SIA_SONDA_CATEGORIA() */
-  async function sondaCategoria() {
-    /* QUARTA RODADA. A terceira mostrou que catid FUNCIONA junto da palavra:
-       10% dos resultados mudaram, o que prova que a Shopee aplicou o filtro
-       em vez de ignorar. Mas 10% e pouco, e ha duas explicacoes opostas:
-
-       ou a categoria que usei ja era a certa daquele produto, e o filtro so
-       tirou os poucos intrusos — que seria o comportamento ideal;
-
-       ou o filtro e cosmetico e mexe pouco em qualquer caso.
-
-       Para separar as duas, testo a MESMA palavra contra uma categoria
-       obviamente errada. Se o resultado desabar, o filtro e real. Se mudar
-       10% de novo, ele nao serve para nada. */
-    var TERMO = 'comedouro lento';
-
-    console.log('%c[Radar 360] sonda · rodada 4 · o filtro e real?', 'font-weight:bold;color:#EE4D2D');
-    console.log('  termo: "' + TERMO + '"');
-
-    function urlDe(cat) {
-      var u = '/api/v4/search/search_items?by=relevancy&keyword=' +
-        encodeURIComponent(TERMO) + '&limit=40&newest=0&order=desc' +
-        '&page_type=search&scenario=PAGE_GLOBAL_SEARCH&version=2&source=SRP' +
-        '&view_session_id=' + sessaoDaBusca(TERMO);
-      return cat ? u + '&catid=' + cat : u;
-    }
-
-    async function ler(cat) {
-      var r = await api(urlDe(cat));
-      var dd = (r && r.dados) || {};
-      var its = dd.items || (dd.data && dd.data.items) || [];
-      var ids = [], nomes = [], cats = {};
-      for (var q = 0; q < its.length; q++) {
-        try {
-          var x = traduzirItem(its[q]);
-          if (x.id) { ids.push(String(x.id)); nomes.push(x.nome); }
-          var c = its[q].item_data ? its[q].item_data.catid : (its[q].catid || (its[q].item_basic || {}).catid);
-          if (c) cats[c] = (cats[c] || 0) + 1;
-        } catch (e) { }
-      }
-      return { ids: ids, nomes: nomes, cats: cats, erro: dd.error };
-    }
-
-    // 1) sem filtro: de que categorias sao os resultados de verdade?
-    var base = await ler(null);
-    console.log('  sem filtro: ' + base.ids.length + ' itens');
-    var top = Object.keys(base.cats).sort(function (a, b) { return base.cats[b] - base.cats[a]; });
-    console.log('  categorias que aparecem:', top.slice(0, 5).map(function (c) {
-      return c + ' (' + base.cats[c] + ')';
-    }).join(', ') || 'a resposta nao traz catid');
-
-    await espera(600);
-
-    // 2) a categoria dominante dos proprios resultados
-    var certa = top[0];
-    if (certa) {
-      var comCerta = await ler(certa);
-      var iguais = comCerta.ids.filter(function (x) { return base.ids.indexOf(x) >= 0; }).length;
-      console.log('  com a categoria DOMINANTE (' + certa + '): ' + comCerta.ids.length + ' itens · ' +
-        (comCerta.ids.length ? Math.round((iguais / comCerta.ids.length) * 100) : 0) + '% eram os mesmos');
-      await espera(600);
-    }
-
-    // 3) uma categoria obviamente errada: roupa feminina
-    var erradas = [11059960, 100017, 11035567];
-    for (var e = 0; e < erradas.length; e++) {
-      var rr = await ler(erradas[e]);
-      var ig = rr.ids.filter(function (x) { return base.ids.indexOf(x) >= 0; }).length;
-      console.log('  com categoria ERRADA (' + erradas[e] + '): ' + rr.ids.length + ' itens · ' +
-        (rr.ids.length ? Math.round((ig / rr.ids.length) * 100) : 0) + '% eram os mesmos' +
-        (rr.erro !== undefined && rr.erro !== null && rr.erro !== 0 ? ' · erro=' + rr.erro : ''));
-      if (rr.nomes.length) console.log('      exemplo: ' + String(rr.nomes[0]).slice(0, 50));
-      await espera(600);
-    }
-
-    console.log('%c[Radar 360] fim da rodada 4', 'color:#EE4D2D');
-    console.log('Se a categoria ERRADA devolveu poucos itens ou itens diferentes,');
-    console.log('o filtro e real e da para construir a analise por categoria.');
-  }
 
   /* ============ LEITURA DO NICHO ============ */
   /* As variacoes que a propria Shopee sugere para o termo. Buscar so a
@@ -2449,16 +2343,6 @@
   }
 
   function ligarPortaria() {
-    var sd = $('ac-sonda');
-    if (sd) sd.addEventListener('click', function () {
-      if (E.sondando) return;
-      E.sondando = true; desenhar();
-      sondaCategoria().then(function () {
-        E.sondando = false; E.sondaFeita = true; desenhar();
-      }).catch(function () {
-        E.sondando = false; E.sondaFeita = true; desenhar();
-      });
-    });
     var b = $('ac-entrar');
     if (b) b.addEventListener('click', entrar);
     var campo = $('ac-email');
