@@ -161,6 +161,22 @@ Deno.serve(async (req) => {
     // Chamado pela plataforma de pagamento. Cria o usuario se nao existir e
     // liga a assinatura do produto certo pelo codigo da oferta.
     if (acao === "webhook") {
+      /* VALIDA A ORIGEM ANTES DE QUALQUER COISA. Sem isto, qualquer pessoa
+         que soubesse o endereco liberava acesso para o email que quisesse —
+         testei e um email inventado entrou no Radar sem compra nenhuma.
+         A Seller.IA ja usava o hottok; o Radar tinha ficado sem.
+
+         Enquanto o segredo nao estiver configurado, o webhook fica FECHADO
+         em vez de aberto: liberar por engano custa mais que recusar. */
+      const segredo = Deno.env.get("HOTMART_HOTTOK");
+      const veio = req.headers.get("x-hotmart-hottok") || body.hottok;
+      if (!segredo) {
+        return json({ ok: false, erro: "webhook sem segredo configurado" }, 503);
+      }
+      if (veio !== segredo) {
+        return json({ ok: false, erro: "origem nao reconhecida" }, 401);
+      }
+
       const email = String(body.email || "").trim().toLowerCase();
       const oferta = String(body.codigo_oferta || "");
       const evento = String(body.evento || "compra");   // compra | cancelamento
