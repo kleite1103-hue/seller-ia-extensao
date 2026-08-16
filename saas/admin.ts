@@ -164,6 +164,39 @@ async function atender(req: Request): Promise<Response> {
     return json({ ok: true });
   }
 
+  /* ---------- LIGAR E DESLIGAR PRODUTO ----------
+     Antes so dava para liberar o Radar rodando SQL na mao, o que e um
+     convite ao erro: um email digitado errado libera a pessoa errada e
+     ninguem percebe. Aqui a acao registra quem mexeu e quando. */
+  if (acao === "assinatura") {
+    const usuarioId = String(body.usuario_id || "");
+    const produto = String(body.produto || "");
+    const ligar = body.ligar !== false;
+    const meses = parseInt(body.meses, 10) || 12;
+
+    if (!usuarioId || !produto) {
+      return json({ ok: false, erro: "faltam usuario_id e produto" }, 400);
+    }
+
+    if (!ligar) {
+      await db.from("sia_assinaturas")
+        .update({ status: "cancelado", atualizado_em: new Date().toISOString() })
+        .eq("usuario_id", usuarioId).eq("produto_id", produto);
+      await registrar("assinatura_cancelada", { usuario: usuarioId, produto });
+      return json({ ok: true, estado: "cancelado" });
+    }
+
+    const vence = new Date(Date.now() + meses * 30 * 24 * 3600 * 1000).toISOString();
+    await db.from("sia_assinaturas").upsert({
+      usuario_id: usuarioId, produto_id: produto, status: "ativo",
+      vence_em: vence, origem: "painel",
+      atualizado_em: new Date().toISOString(),
+    }, { onConflict: "usuario_id,produto_id" });
+
+    await registrar("assinatura_liberada", { usuario: usuarioId, produto, meses });
+    return json({ ok: true, estado: "ativo", vence_em: vence });
+  }
+
   // ---------- DERRUBAR SESSAO ----------
   if (acao === "derrubar") {
     await db.from("sia_sessoes").update({ encerrada_em: new Date().toISOString(), motivo_fim: "revogada" })

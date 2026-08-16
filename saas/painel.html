@@ -251,7 +251,7 @@ function viewUsuarios(){
   var h = '<div class="painel"><h2>'+us.length+' usuarios</h2>' +
     '<div class="sub">Clique em qualquer linha para ver o detalhe e editar</div>' +
     '<input id="busca" placeholder="filtrar por email, nome ou papel" oninput="filtrar()" style="margin-bottom:14px">' +
-    '<table id="tab-us"><tr><th>PESSOA</th><th>PLANO</th><th>STATUS</th><th class="num">LOJAS</th>' +
+    '<table id="tab-us"><tr><th>PESSOA</th><th>PLANO</th><th>PRODUTOS</th><th>STATUS</th><th class="num">LOJAS</th>' +
     '<th class="num">COTA</th><th>DISPOSITIVO</th><th>ULTIMO ACESSO</th><th></th></tr>';
   us.forEach(function(u){
     var cotaM = u.cota_mensal < 0 ? '∞' : (u.usou_mensal + '/' + u.cota_mensal);
@@ -262,6 +262,13 @@ function viewUsuarios(){
       (u.cota_manual?' <span class="pill" style="color:var(--px);border-color:var(--px)">cota manual</span>':'') +
       '<br><span style="color:var(--t3);font-size:12.5px">'+esc(u.email)+'</span></td>' +
       '<td><span class="pill '+(u.papel==='adm'||u.papel==='ceo'?'p-adm':'')+'">'+esc(u.plano_nome||u.papel_rotulo)+'</span></td>' +
+      /* OS PRODUTOS, com o clique que liga e desliga. Liberar o Radar
+         exigia rodar SQL na mao, e email digitado errado libera a pessoa
+         errada sem ninguem perceber. Aqui fica registrado quem mexeu. */
+      '<td style="white-space:nowrap">' +
+        pilulaProduto(u, 'seller_ia', u.tem_seller_ia, 'S.IA') +
+        ' ' + pilulaProduto(u, 'radar360', u.tem_radar360, 'Radar') +
+      '</td>' +
       '<td><span class="pill p-'+esc(u.status)+'">'+esc(u.status)+'</span>' +
       (u.dias_para_vencer!=null && u.dias_para_vencer<=7 && u.dias_para_vencer>=0 ? '<br><span style="color:var(--am);font-size:12px">vence em '+u.dias_para_vencer+'d</span>':'') + '</td>' +
       '<td class="num" style="'+(u.limite_lojas>=0 && u.lojas_usadas>=u.limite_lojas?'color:var(--am);font-weight:700':'')+'">'+
@@ -349,6 +356,34 @@ function viewCotas(){
   });
   return h + '</table><div id="c-msg" style="margin-top:12px"></div></div>';
 }
+/* Uma pilula por produto: verde quando ativo, apagada quando nao. Clicar
+   troca o estado. Equipe nao tem botao, porque entra por papel e mexer na
+   assinatura dela nao mudaria nada. */
+function pilulaProduto(u, id, ativo, rotulo){
+  var equipe = (u.papel==='adm'||u.papel==='ceo'||u.papel==='consultor');
+  if (equipe) {
+    return '<span class="pill" style="opacity:.5" title="entra por ser da equipe">'+rotulo+'</span>';
+  }
+  var cor = ativo ? 'color:var(--vd);border-color:var(--vd)' : 'color:var(--t3);border-color:var(--li);opacity:.55';
+  var dica = ativo ? 'ativo · clique para cancelar' : 'sem acesso · clique para liberar';
+  return '<span class="pill" style="'+cor+';cursor:pointer" title="'+dica+'" ' +
+    'onclick="event.stopPropagation();trocarProduto(\''+u.id+'\',\''+id+'\','+(ativo?'false':'true')+')">' +
+    rotulo + (ativo?'':' +') + '</span>';
+}
+
+function trocarProduto(usuarioId, produto, ligar){
+  var nome = produto==='radar360' ? 'Radar 360' : 'Seller.IA';
+  var msg = ligar
+    ? 'Liberar o '+nome+' para esta pessoa por 12 meses?'
+    : 'Cancelar o acesso dela ao '+nome+'?';
+  if (!confirm(msg)) return;
+  api('admin',{acao:'assinatura', token:TOKEN, usuario_id:usuarioId,
+    produto:produto, ligar:ligar, meses:12}).then(function(r){
+    if (!r.ok) { alert(r.erro || 'Nao consegui alterar.'); return; }
+    carregar();
+  });
+}
+
 function salvarPapel(p){
   api('admin',{acao:'papel', token:TOKEN, papel:p,
     cota_mensal:v('c-m-'+p), cota_semanal:v('c-s-'+p)}).then(function(r){
