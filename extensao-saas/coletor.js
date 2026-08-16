@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.25.4-saas';
+  var VERSAO = '1.26.0-saas';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -8524,6 +8524,8 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     } catch (e) { }
 
     var payload = {
+      // o servidor agora exige a sessao: sem isto o relatorio volta 401
+      token: estado.acessoToken,
       loja: estado.loja ? estado.loja.shop_id : null,
       loja_nome: estado.loja ? estado.loja.nome : null,
       margemMediaPct: margemMediaCofre(),
@@ -8986,6 +8988,8 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
 
           estado.rel.etapa = 'O consultor esta escrevendo...'; salvarAndamento(); render();
           var payload = {
+            // o servidor exige a sessao: sem isto o relatorio volta 401
+            token: estado.acessoToken,
             equalizado: estado.rel.equalizado || null,
             loja: estado.loja ? estado.loja.shop_id : 'desconhecida',
             loja_nome: estado.loja ? estado.loja.nome : '',

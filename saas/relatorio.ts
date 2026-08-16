@@ -1,0 +1,499 @@
+// ============================================================
+// SELLER.IA · GERADOR DE RELATORIO
+// Supabase Edge Function · Deno
+// ============================================================
+// A extensao manda os numeros dos dois periodos e recebe o relatorio
+// pronto. O PROMPT NAO VIVE AQUI: ele mora na tabela `conhecimento`,
+// dominio 'prompt', chave 'relatorio'. Assim a Karina reescreve o metodo
+// sem deploy — e ele nunca chega ao navegador do cliente.
+//
+// A chave da Anthropic vive nas secrets da funcao. Nunca na extensao.
+// ============================================================
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const CODE_VERSION = "relatorio-2.0.0";
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+    },
+  });
+}
+
+const n = (v: unknown) => (typeof v === "number" && isFinite(v) ? v : null);
+const br = (v: unknown) => (n(v) === null ? "nao disponivel" : "R$ " + Number(v).toFixed(2).replace(".", ","));
+const pc = (v: unknown) => (n(v) === null ? "nao disponivel" : Number(v).toFixed(2).replace(".", ",") + "%");
+const nu = (v: unknown) => (n(v) === null ? "nao disponivel" : Number(v).toLocaleString("pt-BR"));
+
+function variacao(atual: unknown, ant: unknown) {
+  const a = n(atual), b = n(ant);
+  if (a === null || b === null || b === 0) return "nao disponivel";
+  const d = ((a - b) / Math.abs(b)) * 100;
+  return (d >= 0 ? "+" : "") + d.toFixed(2).replace(".", ",") + "%";
+}
+
+/* ---------- monta o texto compacto que sobe para o modelo ----------
+   Nunca subir o payload cru: sao dezenas de milhares de tokens de ruido
+   e o custo por relatorio explode quando forem 251 contas. Aqui viram
+   umas poucas dezenas de numeros ja rotulados. */
+function montarDados(b: any) {
+  const A = b.atual || {}, P = b.anterior || {};
+  const cA = A.conta || {}, cP = P.conta || {};
+  const aA = A.ads || {}, aP = P.ads || {};
+  const fA = A.afiliados || {}, fP = P.afiliados || {};
+
+  const linha = (rot: string, va: unknown, vp: unknown, fmt: (x: unknown) => string) =>
+    `${rot}: atual ${fmt(va)} | anterior ${fmt(vp)} | variacao ${variacao(va, vp)}`;
+
+  const L: string[] = [];
+  L.push(`LOJA: ${b.loja_nome || b.loja || "nao informado"}`);
+  L.push(`PERIODO ATUAL: ${A.periodo || "nao informado"}`);
+  L.push(`PERIODO ANTERIOR: ${P.periodo || "nao informado"}`);
+  if (b.equalizado) {
+    L.push(`ATENCAO: o periodo atual tem ${b.equalizado} dias — provavelmente um mes em curso. O periodo anterior foi recortado nos mesmos ${b.equalizado} PRIMEIROS dias do mes, para a comparacao ser dia a dia e nao mes inteiro contra parcial. Diga isso logo na Identificacao, com as duas datas exatas. Analisar mes em curso e legitimo: nao trate como limitacao nem se recuse a concluir. Se projetar o mes fechado, deixe explicito que e projecao e mostre a conta.`);
+  }
+  if (n(b.margemMediaPct) !== null) {
+    L.push(`MARGEM LIQUIDA MEDIA INFORMADA PELO LOJISTA: ${pc(b.margemMediaPct)}`);
+    L.push(`PISO DE ROAS DESTA CONTA (1/margem): ${(100 / Number(b.margemMediaPct)).toFixed(2).replace(".", ",")}x`);
+  } else {
+    L.push("MARGEM: nao disponivel — use a regra padrao de ROAS 8x e diga no relatorio que a leitura esta limitada por falta do custo dos produtos");
+  }
+
+  L.push("\n== CONTA ==");
+  L.push(linha("GMV pago", cA.gmvPago, cP.gmvPago, br));
+  L.push(linha("Pedidos pagos", cA.pedidosPagos, cP.pedidosPagos, nu));
+  L.push(linha("Visitantes", cA.visitantes, cP.visitantes, nu));
+  L.push(linha("Conversao real paga", cA.conversaoPaga, cP.conversaoPaga, pc));
+  // A conversao que a Shopee reporta usa CLIQUES NO PRODUTO como denominador,
+  // nao visitantes da loja. Dividir pedidos por visitantes da outro numero, e
+  // o relatorio ja apresentou os dois como se fossem o mesmo.
+  if (n(cA.pedidosPagos) && n(cA.visitantes)) {
+    const porVisita = (Number(cA.pedidosPagos) / Number(cA.visitantes)) * 100;
+    L.push(`OBS SOBRE CONVERSAO: o valor acima e o que a Shopee reporta e usa cliques no produto como base. Se dividir pedidos por visitantes da loja o resultado e ${pc(porVisita)}, que e outra coisa. Use o valor reportado e NUNCA recalcule conversao dividindo pedidos por visitantes, nem apresente os dois como se fossem a mesma metrica.`);
+  }
+  L.push(linha("Ticket medio", cA.ticketMedio, cP.ticketMedio, br));
+  L.push(linha("Cancelamentos", cA.cancelamentos, cP.cancelamentos, nu));
+  L.push(linha("Visualizacoes de pagina", cA.visualizacoes, cP.visualizacoes, nu));
+  L.push(linha("Adicoes ao carrinho", cA.carrinho, cP.carrinho, nu));
+
+  // REGRA QUE FALTAVA: investimento caindo mais que o GMV e ganho de
+  // eficiencia, nao piora. Sem isto o relatorio le queda de faturamento como
+  // problema de desempenho quando a conta so investiu menos.
+  const invA = n(aA.investimento), invP = n(aP.investimento);
+  const gmvA = n(cA.gmvPago), gmvP = n(cP.gmvPago);
+  if (invA !== null && invP && gmvA !== null && gmvP) {
+    const quedaInv = (1 - invA / invP) * 100;
+    const quedaGmv = (1 - gmvA / gmvP) * 100;
+    if (quedaInv > 20 && quedaInv > quedaGmv + 10) {
+      L.push(`\nLEITURA OBRIGATORIA: o investimento caiu ${quedaInv.toFixed(0)}% e o GMV caiu ${quedaGmv.toFixed(0)}%. Cada real investido rendeu ${(gmvA / invA).toFixed(1)}x contra ${(gmvP / invP).toFixed(1)}x no periodo anterior. Isso e GANHO DE EFICIENCIA, nao piora de desempenho: a conta vendeu menos porque investiu menos, e nao porque perdeu capacidade. Nao trate a queda de faturamento como problema sem dizer isso primeiro.`);
+    }
+  }
+
+  L.push("\n== SHOPEE ADS ==");
+  L.push(linha("Investimento", aA.investimento, aP.investimento, br));
+  L.push(linha("Impressoes", aA.impressoes, aP.impressoes, nu));
+  L.push(linha("Cliques", aA.cliques, aP.cliques, nu));
+  L.push(linha("CTR", aA.ctr, aP.ctr, pc));
+  L.push(linha("GMV Ads painel", aA.gmvPainel, aP.gmvPainel, br));
+  L.push(linha("GMV Ads real pago", aA.gmvReal, aP.gmvReal, br));
+  L.push(linha("Pedidos Ads", aA.pedidos, aP.pedidos, nu));
+  L.push(linha("ROAS painel", aA.roasPainel, aP.roasPainel, (x) => (n(x) === null ? "nao disponivel" : Number(x).toFixed(2).replace(".", ","))));
+  L.push(linha("ROAS real pago", aA.roasReal, aP.roasReal, (x) => (n(x) === null ? "nao disponivel" : Number(x).toFixed(2).replace(".", ","))));
+  L.push(linha("CPA Ads", aA.cpa, aP.cpa, br));
+  L.push("OBS: CPC e CPM foram derivados de gasto/cliques e gasto/impressoes. Os campos cpc e cpm da API da Shopee nao sao taxa e foram descartados.");
+
+  if (Object.keys(fA).length) {
+    L.push("\n== AFILIADOS ==");
+    L.push(linha("GMV do canal", fA.gmv, fP.gmv, br));
+    L.push(linha("Comissao paga", fA.comissao, fP.comissao, br));
+    L.push(linha("Pedidos do canal", fA.pedidos, fP.pedidos, nu));
+    L.push(linha("Novos compradores", fA.novosCompradores, fP.novosCompradores, nu));
+    L.push(linha("ROI do canal", fA.roi, fP.roi, (x) => (n(x) === null ? "nao disponivel" : Number(x).toFixed(2).replace(".", ","))));
+    // SEPARAR COMISSAO DE GMV. Um relatorio chamou a comissao de "GMV do
+    // canal", o que inverteu a leitura inteira do afiliado.
+    const comAf = n(fA.comissao), pedAf = n(fA.pedidos), gmvAf = n(fA.gmv);
+    if (comAf !== null && pedAf && pedAf > 0) {
+      const custoVenda = comAf / pedAf;
+      L.push(`Custo por venda do canal afiliados: ${br(custoVenda)} (comissao paga dividida por pedidos do canal). Compare diretamente com o CPA de Ads.`);
+      const tk = n(cA.ticketMedio);
+      if (tk && tk > 0) {
+        L.push(`A comissao consome ${pc((custoVenda / tk) * 100)} do valor de cada venda do canal. Use isto no calculo de margem: e um custo variavel que so existe quando ha venda.`);
+      }
+    }
+    if (gmvAf !== null && comAf !== null && gmvAf > 0) {
+      L.push(`ATENCAO AO NOMEAR: GMV do canal e ${br(gmvAf)} e comissao paga e ${br(comAf)}. Sao numeros diferentes — nunca chame comissao de GMV.`);
+    } else if (comAf !== null && gmvAf === null) {
+      L.push(`O GMV do canal de afiliados NAO veio nesta leitura; o que existe e a comissao (${br(comAf)}). Diga isso e nao apresente a comissao como se fosse GMV.`);
+    }
+  } else {
+    L.push("\n== AFILIADOS ==\nnao disponivel nesta coleta");
+  }
+
+  // ORIGEM DA VENDA — separa o que a loja conquista do que o algoritmo empresta
+  const oA = A.origem || {}, oP = P.origem || {};
+  if (Array.isArray(oA.canais) && oA.canais.length) {
+    L.push("\n== DE ONDE VEM CADA VENDA (periodo atual) ==");
+    L.push("Busca e o que a loja CONQUISTA: o comprador procurou e escolheu. Recomendacao e o que o algoritmo EMPRESTA: ele decidiu mostrar. Recomendacao pode ser cortada sem aviso; busca so cai se a loja piorar.");
+    for (const c of oA.canais) {
+      if (!c.pctVendas || c.pctVendas < 0.5) continue;
+      L.push(`${c.origem}: ${pc(c.pctVendas)} das vendas | clique->pedido ${pc(c.cliqueParaPedido)} | ticket ${br(c.ticket)}`);
+    }
+    L.push(linha("GMV de afiliados", oA.afiliados, oP.afiliados, br));
+    L.push(linha("GMV de Shopee Ads", oA.adsPago, oP.adsPago, br));
+  }
+
+  // PEDIDO NAO PAGO — receita que aparece no painel e nao entra no caixa
+  const npA = A.naoPago || {}, npP = P.naoPago || {};
+  if (n(npA.perdaPct) !== null) {
+    L.push("\n== PEDIDOS NAO PAGOS ==");
+    L.push(linha("Taxa de pedido nao pago", npA.perdaPct, npP.perdaPct, pc));
+    L.push(`De ${nu(npA.totalColocado)} pedidos feitos, ${nu(npA.totalPago)} foram pagos. Ate 10% e comum quando ha boleto; acima disso investigar cupom com valor minimo alto, frete que so aparece no fim do checkout e prazo de envio.`);
+    L.push("ATENCAO: o vendedor NAO escolhe meios de pagamento na Shopee. Nunca sugerir desativar boleto ou alterar formas de pagamento.");
+  }
+
+  // META RECOMENDADA — o que ela realmente significa
+  if (Array.isArray(A.campanhas) && A.campanhas.some((c: any) => c.metaSugerida != null)) {
+    L.push("\n== SOBRE A META QUE A SHOPEE SUGERE ==");
+    L.push("A meta recomendada pela Shopee e o PERCENTIL 50 da categoria, ou seja a mediana do que os outros vendedores praticam — nao um calculo do custo ou da margem deste lojista. A categoria inclui quem vende sem margem e quem esta queimando estoque. Seguir a mediana e aceitar a media do mercado como meta. Sempre confrontar com o piso pela margem antes de recomendar qualquer descida.");
+  }
+
+  // funil
+  L.push("\n== FUNIL DA LOJA (periodo atual) ==");
+  L.push(`Impressoes: ${nu(aA.impressoes)} -> Visitantes: ${nu(cA.visitantes)} -> Carrinho: ${nu(cA.carrinho)} -> Pedidos pagos: ${nu(cA.pedidosPagos)}`);
+
+  // formatos de campanha em uso
+  if (Array.isArray(A.formatos) && A.formatos.length) {
+    L.push("\n== FORMATOS DE ADS EM USO ==");
+    for (const f of A.formatos) {
+      L.push(`${f.rotulo}: ${f.qtd} campanhas, investimento ${br(f.gasto)}, ROAS ${f.roas != null ? Number(f.roas).toFixed(2).replace(".", ",") : "nao disponivel"}`);
+    }
+  }
+
+  // produtos
+  // PRODUTOS POR GRUPO DE DECISAO, nao os 25 primeiros.
+  // A maioria das lojas passa de 25 itens e mandar todos gasta token sem
+  // melhorar a analise. O que decide sao quatro recortes.
+  const sel = A.selecao;
+  if (sel && Array.isArray(sel.selecionados) && sel.selecionados.length) {
+    L.push(`\n== PRODUTOS QUE IMPORTAM (${sel.selecionados.length} de ${sel.total} da loja) ==`);
+    L.push("Selecionados por quatro criterios: os 5 que mais faturam, os 5 de pior conversao com trafego, os 5 que mais cresceram e os que estao PERDENDO desempenho e ainda pesam no faturamento. Um produto pode estar em mais de um grupo.");
+    L.push("nome | id | grupos | visitantes | cliques | carrinho | unidades | vendas R$ | % do faturamento | conversao | variacao vs periodo anterior");
+    for (const p of sel.selecionados) {
+      L.push([
+        p.nome, p.id,
+        (p.grupos || []).join(" + ") || "-",
+        nu(p.visitantes), nu(p.cliques), nu(p.carrinho), nu(p.unidades),
+        br(p.vendas),
+        p.fatiaPct != null ? pc(p.fatiaPct) : "nd",
+        pc(p.conversao),
+        p.novo ? "produto novo no periodo" : (p.variacaoPct != null ? (p.variacaoPct >= 0 ? "+" : "") + p.variacaoPct.toFixed(1).replace(".", ",") + "%" : "sem base anterior"),
+      ].join(" | "));
+    }
+    const caindo = sel.selecionados.filter((x: any) => (x.grupos || []).indexOf("perdendo desempenho") >= 0);
+    if (caindo.length) {
+      const somaFatia = caindo.reduce((s: number, x: any) => s + (x.fatiaPct || 0), 0);
+      L.push(`ALERTA: ${caindo.length} produto(s) perderam desempenho no periodo e juntos representam ${pc(somaFatia)} do faturamento. Trate isto como prioridade na secao de produtos: queda em item que pesa muda o resultado da loja inteira.`);
+    }
+    L.push(`Os outros ${sel.total - sel.selecionados.length} produtos ficaram fora da selecao por nao estarem em nenhum dos quatro criterios. Diga isso em uma linha e nao invente numeros sobre eles.`);
+  } else {
+    const prods = Array.isArray(A.produtos) ? A.produtos.slice(0, 25) : [];
+    if (prods.length) {
+      L.push("\n== PRODUTOS (periodo atual) ==");
+      L.push("nome | id | visitantes | cliques | carrinho | unidades pagas | vendas R$ | conversao %");
+      for (const p of prods) {
+        L.push(`${p.nome} | ${p.id} | ${nu(p.visitantes)} | ${nu(p.cliques)} | ${nu(p.carrinho)} | ${nu(p.unidades)} | ${br(p.vendas)} | ${pc(p.conversao)}`);
+      }
+    }
+  }
+
+  // campanhas
+  const camps = Array.isArray(A.campanhas) ? A.campanhas.slice(0, 25) : [];
+  if (camps.length) {
+    L.push("\n== CAMPANHAS (periodo atual) ==");
+    L.push("nome da campanha | id do produto (quando a Shopee informa) | formato | investimento | GMV | ROAS amplo | ROAS direto | pedidos | CPA | meta atual | meta sugerida pela Shopee");
+    L.push("OBRIGATORIO: toda vez que citar uma campanha ou produto, escreva o NOME e o ID. O id vem na coluna acima. Grupo de Anuncios tem varios itens: nesse caso cite o nome da campanha e a quantidade de itens. NUNCA escreva 'itens selecionados', 'sem ID visivel' ou qualquer variante — o dado esta na tabela.");
+    for (const c of camps) {
+      L.push([c.nome, c.produtoId, c.formato, br(c.gasto), br(c.gmv),
+        c.roas != null ? Number(c.roas).toFixed(2).replace(".", ",") : "nd",
+        c.roasDireto != null ? Number(c.roasDireto).toFixed(2).replace(".", ",") : "nd",
+        nu(c.pedidos), br(c.cpa),
+        c.metaAtual != null ? Number(c.metaAtual).toFixed(1).replace(".", ",") + "x" : "sem meta",
+        c.metaSugerida != null ? Number(c.metaSugerida).toFixed(1).replace(".", ",") + "x" : "nd"].join(" | "));
+    }
+  }
+
+  return L.join("\n");
+}
+
+Deno.serve(async (req) => {
+  try {
+    return await atender(req);
+  } catch (e) {
+    // sem isto, qualquer excecao nao prevista vira "Internal Server Error"
+    // sem uma linha sequer sobre o que aconteceu
+    return json({ ok: false, erro: "erro interno da funcao: " + String((e as Error)?.message || e) }, 500);
+  }
+});
+
+async function atender(req: Request): Promise<Response> {
+  // O preflight precisa responder 204 com os headers completos. Responder
+  // com JSON funciona as vezes, mas o navegador rejeita quando o Content-Type
+  // nao bate — e ai a chamada seguinte morre em CORS antes de sair.
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Max-Age": "86400",
+      },
+    });
+  }
+  if (req.method !== "POST") return json({ ok: false, erro: "use POST" }, 405);
+
+  let body: any;
+  try { body = await req.json(); } catch { return json({ ok: false, erro: "json invalido" }, 400); }
+
+  /* SO COM ASSINATURA. Esta funcao respondia a qualquer um que tivesse a
+     chave anon — e a chave anon vai dentro do ZIP que todo assinante baixa.
+     Testei de fora e ela gerou quinze mil bytes de relatorio sem token
+     nenhum, gastando cota da Anthropic a cada chamada. Era o unico furo que
+     sobrou depois de fechar a receita e o cerebro.
+
+     Mesma regra dos outros: sessao que existe, nao foi encerrada e ainda
+     esta no prazo. O ping continua livre, porque ele so devolve a versao. */
+  if (!body || !body.ping) {
+    const _url = Deno.env.get("SUPABASE_URL");
+    const _key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!_url || !_key) return json({ ok: false, erro: "faltam secrets" }, 500);
+    const _db = createClient(_url, _key);
+
+    const _tok = String(body.token || "");
+    if (!_tok) return json({ ok: false, erro: "sem token" }, 401);
+
+    const { data: _s } = await _db.from("sia_sessoes")
+      .select("usuario_id, encerrada_em, expira_em")
+      .eq("token", _tok).maybeSingle();
+
+    if (!_s || _s.encerrada_em ||
+        (_s.expira_em && new Date(_s.expira_em) < new Date())) {
+      return json({ ok: false, erro: "sessao invalida" }, 401);
+    }
+  }
+
+  // Responde na hora, sem chamar a API: e a unica forma de provar QUAL versao
+  // esta publicada. Sem isso, um 504 nao distingue "codigo antigo sem stream"
+  // de "codigo novo que mesmo assim demorou".
+  if (body.ping) {
+    return json({ ok: true, code_version: CODE_VERSION, streaming: true, aceita_partes: true });
+  }
+
+  const chave = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!chave) return json({ ok: false, erro: "falta a secret ANTHROPIC_API_KEY na funcao" }, 500);
+
+  // createClient estava FORA do try: quando uma das secrets nao existe, ele
+  // lanca e a funcao morre com 500 generico, sem dizer qual falta. Era isso
+  // que devolvia "Internal Server Error" sem explicacao nenhuma.
+  const urlSupa = Deno.env.get("SUPABASE_URL");
+  const keySupa = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!urlSupa || !keySupa) {
+    return json({
+      ok: false,
+      erro: "faltam secrets na funcao: " +
+        (!urlSupa ? "SUPABASE_URL " : "") + (!keySupa ? "SUPABASE_SERVICE_ROLE_KEY" : "") +
+        ". Cadastre em Edge Functions > Secrets e publique a funcao de novo.",
+    }, 500);
+  }
+  let supa;
+  try {
+    supa = createClient(urlSupa, keySupa);
+  } catch (e) {
+    return json({ ok: false, erro: "nao consegui conectar ao banco: " + String(e) }, 500);
+  }
+
+  // o metodo vem da tabela, nunca do codigo
+  let prompt = "";
+  try {
+    const { data, error } = await supa
+      .from("conhecimento")
+      .select("veredito")
+      .eq("dominio", "prompt").eq("chave", "relatorio").eq("ativo", true).limit(1);
+    if (error) throw error;
+    prompt = data?.[0]?.veredito?.texto || "";
+  } catch (e) {
+    return json({ ok: false, erro: "nao consegui ler o prompt: " + String(e) }, 500);
+  }
+  if (!prompt) return json({ ok: false, erro: "prompt do relatorio nao encontrado na tabela conhecimento (dominio=prompt, chave=relatorio)" }, 500);
+
+  const dados = montarDados(body);
+
+  // GERACAO EM DUAS PARTES: mesmo com stream, um relatorio inteiro pode
+  // encostar nos 150s. A extensao pede a parte 1 (diagnostico) e depois a
+  // parte 2 (plano e projecao), e junta. Cada chamada cabe folgado no limite.
+  const parte = Number(body.parte || 0);
+  let instrucao = "Gere o relatorio completo no formato definido, usando exclusivamente os dados abaixo.";
+
+  // SEMANAL: curto, para o cliente ler e agir no mesmo dia. Nada de dez
+  // secoes — o valor aqui e ser rapido de aplicar.
+  if (body.semanal) {
+    instrucao = `Escreva um PANORAMA DA SEMANA em portugues do Brasil, curto e direto, para o lojista ler e agir hoje mesmo. NAO use o formato de dez secoes do relatorio mensal.
+
+Estrutura obrigatoria, nesta ordem:
+
+1. **A semana em uma frase** — o que aconteceu de mais importante, sem rodeio.
+
+2. **Os numeros** — uma tabela pequena so com o que importa: GMV, pedidos, visitantes, conversao, ticket, investimento em Ads e ROAS.
+
+3. **O que precisa de voce agora** — no maximo tres itens, em ordem de dinheiro em jogo. Cada um com: o nome do produto E o ID entre parenteses, o que esta acontecendo com numero, e a acao especifica. Exemplo do nivel de detalhe esperado: "Comedouro Lento Labirinto (ID 58262149043) recebeu 1.545 visitas e converteu 2,8%, abaixo dos 4,1% do Kit Gancho. Revise a primeira foto e o preco final com frete."
+
+4. **O que esta indo bem** — no maximo dois, tambem com nome e ID, dizendo por que vale proteger ou escalar.
+
+Regras:
+- SEMPRE cite o produto pelo nome e pelo ID. Sem isso o lojista nao sabe em qual item mexer.
+- Se um item nao tiver ID nos dados, NAO escreva "sem ID visivel": use o nome da campanha como esta e diga que o ID nao veio nesta leitura, em uma unica vez no fim do relatorio.
+- Campanha e produto sao coisas diferentes: campanha tem nome, produto tem ID. Ao falar de gasto de campanha, cite o nome da campanha; ao falar de conversao e trafego, cite o produto e o ID.
+- Toda afirmacao com numero ao lado.
+- NUNCA use "minimo de 8x" quando a margem estiver disponivel nos dados: o piso e 1 dividido pela margem. So use 8x como padrao se a margem nao vier, e diga que e padrao.
+- Nada de "monitorar", "acompanhar" ou "avaliar": diga o que fazer.
+- No maximo 600 palavras no total.
+- Se faltar um dado, diga em uma linha e siga. Nao escreva secoes inteiras sobre o que falta.`;
+  }
+  if (parte === 1) {
+    instrucao = "Gere APENAS as secoes 1 a 4 do relatorio: Identificacao, Snapshot Executivo, Visao Geral do Desempenho e Analise Detalhada de KPIs (4.1 ate o fim dos KPIs de conta). PARE ao terminar os KPIs. NAO escreva as secoes de Shopee Ads, produtos, projecao ou plano: elas vem em outras chamadas. Use exclusivamente os dados abaixo.";
+  } else if (parte === 3) {
+    instrucao = `Gere APENAS as secoes 5 a 8, usando exclusivamente os dados abaixo:
+
+**5. Shopee Ads** — resumo estrategico, top 5 melhores e top 5 piores campanhas por eficiencia. Sempre com nome e ID.
+
+**6. Analise de Produtos** — organize nos quatro grupos que os dados ja trazem, nesta ordem de prioridade:
+   6.1 **Perdendo desempenho e pesando no faturamento** — os que cairam e ainda representam fatia relevante. E o grupo mais urgente: queda em item que pesa muda o resultado da loja inteira. Diga quanto cada um caiu, quanto representa do faturamento e o que fazer.
+   6.2 **Os 5 que mais faturam** — participacao de cada um e o que protege esse resultado.
+   6.3 **Os 5 que mais cresceram** — o que mudou e se da para replicar nos outros.
+   6.4 **Os 5 de pior conversao com trafego** — recebem visita e nao vendem; diga onde o funil quebra.
+
+**7. Pontos Positivos** e **8. Pontos de Atencao** — no maximo 5 cada, sempre com numero ao lado.
+
+Nao repita a identificacao nem o snapshot, e nao escreva a projecao nem o plano.`;
+  } else if (parte === 2) {
+    instrucao = "Gere APENAS as secoes 9 e 10 do relatorio: a Projecao de Crescimento para os proximos 30 dias (com a coluna de LUCRO e recomendando o cenario de maior lucro, nao de maior GMV) e o Plano Tatico de 30 dias dividido em quatro semanas. Nao repita as secoes anteriores nem escreva introducao. Use exclusivamente os dados abaixo.";
+  }
+
+  // ============================================================
+  // STREAMING E OBRIGATORIO AQUI.
+  // O Supabase mata a Edge Function com IDLE_TIMEOUT quando ela fica 150s
+  // sem enviar nada, e um relatorio completo leva mais que isso para ser
+  // escrito. Sem stream, a funcao SEMPRE morre em 150s — foi o que
+  // aconteceu no teste. Com stream, cada pedaco que chega da API conta
+  // como atividade e o relogio nao estoura.
+  // ============================================================
+  let resposta: Response;
+  try {
+    resposta = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": chave,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: body.modelo || "claude-sonnet-4-5",
+        // TETO GENEROSO: contas grandes geram relatorio longo, e cortar no
+        // meio e pior que gastar token a mais. 16 mil por parte cobre folgado
+        // ate as contas maiores da carteira.
+        max_tokens: body.semanal ? 4000 : 16000,
+        stream: true,
+        system: prompt,
+        messages: [{
+          role: "user",
+          content: instrucao + "\n\n" + dados,
+        }],
+      }),
+    });
+  } catch (e) {
+    return json({ ok: false, erro: "falha ao chamar a API: " + String(e) }, 502);
+  }
+
+  if (!resposta.ok) {
+    const errTxt = await resposta.text();
+    return json({ ok: false, erro: "API respondeu " + resposta.status, detalhe: errTxt.slice(0, 600) }, 502);
+  }
+
+  // ============================================================
+  // O STREAM PRECISA CHEGAR AO CLIENTE, NAO SO VIR DA API.
+  // Meu diagnostico anterior estava pela metade: eu liguei o streaming na
+  // chamada a Anthropic mas continuava ACUMULANDO tudo em memoria e so
+  // respondendo no fim. Para o Supabase, a funcao seguia 150s sem enviar
+  // nada ao chamador — e o IDLE_TIMEOUT continuou estourando, que foi
+  // exatamente o que aconteceu com dados reais.
+  // Agora a resposta e ela mesma um stream: cada pedaco que chega da API
+  // e repassado na hora, a conexao nunca fica ociosa e nao ha limite de
+  // tamanho de relatorio.
+  // ============================================================
+  const enc = new TextEncoder();
+  const saida = new ReadableStream({
+    async start(controller) {
+      let markdown = "";
+      try {
+        const reader = resposta.body!.getReader();
+        const dec = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += dec.decode(value, { stream: true });
+          const linhas = buffer.split("\n");
+          buffer = linhas.pop() || "";
+          for (const linha of linhas) {
+            if (!linha.startsWith("data:")) continue;
+            const payload = linha.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            try {
+              const ev = JSON.parse(payload);
+              if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+                const pedaco = ev.delta.text || "";
+                markdown += pedaco;
+                controller.enqueue(enc.encode(pedaco));   // mantem a conexao viva
+              }
+            } catch { /* pedaco incompleto */ }
+          }
+        }
+      } catch (e) {
+        controller.enqueue(enc.encode("\n\n[ERRO: o stream foi interrompido — " + String(e) + "]"));
+      }
+
+      // log opcional, ja com o texto completo
+      try {
+        if (parte !== 1 && markdown.trim()) {
+          await supa.from("relatorios").insert({
+            shop_id: String(body.loja || "desconhecida"),
+            periodo_atual: body?.atual?.periodo || null,
+            periodo_anterior: body?.anterior?.periodo || null,
+            markdown,
+          });
+        }
+      } catch (_e) { /* nunca derruba o relatorio */ }
+
+      controller.close();
+    },
+  });
+
+  return new Response(saida, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Code-Version": CODE_VERSION,
+      "X-Parte": String(parte),
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Expose-Headers": "X-Code-Version, X-Parte",
+    },
+  });
+}

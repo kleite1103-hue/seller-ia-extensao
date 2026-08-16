@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.22.0';
+  var VERSAO = '1.22.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -1838,13 +1838,25 @@
        decisao de produto, e mistura-la com a tela de analise so geraria
        expectativa que nao se cumpre. */
     if (!A.liberado) {
+      /* O campo de busca vive no CABECALHO, fora do corpo: escondendo so o
+         corpo ele continuava visivel e clicavel, dando a impressao de que
+         daria para usar sem assinar. Some junto com as abas. */
       $('abas').innerHTML = '';
       $('ctx').innerHTML = '';
       $('opcoes').innerHTML = '';
+      var _l2 = raiz.querySelector('.l2');
+      if (_l2) _l2.style.display = 'none';
+      var _campo = raiz.querySelector('.campo');
+      if (_campo) _campo.style.display = 'none';
       c.innerHTML = viewPortaria();
       ligarPortaria();
       return;
     }
+    // liberado: a busca volta
+    var _l2b = raiz.querySelector('.l2');
+    if (_l2b) _l2b.style.display = '';
+    var _campoB = raiz.querySelector('.campo');
+    if (_campoB) _campoB.style.display = '';
 
     if (E.buscando) { c.innerHTML = '<div class="vazio">' + esc(E.progresso || 'Lendo...') + '</div>'; return; }
     if (E.erro) { c.innerHTML = '<div class="vazio">' + esc(E.erro) + '</div>'; return; }
