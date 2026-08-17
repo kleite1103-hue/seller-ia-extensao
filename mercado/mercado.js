@@ -14,8 +14,12 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.23.1';
+  var VERSAO = '1.24.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
+  /* 900ms fixo entre paginas e ritmo de robo: o anti-bot da Shopee repara
+     em regularidade. A pausa agora varia, e quem chama usa espera(PAUSA())
+     para sortear um valor a cada vez. */
+  function PAUSA_MS() { return 900 + Math.round(Math.random() * 900); }
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
   var E = {
@@ -26,7 +30,7 @@
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
     gravando: false,
-    lojaLendo: false, lojaDados: null, lojaErro: null, lojaProgresso: null,
+    lojaLendo: false, lojaDados: null, lojaErro: null, lojaProgresso: null, lojaBloqueada: false,
     // a portaria
     acesso: { checando: true, liberado: false, entrando: false, token: null,
       usuario: null, erro: null, motivo: null, venceEm: null, offline: false, emailDigitado: '' }
@@ -401,14 +405,37 @@
     E.lojaLendo = true; E.lojaErro = null; E.lojaDados = null;
     desenhar();
     try {
+      /* MENOS PAGINAS, MAIS ESPACO ENTRE ELAS. Doze paginas em sequencia
+         disparam o anti-bot da Shopee: os logs mostraram scene=crawler_item
+         e a pagina caiu numa tela de verificacao. Seis paginas cobrem 180
+         produtos, que ja e a maior parte do faturamento de quase toda loja,
+         e o intervalo maior faz a leitura parecer o que ela e — alguem
+         navegando, nao um robo varrendo. */
       var todos = [], pg = 0;
-      for (pg = 0; pg < 12; pg++) {   // ate 360 produtos
+      for (pg = 0; pg < 6; pg++) {
         E.lojaProgresso = 'Lendo os produtos... (' + (pg * 30) + ')';
         desenhar();
         var url = '/api/v4/shop/search_items?shopid=' + shopid +
           '&limit=30&offset=' + (pg * 30) + '&order=desc&sort_by=pop' +
           '&filter_sold_out=0&use_case=4&item_card_use_scene=search_items_popular';
         var r = await api(url);
+
+        /* A SHOPEE AVISA QUANDO DESCONFIA. Quando ela devolve verificacao ou
+           o erro de bloqueio, insistir so piora: a conta entra no radar dela
+           e a pagina cai na tela de captcha. Melhor parar e dizer o que
+           aconteceu com o que ja foi lido. */
+        if (r && (r.status === 403 || (r.dados && r.dados.error === 90309999))) {
+          E.lojaBloqueada = true;
+          break;
+        }
+        try {
+          var _t = JSON.stringify(r && r.dados || '').slice(0, 400);
+          if (_t.indexOf('anti_bot') >= 0 || _t.indexOf('verify/captcha') >= 0) {
+            E.lojaBloqueada = true;
+            break;
+          }
+        } catch (e) { }
+
         if (!r.ok || !r.dados) break;
         var dd = r.dados;
         var its = (dd.centralize_item_card && dd.centralize_item_card.item_cards) ||
@@ -417,11 +444,15 @@
         if (!its.length) break;
         todos = todos.concat(its);
         if (its.length < 30) break;
-        await espera(PAUSA);
+        // 2 a 3 segundos entre paginas, variando: ritmo constante denuncia
+        await espera(2000 + Math.round(Math.random() * 1200));
       }
 
       if (!todos.length) {
-        E.lojaErro = 'Esta loja nao devolveu produtos. Abra a pagina dela na vitrine e tente de novo.';
+        E.lojaErro = E.lojaBloqueada
+          ? 'A Shopee pediu verificacao e a leitura parou. Espere alguns minutos, ' +
+            'recarregue a pagina dela e tente de novo — ler varias lojas seguidas aciona esse limite.'
+          : 'Esta loja nao devolveu produtos. Abra a pagina dela na vitrine e tente de novo.';
         return;
       }
 
@@ -587,8 +618,19 @@
         }));
       try { console.log('[Mercado] pagina ' + (pg + 1) + ' ->', url.slice(0, 90)); } catch (e) { }
       var r = await api(url);
+
+      /* A SHOPEE AVISA QUANDO DESCONFIA. Vale para a analise de nicho tanto
+         quanto para a leitura de loja: insistir depois do aviso derruba a
+         pagina numa tela de verificacao, e ai nem recarregar resolve na
+         hora. Melhor parar com o que ja veio. */
+      if (r && (r.status === 403 || (r.dados && r.dados.error === 90309999))) {
+        E.erro = 'A Shopee pediu verificacao e a leitura parou. Espere uns minutos, ' +
+          'recarregue a vitrine e tente de novo — varias leituras seguidas acionam esse limite.';
+        break;
+      }
+
       try {
-        console.log('[Mercado] resposta:', r && r.ok, '| status:', r && r.status,
+        console.log('[Radar 360] resposta:', r && r.ok, '| status:', r && r.status,
           '| erro:', r && r.erro, '| itens:',
           r && r.dados ? ((r.dados.items || (r.dados.data && r.dados.data.items) || []).length) : 'sem dados');
         if (r && r.dados && r.dados.error) console.warn('[Mercado] Shopee error:', r.dados.error, r.dados.error_msg);
@@ -635,7 +677,7 @@
       // ela tem para esse termo. Guardar isso importa porque o total lido
       // muda a leitura de faturamento.
       if (its.length < 60) break;
-      await espera(PAUSA);
+      await espera(PAUSA_MS());
     }
     return todos;
   }
