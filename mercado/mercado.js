@@ -14,12 +14,8 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.24.0';
+  var VERSAO = '1.22.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
-  /* 900ms fixo entre paginas e ritmo de robo: o anti-bot da Shopee repara
-     em regularidade. A pausa agora varia, e quem chama usa espera(PAUSA())
-     para sortear um valor a cada vez. */
-  function PAUSA_MS() { return 900 + Math.round(Math.random() * 900); }
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
   var E = {
@@ -30,7 +26,6 @@
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
     gravando: false,
-    lojaLendo: false, lojaDados: null, lojaErro: null, lojaProgresso: null, lojaBloqueada: false,
     // a portaria
     acesso: { checando: true, liberado: false, entrando: false, token: null,
       usuario: null, erro: null, motivo: null, venceEm: null, offline: false, emailDigitado: '' }
@@ -368,176 +363,6 @@
 
 
 
-
-  /* ============ A LOJA INTEIRA ============
-     Le quanto uma loja fatura nos ultimos 30 dias.
-
-     COMO CHEGA AO ID: nao traduz o nome. A ponte escuta as chamadas que a
-     propria pagina da Shopee faz e anota o shopid que passa por elas —
-     entao basta a pessoa estar NA loja. Foi o que faltou nas tentativas
-     anteriores: eu perguntava o id a rotas que nao respondem, quando a
-     pagina ja o tinha em maos.
-
-     DE ONDE VEM O NUMERO: a busca interna da loja devolve os produtos com
-     monthly_sold_count, o mesmo campo da busca geral. Faturamento e esse
-     numero vezes o preco, produto a produto. */
-
-  var LOJA_ATUAL = null;
-
-  window.addEventListener('SIA_MK_LOJA', function (ev) {
-    try {
-      var d = JSON.parse(ev.detail || '{}');
-      if (!d.shopid) return;
-      var mudou = !LOJA_ATUAL || LOJA_ATUAL.shopid !== d.shopid;
-      LOJA_ATUAL = d;
-      if (mudou) {
-        try { console.log('[Radar 360] loja nesta pagina:', d.shopid); } catch (e) { }
-        if (E.aba === 'loja') desenhar();
-      }
-    } catch (e) { /* noop */ }
-  });
-
-  function perguntarQualLoja() {
-    try { window.dispatchEvent(new CustomEvent('SIA_MK_QUAL_LOJA')); } catch (e) { }
-  }
-
-  async function lerLojaInteira(shopid) {
-    E.lojaLendo = true; E.lojaErro = null; E.lojaDados = null;
-    desenhar();
-    try {
-      /* MENOS PAGINAS, MAIS ESPACO ENTRE ELAS. Doze paginas em sequencia
-         disparam o anti-bot da Shopee: os logs mostraram scene=crawler_item
-         e a pagina caiu numa tela de verificacao. Seis paginas cobrem 180
-         produtos, que ja e a maior parte do faturamento de quase toda loja,
-         e o intervalo maior faz a leitura parecer o que ela e — alguem
-         navegando, nao um robo varrendo. */
-      var todos = [], pg = 0;
-      for (pg = 0; pg < 6; pg++) {
-        E.lojaProgresso = 'Lendo os produtos... (' + (pg * 30) + ')';
-        desenhar();
-        var url = '/api/v4/shop/search_items?shopid=' + shopid +
-          '&limit=30&offset=' + (pg * 30) + '&order=desc&sort_by=pop' +
-          '&filter_sold_out=0&use_case=4&item_card_use_scene=search_items_popular';
-        var r = await api(url);
-
-        /* A SHOPEE AVISA QUANDO DESCONFIA. Quando ela devolve verificacao ou
-           o erro de bloqueio, insistir so piora: a conta entra no radar dela
-           e a pagina cai na tela de captcha. Melhor parar e dizer o que
-           aconteceu com o que ja foi lido. */
-        if (r && (r.status === 403 || (r.dados && r.dados.error === 90309999))) {
-          E.lojaBloqueada = true;
-          break;
-        }
-        try {
-          var _t = JSON.stringify(r && r.dados || '').slice(0, 400);
-          if (_t.indexOf('anti_bot') >= 0 || _t.indexOf('verify/captcha') >= 0) {
-            E.lojaBloqueada = true;
-            break;
-          }
-        } catch (e) { }
-
-        if (!r.ok || !r.dados) break;
-        var dd = r.dados;
-        var its = (dd.centralize_item_card && dd.centralize_item_card.item_cards) ||
-          dd.items || (dd.data && (dd.data.items ||
-            (dd.data.centralize_item_card && dd.data.centralize_item_card.item_cards))) || [];
-        if (!its.length) break;
-        todos = todos.concat(its);
-        if (its.length < 30) break;
-        // 2 a 3 segundos entre paginas, variando: ritmo constante denuncia
-        await espera(2000 + Math.round(Math.random() * 1200));
-      }
-
-      if (!todos.length) {
-        E.lojaErro = E.lojaBloqueada
-          ? 'A Shopee pediu verificacao e a leitura parou. Espere alguns minutos, ' +
-            'recarregue a pagina dela e tente de novo — ler varias lojas seguidas aciona esse limite.'
-          : 'Esta loja nao devolveu produtos. Abra a pagina dela na vitrine e tente de novo.';
-        return;
-      }
-
-      var itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
-      var comVenda = itens.filter(function (x) { return x.mes != null; });
-      var semVenda = itens.length - comVenda.length;
-
-      E.lojaDados = {
-        shopid: shopid,
-        nome: (itens[0] && itens[0].lojaNome) || ('loja ' + shopid),
-        lidos: itens.length,
-        comVenda: comVenda.length,
-        semVenda: semVenda,
-        paginas: pg,
-        unidades: comVenda.reduce(function (a, b) { return a + (b.mes || 0); }, 0),
-        fat: comVenda.reduce(function (a, b) { return a + (b.fatMes || 0); }, 0),
-        itens: comVenda.sort(function (a, b) { return (b.fatMes || 0) - (a.fatMes || 0); })
-      };
-    } catch (e) {
-      E.lojaErro = 'Nao consegui completar a leitura: ' + String(e && e.message || e);
-    } finally {
-      E.lojaLendo = false;
-      E.lojaProgresso = null;
-      desenhar();
-    }
-  }
-
-  function viewLoja() {
-    var h = olho('QUANTO ESTA LOJA FATURA',
-      'Le os produtos da loja em que voce esta e soma o que cada um vendeu nos ultimos 30 dias. ' +
-      'Navegue ate a loja na vitrine, depois volte aqui.');
-
-    if (!LOJA_ATUAL || !LOJA_ATUAL.shopid) {
-      perguntarQualLoja();
-      return h + '<div class="vazio">Nao identifiquei nenhuma loja nesta pagina.<br><br>' +
-        'Abra um produto, clique no nome da loja para entrar nela, e volte aqui. ' +
-        'A extensao reconhece a loja sozinha assim que a pagina dela carrega.</div>';
-    }
-
-    h += '<div style="display:flex;gap:9px;align-items:center;margin-bottom:14px;flex-wrap:wrap">' +
-      '<span style="font:400 11px \'Space Mono\',monospace;color:var(--tx5)">LOJA ' + esc(LOJA_ATUAL.shopid) + '</span>' +
-      '<button class="go" id="ler-loja"' + (E.lojaLendo ? ' disabled' : '') + '>' +
-      (E.lojaLendo ? 'Lendo...' : 'Ler esta loja') + '</button></div>';
-
-    if (E.lojaLendo) return h + '<div class="vazio">' + esc(E.lojaProgresso || 'Lendo...') + '</div>';
-    if (E.lojaErro) h += '<div class="aviso" style="border-color:#D64545;color:var(--tx2)">' + esc(E.lojaErro) + '</div>';
-
-    var L = E.lojaDados;
-    if (!L) return h;
-
-    h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-radius:22px;padding:20px 22px;margin-bottom:12px">' +
-      '<div style="font-size:15px;font-weight:600;color:var(--tx1);margin-bottom:16px">' + sigLoja(L.nome) + '</div>' +
-      '<div style="display:flex;align-items:baseline;gap:24px;flex-wrap:wrap">' +
-      '<div><div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">FATURA POR MÊS</div>' +
-      '<div style="font:300 46px Outfit,Arial;letter-spacing:-.045em;color:#EE4D2D;line-height:1" title="' + reais(L.fat) + '">' +
-      reaisCurto(L.fat) + '</div></div>' +
-      '<div style="border-left:1px solid var(--bd5);padding-left:24px">' +
-      '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:7px">UNIDADES</div>' +
-      '<div style="font:300 34px Outfit,Arial;letter-spacing:-.04em;color:#EE4D2D;line-height:1">' + num(L.unidades) + '</div></div></div>' +
-      '<div style="display:flex;gap:26px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--bd5)">' +
-      celula(num(L.lidos), 'PRODUTOS LIDOS') +
-      celula(num(L.comVenda), 'COM VENDA NO MÊS') +
-      celula(L.unidades ? reais(L.fat / L.unidades) : '—', 'TICKET MÉDIO') +
-      '</div></div>';
-
-    h += '<div class="aviso">Foram lidos <b>' + L.lidos + '</b> produtos, ordenados pelos mais populares' +
-      (L.paginas >= 12 ? ' — a loja tem mais que isso, entao o faturamento real e maior' : '') + '. ' +
-      (L.semVenda ? '<b>' + L.semVenda + '</b> nao trouxeram volume e ficaram de fora da soma.' : '') + '</div>';
-
-    if (L.itens.length) {
-      h += olho('O QUE ELA MAIS VENDE');
-      h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">VENDE/MÊS</th>' +
-        '<th class="num">PREÇO</th><th class="num">FATURA</th></tr>';
-      L.itens.slice(0, 20).forEach(function (y) {
-        h += '<tr><td><b>' + sigTitulo(y.nome, 44) + '</b>' +
-          (y.link && !E.gravando ? ' <a href="' + y.link + '" target="_blank" rel="noopener" style="font-size:12px">↗</a>' : '') + '</td>' +
-          '<td class="num">' + num(y.mes) + '</td>' +
-          '<td class="num">' + reais(y.preco) + '</td>' +
-          '<td class="num">' + (y.fatMes != null ? reaisCurto(y.fatMes) : '—') + '</td></tr>';
-      });
-      h += '</table></div>';
-    }
-    return h;
-  }
-
   /* ============ LEITURA DO NICHO ============ */
   /* As variacoes que a propria Shopee sugere para o termo. Buscar so a
      palavra que a pessoa digitou mostra uma fatia; o nicho de verdade
@@ -618,19 +443,8 @@
         }));
       try { console.log('[Mercado] pagina ' + (pg + 1) + ' ->', url.slice(0, 90)); } catch (e) { }
       var r = await api(url);
-
-      /* A SHOPEE AVISA QUANDO DESCONFIA. Vale para a analise de nicho tanto
-         quanto para a leitura de loja: insistir depois do aviso derruba a
-         pagina numa tela de verificacao, e ai nem recarregar resolve na
-         hora. Melhor parar com o que ja veio. */
-      if (r && (r.status === 403 || (r.dados && r.dados.error === 90309999))) {
-        E.erro = 'A Shopee pediu verificacao e a leitura parou. Espere uns minutos, ' +
-          'recarregue a vitrine e tente de novo — varias leituras seguidas acionam esse limite.';
-        break;
-      }
-
       try {
-        console.log('[Radar 360] resposta:', r && r.ok, '| status:', r && r.status,
+        console.log('[Mercado] resposta:', r && r.ok, '| status:', r && r.status,
           '| erro:', r && r.erro, '| itens:',
           r && r.dados ? ((r.dados.items || (r.dados.data && r.dados.data.items) || []).length) : 'sem dados');
         if (r && r.dados && r.dados.error) console.warn('[Mercado] Shopee error:', r.dados.error, r.dados.error_msg);
@@ -677,7 +491,7 @@
       // ela tem para esse termo. Guardar isso importa porque o total lido
       // muda a leitura de faturamento.
       if (its.length < 60) break;
-      await espera(PAUSA_MS());
+      await espera(PAUSA);
     }
     return todos;
   }
@@ -1961,7 +1775,6 @@
     '</div></div>';
 
   var ABAS = [
-    { id: 'loja', rot: 'Uma loja', d: 'M4 9.5h16M4 9.5 6 4h12l2 5.5M5.5 9.5v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-10' },
     { id: 'nicho', rot: 'O nicho', d: 'M3.5 20.5V13M9 20.5V7M14.5 20.5v-5M20 20.5V3.5' },
     { id: 'produtos', rot: 'Os produtos', d: 'M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9' },
     { id: 'lojas', rot: 'As lojas', d: 'M4 9.5h16M4 9.5 6 4h12l2 5.5M5.5 9.5v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-10' },
@@ -2012,15 +1825,12 @@
       (E.variacoes && E.variacoes.length
         ? '<span style="font:400 9.5px \'Space Mono\',monospace;color:var(--tx6)">+' + E.variacoes.length + ' VARIACOES</span>' : '');
 
-    /* A aba da loja nao depende de ter analisado um nicho: ela le a loja da
-       pagina, entao funciona sozinha. As outras continuam so aparecendo
-       quando ha analise. */
-    $('abas').innerHTML = ABAS.filter(function (a) {
-      return E.itens.length || a.id === 'loja';
-    }).map(function (a) {
-      return '<button class="aba' + (E.aba === a.id ? ' on' : '') + '" data-aba="' + a.id + '">' +
-        svgAba(a.d) + a.rot + '</button>';
-    }).join('');
+    $('abas').innerHTML = E.itens.length
+      ? ABAS.map(function (a) {
+          return '<button class="aba' + (E.aba === a.id ? ' on' : '') + '" data-aba="' + a.id + '">' +
+            svgAba(a.d) + a.rot + '</button>';
+        }).join('')
+      : '';
 
     var c = $('corpo');
 
@@ -2050,9 +1860,6 @@
 
     if (E.buscando) { c.innerHTML = '<div class="vazio">' + esc(E.progresso || 'Lendo...') + '</div>'; return; }
     if (E.erro) { c.innerHTML = '<div class="vazio">' + esc(E.erro) + '</div>'; return; }
-    /* O listener das abas vive no ligarTabela: sem chamar, o clique nas
-       outras abas parava de funcionar assim que a da loja era desenhada. */
-    if (!E.itens.length && E.aba === 'loja') { c.innerHTML = viewLoja(); ligarTabela(); ligarLoja(); return; }
     if (!E.itens.length) {
       // No painel do vendedor a busca da vitrine e bloqueada pelo navegador
       // (dominios diferentes). Dizer isso antes evita a pessoa tentar e
@@ -2068,15 +1875,13 @@
       return;
     }
     if (E.detalhe) { c.innerHTML = viewDetalhe(); ligarTabela(); return; }
-    c.innerHTML = E.aba === 'loja' ? viewLoja()
-      : E.aba === 'nicho' ? viewNicho()
+    c.innerHTML = E.aba === 'nicho' ? viewNicho()
       : E.aba === 'produtos' ? viewProdutos()
       : E.aba === 'lojas' ? viewLojas()
       : E.aba === 'calculo' ? renderCalculo()
       : E.aba === 'consultor' ? viewConsultor()
       : viewEu();
     ligarTabela();
-    ligarLoja();
     ligarCalculo();
   }
 
@@ -2560,14 +2365,6 @@
     }
   }
 
-  function ligarLoja() {
-    var b = $('ler-loja');
-    if (b) b.addEventListener('click', function () {
-      if (E.lojaLendo || !LOJA_ATUAL || !LOJA_ATUAL.shopid) return;
-      lerLojaInteira(LOJA_ATUAL.shopid);
-    });
-  }
-
   function ligarTabela() {
     raiz.querySelectorAll('[data-ord]').forEach(function (t) {
       t.addEventListener('click', function () { E.ordem = this.getAttribute('data-ord'); desenhar(); });
@@ -2581,7 +2378,12 @@
     if (pl) pl.addEventListener('click', consultar);
     var br = $('baixar-relatorio');
     if (br) br.addEventListener('click', gerarRelatorio);
-
+    raiz.querySelectorAll('.aba[data-aba]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (this.classList.contains('off')) return;
+        E.aba = this.getAttribute('data-aba'); E.detalhe = null; desenhar();
+      });
+    });
   }
 
   $('abrir').addEventListener('click', function () { $('painel').classList.toggle('on'); });
@@ -2647,24 +2449,6 @@
     if (v) { E.gravando = true; $('gravar').classList.add('ligado'); desenhar(); }
   });
   // a portaria: A aponta para o ramo do estado, e a validacao comeca ja
-  /* O CLIQUE DAS ABAS, ligado uma vez so no arranque. Antes ficava preso a
-     cada botao dentro do ligarTabela, e os botoes sao recriados a cada
-     desenho: quando a portaria limpava a barra, os listeners iam junto e a
-     aba parava de responder. O container nunca e recriado. */
-  (function () {
-    var barra = $('abas');
-    if (!barra) return;
-    barra.addEventListener('click', function (ev) {
-      var b = ev.target;
-      while (b && b !== this && !(b.getAttribute && b.getAttribute('data-aba'))) b = b.parentNode;
-      if (!b || b === this) return;
-      if (b.classList && b.classList.contains('off')) return;
-      E.aba = b.getAttribute('data-aba');
-      E.detalhe = null;
-      desenhar();
-    });
-  })();
-
   A = E.acesso;
   validarAcesso();
 
