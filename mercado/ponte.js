@@ -15,18 +15,23 @@
      da Shopee faz isso de forma confiavel, e eu tentei tres.
 
      Mas quando a pessoa ABRE a pagina da loja, a propria Shopee faz varias
-     chamadas com o shopid dentro — get_shop_seo, is_show, get_categories,
-     search_items. Nao precisamos perguntar o id a ninguem: basta escutar o
-     que a pagina ja pede.
+     chamadas com o shopid dentro — get_shop_seo, is_show, get_categories.
+     Nao precisamos perguntar o id a ninguem: basta ver o que ela ja pediu.
 
-     Isto e o mesmo principio da Seller.IA: nao fabricamos chamada, so
-     ouvimos a conversa que ja acontece. */
+     COMO, SEM QUEBRAR NADA: a primeira versao disto trocava o window.fetch
+     e o XMLHttpRequest da Shopee por funcoes minhas, e derrubou a pagina —
+     quando o codigo dela guarda o fetch numa variavel e chama depois, o
+     this se perde e o navegador recusa. Mexer no fetch de uma pagina alheia
+     e invasivo demais.
+
+     O PerformanceObserver so OBSERVA: e a API que o navegador oferece para
+     medir rede, e ela nao toca em chamada nenhuma. Se falhar, falha sozinha
+     e a Shopee nem fica sabendo. */
   var SIA_LOJA_VISTA = null;
 
   function anotarLoja(url) {
     try {
       var s = String(url || '');
-      if (s.indexOf('shopee.com.br') < 0 && s.charAt(0) !== '/') return;
       var m = s.match(/[?&]shopid=(\d{6,12})/) || s.match(/[?&]shop_id=(\d{6,12})/);
       if (!m) return;
       var id = m[1];
@@ -40,25 +45,21 @@
     } catch (e) { /* noop */ }
   }
 
-  // fetch
   try {
-    var _fetch = window.fetch;
-    window.fetch = function (entrada, opcoes) {
-      try { anotarLoja(typeof entrada === 'string' ? entrada : (entrada && entrada.url)); } catch (e) { }
-      return _fetch.apply(this, arguments);
-    };
-  } catch (e) { /* noop */ }
+    // o que a pagina ja pediu antes de nos carregarmos
+    var jaFeitas = performance.getEntriesByType('resource') || [];
+    for (var i = 0; i < jaFeitas.length; i++) anotarLoja(jaFeitas[i].name);
 
-  // XHR: a Shopee usa os dois
-  try {
-    var _open = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function (metodo, url) {
-      try { anotarLoja(url); } catch (e) { }
-      return _open.apply(this, arguments);
-    };
-  } catch (e) { /* noop */ }
+    // e o que ela pedir daqui para frente
+    var obs = new PerformanceObserver(function (lista) {
+      var ent = lista.getEntries();
+      for (var j = 0; j < ent.length; j++) anotarLoja(ent[j].name);
+    });
+    obs.observe({ entryTypes: ['resource'] });
+  } catch (e) {
+    try { console.warn('[Mercado ponte] nao consegui observar a rede:', e); } catch (e2) { }
+  }
 
-  // quando o painel pergunta "que loja e esta?"
   window.addEventListener('SIA_MK_QUAL_LOJA', function () {
     window.dispatchEvent(new CustomEvent('SIA_MK_LOJA', {
       detail: JSON.stringify({ shopid: SIA_LOJA_VISTA, url: location.href })

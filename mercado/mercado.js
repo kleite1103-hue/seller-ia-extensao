@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.23.0';
+  var VERSAO = '1.23.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
