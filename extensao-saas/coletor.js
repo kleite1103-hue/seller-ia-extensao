@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.26.0-saas';
+  var VERSAO = '1.26.1-saas';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -1613,39 +1613,6 @@
      aba de rede do navegador: bastava abrir para ler as 28 rotas de uma vez.
      Agora cada passo e pedido separado, ja montado pelo servidor, e a
      extensao nunca ve o formato — so a URL final daquela chamada. */
-  /* CACHE DO PASSO. Cada repeticao pedia o passo ao servidor de novo, o que
-     dobrava as requisicoes: vinte palavras viravam vinte idas ao Supabase
-     mais vinte a Shopee. Como o unico que muda entre repeticoes e o valor
-     do alvo, da para pedir uma vez e trocar so o marcador. Isso corta
-     metade das requisicoes da coleta. */
-  var CACHE_PASSO = {};
-  function pedirPassoCache(modo, indice, vals, chave) {
-    var k = modo + ':' + indice;
-    if (CACHE_PASSO[k]) {
-      // reaproveita o molde e troca so os marcadores desta repeticao
-      var molde = CACHE_PASSO[k];
-      var url = String(molde.chamada.url);
-      var corpo = molde.chamada.corpo ? JSON.stringify(molde.chamada.corpo) : null;
-      for (var m in vals) {
-        var re = new RegExp('\\{' + m + '\\}', 'g');
-        url = url.replace(re, String(vals[m]));
-        if (corpo) corpo = corpo.replace(re, String(vals[m]));
-      }
-      // so serve se nao sobrou marcador nenhum
-      if (url.indexOf('{') < 0 && (!corpo || corpo.indexOf('{"') === 0 || corpo.indexOf('{' + '{') < 0)) {
-        return Promise.resolve({
-          ok: true, fase: molde.fase, repete: molde.repete, opcional: molde.opcional,
-          carimbaPeriodo: molde.carimbaPeriodo, pausa: molde.pausa,
-          chamada: { url: url, metodo: molde.chamada.metodo, corpo: corpo ? JSON.parse(corpo) : null }
-        });
-      }
-    }
-    return pedirPasso(modo, indice, vals).then(function (r) {
-      if (r && r.chamada && !CACHE_PASSO[k]) CACHE_PASSO[k] = r;
-      return r;
-    });
-  }
-
   function pedirPasso(modo, indice, vals) {
     return fetch(SIA_URL_RECEITA, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1706,10 +1673,10 @@
   async function executarPasso(r, modo, indice, vals, lojaCiclo) {
     if (pedidoParar) return 0;
     var feitas = 0;
-    /* 250ms entre cada chamada somava mais de doze segundos parados numa
-       leitura de cem chamadas. 120ms continua sendo ritmo humano e corta
-       metade dessa espera. */
-    var pausaMs = r.pausa || 120;
+    /* De volta a 250ms. Eu tinha baixado para 120 buscando velocidade, mas
+       a Karina mediu e o tempo total nao mudou — e ritmo mais apertado so
+       aproxima do limite que a Shopee impoe. */
+    var pausaMs = r.pausa || 250;
 
     function entregar(url, corpo, dados) {
       processarPacote({
@@ -1742,7 +1709,7 @@
       // Era por isso que campanhas e produtos vinham vazios.
       for (var pg = 1; pg <= (rep.ate || 10); pg++) {
         if (pedidoParar) break;
-        var rp = await pedirPassoCache(modo, indice, Object.assign({}, vals, {
+        var rp = await pedirPasso(modo, indice, Object.assign({}, vals, {
           pagina: pg, offset: (pg - 1) * (rep.tamanho || 20)
         }));
         var rr = await buscar(rp.chamada.url, rp.chamada.metodo, rp.chamada.corpo);
@@ -1760,7 +1727,7 @@
       var alvos = alvosDoPasso(rep);
       for (var a = 0; a < alvos.length; a++) {
         if (pedidoParar) break;
-        var ra = await pedirPassoCache(modo, indice, Object.assign({}, vals, {
+        var ra = await pedirPasso(modo, indice, Object.assign({}, vals, {
           campanha: parseInt(alvos[a], 10), produto: alvos[a]
         }));
         var r2 = await buscar(ra.chamada.url, ra.chamada.metodo, ra.chamada.corpo);
@@ -1809,7 +1776,6 @@
 
   function coletaCompleta(aoProgresso, periodoForcado, modo) {
     pedidoParar = false;
-    CACHE_PASSO = {};   // molde novo a cada leitura
     var PROFUNDA = modo === 'profunda';
     // Marcar 'iniciando' sem garantir a liberacao deixava coletaProgresso
     // travado para sempre quando a coleta falhava antes do fim — e a trava
