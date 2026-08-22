@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.26.1-saas';
+  var VERSAO = '1.27.0-saas';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -3713,6 +3713,92 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
      Separa o que a loja CONQUISTA (busca) do que o algoritmo EMPRESTA
      (recomendacao). Loja que vive de recomendacao e fragil e nao sabe:
      a Shopee pode cortar a entrega amanha sem aviso. */
+
+  /* ============ DE ONDE VEM CADA REAL ============
+     A Shopee separa a venda por canal: vitrine, anuncio pago, afiliado,
+     live e video. A rota que traz isso ja era coletada e o extrator ja
+     lia os cinco campos — mas a tela mostrava so busca contra recomendacao,
+     entao tres canais chegavam e morriam no caminho.
+
+     Por que importa: cada canal se comporta diferente quando voce para de
+     investir. Anuncio some no mesmo dia. Afiliado depende de terceiros
+     divulgarem. Live e video dependem de voce aparecer. So a vitrine
+     continua rendendo sozinha — e por isso e o unico que e patrimonio. */
+  function renderCanais() {
+    var D = null;
+    try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return ''; }
+    var F = D && D.funil;
+    var C = F && F.canais;
+    if (!C) return '';
+
+    var defs = [
+      { k: 'card', rot: 'Vitrine', cor: 'var(--vd)',
+        oq: 'Quem achou voce na busca ou navegando. Nao para se voce parar de investir.' },
+      { k: 'ads', rot: 'Shopee Ads', cor: 'var(--mk)',
+        oq: 'Trafego que voce comprou. Some no dia em que a campanha para.' },
+      { k: 'afiliado', rot: 'Afiliados', cor: '#8B5CF6',
+        oq: 'Divulgado por terceiros. Voce paga comissao so quando vende.' },
+      { k: 'live', rot: 'Shopee Live', cor: '#E11D74',
+        oq: 'Venda durante transmissao. Depende de voce estar no ar.' },
+      { k: 'video', rot: 'Shopee Video', cor: '#0EA5E9',
+        oq: 'Venda a partir de video. O conteudo continua rodando depois de publicado.' }
+    ];
+
+    var total = 0;
+    defs.forEach(function (d) { total += (C[d.k] && C[d.k].valor) || 0; });
+    if (!total) return '';
+
+    var linhas = defs.map(function (d) {
+      var c = C[d.k] || {};
+      return { rot: d.rot, cor: d.cor, oq: d.oq,
+        valor: c.valor || 0, pct: (c.valor || 0) / total * 100, variacao: c.variacao };
+    }).filter(function (l) { return l.valor > 0; });
+    linhas.sort(function (a, b) { return b.valor - a.valor; });
+
+    var h = olho('DE ONDE VEM CADA REAL',
+      'A Shopee separa a venda por canal. A diferenca entre eles nao e so o volume: ' +
+      'e o que sobra quando voce para de empurrar.');
+
+    // a barra
+    h += '<div style="display:flex;height:34px;border-radius:12px;overflow:hidden;margin-bottom:14px">';
+    linhas.forEach(function (l) {
+      h += '<div style="width:' + l.pct + '%;background:' + l.cor + ';min-width:2px" title="' +
+        esc(l.rot) + ': ' + fLe(l.pct, 0) + '%"></div>';
+    });
+    h += '</div>';
+
+    h += '<table><tr><th>CANAL</th><th class="num">VENDAS</th><th class="num">DO TOTAL</th><th class="num">VS ANTERIOR</th></tr>';
+    linhas.forEach(function (l) {
+      h += '<tr><td><b style="color:' + l.cor + '">' + l.rot + '</b>' +
+        '<div style="font-size:12px;color:var(--t2);margin-top:3px;line-height:1.45">' + l.oq + '</div></td>' +
+        '<td class="num">' + reais(l.valor) + '</td>' +
+        '<td class="num" style="font-weight:600">' + fLe(l.pct, 0) + '%</td>' +
+        '<td class="num">' + (l.variacao != null
+          ? '<span style="color:' + (l.variacao >= 0 ? 'var(--vd)' : 'var(--rd)') + '">' +
+            (l.variacao >= 0 ? '+' : '') + fLe(l.variacao, 0) + '%</span>'
+          : '\u2014') + '</td></tr>';
+    });
+    h += '</table>';
+
+    /* O ALERTA QUE IMPORTA: quanto do faturamento para se voce parar de
+       pagar. Ads e o unico que some no mesmo dia. */
+    var pago = linhas.filter(function (l) { return l.rot === 'Shopee Ads'; })[0];
+    var vitrine = linhas.filter(function (l) { return l.rot === 'Vitrine'; })[0];
+    if (pago && pago.pct >= 50) {
+      h += '<div class="nota" style="border-left:3px solid var(--rd)">' +
+        '<b style="color:var(--t0)">' + fLe(pago.pct, 0) + '% da sua venda vem de anuncio pago.</b><br>' +
+        'Isso significa que, se voce pausar as campanhas hoje, perde essa fatia amanha. ' +
+        (vitrine ? 'A vitrine responde por ' + fLe(vitrine.pct, 0) + '%, e e a unica parte que continua rendendo sozinha. ' : '') +
+        'Nao reduza o anuncio antes de a vitrine crescer.</div>';
+    } else if (vitrine && vitrine.pct >= 60) {
+      h += '<div class="nota" style="border-left:3px solid var(--vd)">' +
+        '<b style="color:var(--t0)">' + fLe(vitrine.pct, 0) + '% vem da vitrine.</b><br>' +
+        'E a posicao mais confortavel: a maior parte do seu faturamento nao depende de investimento diario. ' +
+        'Da para testar anuncio com folga, sem medo de ficar refem dele.</div>';
+    }
+    return h;
+  }
+
   function renderOrigem() {
     var D = null;
     try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { /* noop */ }
@@ -5858,6 +5944,30 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         cancelamentos: val(G.cancelados), visualizacoes: val(G.pv),
         carrinho: val(G.carrinho) != null ? val(G.carrinho) : val(G.atc)
       },
+      /* DE ONDE VEM CADA REAL. A Shopee separa a venda por canal e o dado ja
+         era coletado, mas nunca chegava ao relatorio — sem ele o consultor
+         nao consegue dizer quanto do faturamento para se a campanha parar. */
+      canaisDeVenda: (function () {
+        var D = null;
+        try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return null; }
+        var C = D && D.funil && D.funil.canais;
+        if (!C) return null;
+        var mapa = { card: 'vitrine', ads: 'shopee_ads', afiliado: 'afiliados',
+          live: 'shopee_live', video: 'shopee_video' };
+        var out = {}, total = 0;
+        for (var k in mapa) { total += (C[k] && C[k].valor) || 0; }
+        if (!total) return null;
+        for (var k2 in mapa) {
+          var c = C[k2] || {};
+          if (!c.valor) continue;
+          out[mapa[k2]] = {
+            vendas: Math.round(c.valor),
+            pctDoTotal: Math.round((c.valor / total) * 100),
+            variacao: c.variacao != null ? Math.round(c.variacao) : null
+          };
+        }
+        return out;
+      })(),
       // a contagem de metas vai ao lado do bloco de ads, ja pronta
       metasDeRoas: resumoMetas,
       // campanhas anunciando produto com nota abaixo de 4,5
@@ -8577,6 +8687,30 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         out.sort(function (a, b) { return b.pctDasVendas - a.pctDasVendas; });
         return out.slice(0, 8);
       })(),
+      /* DE ONDE VEM CADA REAL. A Shopee separa a venda por canal e o dado ja
+         era coletado, mas nunca chegava ao relatorio — sem ele o consultor
+         nao consegue dizer quanto do faturamento para se a campanha parar. */
+      canaisDeVenda: (function () {
+        var D = null;
+        try { D = window.SIA_Diamantes ? window.SIA_Diamantes.estado() : null; } catch (e) { return null; }
+        var C = D && D.funil && D.funil.canais;
+        if (!C) return null;
+        var mapa = { card: 'vitrine', ads: 'shopee_ads', afiliado: 'afiliados',
+          live: 'shopee_live', video: 'shopee_video' };
+        var out = {}, total = 0;
+        for (var k in mapa) { total += (C[k] && C[k].valor) || 0; }
+        if (!total) return null;
+        for (var k2 in mapa) {
+          var c = C[k2] || {};
+          if (!c.valor) continue;
+          out[mapa[k2]] = {
+            vendas: Math.round(c.valor),
+            pctDoTotal: Math.round((c.valor / total) * 100),
+            variacao: c.variacao != null ? Math.round(c.variacao) : null
+          };
+        }
+        return out;
+      })(),
       // ferramentas de marketing em uso
       marketing: (function () {
         var M = null;
@@ -8603,7 +8737,10 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           '(4) produtos que cresceram em trafego ou conversao, e os que cairam; ' +
           '(5) avaliacoes e penalidade, se houver algo abaixo de 4,5 ou ponto na conta; ' +
           '(6) afiliados e cupons, se estiverem em uso; ' +
-          '(7) produto que vende e esta sem estoque, se houver: este vem PRIMEIRO de tudo, ' +
+          '(7) de onde vem cada real: quanto veio da vitrine, do anuncio pago, ' +
+          'de afiliados, de live e de video, dizendo quanto do faturamento pararia ' +
+          'se as campanhas fossem pausadas hoje; ' +
+          '(8) produto que vende e esta sem estoque, se houver: este vem PRIMEIRO de tudo, ' +
           'porque alem da venda perdida hoje ele sai da busca e perde a posicao que levou meses para construir; ' +
           '(8) variacao esgotada em produto anunciado, se houver: diga qual acabou e quanto ela pesava nas vendas, ' +
           'porque o anuncio segue pagando o clique de quem chega e nao encontra o que quer. ' +
@@ -10405,6 +10542,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         seguro(renderFunilLoja, 'Funil da loja') +
         seguro(leituraDaConta, 'Leitura da conta') +
         seguro(renderOrigem, 'De onde vem a venda') +
+        seguro(renderCanais, 'De onde vem cada real') +
         seguro(renderPerdaPosPedido, 'Perda pos-pedido') +
         seguro(renderConta360, 'Conta 360');
       try { ligarBotaoColeta(); } catch (eB) { }
