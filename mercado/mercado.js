@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.26.0';
+  var VERSAO = '1.27.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -26,6 +26,7 @@
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
     gravando: false, idadeMax: 0,
+    reclLendo: false, recl: null, reclErro: null, reclProgresso: null,
     // a portaria
     acesso: { checando: true, liberado: false, entrando: false, token: null,
       usuario: null, erro: null, motivo: null, venceEm: null, offline: false, emailDigitado: '' }
@@ -364,6 +365,172 @@
 
 
 
+
+
+  /* ============ O QUE DA ERRADO NO NICHO ============
+     Le as avaliacoes de uma e duas estrelas dos produtos que mais vendem e
+     agrupa por assunto. Serve para saber, ANTES de comprar estoque, o que
+     costuma dar errado com aquele produto no mercado — e o que fazer para
+     nao repetir.
+
+     POR QUE SOB DEMANDA: cada produto exige duas chamadas, e ler o nicho
+     inteiro seriam cento e vinte. A Karina viu hoje o que acontece com
+     quarenta e seis: a Shopee manda a pagina para a tela de verificacao.
+     Oito produtos, so quando pedido, e o limite que respeita isso.
+
+     E POR QUE FILTRO 1 e 2: a rota com filter=0 devolve as avaliacoes que a
+     Shopee escolhe mostrar, e ela mostra as boas. */
+
+  var TEMAS_RECL = [
+    { rot: 'Prazo e entrega',
+      p: ['demor', 'atras', 'nao chegou', 'não chegou', 'nunca chegou', 'extravi', 'correio'],
+      oq: 'Quem vender isto precisa acertar prazo e transportador. Prazo cumprido vale mais que prazo curto.' },
+    { rot: 'Chegou danificado',
+      p: ['quebrad', 'quebrou', 'danificad', 'amassad', 'rachad', 'trincad', 'veio torto', 'estragad'],
+      oq: 'Produto que quebra no transporte. Orce a embalagem reforcada no custo antes de decidir o preco.' },
+    { rot: 'Qualidade abaixo do esperado',
+      p: ['fragil', 'frágil', 'fraco', 'pessima', 'péssima', 'plastico fino', 'nao dura', 'não dura', 'quebra facil'],
+      oq: 'O mercado reclama da qualidade. Quem entrar com um fornecedor melhor tem argumento de venda pronto.' },
+    { rot: 'Diferente do anuncio',
+      p: ['diferente', 'nao e igual', 'não é igual', 'menor', 'nao era', 'não era', 'propaganda engan', 'foto engan'],
+      oq: 'Os concorrentes prometem mais do que entregam. Foto honesta e medida no titulo viram vantagem aqui.' },
+    { rot: 'Veio faltando peca',
+      p: ['faltando', 'faltou', 'veio so', 'veio só', 'incomplet', 'menos que'],
+      oq: 'Conferencia de pedido. Deixe explicito no titulo quantas pecas vao.' },
+    { rot: 'Veio errado',
+      p: ['errad', 'outra cor', 'cor errada', 'outro produto', 'nao foi o que pedi'],
+      oq: 'Produto com muitas variacoes parecidas. Separacao errada e o risco de operacao aqui.' },
+    { rot: 'Vendedor nao respondeu',
+      p: ['nao responde', 'não responde', 'sem resposta', 'ignorou', 'nao resolveu', 'atendimento'],
+      oq: 'Os concorrentes somem depois da venda. Responder rapido e a forma mais barata de ganhar nota.' },
+    { rot: 'Cheiro ou aparencia',
+      p: ['cheiro', 'fedid', 'sujo', 'mancha', 'usado', 'poeira'],
+      oq: 'Cuidado com estoque e embalagem: produto guardado errado chega com cara de usado.' }
+  ];
+
+  async function lerReclamacoes() {
+    var alvos = E.itens.filter(function (x) { return x.mes != null && x.id && x.loja; })
+      .sort(function (a, b) { return (b.fatMes || 0) - (a.fatMes || 0); })
+      .slice(0, 8);
+    if (!alvos.length) { E.reclErro = 'Nenhum produto com venda para ler.'; desenhar(); return; }
+
+    E.reclLendo = true; E.reclErro = null; E.recl = null;
+    desenhar();
+
+    var todas = [];
+    try {
+      for (var i = 0; i < alvos.length; i++) {
+        var x = alvos[i];
+        E.reclProgresso = 'Lendo as reclamacoes... (' + (i + 1) + ' de ' + alvos.length + ')';
+        desenhar();
+
+        for (var estrelas = 1; estrelas <= 2; estrelas++) {
+          var url = '/api/v2/item/get_ratings?itemid=' + x.id + '&shopid=' + x.loja +
+            '&limit=20&offset=0&filter=' + estrelas + '&flag=1&type=0' +
+            '&exclude_filter=1&fold_filter=0&relevant_reviews=false&request_source=2';
+          var r = await api(url);
+
+          // a Shopee avisando que desconfia: parar em vez de insistir
+          if (r && (r.status === 403 || (r.dados && r.dados.error === 90309999))) {
+            E.reclErro = 'A Shopee pediu verificacao e a leitura parou. ' +
+              'Espere uns minutos e tente de novo.';
+            E.reclLendo = false; E.reclProgresso = null; desenhar();
+            return;
+          }
+          try {
+            var d = (r && r.dados && (r.dados.data || r.dados)) || {};
+            var lista = d.ratings || [];
+            for (var j = 0; j < lista.length; j++) {
+              var txt = String(lista[j].comment || '').trim();
+              if (txt) todas.push({ texto: txt.slice(0, 400), estrelas: lista[j].rating_star,
+                produto: x.nome, id: x.id });
+            }
+          } catch (e) { /* noop */ }
+          await espera(1400 + Math.round(Math.random() * 800));
+        }
+      }
+
+      // agrupa por assunto
+      var achados = {};
+      todas.forEach(function (rc) {
+        var low = rc.texto.toLowerCase();
+        for (var k = 0; k < TEMAS_RECL.length; k++) {
+          var T = TEMAS_RECL[k];
+          for (var q = 0; q < T.p.length; q++) {
+            if (low.indexOf(T.p[q]) >= 0) {
+              achados[T.rot] = achados[T.rot] || { tema: T, n: 0, exemplos: [] };
+              achados[T.rot].n++;
+              if (achados[T.rot].exemplos.length < 2) achados[T.rot].exemplos.push(rc);
+              return;
+            }
+          }
+        }
+      });
+      var temas = Object.keys(achados).map(function (k) { return achados[k]; });
+      temas.sort(function (a, b) { return b.n - a.n; });
+
+      E.recl = { lidas: todas.length, produtos: alvos.length, temas: temas };
+    } catch (e) {
+      E.reclErro = 'Nao consegui completar: ' + String(e && e.message || e);
+    } finally {
+      E.reclLendo = false; E.reclProgresso = null; desenhar();
+    }
+  }
+
+  function viewReclamacoes() {
+    var h = olho('O QUE DA ERRADO NESTE NICHO',
+      'Le as avaliacoes de uma e duas estrelas dos oito produtos que mais faturam e agrupa por assunto. ' +
+      'Serve para saber o que costuma dar errado ANTES de comprar estoque.');
+
+    if (!E.itens.length) {
+      return h + '<div class="vazio">Analise um nicho primeiro.</div>';
+    }
+
+    h += '<div style="margin-bottom:14px"><button class="go" id="ler-recl"' +
+      (E.reclLendo ? ' disabled' : '') + '>' +
+      (E.reclLendo ? 'Lendo...' : (E.recl ? 'Ler de novo' : 'Ler as reclamacoes')) + '</button>' +
+      '<div style="font-size:12px;color:var(--tx5);margin-top:7px">' +
+      'Leva cerca de meio minuto. Le oito produtos para nao acionar o limite da Shopee.</div></div>';
+
+    if (E.reclLendo) return h + '<div class="vazio">' + esc(E.reclProgresso || 'Lendo...') + '</div>';
+    if (E.reclErro) h += '<div class="aviso" style="border-color:#D64545;color:var(--tx2)">' + esc(E.reclErro) + '</div>';
+
+    var R = E.recl;
+    if (!R) return h;
+
+    if (!R.lidas) {
+      return h + '<div class="aviso" style="border-color:#2E9E6B">Os oito produtos mais vendidos deste nicho ' +
+        'nao tem nenhuma avaliacao de uma ou duas estrelas. Isso e incomum e diz algo bom sobre o produto ' +
+        '\u2014 ou que os concorrentes escondem as ruins.</div>';
+    }
+
+    if (!R.temas.length) {
+      return h + '<div class="nota">Foram lidas ' + R.lidas + ' reclamacoes, mas nenhuma caiu num padrao conhecido.</div>';
+    }
+
+    var maior = R.temas[0];
+    h += '<div class="aviso" style="border-color:#C98A1E;color:var(--tx2)">' +
+      '<b>De ' + R.lidas + ' reclamacoes em ' + R.produtos + ' produtos, a mais comum e ' +
+      maior.tema.rot.toLowerCase() + ' \u2014 ' + maior.n + ' vezes.</b><br>' +
+      esc(maior.tema.oq) + '</div>';
+
+    h += '<div class="tab"><table><tr><th>O PROBLEMA</th><th class="num">VEZES</th><th>O QUE ISSO ABRE PARA VOCE</th></tr>';
+    R.temas.forEach(function (t2) {
+      var pct = Math.round((t2.n / R.lidas) * 100);
+      h += '<tr><td><b>' + esc(t2.tema.rot) + '</b>' +
+        (t2.exemplos.length
+          ? '<div style="font-size:11.5px;color:var(--tx5);margin-top:4px;font-style:italic">\u201c' +
+            esc(String(t2.exemplos[0].texto).slice(0, 90)) + '\u201d</div>'
+          : '') + '</td>' +
+        '<td class="num" style="color:' + (pct >= 30 ? '#D64545' : '#C98A1E') + ';font-weight:600">' + t2.n + '</td>' +
+        '<td style="font-size:13px;line-height:1.5">' + esc(t2.tema.oq) + '</td></tr>';
+    });
+    h += '</table></div>';
+    h += '<div class="nota" style="font-size:12.5px;color:var(--tx4)">' +
+      'As frases sao avaliacoes publicas dos concorrentes. A leitura cobre os oito maiores, ' +
+      'nao o nicho inteiro.</div>';
+    return h;
+  }
 
   /* ============ AS CATEGORIAS ============
      A Shopee devolve o catid de cada produto na busca, mas nao o nome em
@@ -1164,6 +1331,18 @@
               : 'nicho estavel: poucos acelerando'
         };
       })(),
+
+      /* O QUE DA ERRADO NO NICHO. So vai quando a pessoa pediu a leitura,
+         porque ela custa chamadas. E o material mais acionavel do dossie:
+         diz o que evitar antes de comprar estoque. */
+      reclamacoes: (E.recl && E.recl.temas && E.recl.temas.length) ? {
+        lidas: E.recl.lidas,
+        produtosLidos: E.recl.produtos,
+        porAssunto: E.recl.temas.slice(0, 6).map(function (x) {
+          return { assunto: x.tema.rot, vezes: x.n, oQueAbre: x.tema.oq,
+            exemplo: x.exemplos.length ? String(x.exemplos[0].texto).slice(0, 130) : null };
+        })
+      } : null,
 
       /* AS CATEGORIAS EM QUE O TERMO CAIU. Diz se a busca pegou um nicho ou
          misturou varios — o que muda a confianca em toda media do dossie. */
@@ -2109,6 +2288,7 @@
     '</div></div>';
 
   var ABAS = [
+    { id: 'reclamacoes', rot: 'O que da errado', d: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z' },
     { id: 'categorias', rot: 'Categorias', d: 'M4 6h7v7H4zM13 6h7v7h-7zM4 15h7v5H4zM13 15h7v5h-7z' },
     { id: 'tendencia', rot: 'Decolando', d: 'M4 19.5 9.5 13l4 4L20 8.5M20 8.5h-5M20 8.5v5' },
     { id: 'nicho', rot: 'O nicho', d: 'M3.5 20.5V13M9 20.5V7M14.5 20.5v-5M20 20.5V3.5' },
@@ -2211,7 +2391,8 @@
       return;
     }
     if (E.detalhe) { c.innerHTML = viewDetalhe(); ligarTabela(); return; }
-    c.innerHTML = E.aba === 'categorias' ? viewCategorias()
+    c.innerHTML = E.aba === 'reclamacoes' ? viewReclamacoes()
+      : E.aba === 'categorias' ? viewCategorias()
       : E.aba === 'tendencia' ? viewTendencia()
       : E.aba === 'nicho' ? viewNicho()
       : E.aba === 'produtos' ? viewProdutos()
@@ -2221,6 +2402,7 @@
       : viewEu();
     ligarTabela();
     ligarFiltroIdade();
+    ligarReclamacoes();
     ligarCalculo();
   }
 
@@ -2702,6 +2884,11 @@
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
       if (!A.entrando) { try { campo.focus(); } catch (e) { } }
     }
+  }
+
+  function ligarReclamacoes() {
+    var b = $('ler-recl');
+    if (b) b.addEventListener('click', function () { if (!E.reclLendo) lerReclamacoes(); });
   }
 
   function ligarFiltroIdade() {

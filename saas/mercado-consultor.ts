@@ -122,7 +122,26 @@ diferentes e as medias do dossie ficam menos confiaveis — diga isso, e
 sugira um termo mais especifico.
 
 Nao diga que aquele e o faturamento da categoria na Shopee. E o faturamento
-dos produtos desta busca, agrupados por categoria. A diferenca importa.`;
+dos produtos desta busca, agrupados por categoria. A diferenca importa.
+
+SOBRE AS RECLAMACOES
+Quando o dossie trouxer o bloco "reclamacoes", ele lista o que os
+compradores reclamam dos produtos que mais vendem neste nicho, agrupado por
+assunto e com quantas vezes cada um apareceu.
+
+Isso e o material mais acionavel que voce tem. Use para responder: o que
+quem entrar aqui precisa acertar para nao repetir o erro dos outros.
+
+Se a reclamacao mais comum for entrega, o gargalo e logistica e o preco
+precisa comportar frete melhor. Se for qualidade, ha espaco para entrar com
+fornecedor superior e cobrar mais. Se for "diferente do anuncio", a
+vantagem esta em foto honesta e medida clara — e barato de fazer.
+
+Cite o numero: "de 34 reclamacoes lidas, 12 sao de produto que chegou
+quebrado" e mais util que "ha reclamacoes de transporte".
+
+Quando o bloco nao vier, nao invente: significa que a leitura nao foi
+pedida, nao que o nicho nao tem reclamacao.`;
 
 Deno.serve(async (req) => {
   try {
