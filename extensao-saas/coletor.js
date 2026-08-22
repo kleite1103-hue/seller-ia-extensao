@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.27.0-saas';
+  var VERSAO = '1.28.0-saas';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -461,6 +461,111 @@
     return true;
   }
 
+  /* AS RECLAMACOES. A rota de avaliacoes com filter=1 e filter=2 devolve
+     so as de uma e duas estrelas — que e onde esta a informacao util. O
+     filter=0, que a receita usava sozinho, traz as que a Shopee escolhe
+     mostrar, e ela mostra as boas: na captura que analisei vieram seis,
+     todas de cinco estrelas.
+
+     Guardamos o texto para agrupar por assunto depois. Nao e para exibir
+     reclamacao de cliente na tela; e para dizer o que costuma dar errado
+     com aquele produto, e o que fazer antes de acontecer com voce. */
+  function parseAvaliacoesRuins(url, dados) {
+    if (url.indexOf('/item/get_ratings') < 0) return false;
+    if (!/[?&]filter=[12]/.test(url)) return false;
+    var m = url.match(/itemid=(\d+)/);
+    if (!m) return false;
+    var d = (dados && (dados.data || dados)) || {};
+    var lista = d.ratings || [];
+    if (!lista.length) return true;   // sem reclamacao tambem e informacao
+
+    var p = entidadeProduto(m[1]);
+    p.reclamacoes = p.reclamacoes || [];
+    for (var i = 0; i < lista.length; i++) {
+      var r = lista[i] || {};
+      var txt = String(r.comment || '').trim();
+      if (!txt) continue;
+      p.reclamacoes.push({
+        estrelas: numero(r.rating_star),
+        texto: txt.slice(0, 400),
+        quando: r.ctime || null,
+        temFoto: !!(r.images && r.images.length)
+      });
+    }
+    // sem repetir a mesma avaliacao vinda dos dois filtros
+    var vistos = {};
+    p.reclamacoes = p.reclamacoes.filter(function (x) {
+      var k = x.texto.slice(0, 60);
+      if (vistos[k]) return false;
+      vistos[k] = 1; return true;
+    });
+    estado.sujo = true;
+    return true;
+  }
+
+  /* AGRUPA AS RECLAMACOES POR ASSUNTO. Cada tema tem as palavras que
+     aparecem de verdade em avaliacao brasileira — inclusive erro de
+     digitacao comum, porque ninguem escreve com cuidado quando esta
+     irritado. */
+  var TEMAS_RECLAMACAO = [
+    { id: 'entrega', rot: 'Prazo e entrega',
+      p: ['demor', 'atras', 'nao chegou', 'não chegou', 'nunca chegou', 'extravi', 'correio', 'entrega'],
+      oq: 'Confira o prazo que voce promete e o transportador. Prazo cumprido vale mais que prazo curto.' },
+    { id: 'quebrado', rot: 'Chegou danificado',
+      p: ['quebrad', 'quebrou', 'danificad', 'amassad', 'rachad', 'trincad', 'veio torto', 'estragad'],
+      oq: 'Embalagem. Um plastico bolha a mais custa centavos e evita a nota um.' },
+    { id: 'qualidade', rot: 'Qualidade abaixo do esperado',
+      p: ['fragil', 'frágil', 'fraco', 'ruim', 'pessima', 'péssima', 'barato', 'plastico fino', 'nao dura', 'não dura', 'quebra facil'],
+      oq: 'Ou o produto e ruim, ou a foto promete mais do que ele entrega. Os dois se resolvem antes da venda.' },
+    { id: 'diferente', rot: 'Diferente do anuncio',
+      p: ['diferente', 'nao e igual', 'não é igual', 'menor', 'nao era', 'não era', 'propaganda engan', 'foto engan', 'tamanho'],
+      oq: 'A causa mais comum de nota baixa em produto bom: a foto ou a medida no titulo criam expectativa errada.' },
+    { id: 'faltando', rot: 'Veio faltando peca',
+      p: ['faltando', 'faltou', 'veio so', 'veio só', 'incomplet', 'menos que'],
+      oq: 'Conferencia antes de fechar a caixa, e deixar claro no titulo quantas pecas vao.' },
+    { id: 'errado', rot: 'Veio errado',
+      p: ['errad', 'outra cor', 'cor errada', 'outro produto', 'nao foi o que pedi', 'não foi o que pedi'],
+      oq: 'Separacao de pedido. Costuma piorar quando o produto tem muitas variacoes parecidas.' },
+    { id: 'atendimento', rot: 'Vendedor nao respondeu',
+      p: ['nao responde', 'não responde', 'sem resposta', 'ignorou', 'nao resolveu', 'não resolveu', 'atendimento'],
+      oq: 'Reclamacao que vira nota um por causa do silencio, nao do problema. Responder rapido salva a nota.' },
+    { id: 'cheiro', rot: 'Cheiro ou aparencia',
+      p: ['cheiro', 'fedid', 'sujo', 'mancha', 'usado', 'poeira'],
+      oq: 'Estoque e embalagem. Produto guardado errado chega com cara de usado.' }
+  ];
+
+  function agruparReclamacoes(produtos) {
+    var achados = {};
+    var total = 0;
+    for (var id in produtos) {
+      var lista = (produtos[id] || {}).reclamacoes || [];
+      for (var i = 0; i < lista.length; i++) {
+        total++;
+        var txt = String(lista[i].texto || '').toLowerCase();
+        var casou = false;
+        for (var j = 0; j < TEMAS_RECLAMACAO.length; j++) {
+          var T = TEMAS_RECLAMACAO[j];
+          for (var k = 0; k < T.p.length; k++) {
+            if (txt.indexOf(T.p[k]) >= 0) {
+              achados[T.id] = achados[T.id] || { tema: T, n: 0, exemplos: [] };
+              achados[T.id].n++;
+              if (achados[T.id].exemplos.length < 2) {
+                achados[T.id].exemplos.push({ texto: lista[i].texto, estrelas: lista[i].estrelas,
+                  produto: (produtos[id] || {}).nome || id });
+              }
+              casou = true;
+              break;
+            }
+          }
+          if (casou) break;
+        }
+      }
+    }
+    var out = Object.keys(achados).map(function (k) { return achados[k]; });
+    out.sort(function (a, b) { return b.n - a.n; });
+    return { temas: out, total: total };
+  }
+
   function parseAvaliacoes(url, dados) {
     if (url.indexOf('/item/get_ratings') < 0) return false;
     var m = url.match(/itemid=(\d+)/) || url.match(/item_id=(\d+)/);
@@ -775,6 +880,7 @@
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); /* sem garimpo: micro proprio, tratado na v0.6 */ }
     else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
     // as avaliacoes chegavam e ninguem lia
+    else if (parseAvaliacoesRuins(pacote.url, pacote.dados)) { /* guardado */ }
     else if (parseAvaliacoes(pacote.url, pacote.dados)) { /* guardado */ }
     else if (parseVariacoes(pacote.url, pacote.dados)) { /* guardado */ }
     else if (tag === 'outra') {
@@ -5968,6 +6074,20 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         }
         return out;
       })(),
+      /* O QUE DA ERRADO, agrupado. Vai para os dois relatorios porque e a
+         informacao que evita a proxima nota um — mais util que saber que a
+         nota caiu. */
+      reclamacoes: (function () {
+        var rr = agruparReclamacoes(estado.produtos);
+        if (!rr.total) return null;
+        return {
+          lidas: rr.total,
+          porAssunto: rr.temas.slice(0, 6).map(function (x) {
+            return { assunto: x.tema.rot, vezes: x.n, oQueFazer: x.tema.oq,
+              exemplo: x.exemplos.length ? String(x.exemplos[0].texto).slice(0, 120) : null };
+          })
+        };
+      })(),
       // a contagem de metas vai ao lado do bloco de ads, ja pronta
       metasDeRoas: resumoMetas,
       // campanhas anunciando produto com nota abaixo de 4,5
@@ -7320,6 +7440,47 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
     h += '</table>';
     h += '<div class="nota" style="font-size:12.5px;color:var(--t2)">A coluna <b>das vendas</b> mostra quanto a variacao esgotada representava do que o produto vendeu. ' +
       'Acima de 25% o anuncio esta comprando visita para um produto que, na pratica, o comprador nao consegue comprar.</div>';
+    return h;
+  }
+
+  /* O QUE DA ERRADO COM ESTES PRODUTOS. Le as avaliacoes de uma e duas
+     estrelas e agrupa por assunto. Nao mostra reclamacao de cliente na
+     tela — mostra o padrao e o que fazer antes de acontecer de novo. */
+  function renderReclamacoes() {
+    var r = agruparReclamacoes(estado.produtos);
+    if (!r.total) return '';
+
+    var h = olho('O QUE DA ERRADO COM ESTES PRODUTOS',
+      'Li as avaliacoes de uma e duas estrelas e agrupei por assunto. ' +
+      'Cada linha diz quantas vezes o problema apareceu e o que costuma resolver.');
+
+    if (!r.temas.length) {
+      return h + '<div class="nota">Foram lidas ' + r.total + ' avaliacoes ruins, mas nenhuma ' +
+        'caiu num padrao conhecido. Vale ler uma por uma no painel da Shopee.</div>';
+    }
+
+    var maior = r.temas[0];
+    h += '<div class="nota" style="border-left:3px solid var(--am)">' +
+      '<b style="color:var(--t0)">De ' + r.total + ' reclamacoes lidas, a mais comum e ' +
+      maior.tema.rot.toLowerCase() + ' \u2014 ' + maior.n + ' vezes.</b><br>' +
+      esc(maior.tema.oq) + '</div>';
+
+    h += '<table><tr><th>O PROBLEMA</th><th class="num">VEZES</th><th>O QUE COSTUMA RESOLVER</th></tr>';
+    r.temas.forEach(function (t2) {
+      var pct = Math.round((t2.n / r.total) * 100);
+      h += '<tr><td><b>' + esc(t2.tema.rot) + '</b>' +
+        (t2.exemplos.length
+          ? '<div style="font-size:11.5px;color:var(--t3);margin-top:4px;font-style:italic">\u201c' +
+            esc(String(t2.exemplos[0].texto).slice(0, 90)) + '\u201d</div>'
+          : '') + '</td>' +
+        '<td class="num" style="color:' + (pct >= 30 ? 'var(--rd)' : 'var(--am)') + ';font-weight:600">' +
+        t2.n + '</td>' +
+        '<td style="font-size:13px;line-height:1.5">' + esc(t2.tema.oq) + '</td></tr>';
+    });
+    h += '</table>';
+    h += '<div class="nota" style="font-size:12.5px;color:var(--t2)">' +
+      'As frases citadas sao das avaliacoes publicas dos seus proprios anuncios. ' +
+      'Servem para voce reconhecer o padrao, nao para responder cliente por aqui.</div>';
     return h;
   }
 
@@ -8710,6 +8871,20 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
           };
         }
         return out;
+      })(),
+      /* O QUE DA ERRADO, agrupado. Vai para os dois relatorios porque e a
+         informacao que evita a proxima nota um — mais util que saber que a
+         nota caiu. */
+      reclamacoes: (function () {
+        var rr = agruparReclamacoes(estado.produtos);
+        if (!rr.total) return null;
+        return {
+          lidas: rr.total,
+          porAssunto: rr.temas.slice(0, 6).map(function (x) {
+            return { assunto: x.tema.rot, vezes: x.n, oQueFazer: x.tema.oq,
+              exemplo: x.exemplos.length ? String(x.exemplos[0].texto).slice(0, 120) : null };
+          })
+        };
       })(),
       // ferramentas de marketing em uso
       marketing: (function () {
@@ -10352,7 +10527,7 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
       }
     }
     h += '<div class="nota">A leitura usa o funil que a Shopee entrega por produto. Produtos com menos de 100 visitantes ficam de fora do julgamento de proposito — abaixo disso, taxa e ruido.</div>';
-    return cabecalhoFiltro + h;
+    return cabecalhoFiltro + h + seguro(renderReclamacoes, 'O que da errado');
   }
 
   function render() {

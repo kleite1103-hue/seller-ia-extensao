@@ -239,8 +239,27 @@ function montarReceita(modo: string, ctx: any) {
     });
 
     p.push({
+      /* AS AVALIACOES NEGATIVAS, nao as em destaque. O filter=0 devolve as
+         que a Shopee escolhe mostrar, e ela mostra as boas — na captura que
+         analisei vieram seis, todas de cinco estrelas. Isso e inutil para o
+         que interessa: saber o que da errado com o produto.
+
+         filter=1 e filter=2 trazem as de uma e duas estrelas. E a mesma
+         rota, mudando um numero. */
+      id: "avaliacoes_ruins", porProduto: true, limite: 6,
+      url: "/api/v2/item/get_ratings?{spc}&itemid={produto}&shopid={loja}&limit=20&offset=0&filter=1&flag=1&type=0&exclude_filter=1&fold_filter=0&relevant_reviews=false&request_source=2",
+      metodo: "GET", fase: "Lendo as reclamacoes", opcional: true, pausa: 200,
+    });
+
+    p.push({
+      id: "avaliacoes_ruins2", porProduto: true, limite: 6,
+      url: "/api/v2/item/get_ratings?{spc}&itemid={produto}&shopid={loja}&limit=20&offset=0&filter=2&flag=1&type=0&exclude_filter=1&fold_filter=0&relevant_reviews=false&request_source=2",
+      metodo: "GET", fase: "Lendo as reclamacoes", opcional: true, pausa: 200,
+    });
+
+    p.push({
       id: "avaliacoes", porProduto: true, limite: 6,
-      url: "/api/v2/item/get_ratings?{spc}&itemid={produto}&shopid={loja}&limit=6&offset=0&filter=0&flag=1&type=0&exclude_filter=1&filter_size=0&fold_filter=0&request_source=2",
+      url: "/api/v2/item/get_ratings?{spc}&itemid={produto}&shopid={loja}&limit=6&offset=0&filter=0&flag=1&type=0&exclude_filter=1&fold_filter=0&relevant_reviews=false&request_source=2",
       metodo: "GET", fase: "Lendo as avaliacoes", opcional: true, pausa: 200,
     });
   }
