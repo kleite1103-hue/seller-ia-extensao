@@ -90,8 +90,13 @@ decisao. Se uma frase nao tem nenhum dos dois, corte.
 
 SOBRE O RITMO DOS ANUNCIOS
 O dossie traz um bloco "ritmo" com tres listas: decolando, subindo e
-perdendo forca. Cada produto vem com quantos dias esta no ar e quanto por
-cento do que ele ja vendeu na vida saiu no ultimo mes.
+perdendo forca. Cada produto vem com quantos dias esta no ar e a ACELERACAO
+dele — quantas vezes o ritmo do ultimo mes supera a media diaria da vida
+inteira do anuncio.
+
+Aceleracao de 3x quer dizer que ele vende hoje o triplo do que vendeu em
+media desde que entrou. Isso vale mais que idade: um anuncio de dois anos
+que triplicou e sinal mais forte que um de trinta dias vendendo pouco.
 
 Use isso para responder a pergunta que o vendedor tem na cabeca e nao
 formula: da para entrar agora, ou ja passou a hora?
@@ -108,7 +113,16 @@ Cite os produtos pelo nome quando forem relevantes, e diga o numero de dias
 junto: "esse esta ha 41 dias no ar e ja vende 50 por mes" e mais util que
 "ha produtos novos vendendo bem".
 
-Nao invente causa para o crescimento. Voce ve o ritmo, nao o motivo.`;
+Nao invente causa para o crescimento. Voce ve o ritmo, nao o motivo.
+
+SOBRE AS CATEGORIAS
+O dossie traz um bloco "categorias" com as categorias em que os produtos
+desta busca caem. Se "concentrado" for falso, o termo esta pegando nichos
+diferentes e as medias do dossie ficam menos confiaveis — diga isso, e
+sugira um termo mais especifico.
+
+Nao diga que aquele e o faturamento da categoria na Shopee. E o faturamento
+dos produtos desta busca, agrupados por categoria. A diferenca importa.`;
 
 Deno.serve(async (req) => {
   try {

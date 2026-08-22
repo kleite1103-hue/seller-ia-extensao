@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.25.0';
+  var VERSAO = '1.26.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -25,7 +25,7 @@
     paginas: 3, ampliar: false, variacoes: [], fotoDescricao: null,
     detalhe: null, minhaLoja: null, paginasLidas: 0, quando: null,
     calc: null, consulta: null, consultando: false, consultaErro: null,
-    gravando: false,
+    gravando: false, idadeMax: 0,
     // a portaria
     acesso: { checando: true, liberado: false, entrando: false, token: null,
       usuario: null, erro: null, motivo: null, venceEm: null, offline: false, emailDigitado: '' }
@@ -364,6 +364,122 @@
 
 
 
+
+  /* ============ AS CATEGORIAS ============
+     A Shopee devolve o catid de cada produto na busca, mas nao o nome em
+     portugues — a arvore dela vem em ingles ("Toys & Hobbies"), o que nao
+     serve para mostrar a uma vendedora brasileira.
+
+     Entao a extensao pede o nome quando precisa, uma vez por categoria, e
+     guarda. Sao poucas por busca: um termo bem escolhido cai em duas ou
+     tres, e isso ja e uma informacao — termo que espalha por oito
+     categorias esta misturando nichos diferentes. */
+
+  var NOMES_CAT = {};
+
+  async function nomearCategorias(ids) {
+    var faltam = ids.filter(function (c) { return c && !NOMES_CAT[c]; });
+    if (!faltam.length) return;
+    for (var i = 0; i < faltam.length && i < 8; i++) {
+      var r = await api('/api/v4/pages/get_category_tree');
+      try {
+        var d = (r && r.dados && (r.dados.data || r.dados)) || {};
+        var lista = d.category_list || [];
+        (function anda(l, caminho) {
+          for (var j = 0; j < l.length; j++) {
+            var c = l[j];
+            var nome = c.display_name || c.name || '';
+            var completo = caminho ? caminho + ' \u203a ' + nome : nome;
+            NOMES_CAT[c.catid] = completo;
+            if (c.children && c.children.length) anda(c.children, completo);
+          }
+        })(lista, '');
+      } catch (e) { /* noop */ }
+      break;   // a arvore vem inteira numa chamada so
+    }
+  }
+
+  function nomeCat(id) {
+    return NOMES_CAT[id] || ('categoria ' + id);
+  }
+
+  function agruparPorCategoria(itens) {
+    var g = {};
+    itens.forEach(function (x) {
+      if (!x.catid) return;
+      var k = String(x.catid);
+      g[k] = g[k] || { catid: k, produtos: 0, vendas: 0, fat: 0, itens: [] };
+      g[k].produtos++;
+      if (x.mes != null) { g[k].vendas += x.mes; g[k].fat += x.fatMes || 0; }
+      g[k].itens.push(x);
+    });
+    var out = Object.keys(g).map(function (k) { return g[k]; });
+    out.sort(function (a, b) { return b.fat - a.fat; });
+    return out;
+  }
+
+  function viewCategorias() {
+    var h = olho('DE ONDE VEM ESTES PRODUTOS',
+      'A Shopee classifica cada anuncio numa categoria. Isto mostra em quais o seu termo caiu, ' +
+      'e quanto cada uma concentra. Termo espalhado por muitas categorias esta misturando nichos.');
+
+    var grupos = agruparPorCategoria(E.itens);
+    if (!grupos.length) {
+      return h + '<div class="vazio">Esta busca nao trouxe a categoria dos produtos.</div>';
+    }
+
+    var totalFat = grupos.reduce(function (a, b) { return a + b.fat; }, 0);
+
+    h += '<div style="display:flex;gap:26px;flex-wrap:wrap;background:var(--surf);border:1px solid var(--bd2);' +
+      'border-radius:22px;padding:17px 20px;margin-bottom:14px">' +
+      celula(grupos.length, 'CATEGORIAS') +
+      celula(reaisCurto(totalFat), 'FATURAMENTO SOMADO') +
+      celula(grupos.length === 1 ? 'sim' : (grupos[0].fat / (totalFat || 1) >= 0.7 ? 'quase' : 'nao'),
+        'TERMO CONCENTRADO') +
+      '</div>';
+
+    if (grupos.length > 4) {
+      h += '<div class="aviso" style="border-color:#C98A1E">Este termo espalha por <b>' + grupos.length +
+        '</b> categorias. Uma busca assim mistura produtos que nao competem entre si, ' +
+        'e a media do nicho fica menos confiavel. Vale buscar um termo mais especifico.</div>';
+    }
+
+    h += '<div class="tab"><table><tr><th>CATEGORIA</th><th class="num">PRODUTOS</th>' +
+      '<th class="num">VENDE/MES</th><th class="num">FATURA</th><th class="num">DO TOTAL</th></tr>';
+    grupos.forEach(function (g) {
+      var pct = totalFat ? (g.fat / totalFat) * 100 : 0;
+      h += '<tr><td><b>' + esc(nomeCat(g.catid)) + '</b></td>' +
+        '<td class="num">' + g.produtos + '</td>' +
+        '<td class="num">' + num(g.vendas) + '</td>' +
+        '<td class="num">' + reaisCurto(g.fat) + '</td>' +
+        '<td class="num" style="color:#EE4D2D;font-weight:600">' + num(pct, 0) + '%</td></tr>';
+    });
+    h += '</table></div>';
+
+    // o destaque de cada categoria
+    grupos.slice(0, 4).forEach(function (g) {
+      var top = g.itens.filter(function (x) { return x.mes != null; })
+        .sort(function (a, b) { return (b.fatMes || 0) - (a.fatMes || 0); }).slice(0, 5);
+      if (!top.length) return;
+      h += olho('DESTAQUES EM ' + String(nomeCat(g.catid)).toUpperCase());
+      h += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">VENDE/MES</th>' +
+        '<th class="num">PRECO</th><th class="num">FATURA</th></tr>';
+      top.forEach(function (y) {
+        h += '<tr><td><b>' + sigTitulo(y.nome, 42) + '</b>' +
+          (y.link && !E.gravando ? ' <a href="' + y.link + '" target="_blank" rel="noopener" style="font-size:12px">\u2197</a>' : '') + '</td>' +
+          '<td class="num">' + num(y.mes) + '</td>' +
+          '<td class="num">' + reais(y.preco) + '</td>' +
+          '<td class="num">' + (y.fatMes != null ? reaisCurto(y.fatMes) : '\u2014') + '</td></tr>';
+      });
+      h += '</table></div>';
+    });
+
+    h += '<div class="nota" style="font-size:12.5px;color:var(--tx4)">' +
+      'A Shopee nao permite listar os produtos de uma categoria inteira, entao isto cobre ' +
+      'apenas os produtos desta busca — nao o faturamento total da categoria na plataforma.</div>';
+    return h;
+  }
+
   /* ============ O QUE ESTA DECOLANDO ============
      Acha os anuncios novos que ja estao vendendo — os que vale copiar antes
      de o nicho encher.
@@ -379,18 +495,40 @@
      brinquedos, seis se destacaram com mais de 70% no ultimo mes e menos de
      90 dias de vida. */
 
+  /* A ACELERACAO. Comparar o ritmo do ultimo mes com o ritmo da vida
+     inteira do anuncio responde melhor que a idade sozinha: um anuncio de
+     dois anos que triplicou no ultimo mes e um sinal forte, e pela regra
+     antiga ele nem apareceria.
+
+     Medido em dado real: o Kit 48 Carrinhos vendia 21 por dia na media da
+     vida e passou a vender 77 no ultimo mes — 3,6 vezes. A Pista Dinossauro
+     fazia 14 por dia e caiu para 0,3. Sao histórias opostas que a idade
+     sozinha nao contaria. */
   function classificarRitmo(x) {
     if (x.mes == null || !x.total || !x.cadastro) return null;
-    var dias = Math.round((Date.now() / 1000 - x.cadastro) / 86400);
+    var dias = Math.max(1, Math.round((Date.now() / 1000 - x.cadastro) / 86400));
     var frac = (x.mes / x.total) * 100;
 
-    // volume minimo para o percentual significar alguma coisa
-    if (x.mes < 10) return { dias: dias, frac: frac, tipo: 'pouco' };
+    var porDiaVida = x.total / dias;
+    var porDiaMes = x.mes / 30;
+    var acel = porDiaVida > 0 ? porDiaMes / porDiaVida : 0;
 
-    if (dias <= 90 && frac >= 70) return { dias: dias, frac: frac, tipo: 'decolando' };
-    if (dias <= 180 && frac >= 50) return { dias: dias, frac: frac, tipo: 'subindo' };
-    if (frac <= 25) return { dias: dias, frac: frac, tipo: 'descendo' };
-    return { dias: dias, frac: frac, tipo: 'estavel' };
+    var base = { dias: dias, frac: frac, acel: acel,
+      porDiaVida: porDiaVida, porDiaMes: porDiaMes };
+
+    // volume minimo: com pouca venda o percentual engana
+    if (x.mes < 10) { base.tipo = 'pouco'; return base; }
+
+    /* Anuncio muito novo tem a vida inteira dentro do ultimo mes, entao a
+       aceleracao dele fica perto de 1 e nao diz nada. Para esses, o que
+       vale e o volume ja alcancado. */
+    if (dias <= 45) { base.tipo = x.mes >= 30 ? 'decolando' : 'novo'; return base; }
+
+    if (acel >= 2) { base.tipo = 'decolando'; return base; }
+    if (acel >= 1.3) { base.tipo = 'subindo'; return base; }
+    if (acel <= 0.4) { base.tipo = 'descendo'; return base; }
+    base.tipo = 'estavel';
+    return base;
   }
 
   function viewTendencia() {
@@ -399,10 +537,29 @@
       'ja vendeu na vida foi no ultimo mes. Perto de 100% quer dizer que ele ' +
       'comecou agora e esta subindo.');
 
+    /* FILTRO POR IDADE DO ANUNCIO. A Shopee so entrega dois numeros de
+       venda — ultimo mes e vida toda — entao nao da para filtrar "vendas
+       nos ultimos 60 dias". O que da e olhar so os anuncios que NASCERAM
+       nesse periodo, que responde a pergunta parecida: quem entrou
+       recentemente e ja esta vendendo. */
+    var IDADES = [
+      { id: 30, rot: '30 dias' }, { id: 60, rot: '60 dias' },
+      { id: 120, rot: '120 dias' }, { id: 0, rot: 'todos' }
+    ];
+    var lim = E.idadeMax || 0;
+    h += '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:14px">' +
+      '<span style="font:400 10px \'Space Mono\',monospace;color:var(--tx6);margin-right:4px">NO AR HA ATE</span>';
+    IDADES.forEach(function (a) {
+      h += '<button class="ord' + (lim === a.id ? ' on' : '') + '" data-idade="' + a.id + '">' + a.rot + '</button>';
+    });
+    h += '</div>';
+
     var comRitmo = [];
     for (var i = 0; i < E.itens.length; i++) {
       var r = classificarRitmo(E.itens[i]);
-      if (r) comRitmo.push({ x: E.itens[i], r: r });
+      if (!r) continue;
+      if (lim && r.dias > lim) continue;
+      comRitmo.push({ x: E.itens[i], r: r });
     }
 
     if (!comRitmo.length) {
@@ -435,14 +592,18 @@
       if (!lista.length) return '';
       var s = olho(titulo, nota);
       s += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">NO AR HA</th>' +
-        '<th class="num">DO TOTAL, NO MES</th><th class="num">VENDE/MES</th><th class="num">FATURA</th></tr>';
+        '<th class="num">RITMO</th><th class="num">VENDAS/DIA</th>' +
+        '<th class="num">VENDE/MES</th><th class="num">FATURA</th></tr>';
       lista.slice(0, 12).forEach(function (c) {
         var x = c.x, r = c.r;
-        s += '<tr><td><b>' + sigTitulo(x.nome, 40) + '</b>' +
-          (x.link && !E.gravando ? ' <a href="' + x.link + '" target="_blank" rel="noopener" style="font-size:12px">↗</a>' : '') +
+        s += '<tr><td><b>' + sigTitulo(x.nome, 38) + '</b>' +
+          (x.link && !E.gravando ? ' <a href="' + x.link + '" target="_blank" rel="noopener" style="font-size:12px">\u2197</a>' : '') +
           '<div style="font:400 10px \'Space Mono\',monospace;color:var(--tx6);margin-top:3px">' + sigLoja(x.lojaNome) + '</div></td>' +
           '<td class="num">' + r.dias + 'd</td>' +
-          '<td class="num" style="color:' + cor + ';font-weight:600">' + num(r.frac, 0) + '%</td>' +
+          '<td class="num" style="color:' + cor + ';font-weight:600">' +
+            (r.acel && r.dias > 45 ? num(r.acel, 1) + 'x' : num(r.frac, 0) + '%') + '</td>' +
+          '<td class="num" style="font-size:12px;color:var(--tx4)">' +
+            num(r.porDiaVida, 1) + ' \u2192 ' + num(r.porDiaMes, 1) + '</td>' +
           '<td class="num">' + num(x.mes) + '</td>' +
           '<td class="num">' + (x.fatMes != null ? reaisCurto(x.fatMes) : '\u2014') + '</td></tr>';
       });
@@ -450,20 +611,22 @@
       return s;
     }
 
-    h += tabela('COMECARAM AGORA E JA VENDEM', decolando, '#2E9E6B',
-      'Menos de 90 dias no ar e mais de 70% das vendas no ultimo mes. E aqui que vale olhar de perto: ' +
-      'o produto provou que vende e o nicho ainda nao encheu.');
+    h += tabela('ACELERANDO', decolando, '#2E9E6B',
+      'Estao vendendo pelo menos o dobro do ritmo que mantiveram a vida toda. ' +
+      'A coluna VENDAS/DIA mostra a virada: quanto vendiam por dia na media da vida, ' +
+      'e quanto vendem por dia agora. E aqui que vale olhar de perto.');
 
     h += tabela('GANHANDO TRACAO', subindo, '#C98A1E',
-      'Ate seis meses no ar, com mais da metade das vendas concentradas no ultimo mes.');
+      'Vendendo acima do proprio ritmo historico, mas sem a virada dos primeiros.');
 
     h += tabela('PERDENDO FORCA', descendo, '#D64545',
-      'Um quarto ou menos das vendas veio do ultimo mes: o auge deles ja passou. ' +
-      'Serve para saber o que NAO copiar.');
+      'Vendem hoje menos da metade do que mantiveram na vida. O auge ja passou — ' +
+      'serve para saber o que NAO copiar.');
 
     h += '<div class="nota" style="font-size:12.5px;color:var(--tx4)">' +
-      'A leitura vale para os produtos desta busca, nao para o nicho inteiro. ' +
-      'Produtos com menos de 10 vendas no mes ficam de fora, porque com pouco volume o percentual engana.</div>';
+      'O ritmo compara as vendas do ultimo mes com a media diaria da vida do anuncio. ' +
+      'Anuncios com menos de 45 dias aparecem pelo volume, nao pela aceleracao, porque a vida ' +
+      'inteira deles cabe dentro do ultimo mes. Produtos com menos de 10 vendas no mes ficam de fora.</div>';
     return h;
   }
 
@@ -615,6 +778,12 @@
 
     E.itens = todos.map(traduzirItem).filter(function (x) { return x.id; });
     await nomearLojas();
+    // os nomes das categorias, uma chamada so para a arvore inteira
+    try {
+      var cats = [];
+      E.itens.forEach(function (x) { if (x.catid && cats.indexOf(x.catid) < 0) cats.push(x.catid); });
+      if (cats.length) await nomearCategorias(cats);
+    } catch (e) { /* noop */ }
 
     // DIAGNOSTICO DO VOLUME: qual campo cada item trouxe. Sem isso nao da
     // para saber se o numero da tela e mensal ou historico.
@@ -724,6 +893,8 @@
       preco: preco,
       precoAntes: pr.strikethrough_price != null ? pr.strikethrough_price / 100000 : null,
       desconto: pr.discount || null,
+      // a categoria do produto: vem na busca e nunca foi guardada
+      catid: d.catid || b.catid || it.catid || null,
       mes: mes, total: total,
       // faturamento no mes: os dois numeros vem da Shopee, a multiplicacao
       // e nossa e a tela diz isso
@@ -987,10 +1158,30 @@
           subindo: sub.slice(0, 6),
           perdendoForca: des.slice(0, 6),
           leitura: dec.length >= 3
-            ? 'nicho abrindo: varios anuncios novos ja vendendo'
+            ? 'nicho abrindo: varios anuncios acelerando'
             : dec.length === 0
-              ? 'nicho fechado: nenhum anuncio novo se destacou'
-              : 'nicho estavel: poucos entrantes com tracao'
+              ? 'nicho parado: nenhum anuncio acelerando'
+              : 'nicho estavel: poucos acelerando'
+        };
+      })(),
+
+      /* AS CATEGORIAS EM QUE O TERMO CAIU. Diz se a busca pegou um nicho ou
+         misturou varios — o que muda a confianca em toda media do dossie. */
+      categorias: (function () {
+        var g = agruparPorCategoria(E.itens);
+        var tot = g.reduce(function (a, b) { return a + b.fat; }, 0);
+        return {
+          quantas: g.length,
+          concentrado: g.length === 1 || (g.length && g[0].fat / (tot || 1) >= 0.7),
+          lista: g.slice(0, 6).map(function (c) {
+            return {
+              nome: nomeCat(c.catid),
+              produtos: c.produtos,
+              vendeMes: c.vendas,
+              faturaMes: Math.round(c.fat),
+              pctDoTotal: tot ? Math.round((c.fat / tot) * 100) : null
+            };
+          })
         };
       })(),
       custo: {
@@ -1918,6 +2109,7 @@
     '</div></div>';
 
   var ABAS = [
+    { id: 'categorias', rot: 'Categorias', d: 'M4 6h7v7H4zM13 6h7v7h-7zM4 15h7v5H4zM13 15h7v5h-7z' },
     { id: 'tendencia', rot: 'Decolando', d: 'M4 19.5 9.5 13l4 4L20 8.5M20 8.5h-5M20 8.5v5' },
     { id: 'nicho', rot: 'O nicho', d: 'M3.5 20.5V13M9 20.5V7M14.5 20.5v-5M20 20.5V3.5' },
     { id: 'produtos', rot: 'Os produtos', d: 'M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9' },
@@ -2019,7 +2211,8 @@
       return;
     }
     if (E.detalhe) { c.innerHTML = viewDetalhe(); ligarTabela(); return; }
-    c.innerHTML = E.aba === 'tendencia' ? viewTendencia()
+    c.innerHTML = E.aba === 'categorias' ? viewCategorias()
+      : E.aba === 'tendencia' ? viewTendencia()
       : E.aba === 'nicho' ? viewNicho()
       : E.aba === 'produtos' ? viewProdutos()
       : E.aba === 'lojas' ? viewLojas()
@@ -2027,6 +2220,7 @@
       : E.aba === 'consultor' ? viewConsultor()
       : viewEu();
     ligarTabela();
+    ligarFiltroIdade();
     ligarCalculo();
   }
 
@@ -2508,6 +2702,15 @@
       campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
       if (!A.entrando) { try { campo.focus(); } catch (e) { } }
     }
+  }
+
+  function ligarFiltroIdade() {
+    raiz.querySelectorAll('[data-idade]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        E.idadeMax = parseInt(this.getAttribute('data-idade'), 10) || 0;
+        desenhar();
+      });
+    });
   }
 
   function ligarTabela() {
