@@ -132,10 +132,19 @@ assunto e com quantas vezes cada um apareceu.
 Isso e o material mais acionavel que voce tem. Use para responder: o que
 quem entrar aqui precisa acertar para nao repetir o erro dos outros.
 
-Se a reclamacao mais comum for entrega, o gargalo e logistica e o preco
-precisa comportar frete melhor. Se for qualidade, ha espaco para entrar com
-fornecedor superior e cobrar mais. Se for "diferente do anuncio", a
-vantagem esta em foto honesta e medida clara — e barato de fazer.
+Cada assunto vem com dois campos: "oQueAbre", que diz o que aquilo revela
+sobre o nicho, e "oQueFazerNoAnuncio", que diz o que precisa estar no
+anuncio para o problema nao acontecer. Use os dois.
+
+SO ACONSELHE O QUE O VENDEDOR CONTROLA. Frete e prazo de entrega sao da
+Shopee: ele nao escolhe transportadora nem preco de envio. O que esta na
+mao dele e o prazo de despacho e o que escreve na descricao. Nunca diga
+"negocie frete" ou "escolha outra transportadora" — nao existe essa opcao.
+
+Quando a reclamacao mais comum for tamanho, seja explicito: o anuncio
+precisa de tabela de medidas em centimetros, em imagem propria, e uma foto
+do produto ao lado de algo conhecido. E o erro mais barato de evitar e o
+mais comum de todos.
 
 Cite o numero: "de 34 reclamacoes lidas, 12 sao de produto que chegou
 quebrado" e mais util que "ha reclamacoes de transporte".

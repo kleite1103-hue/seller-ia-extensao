@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.27.0';
+  var VERSAO = '1.28.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -381,31 +381,68 @@
      E POR QUE FILTRO 1 e 2: a rota com filter=0 devolve as avaliacoes que a
      Shopee escolhe mostrar, e ela mostra as boas. */
 
+  /* OS TEMAS E O QUE CADA UM ABRE. A regra ao escrever cada conselho: so
+     vale o que a PESSOA CONTROLA. Frete e prazo, por exemplo, quem define
+     e a Shopee — dizer "acerte o transportador" e conselho inutil, porque
+     o vendedor nao escolhe. O que ele controla ali e o prazo de despacho e
+     o que escreve no anuncio sobre isso.
+
+     Cada tema traz duas coisas: o que aquilo diz sobre o produto, e o que
+     precisa estar no anuncio para nao acontecer com voce. */
   var TEMAS_RECL = [
     { rot: 'Prazo e entrega',
       p: ['demor', 'atras', 'nao chegou', 'não chegou', 'nunca chegou', 'extravi', 'correio'],
-      oq: 'Quem vender isto precisa acertar prazo e transportador. Prazo cumprido vale mais que prazo curto.' },
+      oq: 'A logistica e da Shopee e voce nao escolhe transportadora. O que esta na sua mao ' +
+          'e despachar no mesmo dia e nao prometer prazo curto na descricao.',
+      anuncio: 'Nao escreva prazo proprio na descricao. Deixe o da Shopee falar sozinho.' },
+
     { rot: 'Chegou danificado',
       p: ['quebrad', 'quebrou', 'danificad', 'amassad', 'rachad', 'trincad', 'veio torto', 'estragad'],
-      oq: 'Produto que quebra no transporte. Orce a embalagem reforcada no custo antes de decidir o preco.' },
+      oq: 'Produto fragil no transporte. Isso e custo real: orce plastico bolha e caixa reforcada ' +
+          'antes de fechar o preco, porque cada quebra vira nota um e reembolso.',
+      anuncio: 'Foto da embalagem de envio no anuncio reduz a ansiedade e vira diferencial.' },
+
     { rot: 'Qualidade abaixo do esperado',
       p: ['fragil', 'frágil', 'fraco', 'pessima', 'péssima', 'plastico fino', 'nao dura', 'não dura', 'quebra facil'],
-      oq: 'O mercado reclama da qualidade. Quem entrar com um fornecedor melhor tem argumento de venda pronto.' },
+      oq: 'O mercado reclama do material. Quem entrar com fornecedor melhor tem argumento pronto ' +
+          'e pode cobrar mais que a media.',
+      anuncio: 'Diga o material e a espessura no titulo ou na primeira linha. Quem tem produto bom ganha com isso.' },
+
+    { rot: 'Tamanho diferente do esperado',
+      p: ['menor', 'maior', 'tamanho', 'medida', 'nao coube', 'não coube', 'minusculo', 'pequeno demais'],
+      oq: 'O comprador esperava outro tamanho. E o erro mais barato de evitar e o mais comum de todos.',
+      anuncio: 'TABELA DE MEDIDAS obrigatoria: altura, largura, profundidade em centimetros, numa imagem propria. ' +
+               'E uma foto do produto ao lado de algo conhecido, como uma mao ou uma garrafa.' },
+
     { rot: 'Diferente do anuncio',
-      p: ['diferente', 'nao e igual', 'não é igual', 'menor', 'nao era', 'não era', 'propaganda engan', 'foto engan'],
-      oq: 'Os concorrentes prometem mais do que entregam. Foto honesta e medida no titulo viram vantagem aqui.' },
+      p: ['diferente', 'nao e igual', 'não é igual', 'nao era', 'não era', 'propaganda engan', 'foto engan', 'outra cor'],
+      oq: 'Os concorrentes prometem mais do que entregam. Aqui a honestidade vira vantagem competitiva de graca.',
+      anuncio: 'Fotos do produto real, nao so a do fornecedor. Cor sob luz natural, e uma foto sem edicao.' },
+
     { rot: 'Veio faltando peca',
-      p: ['faltando', 'faltou', 'veio so', 'veio só', 'incomplet', 'menos que'],
-      oq: 'Conferencia de pedido. Deixe explicito no titulo quantas pecas vao.' },
+      p: ['faltando', 'faltou', 'veio so', 'veio só', 'incomplet', 'menos que', 'so veio'],
+      oq: 'Ou o vendedor errou na separacao, ou o comprador entendeu que vinha mais do que vinha.',
+      anuncio: 'Quantidade no titulo e uma foto mostrando TODAS as pecas juntas, contadas.' },
+
     { rot: 'Veio errado',
-      p: ['errad', 'outra cor', 'cor errada', 'outro produto', 'nao foi o que pedi'],
-      oq: 'Produto com muitas variacoes parecidas. Separacao errada e o risco de operacao aqui.' },
+      p: ['errad', 'cor errada', 'outro produto', 'nao foi o que pedi', 'não foi o que pedi'],
+      oq: 'Produto com muitas variacoes parecidas: o risco aqui e de operacao, e cresce com o volume.',
+      anuncio: 'Nome de variacao que nao se confunde. "Azul claro" e "Azul bebe" no mesmo anuncio geram erro.' },
+
     { rot: 'Vendedor nao respondeu',
       p: ['nao responde', 'não responde', 'sem resposta', 'ignorou', 'nao resolveu', 'atendimento'],
-      oq: 'Os concorrentes somem depois da venda. Responder rapido e a forma mais barata de ganhar nota.' },
+      oq: 'Os concorrentes somem depois da venda. Responder rapido e a forma mais barata de ganhar nota neste nicho.',
+      anuncio: 'Nada muda no anuncio: isso se resolve no chat, e a Shopee mede o seu tempo de resposta.' },
+
+    { rot: 'Montagem ou uso confuso',
+      p: ['nao consegui montar', 'sem instrucao', 'sem manual', 'dificil de montar', 'nao entendi como', 'complicado'],
+      oq: 'Produto que exige montagem sem instrucao clara. Vira nota baixa mesmo quando o produto e bom.',
+      anuncio: 'Uma imagem com o passo a passo, ou um video curto. Custa uma vez e serve para sempre.' },
+
     { rot: 'Cheiro ou aparencia',
       p: ['cheiro', 'fedid', 'sujo', 'mancha', 'usado', 'poeira'],
-      oq: 'Cuidado com estoque e embalagem: produto guardado errado chega com cara de usado.' }
+      oq: 'Produto guardado errado chega com cara de usado. Comum em plastico e tecido que ficam parados.',
+      anuncio: 'Nada muda no anuncio: e estoque. Produto parado precisa de embalagem fechada e lugar seco.' }
   ];
 
   async function lerReclamacoes() {
@@ -514,18 +551,27 @@
       maior.tema.rot.toLowerCase() + ' \u2014 ' + maior.n + ' vezes.</b><br>' +
       esc(maior.tema.oq) + '</div>';
 
-    h += '<div class="tab"><table><tr><th>O PROBLEMA</th><th class="num">VEZES</th><th>O QUE ISSO ABRE PARA VOCE</th></tr>';
     R.temas.forEach(function (t2) {
       var pct = Math.round((t2.n / R.lidas) * 100);
-      h += '<tr><td><b>' + esc(t2.tema.rot) + '</b>' +
+      var cor = pct >= 30 ? '#D64545' : '#C98A1E';
+      h += '<div style="background:var(--surf);border:1px solid var(--bd2);border-left:3px solid ' + cor + ';' +
+        'border-radius:0 20px 20px 0;padding:16px 19px;margin-bottom:11px">' +
+        '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:9px">' +
+        '<b style="font-size:15.5px;color:var(--tx1)">' + esc(t2.tema.rot) + '</b>' +
+        '<span style="font:400 11px \'Space Mono\',monospace;color:' + cor + '">' +
+        t2.n + ' de ' + R.lidas + '</span></div>' +
         (t2.exemplos.length
-          ? '<div style="font-size:11.5px;color:var(--tx5);margin-top:4px;font-style:italic">\u201c' +
-            esc(String(t2.exemplos[0].texto).slice(0, 90)) + '\u201d</div>'
-          : '') + '</td>' +
-        '<td class="num" style="color:' + (pct >= 30 ? '#D64545' : '#C98A1E') + ';font-weight:600">' + t2.n + '</td>' +
-        '<td style="font-size:13px;line-height:1.5">' + esc(t2.tema.oq) + '</td></tr>';
+          ? '<div style="font-size:12px;color:var(--tx5);font-style:italic;margin-bottom:11px">\u201c' +
+            esc(String(t2.exemplos[0].texto).slice(0, 110)) + '\u201d</div>'
+          : '') +
+        '<div style="font-size:13.5px;color:var(--tx2);line-height:1.55;margin-bottom:10px">' +
+        esc(t2.tema.oq) + '</div>' +
+        '<div style="background:var(--fill);border-radius:12px;padding:11px 14px">' +
+        '<div style="font:400 9px \'Space Mono\',monospace;letter-spacing:.1em;color:var(--tx6);margin-bottom:5px">' +
+        'NO SEU ANUNCIO</div>' +
+        '<div style="font-size:13.5px;color:var(--tx1);line-height:1.55">' + esc(t2.tema.anuncio) + '</div>' +
+        '</div></div>';
     });
-    h += '</table></div>';
     h += '<div class="nota" style="font-size:12.5px;color:var(--tx4)">' +
       'As frases sao avaliacoes publicas dos concorrentes. A leitura cobre os oito maiores, ' +
       'nao o nicho inteiro.</div>';
@@ -1340,6 +1386,7 @@
         produtosLidos: E.recl.produtos,
         porAssunto: E.recl.temas.slice(0, 6).map(function (x) {
           return { assunto: x.tema.rot, vezes: x.n, oQueAbre: x.tema.oq,
+            oQueFazerNoAnuncio: x.tema.anuncio,
             exemplo: x.exemplos.length ? String(x.exemplos[0].texto).slice(0, 130) : null };
         })
       } : null,
