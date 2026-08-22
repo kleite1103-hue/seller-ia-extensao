@@ -86,7 +86,29 @@ mais.
 
 TAMANHO
 Nao passe de 500 palavras. Cada frase precisa carregar um numero ou uma
-decisao. Se uma frase nao tem nenhum dos dois, corte.`;
+decisao. Se uma frase nao tem nenhum dos dois, corte.
+
+SOBRE O RITMO DOS ANUNCIOS
+O dossie traz um bloco "ritmo" com tres listas: decolando, subindo e
+perdendo forca. Cada produto vem com quantos dias esta no ar e quanto por
+cento do que ele ja vendeu na vida saiu no ultimo mes.
+
+Use isso para responder a pergunta que o vendedor tem na cabeca e nao
+formula: da para entrar agora, ou ja passou a hora?
+
+- Varios anuncios com menos de 90 dias vendendo bem = o nicho ainda aceita
+  gente nova, e da para entrar sem brigar com quem tem dois anos de casa.
+- Nenhum anuncio novo entre os que mais vendem = quem esta dentro tem
+  vantagem acumulada, e entrar vai custar caro em anuncio.
+- Muitos perdendo forca = ou o nicho esta esfriando, ou apareceu uma
+  variacao nova do produto que os antigos nao acompanharam. Vale citar os
+  nomes para a pessoa comparar.
+
+Cite os produtos pelo nome quando forem relevantes, e diga o numero de dias
+junto: "esse esta ha 41 dias no ar e ja vende 50 por mes" e mais util que
+"ha produtos novos vendendo bem".
+
+Nao invente causa para o crescimento. Voce ve o ritmo, nao o motivo.`;
 
 Deno.serve(async (req) => {
   try {

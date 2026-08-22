@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.22.1';
+  var VERSAO = '1.25.0';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -362,6 +362,110 @@
 
 
 
+
+
+  /* ============ O QUE ESTA DECOLANDO ============
+     Acha os anuncios novos que ja estao vendendo — os que vale copiar antes
+     de o nicho encher.
+
+     O SINAL: a Shopee entrega, por produto, quando ele entrou no ar (ctime),
+     quanto vendeu no ultimo mes e quanto vendeu desde sempre. A razao entre
+     os dois ultimos diz o ritmo: um produto com 98% das vendas no ultimo mes
+     comecou agora e esta subindo; um com 34% ja teve o auge dele e esta
+     descendo. Idade sozinha nao serve — anuncio novo parado nao interessa,
+     e anuncio velho que explodiu tambem e sinal.
+
+     Medido em dado real antes de construir: numa amostra de 60 produtos de
+     brinquedos, seis se destacaram com mais de 70% no ultimo mes e menos de
+     90 dias de vida. */
+
+  function classificarRitmo(x) {
+    if (x.mes == null || !x.total || !x.cadastro) return null;
+    var dias = Math.round((Date.now() / 1000 - x.cadastro) / 86400);
+    var frac = (x.mes / x.total) * 100;
+
+    // volume minimo para o percentual significar alguma coisa
+    if (x.mes < 10) return { dias: dias, frac: frac, tipo: 'pouco' };
+
+    if (dias <= 90 && frac >= 70) return { dias: dias, frac: frac, tipo: 'decolando' };
+    if (dias <= 180 && frac >= 50) return { dias: dias, frac: frac, tipo: 'subindo' };
+    if (frac <= 25) return { dias: dias, frac: frac, tipo: 'descendo' };
+    return { dias: dias, frac: frac, tipo: 'estavel' };
+  }
+
+  function viewTendencia() {
+    var h = olho('O QUE ESTA DECOLANDO',
+      'Anuncios novos que ja vendem. A conta e simples: quanto do que o produto ' +
+      'ja vendeu na vida foi no ultimo mes. Perto de 100% quer dizer que ele ' +
+      'comecou agora e esta subindo.');
+
+    var comRitmo = [];
+    for (var i = 0; i < E.itens.length; i++) {
+      var r = classificarRitmo(E.itens[i]);
+      if (r) comRitmo.push({ x: E.itens[i], r: r });
+    }
+
+    if (!comRitmo.length) {
+      return h + '<div class="vazio">Esta busca nao trouxe idade nem volume suficientes para ler o ritmo.</div>';
+    }
+
+    var decolando = comRitmo.filter(function (c) { return c.r.tipo === 'decolando'; })
+      .sort(function (a, b) { return b.r.frac - a.r.frac; });
+    var subindo = comRitmo.filter(function (c) { return c.r.tipo === 'subindo'; })
+      .sort(function (a, b) { return b.x.mes - a.x.mes; });
+    var descendo = comRitmo.filter(function (c) { return c.r.tipo === 'descendo'; })
+      .sort(function (a, b) { return b.x.mes - a.x.mes; });
+
+    // o retrato do nicho
+    var novos = comRitmo.filter(function (c) { return c.r.dias <= 90; }).length;
+    h += '<div style="display:flex;gap:26px;flex-wrap:wrap;background:var(--surf);border:1px solid var(--bd2);' +
+      'border-radius:22px;padding:17px 20px;margin-bottom:14px">' +
+      celula(decolando.length, 'DECOLANDO') +
+      celula(subindo.length, 'SUBINDO') +
+      celula(descendo.length, 'PERDENDO FORCA') +
+      celula(novos + ' de ' + comRitmo.length, 'COM MENOS DE 90 DIAS') +
+      '</div>';
+
+    if (!decolando.length && !subindo.length) {
+      h += '<div class="aviso">Nenhum anuncio novo se destacou aqui. Num nicho assim, ' +
+        'quem ja esta dentro tem vantagem grande e entrar custa mais caro.</div>';
+    }
+
+    function tabela(titulo, lista, cor, nota) {
+      if (!lista.length) return '';
+      var s = olho(titulo, nota);
+      s += '<div class="tab"><table><tr><th>PRODUTO</th><th class="num">NO AR HA</th>' +
+        '<th class="num">DO TOTAL, NO MES</th><th class="num">VENDE/MES</th><th class="num">FATURA</th></tr>';
+      lista.slice(0, 12).forEach(function (c) {
+        var x = c.x, r = c.r;
+        s += '<tr><td><b>' + sigTitulo(x.nome, 40) + '</b>' +
+          (x.link && !E.gravando ? ' <a href="' + x.link + '" target="_blank" rel="noopener" style="font-size:12px">↗</a>' : '') +
+          '<div style="font:400 10px \'Space Mono\',monospace;color:var(--tx6);margin-top:3px">' + sigLoja(x.lojaNome) + '</div></td>' +
+          '<td class="num">' + r.dias + 'd</td>' +
+          '<td class="num" style="color:' + cor + ';font-weight:600">' + num(r.frac, 0) + '%</td>' +
+          '<td class="num">' + num(x.mes) + '</td>' +
+          '<td class="num">' + (x.fatMes != null ? reaisCurto(x.fatMes) : '\u2014') + '</td></tr>';
+      });
+      s += '</table></div>';
+      return s;
+    }
+
+    h += tabela('COMECARAM AGORA E JA VENDEM', decolando, '#2E9E6B',
+      'Menos de 90 dias no ar e mais de 70% das vendas no ultimo mes. E aqui que vale olhar de perto: ' +
+      'o produto provou que vende e o nicho ainda nao encheu.');
+
+    h += tabela('GANHANDO TRACAO', subindo, '#C98A1E',
+      'Ate seis meses no ar, com mais da metade das vendas concentradas no ultimo mes.');
+
+    h += tabela('PERDENDO FORCA', descendo, '#D64545',
+      'Um quarto ou menos das vendas veio do ultimo mes: o auge deles ja passou. ' +
+      'Serve para saber o que NAO copiar.');
+
+    h += '<div class="nota" style="font-size:12.5px;color:var(--tx4)">' +
+      'A leitura vale para os produtos desta busca, nao para o nicho inteiro. ' +
+      'Produtos com menos de 10 vendas no mes ficam de fora, porque com pouco volume o percentual engana.</div>';
+    return h;
+  }
 
   /* ============ LEITURA DO NICHO ============ */
   /* As variacoes que a propria Shopee sugere para o termo. Buscar so a
@@ -849,6 +953,45 @@
           .map(function (x) {
             return { nome: String(x.nome).slice(0, 55), nota: Math.round(x.nota * 100) / 100, vendeMes: x.mes, preco: x.preco, loja: x.lojaNome };
           });
+      })(),
+      /* O RITMO DOS ANUNCIOS. Sem isto o consultor so ve o retrato de hoje e
+         nao consegue dizer se o nicho esta abrindo ou fechando — que e a
+         diferenca entre entrar agora e chegar tarde. Vai calculado, porque
+         a regra do consultor e ler, nao contar. */
+      ritmo: (function () {
+        var dec = [], sub = [], des = [], novos = 0, comDado = 0;
+        E.itens.forEach(function (x) {
+          var r = classificarRitmo(x);
+          if (!r) return;
+          comDado++;
+          if (r.dias <= 90) novos++;
+          var linha = {
+            nome: String(x.nome || '').slice(0, 60),
+            diasNoAr: r.dias,
+            pctNoUltimoMes: Math.round(r.frac),
+            vendeMes: x.mes,
+            faturaMes: x.fatMes != null ? Math.round(x.fatMes) : null,
+            preco: x.preco
+          };
+          if (r.tipo === 'decolando') dec.push(linha);
+          else if (r.tipo === 'subindo') sub.push(linha);
+          else if (r.tipo === 'descendo') des.push(linha);
+        });
+        dec.sort(function (a, b) { return b.pctNoUltimoMes - a.pctNoUltimoMes; });
+        sub.sort(function (a, b) { return b.vendeMes - a.vendeMes; });
+        des.sort(function (a, b) { return b.vendeMes - a.vendeMes; });
+        return {
+          comDadoDeIdade: comDado,
+          comMenosDe90Dias: novos,
+          decolando: dec.slice(0, 8),
+          subindo: sub.slice(0, 6),
+          perdendoForca: des.slice(0, 6),
+          leitura: dec.length >= 3
+            ? 'nicho abrindo: varios anuncios novos ja vendendo'
+            : dec.length === 0
+              ? 'nicho fechado: nenhum anuncio novo se destacou'
+              : 'nicho estavel: poucos entrantes com tracao'
+        };
       })(),
       custo: {
         precoBase: preco, roas: C.roas || 10, imposto: C.imposto || 0, embalagem: C.embalagem || 0,
@@ -1775,6 +1918,7 @@
     '</div></div>';
 
   var ABAS = [
+    { id: 'tendencia', rot: 'Decolando', d: 'M4 19.5 9.5 13l4 4L20 8.5M20 8.5h-5M20 8.5v5' },
     { id: 'nicho', rot: 'O nicho', d: 'M3.5 20.5V13M9 20.5V7M14.5 20.5v-5M20 20.5V3.5' },
     { id: 'produtos', rot: 'Os produtos', d: 'M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9' },
     { id: 'lojas', rot: 'As lojas', d: 'M4 9.5h16M4 9.5 6 4h12l2 5.5M5.5 9.5v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-10' },
@@ -1875,7 +2019,8 @@
       return;
     }
     if (E.detalhe) { c.innerHTML = viewDetalhe(); ligarTabela(); return; }
-    c.innerHTML = E.aba === 'nicho' ? viewNicho()
+    c.innerHTML = E.aba === 'tendencia' ? viewTendencia()
+      : E.aba === 'nicho' ? viewNicho()
       : E.aba === 'produtos' ? viewProdutos()
       : E.aba === 'lojas' ? viewLojas()
       : E.aba === 'calculo' ? renderCalculo()
