@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.28.0';
+  var VERSAO = '1.28.1';
   var MAX_PAGINAS = 3;          // 60 itens por pagina, ajustavel na tela
   var PAUSA = 900;              // entre paginas, para nao parecer raspagem
 
@@ -28,7 +28,7 @@
     gravando: false, idadeMax: 0,
     reclLendo: false, recl: null, reclErro: null, reclProgresso: null,
     // a portaria
-    acesso: { checando: true, liberado: false, entrando: false, token: null,
+    acesso: { checando: true, liberado: false, entrando: false, token: null, esperandoCodigo: false,
       usuario: null, erro: null, motivo: null, venceEm: null, offline: false, emailDigitado: '' }
   };
 
@@ -92,31 +92,66 @@
     });
   }
 
+  /* A ENTRADA EM DUAS ETAPAS. O servidor nao devolve o token direto: o
+     "entrar" manda um codigo para o email e o "confirmar" e que devolve o
+     token. Eu tinha escrito a portaria esperando token na primeira resposta,
+     e por isso ela entrava sem token e a IA recusava tudo depois. */
   function entrar() {
     var campo = $('ac-email');
     var email = (campo && campo.value || '').trim().toLowerCase();
     if (!email || email.indexOf('@') < 0) {
       A.erro = 'Digite o email da sua assinatura.'; desenhar(); return;
     }
-    A.entrando = true; A.erro = null; desenhar();
+    A.entrando = true; A.erro = null; A.emailDigitado = email; desenhar();
     chamarAcesso({ acao: 'entrar', email: email, dispositivo: digitalDoNavegador() })
       .then(function (r) {
         A.entrando = false;
         if (r && r.ok) {
-          salvarToken(r.token);
-          A.liberado = true;
-          A.usuario = r.usuario || null;
-          A.venceEm = r.vence_em || null;
-          A.erro = null;
+          if (r.token) {          // caso o servidor libere direto
+            salvarToken(r.token);
+            A.liberado = true;
+            A.usuario = r.usuario || null;
+            A.erro = null;
+          } else {                // o normal: codigo enviado por email
+            A.esperandoCodigo = true;
+            A.erro = null;
+          }
         } else {
           A.erro = (r && r.erro) || 'Nao consegui validar este email.';
           A.motivo = (r && r.motivo) || null;
         }
         desenhar();
       })
-      .catch(function (e) {
+      .catch(function () {
         A.entrando = false;
         A.erro = 'Nao consegui falar com o servidor. Verifique a conexao e tente de novo.';
+        desenhar();
+      });
+  }
+
+  function confirmarCodigo() {
+    var campo = $('ac-codigo');
+    var cod = (campo && campo.value || '').trim();
+    if (!cod) { A.erro = 'Digite o codigo que chegou no seu email.'; desenhar(); return; }
+    A.entrando = true; A.erro = null; desenhar();
+    chamarAcesso({ acao: 'confirmar', email: A.emailDigitado, codigo: cod,
+      dispositivo: digitalDoNavegador() })
+      .then(function (r) {
+        A.entrando = false;
+        if (r && r.ok && r.token) {
+          salvarToken(r.token);
+          A.liberado = true;
+          A.esperandoCodigo = false;
+          A.usuario = r.usuario || null;
+          A.erro = null;
+        } else {
+          A.erro = (r && r.erro) || 'Codigo invalido.';
+        }
+        desenhar();
+      })
+      .catch(function () {
+        A.entrando = false;
+        A.erro = 'Nao consegui confirmar. Tente de novo.';
         desenhar();
       });
   }
@@ -137,11 +172,28 @@
       'Vamos ler um nicho por dentro</div>';
     h += '<div style="font-size:14px;color:var(--tx3);line-height:1.6;margin-bottom:18px">' +
       'Entre com o email da sua assinatura do Radar 360. Se voce ja usa a Seller.IA, e o mesmo email.</div>';
-    h += '<div style="display:flex;gap:9px;margin-bottom:12px">' +
-      '<input id="ac-email" class="n" placeholder="seu@email.com" ' +
-      'style="flex:1;font-family:Outfit,Arial;font-size:14.5px" value="' + esc(A.emailDigitado || '') + '">' +
-      '<button class="go" id="ac-entrar"' + (A.entrando ? ' disabled' : '') + '>' +
-      (A.entrando ? 'Entrando...' : 'Entrar') + '</button></div>';
+    if (A.esperandoCodigo) {
+      /* O CODIGO CHEGOU POR EMAIL. Mostrar o email para onde foi evita a
+         duvida mais comum: a pessoa nao sabe em qual caixa procurar. */
+      h += '<div class="aviso" style="border-color:#2E9E6B;color:var(--tx2)">' +
+        'Enviamos um codigo para <b>' + esc(A.emailDigitado) + '</b>. ' +
+        'Ele chega em alguns segundos \u2014 confira o spam se demorar.</div>';
+      h += '<div style="display:flex;gap:9px;margin-bottom:12px">' +
+        '<input id="ac-codigo" class="n" placeholder="codigo do email" ' +
+        'style="flex:1;font-family:\'Space Mono\',monospace;font-size:16px;letter-spacing:.12em">' +
+        '<button class="go" id="ac-confirmar"' + (A.entrando ? ' disabled' : '') + '>' +
+        (A.entrando ? 'Confirmando...' : 'Confirmar') + '</button></div>';
+      h += '<div style="text-align:center;margin-bottom:12px">' +
+        '<button id="ac-outro" style="background:none;border:none;color:var(--tx5);' +
+        'font-family:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline">' +
+        'usar outro email</button></div>';
+    } else {
+      h += '<div style="display:flex;gap:9px;margin-bottom:12px">' +
+        '<input id="ac-email" class="n" placeholder="seu@email.com" ' +
+        'style="flex:1;font-family:Outfit,Arial;font-size:14.5px" value="' + esc(A.emailDigitado || '') + '">' +
+        '<button class="go" id="ac-entrar"' + (A.entrando ? ' disabled' : '') + '>' +
+        (A.entrando ? 'Enviando...' : 'Entrar') + '</button></div>';
+    }
 
     if (A.erro) {
       /* Quem ja e cliente da Seller.IA nao ve tela de erro: ve convite. A
@@ -2923,6 +2975,17 @@
   }
 
   function ligarPortaria() {
+    var bc = $('ac-confirmar');
+    if (bc) bc.addEventListener('click', confirmarCodigo);
+    var cc = $('ac-codigo');
+    if (cc) {
+      cc.addEventListener('keydown', function (e) { if (e.key === 'Enter') confirmarCodigo(); });
+      if (!A.entrando) { try { cc.focus(); } catch (e) { } }
+    }
+    var bo = $('ac-outro');
+    if (bo) bo.addEventListener('click', function () {
+      A.esperandoCodigo = false; A.erro = null; desenhar();
+    });
     var b = $('ac-entrar');
     if (b) b.addEventListener('click', entrar);
     var campo = $('ac-email');
