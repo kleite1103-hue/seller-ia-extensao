@@ -10,7 +10,7 @@
   if (window.__SIA_ATIVO__) return;
   window.__SIA_ATIVO__ = true;
 
-  var VERSAO = '1.28.0-saas';
+  var VERSAO = '1.29.0-saas';
   var MICRO = 100000;
 
   /* ================= PONTE DA BUSCA PUBLICA (Espiao) =================
@@ -470,6 +470,74 @@
      Guardamos o texto para agrupar por assunto depois. Nao e para exibir
      reclamacao de cliente na tela; e para dizer o que costuma dar errado
      com aquele produto, e o que fazer antes de acontecer com voce. */
+  /* OS RELATORIOS DE RECEITA. Guarda o que a Shopee tem disponivel, os dois
+     tipos: o lancado, do dinheiro ja liberado, e o em andamento, do que
+     ainda vai cair. Uma conta com cinco mil pedidos nao pode ser lida
+     pedido a pedido — o arquivo do mes resolve em duas chamadas. */
+  function parseRelatorioReceita(url, dados) {
+    if (url.indexOf('income_report/get_income_report_list') < 0) return false;
+    var d = (dados && (dados.data || dados)) || {};
+    var lista = d.list || [];
+    estado.dre = estado.dre || { relatorios: [], arquivos: {} };
+
+    for (var i = 0; i < lista.length; i++) {
+      var r = lista[i] || {};
+      // status 2 = pronto para baixar
+      estado.dre.relatorios.push({
+        id: r.report_id,
+        arquivo: r.file_name,
+        tipo: r.income_category,          // CATEGORY_RELEASED ou o em andamento
+        subtipo: r.sub_type,
+        status: r.status,
+        pronto: r.status === 2,
+        pedidoEm: r.ctime,
+        prontoEm: r.mtime
+      });
+    }
+    // sem repetir o mesmo relatorio vindo das duas listagens
+    var vistos = {};
+    estado.dre.relatorios = estado.dre.relatorios.filter(function (x) {
+      if (vistos[x.id]) return false;
+      vistos[x.id] = 1; return true;
+    });
+    estado.sujo = true;
+    try {
+      console.log('[Seller.IA] relatorios de receita:', estado.dre.relatorios.length,
+        estado.dre.relatorios.map(function (x) { return x.arquivo + ' (' + x.tipo + ')'; }).join(' | '));
+    } catch (e) { }
+    return true;
+  }
+
+  /* O PEDIDO DE CRIACAO. Registra o que a Shopee respondeu — e assim que eu
+     descubro se o endereco que supus esta certo. Se voltar erro, a leitura
+     segue com o relatorio que ja existir, e o console diz o que veio. */
+  function parseCriarRelatorio(url, dados) {
+    if (url.indexOf('income_report/create_income_report') < 0) return false;
+    try {
+      console.log('[Seller.IA] pedido de relatorio ->',
+        JSON.stringify(dados).slice(0, 260));
+    } catch (e) { }
+    var d = (dados && (dados.data || dados)) || {};
+    if (d.report_id || d.document_id) {
+      estado.dre = estado.dre || { relatorios: [], arquivos: {} };
+      estado.dre.pedido = d.report_id || d.document_id;
+    }
+    return true;
+  }
+
+  /* O LINK DO ARQUIVO. Vem da segunda chamada, com o document_id. */
+  function parseLinkRelatorio(url, dados) {
+    if (url.indexOf('income_report/query_income_report') < 0) return false;
+    var m = url.match(/document_id=(\d+)/);
+    var d = (dados && (dados.data || dados)) || {};
+    if (m && d.file_path) {
+      estado.dre = estado.dre || { relatorios: [], arquivos: {} };
+      estado.dre.arquivos[m[1]] = d.file_path;
+      estado.sujo = true;
+    }
+    return true;
+  }
+
   function parseAvaliacoesRuins(url, dados) {
     if (url.indexOf('/item/get_ratings') < 0) return false;
     if (!/[?&]filter=[12]/.test(url)) return false;
@@ -880,6 +948,9 @@
     else if (tag === 'afiliados') { absorverPainel(pacote.dados, estado.afiliados); /* sem garimpo: micro proprio, tratado na v0.6 */ }
     else if (tag === 'ads') { if (!parsePas(pacote.url, pacote.corpo, pacote.dados)) garimpar(pacote.dados, { tag: tag }); }
     // as avaliacoes chegavam e ninguem lia
+    else if (parseRelatorioReceita(pacote.url, pacote.dados)) { /* guardado */ }
+    else if (parseCriarRelatorio(pacote.url, pacote.dados)) { /* guardado */ }
+    else if (parseLinkRelatorio(pacote.url, pacote.dados)) { /* guardado */ }
     else if (parseAvaliacoesRuins(pacote.url, pacote.dados)) { /* guardado */ }
     else if (parseAvaliacoes(pacote.url, pacote.dados)) { /* guardado */ }
     else if (parseVariacoes(pacote.url, pacote.dados)) { /* guardado */ }
@@ -2038,6 +2109,9 @@ if (!estado.spc) { prog(null); resolver({ ok: false, erro: 'Abra qualquer pagina
         var vals = {
           spc: spcQ,
           ini: ini, fim: fim, fimAds: fimAds,
+          // as rotas de contabilidade pedem a data escrita, nao epoch
+          ini_data: new Date(ini*1000).toISOString().slice(0,10),
+          fim_data: new Date(fim*1000).toISOString().slice(0,10),
           iniAnt: iniAnterior, fimAnt: fimAnterior,
           // a rota de avaliacoes exige o shopid junto do itemid
           loja: estado.loja ? estado.loja.shop_id : ''

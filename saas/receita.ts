@@ -66,6 +66,59 @@ function montarReceita(modo: string, ctx: any) {
     metodo: "GET", fase: "Lendo de onde vem o trafego", opcional: true,
   });
 
+  /* ---------- DRE: OS RELATORIOS DE RECEITA ----------
+     Uma conta com cinco mil pedidos nao pode ser lida pedido a pedido: sao
+     cinco mil chamadas, uma hora e meia, e a Shopee bloqueia muito antes.
+     A saida e a exportacao que ela mesma oferece — um arquivo com o mes
+     inteiro, em duas chamadas.
+
+     Sao DOIS relatorios, como a Karina apontou: o lancado, do dinheiro que
+     ja foi liberado, e o em andamento, do que ainda vai liberar. Sem os
+     dois o DRE mostra so metade do mes.
+
+     O ciclo: lista o que existe, e se nao houver do periodo, pede a
+     criacao e acompanha ate ficar pronto. */
+
+  p.push({
+    id: "dre_lista_lancado",
+    url: "/api/v4/accounting/pc/seller_income/income_report/get_income_report_list?{spc}&income_category=2&page_number=1&page_size=20&parent_type=ps_reports_income&status=1,2",
+    metodo: "GET", fase: "Procurando o relatorio de receita", opcional: true,
+  });
+
+  p.push({
+    id: "dre_lista_andamento",
+    url: "/api/v4/accounting/pc/seller_income/income_report/get_income_report_list?{spc}&income_category=1&page_number=1&page_size=20&parent_type=ps_reports_income&status=1,2",
+    metodo: "GET", fase: "Procurando o relatorio em andamento", opcional: true,
+  });
+
+  /* A CRIACAO. A tela de Receita dispara esta rota ao exportar; o formato
+     do corpo segue o mesmo padrao das outras rotas de accounting, com o
+     periodo em texto e a categoria separando lancado de em andamento.
+
+     Vai como opcional: se o endereco estiver errado, a leitura continua e
+     usa o relatorio que ja existir, em vez de travar tudo. */
+  p.push({
+    id: "dre_criar_lancado",
+    url: "/api/v4/accounting/pc/seller_income/income_report/create_income_report?{spc}",
+    metodo: "POST", fase: "Pedindo o relatorio do mes", opcional: true,
+    corpo: {
+      income_category: 2,
+      local_query_condition: { start_date: "{ini_data}", end_date: "{fim_data}" },
+      source_type: 0,
+    },
+  });
+
+  p.push({
+    id: "dre_criar_andamento",
+    url: "/api/v4/accounting/pc/seller_income/income_report/create_income_report?{spc}",
+    metodo: "POST", fase: "Pedindo o relatorio em andamento", opcional: true,
+    corpo: {
+      income_category: 1,
+      local_query_condition: { start_date: "{ini_data}", end_date: "{fim_data}" },
+      source_type: 0,
+    },
+  });
+
   // ---------- 3. PRODUTOS ----------
   // page_size 50: com 10 a primeira pagina ja parava o laco.
   p.push({
