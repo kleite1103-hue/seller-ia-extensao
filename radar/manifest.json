@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Radar Shopee · mapeador",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "Escuta tudo que a Shopee carrega enquanto voce navega e monta o mapa do que existe. Nao altera nada, so observa.",
   "permissions": [
     "storage",

@@ -11,7 +11,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '1.1.0';
+  var VERSAO = '1.2.1';
   var MAX_ROTAS = 400;
   // SEM CORTE. O radar existe para descobrir o que a Shopee entrega, e
   // cortar a amostra escondia justamente os itens do fim da lista — foi

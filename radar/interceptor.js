@@ -68,7 +68,12 @@
         if (Object.keys(capt).length) { headersMydata = capt; window.__SIA_HEADERS_MYDATA = capt; }
       }
     } catch (e) { /* noop */ }
-    var promessa = fetchOriginal.apply(this, args);
+    /* apply(this) QUEBRA quando o codigo da pagina guarda o fetch numa
+       variavel e chama depois: ali o this vem indefinido e o navegador
+       recusa com "Illegal invocation". Foi exatamente isso que derrubou a
+       Shopee numa versao anterior do Radar 360. O fetch pertence ao window,
+       entao e a ele que deve ser aplicado. */
+    var promessa = fetchOriginal.apply(this || window, args);
     if (observar(url)) {
       var metodo = 'GET', corpo = null;
       try {
@@ -79,9 +84,24 @@
       } catch (e) { /* noop */ }
       promessa.then(function (resp) {
         try {
+          /* RESPOSTA NAO-JSON NAO E LIXO. Era descartada em silencio, e foi
+             assim que o download do relatorio de receita ficou invisivel: ele
+             volta como planilha, nao como JSON, e o radar nunca registrava a
+             rota. Agora anotamos ao menos que ela existiu, com o tipo e o
+             tamanho — o suficiente para saber que endereco chamar. */
           resp.clone().json().then(function (json) {
             emitir('SIA_DADOS', { url: url, metodo: metodo, corpo: corpo, dados: json, ts: Date.now() });
-          }).catch(function () { /* resposta nao-JSON */ });
+          }).catch(function () {
+            try {
+              var tipo = resp.headers.get('content-type') || '';
+              var tam = resp.headers.get('content-length') || '';
+              emitir('SIA_DADOS', {
+                url: url, metodo: metodo, corpo: corpo,
+                dados: { __binario: true, tipo: tipo, tamanho: tam, status: resp.status },
+                ts: Date.now()
+              });
+            } catch (e2) { /* noop */ }
+          });
         } catch (e) { /* noop */ }
       }).catch(function () { /* noop */ });
     }
@@ -109,7 +129,25 @@
             dados: json,
             ts: Date.now()
           });
-        } catch (e) { /* nao-JSON */ }
+        } catch (e) {
+          /* Mesmo motivo do fetch: resposta binaria e um endereco que
+             existe e precisamos conhecer, nao lixo para descartar. Foi
+             assim que o download do relatorio de receita ficou invisivel. */
+          try {
+            emitir('SIA_DADOS', {
+              url: xhr.__sia_url,
+              metodo: xhr.__sia_metodo,
+              corpo: typeof corpo === 'string' ? corpo : null,
+              dados: {
+                __binario: true,
+                tipo: xhr.getResponseHeader('content-type') || '',
+                tamanho: xhr.getResponseHeader('content-length') || '',
+                status: xhr.status
+              },
+              ts: Date.now()
+            });
+          } catch (e2) { /* noop */ }
+        }
       });
     }
     return sendOriginal.apply(this, arguments);
