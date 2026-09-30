@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Banner do Radar 360</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07080a; --s1:#101216; --s2:#171a20; --ln:#23262d; --ln2:#30343c;
+  --tx:#f1eee8; --tx2:#b9b6b0; --tx3:#7d7b77;
+  --lar:#ff4d1c; --rox:#7B2FFF; --ok:#2fbf71; --warn:#e8a33d;
+  --r:14px; color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--tx);font:400 15px/1.5 Outfit,system-ui,sans-serif;min-height:100%}
+body{padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--lar);outline-offset:2px}
+.mono{font-family:"Space Mono",monospace}
+.wrap{max-width:1080px;margin:0 auto;padding:22px 18px 80px}
+
+/* topo */
+.topo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:26px}
+.marca{display:flex;align-items:center;gap:12px}
+.marca svg{width:34px;height:34px;flex:none}
+.marca h1{font:400 30px/1 "Bebas Neue",sans-serif;letter-spacing:.02em}
+.marca small{display:block;font:400 13px Outfit;color:var(--tx3);letter-spacing:0;margin-top:2px}
+.btn{border:1px solid var(--ln2);background:transparent;border-radius:999px;padding:9px 16px;font-weight:500;font-size:14px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--tx2)}
+.btn.pri{background:var(--lar);border-color:var(--lar);color:#fff}
+.btn.pri:hover{background:#ff6437}
+.btn.fino{padding:6px 12px;font-size:13px}
+.btn.perigo:hover{border-color:#e5484d;color:#e5484d}
+.btn svg{width:16px;height:16px}
+
+/* numeros do periodo */
+.painel{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--ln);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.painel div{padding:18px 20px;border-right:1px solid var(--ln)}
+.painel div:last-child{border-right:none}
+.painel b{display:block;font:400 44px/1 "Bebas Neue",sans-serif;letter-spacing:.01em}
+.painel span{font-size:13px;color:var(--tx3)}
+.painel .ctr b{color:var(--rox)}
+.barra{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:26px;flex-wrap:wrap}
+.periodo{display:inline-flex;border:1px solid var(--ln2);border-radius:999px;padding:3px}
+.periodo button{border:none;background:none;border-radius:999px;padding:6px 14px;font-size:13px;color:var(--tx2)}
+.periodo button.on{background:var(--s2);color:var(--tx)}
+
+/* grupos */
+.grupo{margin-bottom:34px}
+.grupo h2{font:400 22px/1 "Bebas Neue",sans-serif;letter-spacing:.03em;display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.grupo h2 em{font:400 13px Outfit;font-style:normal;color:var(--tx3);letter-spacing:0}
+.grupo p.onde{font-size:13.5px;color:var(--tx3);margin-bottom:14px}
+.vazio{border:1px dashed var(--ln2);border-radius:var(--r);padding:22px;text-align:center;color:var(--tx3);font-size:14px}
+
+.item{display:grid;grid-template-columns:220px 1fr auto;gap:18px;align-items:center;background:var(--s1);border:1px solid var(--ln);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.item.off{opacity:.55}
+.thumb{width:100%;border-radius:10px;overflow:hidden;background:var(--s2);line-height:0;border:1px solid var(--ln)}
+.thumb img{width:100%;height:auto;display:block}
+.info h3{font-weight:600;font-size:16px;margin-bottom:5px;word-break:break-word}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--tx3)}
+.meta a{color:var(--tx2);text-decoration:none;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom}
+.meta a:hover{color:var(--lar)}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500}
+.status:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.st-ar{color:var(--ok)} .st-ag{color:var(--warn)} .st-fim,.st-pause{color:var(--tx3)}
+.termos{margin-top:7px;display:flex;flex-wrap:wrap;gap:5px}
+.termos span{font-size:12px;border:1px solid var(--ln2);border-radius:999px;padding:2px 9px;color:var(--tx2)}
+.nums{display:grid;grid-template-columns:repeat(4,auto);gap:4px 18px;text-align:right;margin-top:10px}
+.nums b{font:400 15px "Space Mono",monospace;display:block}
+.nums small{font-size:11.5px;color:var(--tx3)}
+.nums .c b{color:var(--rox)}
+.acoes{display:flex;flex-direction:column;gap:7px;align-items:stretch}
+
+/* editor */
+.fundo{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;z-index:10}
+.fundo.on{display:block}
+.editor{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--s1);border-left:1px solid var(--ln);z-index:11;transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0)}
+.editor.on{transform:none}
+.editor header{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--ln)}
+.editor header h2{font:400 24px/1 "Bebas Neue",sans-serif;letter-spacing:.03em}
+.editor .corpo{flex:1;overflow-y:auto;padding:20px}
+.editor footer{padding:14px 20px calc(14px + env(safe-area-inset-bottom,0));border-top:1px solid var(--ln);display:flex;gap:10px;justify-content:flex-end}
+.campo{margin-bottom:18px}
+.campo label{display:block;font-size:13.5px;font-weight:500;margin-bottom:6px}
+.campo .ajuda{font-size:12.5px;color:var(--tx3);margin-top:5px}
+.campo input[type=text],.campo input[type=url],.campo input[type=number],.campo input[type=datetime-local],.campo input[type=password],.campo select{width:100%;background:var(--bg);border:1px solid var(--ln2);border-radius:10px;padding:10px 12px;font-size:15px}
+.campo input:focus,.campo select:focus{border-color:var(--lar);outline:none}
+.dois{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.posicoes{display:grid;gap:8px}
+.posicoes label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--ln2);border-radius:10px;padding:10px 12px;font-weight:400;cursor:pointer;margin:0}
+.posicoes input{margin-top:4px;accent-color:var(--lar)}
+.posicoes b{font-weight:500;display:block;font-size:14px}
+.posicoes small{color:var(--tx3);font-size:12.5px}
+.posicoes label:has(input:checked){border-color:var(--lar)}
+.upload{border:1px dashed var(--ln2);border-radius:12px;padding:16px;text-align:center;cursor:pointer;color:var(--tx2);font-size:14px;position:relative}
+.upload:hover{border-color:var(--lar)}
+.upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.previa{margin-top:10px;border-radius:10px;overflow:hidden;border:1px solid var(--ln);line-height:0;display:none}
+.previa img{width:100%;display:block}
+.chave{display:flex;align-items:center;gap:10px;font-size:14px}
+.chave input{width:18px;height:18px;accent-color:var(--lar)}
+.erro{color:#ff6b6b;font-size:13.5px;margin-top:8px;min-height:1em}
+
+/* entrada */
+.entrada{min-height:100vh;display:grid;place-items:center;padding:24px}
+.entrada form{width:min(360px,100%)}
+.entrada h1{font:400 40px/1 "Bebas Neue",sans-serif;letter-spacing:.02em;margin:18px 0 6px}
+.entrada p{color:var(--tx3);font-size:14px;margin-bottom:22px}
+.entrada .btn{width:100%;justify-content:center;padding:12px}
+
+.aviso{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0));transform:translateX(-50%);background:var(--s2);border:1px solid var(--ln2);padding:10px 16px;border-radius:999px;font-size:14px;z-index:20;display:none}
+.aviso.on{display:block}
+
+@media (max-width:760px){
+  .painel{grid-template-columns:1fr 1fr}
+  .painel div:nth-child(2){border-right:none}
+  .painel div:nth-child(-n+2){border-bottom:1px solid var(--ln)}
+  .item{grid-template-columns:1fr}
+  .acoes{flex-direction:row;flex-wrap:wrap}
+  .nums{text-align:left;grid-template-columns:repeat(4,1fr)}
+  .marca h1{font-size:26px}
+}
+@media (prefers-reduced-motion:reduce){.editor{transition:none}}
+.wrap{max-width:720px}
+.bloco{background:var(--s1);border:1px solid var(--ln);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.bloco h2{font:400 22px/1 "Bebas Neue",sans-serif;letter-spacing:.03em;margin-bottom:14px}
+.atual{border-radius:10px;overflow:hidden;border:1px solid var(--ln);line-height:0;margin-bottom:12px}
+.atual img{width:100%;display:block}
+.fim{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.nums4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 16px}
+.nums4 b{font:400 16px "Space Mono",monospace;display:block}
+.nums4 small{font-size:12px;color:var(--tx3)}
+.nums4 .c b{color:var(--rox)}
+.cab-lista{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:6px 0 4px;flex-wrap:wrap}
+.cab-lista h2{font:400 24px/1 "Bebas Neue",sans-serif;letter-spacing:.03em}
+.nota-giro{font-size:13.5px;color:var(--tx3);margin-bottom:16px}
+.bloco .topo-bloco{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="aviso" id="aviso" role="status"></div>
+<script>
+(function () {
+  'use strict';
+  var URL_FN = 'https://mkfreezlizdbfpjjpxoo.supabase.co/functions/v1/radar-banners';
+  var LOGO = '<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1a1a1a"/>' +
+    '<path d="M44 20.5A17 17 0 1 0 49 32" fill="none" stroke="#f1eee8" stroke-width="7" stroke-linecap="round"/>' +
+    '<circle cx="46" cy="18" r="8" fill="#ff4d1c"/></svg>';
+  var S = { senha: sessionStorage.getItem('radar_admin') || '', dias: 30, banners: [], maximo: 5, novo: false, img: {} };
+  var app = document.getElementById('app');
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fmt(n) { return Number(n || 0).toLocaleString('pt-BR'); }
+  function pct(c, v) { return v ? (c / v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%' : '—'; }
+  function avisar(t) {
+    var a = document.getElementById('aviso'); a.textContent = t; a.classList.add('on');
+    clearTimeout(avisar.t); avisar.t = setTimeout(function () { a.classList.remove('on'); }, 2600);
+  }
+  function chamar(corpo) {
+    return fetch(URL_FN, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-senha': S.senha }, body: JSON.stringify(corpo) })
+      .then(function (r) { return r.json().then(function (j) {
+        if (r.status === 401) { sessionStorage.removeItem('radar_admin'); S.senha = ''; }
+        if (!j.ok) throw new Error(j.erro || 'Falha no servidor');
+        return j;
+      }); });
+  }
+
+  function telaEntrada(msg) {
+    app.innerHTML = '<div class="entrada"><form id="fe"><div class="marca">' + LOGO + '</div>' +
+      '<h1>Banner do Radar 360</h1><p>Entre com a senha de administrador.</p>' +
+      '<div class="campo"><label for="senha">Senha</label><input type="password" id="senha" autocomplete="current-password" required></div>' +
+      '<button class="btn pri" type="submit">Entrar</button><div class="erro">' + esc(msg || '') + '</div></form></div>';
+    document.getElementById('senha').focus();
+    document.getElementById('fe').addEventListener('submit', function (e) {
+      e.preventDefault();
+      S.senha = document.getElementById('senha').value;
+      carregar().then(function () { sessionStorage.setItem('radar_admin', S.senha); }).catch(function (err) { telaEntrada(err.message); });
+    });
+  }
+
+  function carregar() {
+    return chamar({ acao: 'admin_ver', dias: S.dias }).then(function (j) {
+      S.banners = j.banners || []; S.maximo = j.maximo || 5; S.novo = false; S.img = {}; tela();
+    });
+  }
+
+  function formBanner(b) {
+    var id = b ? b.id : 'novo';
+    var img = S.img[id] || (b && b.imagem_url) || '';
+    var st = !b ? '' : b.ativo ? '<span class="status st-ar">No ar</span>' : '<span class="status st-pause">Pausado</span>';
+    return '<form class="bloco" data-id="' + id + '">' +
+      '<div class="topo-bloco"><h2 style="margin:0">' + (b ? 'Banner' : 'Novo banner') + '</h2>' + st + '</div>' +
+      (b ? '<div class="nums4"><div><b>' + fmt(b.views) + '</b><small>visualizações</small></div>' +
+        '<div><b>' + fmt(b.pessoas) + '</b><small>pessoas</small></div>' +
+        '<div><b>' + fmt(b.cliques) + '</b><small>cliques</small></div>' +
+        '<div class="c"><b>' + pct(b.cliques, b.views) + '</b><small>taxa</small></div></div>' : '') +
+      '<div class="campo"><label>Imagem</label>' +
+      '<div class="atual"' + (img ? '' : ' style="display:none"') + '><img src="' + esc(img) + '" alt="Banner"></div>' +
+      '<div class="upload"><span class="up-txt">' + (img ? 'Toque para trocar a imagem' : 'Toque para escolher a imagem') + '</span><br>' +
+      '<small style="color:var(--tx3)">Tamanho indicado 1200 × 100 px · PNG, JPG ou WEBP, até 2 MB</small>' +
+      '<input type="file" class="f-img" accept="image/png,image/jpeg,image/webp,image/gif"></div></div>' +
+      '<div class="campo"><label>Link do clique</label><input type="url" class="f-link" placeholder="https://" value="' + esc(b ? b.link : '') + '" required>' +
+      '<div class="ajuda">Para onde a pessoa vai ao clicar neste banner.</div></div>' +
+      '<div class="campo chave"><input type="checkbox" class="f-ativo" id="at-' + id + '"' + (!b || b.ativo ? ' checked' : '') + '>' +
+      '<label for="at-' + id + '" style="margin:0">Banner no ar</label></div>' +
+      '<div class="erro"></div>' +
+      '<div class="fim">' + (b ? '<button type="button" class="btn fino perigo" data-excluir="' + id + '">Excluir</button>'
+        : '<button type="button" class="btn fino" data-cancelar="1">Cancelar</button>') +
+      '<button class="btn pri" type="submit">Salvar</button></div></form>';
+  }
+
+  function tela() {
+    var tv = 0, tc = 0, noAr = 0;
+    S.banners.forEach(function (b) { tv += b.views; tc += b.cliques; if (b.ativo) noAr++; });
+    var h = '<div class="wrap">' +
+      '<div class="topo"><div class="marca">' + LOGO + '<h1>Banner do Radar 360<small>Aparece no topo do painel da extensão. As mudanças chegam em até 15 minutos.</small></h1></div>' +
+      '<button class="btn fino" id="sair">Sair</button></div>' +
+      '<div class="painel"><div><b>' + noAr + '</b><span>banners no ar</span></div>' +
+      '<div><b>' + fmt(tv) + '</b><span>visualizações</span></div>' +
+      '<div><b>' + fmt(tc) + '</b><span>cliques</span></div>' +
+      '<div class="ctr"><b>' + pct(tc, tv) + '</b><span>taxa de clique</span></div></div>' +
+      '<div class="barra"><div class="periodo" role="group" aria-label="Período">' +
+      [[7, '7 dias'], [30, '30 dias'], [0, 'Desde sempre']].map(function (p) {
+        return '<button data-dias="' + p[0] + '" class="' + (S.dias === p[0] ? 'on' : '') + '">' + p[1] + '</button>';
+      }).join('') + '</div></div>' +
+      '<div class="cab-lista"><h2>Banners · ' + S.banners.length + ' de ' + S.maximo + '</h2>' +
+      (S.banners.length < S.maximo && !S.novo ? '<button class="btn pri" id="adicionar">Adicionar banner</button>' : '') + '</div>' +
+      '<p class="nota-giro">Com um banner no ar, ele fica fixo. Com dois ou mais, eles se alternam a cada 6 segundos.</p>' +
+      (S.novo ? formBanner(null) : '') +
+      (S.banners.length || S.novo ? S.banners.map(formBanner).join('') : '<div class="vazio">Nenhum banner ainda. Toque em Adicionar banner.</div>') +
+      '</div>';
+    app.innerHTML = h;
+  }
+
+  function prepararImagem(arq) {
+    return new Promise(function (ok, erro) {
+      var fr = new FileReader();
+      fr.onerror = function () { erro(new Error('Não consegui ler a imagem.')); };
+      fr.onload = function () {
+        var du = fr.result;
+        if (arq.size <= 1.8 * 1024 * 1024 || arq.type === 'image/gif') { ok({ tipo: arq.type, base64: String(du).split(',')[1], previa: du }); return; }
+        var im = new Image();
+        im.onload = function () {
+          var k = Math.min(1, 2400 / im.width), c = document.createElement('canvas');
+          c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+          c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+          var d2 = c.toDataURL('image/webp', 0.86);
+          ok({ tipo: 'image/webp', base64: d2.split(',')[1], previa: d2 });
+        };
+        im.onerror = function () { erro(new Error('Imagem inválida.')); };
+        im.src = du;
+      };
+      fr.readAsDataURL(arq);
+    });
+  }
+
+  app.addEventListener('click', function (ev) {
+    var t = ev.target.closest('button'); if (!t) return;
+    if (t.id === 'sair') { sessionStorage.removeItem('radar_admin'); S.senha = ''; telaEntrada(); return; }
+    if (t.id === 'adicionar') { S.novo = true; tela(); window.scrollTo(0, 0); return; }
+    if (t.dataset.cancelar) { S.novo = false; delete S.img.novo; tela(); return; }
+    if (t.dataset.dias != null) { S.dias = parseInt(t.dataset.dias, 10); carregar().catch(function (e) { avisar(e.message); }); return; }
+    if (t.dataset.excluir) {
+      if (!confirm('Excluir este banner? As métricas dele também somem.')) return;
+      chamar({ acao: 'admin_excluir', id: t.dataset.excluir }).then(function () { avisar('Banner excluído'); return carregar(); })
+        .catch(function (e) { avisar(e.message); });
+    }
+  });
+  app.addEventListener('change', function (ev) {
+    if (!ev.target.classList.contains('f-img') || !ev.target.files[0]) return;
+    var f = ev.target.closest('form'), id = f.dataset.id;
+    var err = f.querySelector('.erro'), txt = f.querySelector('.up-txt'), box = f.querySelector('.atual');
+    err.textContent = ''; txt.textContent = 'Enviando imagem...';
+    prepararImagem(ev.target.files[0]).then(function (im) {
+      box.querySelector('img').src = im.previa; box.style.display = '';
+      return chamar({ acao: 'admin_upload', tipo: im.tipo, base64: im.base64 });
+    }).then(function (j) { S.img[id] = j.url; txt.textContent = 'Imagem enviada. Toque em Salvar para colocar no ar'; })
+      .catch(function (e) { err.textContent = e.message; txt.textContent = 'Toque para escolher a imagem'; });
+    ev.target.value = '';
+  });
+  app.addEventListener('submit', function (ev) {
+    var f = ev.target; if (!f.dataset.id) return;
+    ev.preventDefault();
+    var id = f.dataset.id, b = S.banners.find(function (x) { return x.id === id; });
+    var bt = f.querySelector('button[type=submit]'), err = f.querySelector('.erro');
+    bt.disabled = true; bt.textContent = 'Salvando...';
+    chamar({ acao: 'admin_salvar', id: id === 'novo' ? '' : id,
+      imagem_url: S.img[id] || (b && b.imagem_url) || '',
+      link: f.querySelector('.f-link').value.trim(),
+      ativo: f.querySelector('.f-ativo').checked })
+      .then(function () { avisar('Banner salvo'); return carregar(); })
+      .catch(function (e) { err.textContent = e.message; bt.disabled = false; bt.textContent = 'Salvar'; });
+  });
+
+  if (S.senha) carregar().catch(function (e) { telaEntrada(e.message); }); else telaEntrada();
+})();
+</script>
+</body>
+</html>
